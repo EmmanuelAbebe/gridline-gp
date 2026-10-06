@@ -1,0 +1,17 @@
+{
+  "name": "Gridline GP",
+  "short_name": "Gridline GP",
+  "description": "F1-style racing with a phone tilt wheel.",
+  "id": "./gridline.html",
+  "start_url": "./gridline.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0e12",
+  "theme_color": "#0b0e12",
+  "categories": ["games"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
