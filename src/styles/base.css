@@ -1,0 +1,22 @@
+/* Theme variables, page reset, panel basics, corner anchors. */
+:root{
+  /* Layout: full-bleed 3D view, broadcast-style timing graphics pinned to the corners */
+  --ink:#0b0e12; --panel:rgba(10,13,17,.86); --panel-solid:#12161c; --rule:rgba(255,255,255,.11);
+  --text:#f2f3f0; --muted:#959ca5; --amber:#ffc21a; --red:#ff2b2b; --purple:#b46cff; --green:#36d27f;
+  --display:"Saira Condensed","Arial Narrow",Arial,sans-serif;
+  --radius:3px;
+  --body:"Saira",system-ui,-apple-system,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(--text);font-family:var(--body);-webkit-user-select:none;user-select:none;touch-action:none}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+.panel{background:var(--panel);border:1px solid var(--rule);border-radius:var(--radius)}
+.lbl{font-family:var(--display);font-weight:500;font-size:11px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.num{font-variant-numeric:tabular-nums}
+
+[hidden]{display:none!important}
+.tl,.tr,.bl,.br{position:fixed}
+.tl{top:calc(12px + env(safe-area-inset-top,0px));left:12px}
+.tr{top:calc(12px + env(safe-area-inset-top,0px));right:12px}
+.bl{bottom:calc(12px + env(safe-area-inset-bottom,0px));left:12px}
+.br{bottom:calc(12px + env(safe-area-inset-bottom,0px));right:12px}

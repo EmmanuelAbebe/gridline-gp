@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gridline GP</title>
+<!-- installed-app support (used when served over http; harmless elsewhere) -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<meta name="theme-color" content="#0b0e12">
+<script type="module" src="/src/game/main.js"></script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="loading">LOADING CIRCUIT…</div>
+
+<div id="hud" hidden>
+  <div id="posPanel" class="panel tl">
+    <div class="top">
+      <div class="lapbox"><span class="lbl">Position</span><div class="bigpos num"><span id="pos">P8</span><small id="posOf">/10</small></div></div>
+      <div class="lapbox"><span class="lbl">Lap</span><b class="num" id="lap">1/3</b></div>
+      <div class="lapbox" id="timeLeftBox" hidden><span class="lbl">Time left</span><b class="num" id="timeLeft">0:00</b></div>
+    </div>
+    <div class="times num">
+      <span class="lbl">Time</span><span id="tCur">0:00.000</span>
+      <span class="lbl">Last</span><span id="tLast">–</span>
+      <span class="lbl">Best</span><span id="tBest" class="best">–</span>
+    </div>
+  </div>
+  <div id="tower" class="panel tr"><div class="th"><span class="lbl">Running order</span><span class="lbl num" id="towerLap"></span></div><ol id="towerList"></ol></div>
+  <canvas id="map" class="panel bl" width="360" height="360"></canvas>
+  <div id="speedo" class="panel br">
+    <div id="revs"></div>
+    <div id="steerMeter" aria-hidden="true"><i id="steerFill"></i><b></b></div>
+    <div id="pedals" aria-hidden="true"><span class="lbl">Brk</span><i><u id="brkFill"></u></i><span class="lbl">Gas</span><i><u id="thrFill"></u></i></div>
+    <div class="spd"><b class="num" id="spd">0</b><span class="lbl">km/h</span></div>
+    <div class="gear"><span class="lbl">Gear</span><b id="gear">N</b></div>
+  </div>
+  <div id="hudBtns">
+    <span class="iconbtn chip num" id="fpsChip" title="Frames per second"><span id="fpsNum">–</span>&nbsp;FPS</span>
+    <span class="iconbtn chip" id="padChip" hidden><span class="dot"></span>WHEEL</span>
+    <button class="iconbtn" id="camBtn" type="button">CAM</button>
+    <button class="iconbtn" id="muteBtn" type="button">SOUND ON</button>
+    <button class="iconbtn" id="designBtn" type="button" title="Design tools (T)">DESIGN</button>
+    <button class="iconbtn" id="fullBtn" type="button" title="Full screen (V)">FULL SCREEN</button>
+    <button class="iconbtn" id="quitBtn" type="button" title="Close the game" aria-label="Close the game" data-quit hidden>✕</button>
+    <button class="iconbtn" id="pauseBtn" type="button">PAUSE</button>
+  </div>
+  <div id="lights" class="panel" hidden></div>
+  <div id="touch">
+    <div class="grp"><button id="tLeft" type="button" aria-label="Steer left">◀</button><button id="tRight" type="button" aria-label="Steer right">▶</button></div>
+    <div class="grp"><button id="tBrake" type="button">BRAKE</button><button id="tGas" type="button">GAS</button></div>
+  </div>
+</div>
+<div id="msg"></div>
+<div id="tweak" hidden></div>
+<div id="layBar" class="panel" hidden></div>
+<div id="toast" class="panel"></div>
+
+<div id="startOv" class="overlay" hidden>
+  <div class="card">
+    <div class="stripe"></div>
+    <div class="brand">
+      <span class="lbl" id="eventLine">Round 1 · Elkmoor Park Circuit</span>
+      <h1>Gridline <em>GP</em></h1>
+      <p><span id="introText">Ten cars, five red lights. You start eighth on the grid.</span> Brake before the corners, keep it off the grass, and see how many you can pass.</p>
+    </div>
+    <div class="keys">
+      <span><kbd>↑</kbd> <kbd>W</kbd></span><span>Throttle</span>
+      <span><kbd>↓</kbd> <kbd>S</kbd></span><span>Brake / reverse</span>
+      <span><kbd>←</kbd><kbd>→</kbd> <kbd>A</kbd><kbd>D</kbd></span><span>Steer</span>
+      <span><kbd>C</kbd> <kbd>M</kbd> <kbd>P</kbd> <kbd>F</kbd> <kbd>G</kbd></span><span>Camera, sound, pause, FPS, graphics</span>
+      <span><kbd>T</kbd> <kbd>L</kbd> <kbd>V</kbd></span><span>Design tools, HUD layout, full screen</span>
+    </div>
+    <div class="padrow" id="padStatus"><span class="dot"></span><span id="padText">Phone wheel: press gas on your phone once so the browser sees it.</span></div>
+    <div class="row">
+      <span class="lbl">Cars on the grid</span>
+      <div class="stepper" id="carsStep"><button type="button" data-d="-1" aria-label="Fewer cars">−</button><output id="carsVal">10</output><button type="button" data-d="1" aria-label="More cars">+</button></div>
+    </div>
+    <div class="row">
+      <span class="lbl">Race type</span>
+      <div class="seg" id="typeSeg">
+        <button type="button" data-t="laps" aria-pressed="true">LAPS</button>
+        <button type="button" data-t="timed" aria-pressed="false">TIMED</button>
+        <button type="button" data-t="unlimited" aria-pressed="false">UNLIMITED</button>
+      </div>
+    </div>
+    <div class="row" id="amountRow">
+      <span class="lbl" id="amountLbl">Laps</span>
+      <div class="stepper" id="amountStep"><button type="button" data-d="-1" aria-label="Less">−</button><output id="amountVal">3</output><button type="button" data-d="1" aria-label="More">+</button></div>
+    </div>
+    <div class="row">
+      <span class="lbl">Graphics</span>
+      <div class="seg" id="gfxSeg">
+        <button type="button" data-g="quality" aria-pressed="false">QUALITY</button>
+        <button type="button" data-g="perf" aria-pressed="false">PERFORMANCE</button>
+      </div>
+    </div>
+    <p class="gpu" id="gfxNote"></p>
+    <div class="btns"><button class="btn" id="startBtn" type="button">To the grid</button><button class="btn ghost" id="fullStartBtn" type="button">Full screen</button><button class="btn ghost" type="button" data-quit hidden>Quit</button></div>
+  </div>
+</div>
+
+<div id="pauseOv" class="overlay" hidden>
+  <div class="card">
+    <p class="verdict">Paused</p>
+    <div class="btns"><button class="btn" id="resumeBtn" type="button">Resume</button><button class="btn ghost" id="restartBtn" type="button">Restart race</button><button class="btn ghost" id="endBtn" type="button">End race</button><button class="btn ghost" type="button" data-quit hidden>Quit game</button></div>
+  </div>
+</div>
+
+<div id="resOv" class="overlay" hidden>
+  <div class="card wide">
+    <div class="stripe"></div>
+    <p class="verdict" id="verdict"></p>
+    <div class="res-wrap"><table class="res"><thead><tr><th>Pos</th><th>Driver</th><th>Team</th><th class="r">Time</th><th class="r">Best lap</th></tr></thead><tbody id="resBody"></tbody></table></div>
+    <div class="btns"><button class="btn" id="againBtn" type="button">Race again</button><button class="btn ghost" id="menuBtn" type="button">Change distance</button><button class="btn ghost" type="button" data-quit hidden>Quit</button></div>
+  </div>
+</div></body>
+</html>

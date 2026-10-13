@@ -1,0 +1,7 @@
+/* Bundled fonts (latin, woff2 only), so the game needs no internet. Inlined into the build. */
+@font-face{font-family:'Saira Condensed';font-style:normal;font-display:swap;font-weight:500;src:url('@fontsource/saira-condensed/files/saira-condensed-latin-500-normal.woff2') format('woff2')}
+@font-face{font-family:'Saira Condensed';font-style:normal;font-display:swap;font-weight:700;src:url('@fontsource/saira-condensed/files/saira-condensed-latin-700-normal.woff2') format('woff2')}
+@font-face{font-family:'Saira Condensed';font-style:normal;font-display:swap;font-weight:800;src:url('@fontsource/saira-condensed/files/saira-condensed-latin-800-normal.woff2') format('woff2')}
+@font-face{font-family:'Saira';font-style:normal;font-display:swap;font-weight:400;src:url('@fontsource/saira/files/saira-latin-400-normal.woff2') format('woff2')}
+@font-face{font-family:'Saira';font-style:normal;font-display:swap;font-weight:500;src:url('@fontsource/saira/files/saira-latin-500-normal.woff2') format('woff2')}
+@font-face{font-family:'Saira';font-style:normal;font-display:swap;font-weight:600;src:url('@fontsource/saira/files/saira-latin-600-normal.woff2') format('woff2')}

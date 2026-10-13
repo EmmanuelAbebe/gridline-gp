@@ -1,0 +1,85 @@
+/* In-race graphics: position, timing tower, speedo, minimap, start lights, messages, top buttons, touch controls. */
+#posPanel{padding:10px 14px 12px;display:grid;gap:8px;min-width:170px}
+#posPanel .top{display:flex;align-items:flex-end;gap:16px}
+.bigpos{font-family:var(--display);font-weight:800;font-size:46px;line-height:.9;letter-spacing:-.01em}
+.bigpos small{font-size:20px;color:var(--muted);font-weight:700}
+.lapbox{display:grid;gap:2px}
+.lapbox b{font-family:var(--display);font-weight:700;font-size:24px;line-height:1}
+.times{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-family:var(--display);font-size:16px;font-weight:500;border-top:1px solid var(--rule);padding-top:8px}
+.times span:nth-child(even){text-align:right}
+.best{color:var(--purple)}
+
+#tower{width:178px;padding:6px 0;font-family:var(--display)}
+#tower .th{display:flex;justify-content:space-between;padding:2px 10px 6px;border-bottom:1px solid var(--rule)}
+#tower ol{list-style:none;margin:0;padding:4px 0 0}
+#tower li{display:grid;grid-template-columns:22px 4px 1fr auto;align-items:center;gap:7px;padding:2px 10px;font-size:15px;font-weight:600;height:20px}
+#tower li .p{text-align:right;color:var(--muted);font-weight:500}
+#tower li i{height:14px;border-radius:1px}
+#tower li .g{color:var(--muted);font-weight:500;font-size:14px}
+#tower li.me{background:var(--amber);color:#111}
+#tower li.me .p,#tower li.me .g{color:#111}
+#tower li.fin .c::after{content:" ⚑";font-size:11px}
+
+#speedo{padding:10px 14px 10px;display:grid;grid-template-columns:auto auto;gap:4px 18px;align-items:end;min-width:200px}
+#revs{grid-column:1/-1;display:grid;grid-template-columns:repeat(14,1fr);gap:3px;margin-bottom:4px}
+#revs span{height:7px;border-radius:1px;background:rgba(255,255,255,.1)}
+#revs span.on{background:var(--green)}
+#revs span.on.r{background:var(--red)}
+#revs span.on.v{background:var(--purple)}
+.spd b{font-family:var(--display);font-weight:800;font-size:54px;line-height:.85;display:block;min-width:3ch;text-align:right}
+.spd .lbl{display:block;text-align:right;margin-top:4px}
+.gear{display:grid;justify-items:center;border-left:1px solid var(--rule);padding-left:16px}
+.gear b{font-family:var(--display);font-weight:800;font-size:42px;line-height:.9;color:var(--amber)}
+
+#map{width:180px;height:180px}
+#steerMeter{grid-column:1/-1;position:relative;height:6px;background:rgba(255,255,255,.1);border-radius:3px;margin-bottom:4px}
+#steerMeter b{position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:var(--muted)}
+#steerMeter i{position:absolute;top:0;bottom:0;left:50%;width:50%;background:var(--amber);border-radius:3px;transform-origin:0 50%;transform:scaleX(0);will-change:transform}
+#pedals{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr auto 1fr;gap:6px;align-items:center;margin-bottom:6px}
+#pedals i{height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}
+#pedals u{display:block;height:100%;width:100%;background:var(--green);transform-origin:0 50%;transform:scaleX(0);will-change:transform}
+#pedals i:first-of-type u{background:var(--red)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.on .dot,.dot.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+.padrow{display:flex;align-items:center;gap:10px;font-size:14px;line-height:1.4;color:var(--muted);padding:10px 12px;border:1px solid var(--rule);border-radius:3px}
+.padrow.on{color:var(--text);border-color:rgba(54,210,127,.45)}
+.padrow.warn{color:var(--text);border-color:rgba(255,194,26,.5)}
+.chip{display:inline-flex;align-items:center;gap:6px;cursor:default}
+#fpsChip{min-width:62px;justify-content:center}
+#fpsChip.low{color:var(--amber);border-color:rgba(255,194,26,.5)}
+
+#lights{position:fixed;top:calc(18% + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;gap:10px;padding:12px 14px}
+.lamp{width:34px;display:grid;gap:6px;background:#050608;padding:6px;border-radius:4px}
+.lamp i{display:block;width:22px;height:22px;margin:auto;border-radius:50%;background:#2a0b0b;box-shadow:inset 0 2px 4px rgba(0,0,0,.6)}
+.lamp.on i{background:var(--red);box-shadow:0 0 18px var(--red),inset 0 -3px 5px rgba(0,0,0,.25)}
+
+#msg{position:fixed;top:32%;left:0;right:0;text-align:center;font-family:var(--display);font-weight:800;font-size:clamp(48px,11vw,120px);letter-spacing:.02em;color:var(--text);text-shadow:0 4px 30px rgba(0,0,0,.5);pointer-events:none;opacity:0;transition:opacity .25s}
+#msg.show{opacity:1}
+#toast{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);padding:6px 14px;font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:.04em;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+#toast.purple{color:var(--purple)}
+
+#hudBtns{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;gap:6px}
+.iconbtn{font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:.1em;color:var(--text);background:var(--panel);border:1px solid var(--rule);border-radius:var(--radius);padding:6px 10px;cursor:pointer}
+.iconbtn:hover{border-color:var(--amber)}
+.iconbtn:focus-visible,.btn:focus-visible,.seg button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+#touch{position:fixed;left:0;right:0;bottom:calc(12px + env(safe-area-inset-bottom,0px));display:none;justify-content:space-between;padding:0 12px;pointer-events:none}
+#touch .grp{display:flex;gap:10px;pointer-events:auto}
+#touch button{width:76px;height:76px;border-radius:50%;border:1px solid var(--rule);background:rgba(10,13,17,.55);color:var(--text);font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.06em;touch-action:none}
+#touch button.on{background:rgba(255,194,26,.35);border-color:var(--amber)}
+@media (pointer:coarse){
+  #touch{display:flex}
+  #speedo{bottom:auto;top:calc(12px + env(safe-area-inset-top,0px));right:12px;min-width:0;padding:8px 10px}
+  #tower{display:none}
+  #map{bottom:auto;top:calc(150px + env(safe-area-inset-top,0px));width:120px;height:120px}
+  .spd b{font-size:40px}
+  .gear b{font-size:32px}
+  #hudBtns{top:auto;bottom:calc(100px + env(safe-area-inset-bottom,0px))}
+}
+@media (max-width:640px){
+  #tower{display:none}
+  #posPanel{min-width:0;padding:8px 10px}
+  .bigpos{font-size:36px}
+  #map{width:120px;height:120px}
+}

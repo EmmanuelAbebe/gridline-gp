@@ -1,13 +1,8 @@
-// Headless race check for Gridline GP.
-// Usage: node tools/sim-test.mjs [path/to/gridline.html]
-// Extracts the SIM block (pure JS, no DOM) from the HTML and runs it in Node.
-import { readFileSync } from 'node:fs';
+// Headless race check for Gridline GP: prints track stats, a full AI race, a scripted player lap and race formats.
+// Usage: node tools/sim-test.mjs [old.html | path/to/sim/index.js]   (default: the source modules in src/sim)
+import { loadSim } from './load-sim.mjs';
 
-const file = process.argv[2] || 'gridline.html';
-const html = readFileSync(file, 'utf8');
-const a = html.indexOf('/*SIM-START*/'), b = html.indexOf('/*SIM-END*/');
-if (a < 0 || b < 0) { console.error('SIM markers not found in', file); process.exit(1); }
-const S = new Function(html.slice(a, b) + '\nreturn SIM;')();
+const S = await loadSim(process.argv[2]);
 const T = S.track, { N, PX, PZ, K, ds, WALL, VP } = T;
 const countWalls = c => { const n = c.events.filter(e => e === S.EV.WALL).length; c.events.length = 0; return n; };
 

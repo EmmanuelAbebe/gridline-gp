@@ -4,12 +4,29 @@
   "version": "1.0.0",
   "description": "F1-style racing game, played with a phone tilt wheel.",
   "private": true,
-  "main": "desktop/main.js",
+  "main": "desktop/main.cjs",
   "scripts": {
-    "start": "electron .",
-    "sim-test": "node tools/sim-test.mjs"
+    "dev": "vite",
+    "dev:app": "node tools/dev-app.mjs",
+    "build": "vite build",
+    "start": "vite build && electron .",
+    "test": "node --test \"tests/**/*.test.js\"",
+    "lint": "eslint .",
+    "check": "eslint . && node --test \"tests/**/*.test.js\" && vite build",
+    "sim-test": "node tools/sim-test.mjs",
+    "sim-trace": "node tools/sim-trace.mjs"
   },
   "devDependencies": {
-    "electron": "^44.5.1"
-  }
+    "electron": "^44.5.1",
+    "eslint": "10.11.0",
+    "globals": "17.12.0",
+    "vite": "8.3.1",
+    "vite-plugin-singlefile": "2.3.3"
+  },
+  "dependencies": {
+    "@fontsource/saira": "5.3.0",
+    "@fontsource/saira-condensed": "5.3.0",
+    "three": "0.128.0"
+  },
+  "type": "module"
 }

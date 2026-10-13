@@ -1,4 +1,5 @@
 node_modules/
+dist/
 .probe/
 # pre-git safety copies from the first refactor; git history replaces them
 backup/
