@@ -6,8 +6,9 @@ which shows up in the browser as a virtual Xbox 360 controller.
 
 ## Goal and roadmap (Oct 2026)
 Turning the prototype into a production-grade game. Agreed order: (1) foundation [done: modules, Vite, tests],
-(2) sim-cade physics: tyre slip, downforce, load transfer, real engine/gearbox (auto + manual paddles),
-slipstream, AI on the same physics, (3) merge the Phone-wheel project into this one (server inside Electron,
+(2) sim-cade physics in 4 parts: [done] engine/gearbox/downforce/slipstream; tyre + chassis model (slip, load
+transfer, lock-ups, kerbs/grass, assists default MEDIUM: stability, TC, ABS, speed-sensitive steering); AI on the
+new physics; tuning screen (downforce, grip, power, brake balance), (3) merge the Phone-wheel project into this one (server inside Electron,
 pairing from the settings menu, vibration + rev lights on the phone), (4) car/world visuals: brake lights,
 higher-poly car, crash physics, scenery, (5) HUD, menus, presentation.
 
@@ -41,20 +42,31 @@ higher-poly car, crash physics, scenery, (5) HUD, menus, presentation.
 ## Architecture
 Tunables live in data tables (config modules), not inline in the logic.
 1. **SIM** (`src/sim/`, exported as one `SIM` object from `index.js`):
-   - `tuning.js`: `TUNING` (VMAX, ACC, LAT_AI/BRK_AI, LAT_P/BRK_P, ...), `TRACK_DEFAULTS`, `GRID`, `CP`, `LAP_ZONE`,
-     `EV` (event names). `circuits.js`: `CIRCUITS` (control points + render `landmarks` sample indices).
+   - `tuning.js`: `TUNING` (VMAX nominal, V_CAP, reverse, contact radius, `AI` grip/brake/yaw shares), `CAR` (mass,
+     tyre `grip` 3.0, `aero` liftArea 3.2 / dragArea 1.45, `engine` power curve + rpm points, `gearbox` km/h per gear
+     at redline + auto shift points, `brakes`, `traction`), `SLIP` (wake range/width/drag cut), `TRACK_DEFAULTS`,
+     `GRID`, `CP`, `LAP_ZONE`, `EV` (event names, incl. SHIFT / SHIFT_DENIED).
+   - `vehicle.js`: the one performance model every car uses. `lateralGrip(v)` = grip·(g + downforce/m) (grows with
+     v², so corners above ~139 m radius are flat out), `brakeLimit(v)`, `tractionLimit`, `cornerSpeed(|k|, share)`,
+     `rpmAt(v, gear)`, `powertrain(c, {thr, brk, shift}, dt)` → longitudinal accel (drag ×(1 − slip·0.35), rolling,
+     engine braking, launch clutch slip in 1st, limiter, shift cut), `updateGear` (auto: up at 11800, down at 8000 on
+     the throttle or as soon as the lower gear is < 11000 rpm off it; manual: paddles, over-rev downshift refused;
+     brake at standstill = reverse). `slipstream(race, c)` sets `c.slip` 0..1 / `c.slipBy` from the leader's trail. `circuits.js`: `CIRCUITS` (control points + render `landmarks` sample indices).
      `drivers.js`: `DRIVERS`. `math.js`: `wrapA`, `clamp`.
    - `track.js`: `buildTrack(circuit)` → track object: closed centripetal Catmull-Rom → resampled to `N = 1200` equal steps
      (`ds` ≈ 2.06 m). Per sample: `PX/PZ`, tangent `TX/TZ`, right-hand normal `NX/NZ`, signed curvature `K`
      (>0 turns toward +N, i.e. right), plus `bounds`, `HW/KERB/WALL`, and the AI arrays:
-     `VP` speed profile (sqrt(LAT_AI/|K|), then braking look-back) and `RO` racing-line offset.
+     `VP` speed profile (`cornerSpeed` with AI grip share, then braking look-back with `brakeLimit`; V_CAP on
+     straights so the engine sets straight-line speed) and `RO` racing-line offset.
      `SIM.track` is the default (Elkmoor). A new circuit = a new `CIRCUITS` entry; nothing else hardcodes it.
-   - `car.js` (locate, createCar, resolveWalls, updateSurface), `race.js` (formats, createRace, progress, lap +
+   - `car.js` (locate, createCar, resolveWalls, updateSurface; car has `gear`, `rpm`, `autoShift`, `slip`, `brake`,
+     and `trailLat`/`trailT` per track sample = its wake), `race.js` (formats, createRace, progress, lap +
      flag rules, checkpoints, order, gapTo), `motion.js` (move, afterMove), `driving.js` (powertrain, drivePlayer,
      driveAI), `collide.js`.
    - Car state: `x, z, h`, `v`, `idx` (nearest sample), `lat`, `lap`. `progress(race, c)` = `lap * N + idx`.
      After every move: `updateLap` (wrap >0.8N → <0.2N), `updateCheckpoints`, `resolveWalls`, `updateSurface`.
-   - `drivePlayer(race, car, {steer, thr, brk, analog}, dt)`; `driveAI(race, car, dt, skillOverride = 0)`.
+   - `drivePlayer(race, car, {steer, thr, brk, analog, shift}, dt)`: yaw limit = lateralGrip/v (no tyre slip yet);
+     `driveAI(race, car, dt, skillOverride = 0)`: same powertrain, full throttle below target / braking above it.
    - Race formats: `createRace(format, { track, drivers })`, format = number (laps) or { type: 'laps', laps } |
      { type: 'timed', minutes } | { type: 'unlimited' }; `race.laps` / `race.duration` are Infinity when unused.
      Chequered flag (`race.chequered`): first car past the distance, or the leader crossing after time is up;
@@ -72,7 +84,14 @@ Tunables live in data tables (config modules), not inline in the logic.
    - `Input`: keyboard/touch/Gamepad → `Input.drive`; key/button bindings are tables (`KEY_ACTIONS`, `PAD`,
      `PAD_ACTIONS`); emits `action`, `padchange`, `gesture`. Steer axes[0] dead zone 0.035, RT gas, LT brake,
      D-pad backup, A confirm, START pause, Y camera; non-standard mapping falls back to triggers on axes 5/2.
-   - `Sound` (WebAudio saw+square engine + beeps), `gearOf` (display-only gearbox).
+   - `Sound` (WebAudio saw+square engine + beeps; pitch from real rpm). Dash (`dashGear` in main.js): gear and rpm
+     from the car; rev lights from `CONFIG.revLights.from` (8500) to the auto upshift point (all lit = shift).
+   - Gearbox: start menu AUTO / MANUAL (`game.setup.gearbox`). Shift: Q/E, pad LB/RB, and pad A/B (phone buttons
+     1/2) = down/up while racing (A still confirms in menus). Paddles in auto mode show a one-time hint.
+   - `slipstream-fx.js`: fuzzy band on the road behind each car ahead of the player (≤160 m), built from the car's
+     trail + `SIM.wakeHalfWidth`, brighter for the wake the player is in. HUD `#slipTag` chip above the speedo.
+   - `input-monitor.js` (I, start-menu TEST CONTROLS, pause menu): live inputs graph, controller reports/s via
+     `Gamepad.timestamp`, stalls (pause with steering moving across it), pedal ramp time, advice.
    - `buildWorld(scene, track, drivers)`: ribbons (`strip`, `wall`, painted layers via polygonOffset `decal`),
      gantry, grandstand/crowd, pits, InstancedMesh trees, hills; returns `applyProfile`, `setStartLights`.
    - `CarModels`: merged vertex-coloured body (`mergeParts`), 4 wheels, blob shadow (6 draw calls/car);

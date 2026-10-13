@@ -1,37 +1,42 @@
-// The player's and the AI's driving models.
+// The player's and the AI's driving. Both drive the same car (vehicle.js): engine, gearbox, downforce, brakes and
+// slipstream; they differ only in how throttle, brake and steering are chosen.
 import { TUNING } from './tuning.js';
 import { clamp, wrapA } from './math.js';
 import { progress } from './race.js';
 import { move } from './motion.js';
+import { lateralGrip, brakeLimit, powertrain, slipstream } from './vehicle.js';
 
-// Shared by every car: engine push minus aero drag. Settles at VMAX·√thr, so full throttle tops out at VMAX.
-const powertrain = (v, thr) => TUNING.ACC * (thr - (v / TUNING.VMAX) ** 2);
+const OFF_TRACK_DRAG = 1.25;   // grass: extra deceleration per m/s (player); the AI loses 0.8/s
 
-// inp: steer -1..1 (+ = right), thr 0..1, brk 0..1, analog = from a wheel/pad (faster steering response)
+function integrate(c, a, dt, coasting) {
+  const v0 = c.v;
+  c.v = clamp(c.v + a * dt, -TUNING.REVERSE_MAX, TUNING.V_CAP);
+  if (v0 > 0 && c.v < 0 && c.gear !== -1) c.v = 0;        // brakes and drag stop the car, they don't reverse it
+  if (coasting && Math.abs(c.v) < 0.3) c.v = 0;
+}
+
+// inp: steer -1..1 (+ = right), thr 0..1, brk 0..1, analog = from a wheel/pad (faster steering response),
+// shift = -1/0/+1 (paddles; used with the manual gearbox)
 export function drivePlayer(race, c, inp, dt) {
-  const { VMAX, LAT_P, BRK_P, REVERSE_MAX } = TUNING;
   const rate = inp.analog ? 14 : 5;
   c.steer += clamp(clamp(inp.steer, -1, 1) - c.steer, -dt*rate, dt*rate);
+  c.brake = inp.brk;
   const sp = Math.abs(c.v);
-  const yaw = c.steer * Math.min(1.5, LAT_P / Math.max(sp, 4)) * Math.min(1, sp/6) * Math.sign(c.v || 1);
+  // full lock turns at the grip limit: yaw rate = lateral grip / speed (grip grows with downforce)
+  const yaw = c.steer * Math.min(TUNING.PLAYER_YAW, lateralGrip(sp) / Math.max(sp, 4)) * Math.min(1, sp/6) * Math.sign(c.v || 1);
   c.h += yaw * dt;
-  let a = 0;
-  const thr = inp.thr, brk = inp.brk, coasting = thr < 0.02 && brk < 0.02;
-  const driving = thr > 0 && c.v >= 0;
-  if (thr > 0) a += driving ? powertrain(c.v, thr) : BRK_P * thr;   // gas while rolling backwards acts as a brake
-  if (brk > 0) a -= c.v > 0.5 ? BRK_P * brk : 5 * brk;
-  // engine braking / drag when not on the gas (on the gas, drag is already inside powertrain)
-  if (!driving) a -= Math.sign(c.v) * (coasting ? 0.9 + 0.0011*c.v*c.v : 0.15 + 0.0004*c.v*c.v);
-  if (c.offTrack) a -= c.v * 1.25;
-  c.v = clamp(c.v + a*dt, -REVERSE_MAX, VMAX);
-  if (coasting && Math.abs(c.v) < 0.3) c.v = 0;
+  slipstream(race, c, progress);
+  let a = powertrain(c, inp, dt);
+  if (c.offTrack) a -= c.v * OFF_TRACK_DRAG;
+  integrate(c, a, dt, inp.thr < 0.02 && inp.brk < 0.02);
   move(race, c, dt);
 }
 
 // Look-ahead steering toward the racing line, target speed = profile × skill, simple car-ahead avoidance.
+// The speed profile only limits corners and braking zones; on straights the engine and drag set the speed.
 // skillOverride (0 = use the car's own) lets the game slow finished cars or drive the player car in tests.
 export function driveAI(race, c, dt, skillOverride = 0) {
-  const { LAT_AI, BRK_AI } = TUNING, T = race.track, { N, HW, ds, PX, PZ, NX, NZ, VP, RO } = T;
+  const T = race.track, { N, HW, ds, PX, PZ, NX, NZ, VP, RO } = T, AI = TUNING.AI;
   const skill = skillOverride || c.skill;
   const ti = (c.idx + Math.round((9 + c.v*0.42) / ds)) % N;
   let off = RO[ti] + c.bias;
@@ -50,11 +55,16 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   c.offset += (off - c.offset) * Math.min(1, dt*1.6);
   const tx = PX[ti] + NX[ti]*c.offset, tz = PZ[ti] + NZ[ti]*c.offset;
   const diff = wrapA(Math.atan2(tz - c.z, tx - c.x) - c.h);
-  const yawMax = LAT_AI * 1.15 / Math.max(c.v, 4);
+  const yawMax = lateralGrip(c.v) * AI.grip * AI.yaw / Math.max(c.v, 4);
   c.h += clamp(diff * 4, -yawMax, yawMax) * Math.min(1, c.v/4 + 0.25) * dt;
   c.steer = clamp(diff*2.2, -1, 1);
-  if (c.v < targetV) c.v = Math.min(targetV, c.v + powertrain(c.v, 1) * dt * (0.6 + 0.4*skill));
-  else c.v = Math.max(targetV, c.v - BRK_AI * 1.25 * dt);
+  slipstream(race, c, progress);
+  // full throttle below the target, braking above it; speed never crosses the target so it doesn't oscillate
+  const accel = c.v < targetV;
+  const a = powertrain(c, { thr: accel ? 1 : 0, brk: accel ? 0 : 1, shift: 0 }, dt);
+  if (accel) c.v = Math.min(targetV, c.v + Math.max(0, a) * dt);
+  else c.v = Math.max(targetV, c.v - brakeLimit(c.v) * AI.brake * dt);
+  c.brake = accel ? 0 : 1;
   if (c.offTrack) c.v -= c.v * 0.8 * dt;
   move(race, c, dt);
 }

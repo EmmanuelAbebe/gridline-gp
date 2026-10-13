@@ -34,8 +34,8 @@ test('race: 10-car AI race finishes cleanly in skill order', () => seeded(() => 
   assert.equal(walls, 0, 'no wall hits');
   const ord = S.order(race);
   assert.equal(ord[0].code, 'VOS', 'fastest driver wins');
-  assert.ok(ord[0].finishTime > 110 && ord[0].finishTime < 150, `winning time ${ord[0].finishTime}`);
-  for (const c of race.cars) { assert.equal(c.finishLap, 4); assert.ok(c.bestLap > 35 && c.bestLap < 50, `${c.code} best ${c.bestLap}`); }
+  assert.ok(ord[0].finishTime > 95 && ord[0].finishTime < 135, `winning time ${ord[0].finishTime}`);
+  for (const c of race.cars) { assert.equal(c.finishLap, 4); assert.ok(c.bestLap > 30 && c.bestLap < 45, `${c.code} best ${c.bestLap}`); }
   assert.equal(race.fastestBy, ord.find(c => c.bestLap === race.fastest));
 }));
 

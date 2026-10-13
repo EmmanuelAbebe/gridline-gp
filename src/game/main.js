@@ -16,7 +16,6 @@ import { Design } from './design.js';
 import { Display, createFpsMonitor } from './display.js';
 import { Input } from './input.js';
 import { Sound } from './sound.js';
-import { gearOf } from './gearbox.js';
 import { buildWorld } from './world.js';
 import { CarModels } from './car-models.js';
 import { CameraRig } from './camera-rig.js';
@@ -29,6 +28,7 @@ import { LayoutEditor } from './layout-editor.js';
 import { TweakPanel } from './tweak-panel.js';
 import { AppShell } from './app-shell.js';
 import { InputMonitor } from './input-monitor.js';
+import { createSlipstreamFx } from './slipstream-fx.js';
 
 const { EV } = SIM;
 const track = SIM.track;
@@ -38,6 +38,7 @@ const carModels = SIM.DRIVERS.map(d => CarModels.create(Display.scene, d, Design
 const modelOf = new Map(SIM.DRIVERS.map((d, i) => [d.code, carModels[i]]));   // car model by driver code
 carModels[SIM.DRIVERS.findIndex(d => d.player)].mountScreen(WheelScreen.mesh);
 const minimap = createMinimap($('map'), track);
+const wakes = createSlipstreamFx(Display.scene, track, SIM.DRIVERS);
 const timers = createTimers();
 const fpsMonitor = createFpsMonitor(CONFIG.fps.window);
 
@@ -46,6 +47,7 @@ const game = {
   setup: loadSetup(),            // start-screen choices: cars, race type, laps / minutes
   lights: { t: 0, lit: 0, hold: 0 }, resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
   towerT: 0, mapT: 0, slowWindows: 0, acc: 0, carsDirty: false,
+  pendingShift: 0, autoShiftHinted: false,   // paddle press waiting for the next sim step
 };
 const isRunning = () => !!game.race && game.phase !== PHASE.MENU && !game.paused && !game.frozen;
 
@@ -58,6 +60,7 @@ function loadSetup() {
     type: ['laps', 'timed', 'unlimited'].includes(s.type) ? s.type : d.type,
     laps: Math.min(RACE_SETUP.maxLaps, Math.max(1, Math.round(+s.laps) || d.laps)),
     minutes: RACE_SETUP.minutes.includes(+s.minutes) ? +s.minutes : d.minutes,
+    gearbox: s.gearbox === 'manual' ? 'manual' : d.gearbox,
   };
 }
 const raceFormat = s => s.type === 'timed' ? { type: 'timed', minutes: s.minutes } : s.type === 'unlimited' ? { type: 'unlimited' } : { type: 'laps', laps: s.laps };
@@ -98,7 +101,9 @@ function newRace() {
   const race = SIM.createRace(raceFormat(game.setup), { track, drivers: field });
   for (const [code, m] of modelOf) m.setVisible(field.some(d => d.code === code));
   const L = CONFIG.lights;
-  Object.assign(game, { race, player: race.cars.find(c => c.player), phase: PHASE.LIGHTS, paused: false,
+  const player = race.cars.find(c => c.player);
+  player.autoShift = game.setup.gearbox !== 'manual';
+  Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, autoShiftHinted: false,
     resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
     lights: { t: 0, lit: 0, hold: L.holdMin + Math.random() * L.holdRand } });
   setStartLights(0); Hud.showLights(true); Hud.setLapTimes(0, 0);
@@ -177,7 +182,7 @@ function simStep(dt) {
   if (game.phase === PHASE.LIGHTS) { stepStartLights(dt); return; }
   race.t += dt;
   for (const c of race.cars) {
-    if (c.player && !c.finished) SIM.drivePlayer(race, c, Input.drive, dt);
+    if (c.player && !c.finished) { SIM.drivePlayer(race, c, { ...Input.drive, shift: game.pendingShift }, dt); game.pendingShift = 0; }
     else SIM.driveAI(race, c, dt, c.finished ? CONFIG.finishedAiSkill : 0);
   }
   SIM.collide(race);
@@ -194,6 +199,13 @@ function togglePause() {
 }
 function startFromMenu() { Sound.init(); newRace(); }
 function toMenu() { game.phase = PHASE.MENU; game.resultsShown = false; Screens.hud(false); Screens.show('start', 'startBtn'); }
+// Paddles (Q/E, phone buttons 1/2, LB/RB). With the automatic gearbox they do nothing; say so once per race.
+const racing = () => isRunning() && game.phase === PHASE.RACE && !game.player.finished;
+function shift(dir) {
+  if (!racing()) return;
+  if (!game.player.autoShift) { game.pendingShift = dir; return; }
+  if (!game.autoShiftHinted) { game.autoShiftHinted = true; Hud.toast('Automatic gearbox: pick MANUAL on the start screen to shift yourself'); }
+}
 function confirm() {                                   // pad A
   if (game.phase === PHASE.MENU) startFromMenu();
   else if (game.resultsShown) newRace();
@@ -215,7 +227,11 @@ function toggleMute() { Hud.setMuted(Sound.toggleMute()); }
 
 const ACTIONS = { camera: cycleCamera, mute: toggleMute, pause: escape, fps: Hud.toggleFps, graphics: toggleGfx, confirm,
   tweak: () => TweakPanel.toggle(), layout: toggleLayout, fullscreen: () => AppShell.toggleFullscreen(),
-  inputs: () => InputMonitor.toggle() };
+  inputs: () => InputMonitor.toggle(),
+  shiftUp: () => shift(+1), shiftDown: () => shift(-1),
+  // phone buttons 1 / 2 (pad A / B): shift down / up while racing, confirm / resume in menus
+  primary: () => racing() ? shift(-1) : confirm(),
+  secondary: () => racing() ? shift(+1) : game.paused ? togglePause() : null };
 Input.on('action', name => ACTIONS[name]?.());
 Input.on('gesture', Sound.init);
 Input.on('padchange', on => { Hud.setPad(on, Input.gamepadAllowed); if (on && game.phase !== PHASE.MENU) Hud.toast('Wheel connected'); });
@@ -248,6 +264,14 @@ Screens.bindSetup(game.setup, SIM.DRIVERS.length, () => {
 Screens.onGfx(id => setGfx(id, true));
 
 // ---- per-frame ----
+// Gear, rev lights (0..1, all lit at the shift point) and engine pitch (0..1, idle..limiter) from the car's drivetrain.
+// On the grid the gearbox is in neutral and the revs follow the throttle.
+const V = SIM.VEHICLE, REV_FROM = CONFIG.revLights.from;
+function dashGear(p, onLights, thr) {
+  const rpm = onLights ? V.idle + thr * (V.redline - V.idle) * (0.9 + Math.random() * 0.06) : p.rpm;
+  return { gear: onLights ? 'N' : p.gear === -1 ? 'R' : String(p.gear),
+    revs: SIM.clamp((rpm - REV_FROM) / (V.autoUp - REV_FROM), 0, 1), pitch: SIM.clamp((rpm - V.idle) / (V.limiter - V.idle), 0, 1) };
+}
 function renderFrame(dt) {
   const { race, player } = game, cam = CameraRig.mode;
   for (const c of race.cars) modelOf.get(c.code).sync(c);
@@ -256,14 +280,15 @@ function renderFrame(dt) {
   Display.render();
 
   const drive = Input.drive, onLights = game.phase === PHASE.LIGHTS;
-  const gi = onLights ? { gear: 'N', rpm: 0.18 + drive.thr * (0.67 + Math.random()*0.1) } : gearOf(player.v);   // free revs on the grid
+  const gi = dashGear(player, onLights, drive.thr);
   Hud.updateDash({
-    kmh: Math.round(Math.abs(player.v) * 3.6), gear: gi.gear, rpm: gi.rpm,
+    kmh: Math.round(Math.abs(player.v) * 3.6), gear: gi.gear, revs: gi.revs, slip: onLights ? 0 : player.slip,
     steer: player.finished ? 0 : player.steer, thr: drive.thr, brk: drive.brk,
     lapTime: onLights ? '0:00.000' : fmtTime(player.finished ? player.finishTime : race.t - player.lapStart),
   });
-  WheelScreen.update(dt, { gear: gi.gear, kmh: Math.round(Math.abs(player.v) * 3.6), rpm: gi.rpm });
-  Sound.engine(gi.rpm, player.finished ? 0 : drive.thr, isRunning());
+  WheelScreen.update(dt, { gear: gi.gear, kmh: Math.round(Math.abs(player.v) * 3.6), revs: gi.revs });
+  Sound.engine(gi.pitch, player.finished ? 0 : drive.thr, isRunning());
+  if (onLights) wakes.hideAll(); else wakes.update(race, player);
   if ((game.towerT -= dt) <= 0) {
     game.towerT = CONFIG.towerInterval;
     Hud.updateTower(race, player, !onLights);

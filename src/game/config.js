@@ -12,6 +12,8 @@ export const CONFIG = Object.freeze({
   mapInterval: 1 / 30,
   fps: { window: 0.5, low: 50, adaptBelow: 52, slowWindowsToAdapt: 2 },
   padDeadZone: 0.035,
+  // rev lights: first LED at `from` rpm, all lit at the automatic upshift point (shift now)
+  revLights: { from: 8500 },
 });
 
 export const SFX = Object.freeze({
@@ -47,7 +49,7 @@ export const GFX_PROFILES = Object.freeze({
 
 // Start-screen race setup: limits and the default choice (the last choice is remembered).
 export const RACE_SETUP = Object.freeze({
-  defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10 },
+  defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10, gearbox: 'auto' },
   maxLaps: 99,
   minutes: [1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120],   // stepper stops for timed races
 });

@@ -58,3 +58,35 @@ S.order(timed).forEach((c, i) => { const g = S.gapTo(timed, S.order(timed)[0], c
   console.log(String(i + 1).padStart(2), c.code, `${c.finishLap - 1} laps`, g ? (g.laps ? `+${g.laps} lap` : `+${g.t.toFixed(2)} s`) : 'winner'); });
 const open = runAI(S.createRace({ type: 'unlimited' }, { drivers: four.slice(0, 2) }), 200);
 console.log(`\nunlimited, 2 cars, 200 s: finished ${open.cars.filter(c => c.finished).length}, laps ${open.cars.map(c => c.code + ' ' + (c.lap - 1)).join(', ')}`);
+
+// Corner report: one car alone on the AI line at full skill, second lap. Minimum speed and gear in each corner
+// (curvature peaks merged within 80 m), top speed before it, and the limit the old constant-grip model had there.
+{
+  const r = S.createRace(3, { drivers: S.DRIVERS.filter(d => d.code === 'VOS') }), c = r.cars[0];
+  const log = [];
+  for (let step = 0; step < 120 * 200 && c.lap < 3; step++) {
+    r.t += dt; S.driveAI(r, c, dt, 1); c.events.length = 0;
+    if (c.lap === 2) log.push({ d: c.idx * ds, v: c.v, gear: c.gear, rpm: c.rpm });
+  }
+  const peaks = [];
+  for (let i = 0; i < N; i++) {
+    const k = Math.abs(K[i]); if (k < 1 / 250) continue;
+    let max = true; for (let o = -25; o <= 25; o++) if (o && Math.abs(K[(i + o + N) % N]) > k) { max = false; break; }
+    if (!max) continue;
+    if (peaks.length && i * ds - peaks.at(-1).d < 80) { if (k > peaks.at(-1).k) Object.assign(peaks.at(-1), { k, d: i * ds }); }
+    else peaks.push({ k, d: i * ds });
+  }
+  const kmh = v => Math.round(v * 3.6);
+  console.log(`\ncorner report (VOS alone, lap ${fmt(c.lastLap)}):`);
+  console.log('   at      radius  min speed  gear | before   | old model');
+  for (const p of peaks) {
+    const near = log.filter(s => Math.abs(s.d - p.d) < 60);
+    if (!near.length) continue;
+    const lo = near.reduce((a, b) => b.v < a.v ? b : a);
+    const before = log.filter(s => s.d > p.d - 250 && s.d < p.d).reduce((m, s) => Math.max(m, s.v), 0);
+    console.log(`  ${String(Math.round(p.d)).padStart(5)} m  ${String(Math.round(1 / p.k)).padStart(4)} m  ${String(kmh(lo.v)).padStart(5)} km/h   ${lo.gear}  | ${String(kmh(before)).padStart(3)} km/h | ${kmh(Math.min(92, Math.sqrt(37 / p.k)))} km/h`);
+  }
+  const top = log.reduce((a, b) => b.v > a.v ? b : a);
+  console.log(`  top speed ${kmh(top.v)} km/h in gear ${top.gear} at ${Math.round(top.d)} m`);
+}
+function fmt(t) { return t.toFixed(2) + ' s'; }

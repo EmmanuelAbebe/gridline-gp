@@ -20,6 +20,10 @@ export function createCar(track, driver, slot) {
     // physics
     idx, x: PX[idx] + NX[idx]*lat, z: PZ[idx] + NZ[idx]*lat, h: headingAt(track, idx), v: 0, lat, steer: 0, roll: 0,
     wallHit: false, touching: false, wasTouching: false, impact: 0, onKerb: false, offTrack: false,
+    // drivetrain (vehicle.js): gear 1..8, -1 = reverse; autoShift = automatic gearbox; slip = slipstream 0..1
+    gear: 1, rpm: 0, shiftT: 0, autoShift: true, drive: 0, slip: 0, slipBy: null,
+    // trail: lateral offset and time when this car last passed each track sample (its wake, for slipstream)
+    trailLat: new Float32Array(track.N), trailT: new Float32Array(track.N).fill(-1),
     // AI
     offset: lat, bias: (Math.random()-0.5)*1.6,
     // timing

@@ -12,11 +12,11 @@ export const WheelScreen = (() => {
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: texture }));
   let wait = 0, lastKey = '';
 
-  function draw({ gear, kmh, rpm }) {
+  function draw({ gear, kmh, revs }) {
     const t = Design.data.hud.theme, font = t.font.includes(' ') ? `"${t.font}"` : t.font;
     ctx.fillStyle = '#05070a'; ctx.fillRect(0, 0, W, H);
     // top: rev lights
-    const lit = Math.round(rpm * LEDS), step = W / (LEDS + 1);
+    const lit = Math.round(revs * LEDS), step = W / (LEDS + 1);
     for (let i = 0; i < LEDS; i++) {
       ctx.beginPath(); ctx.arc(step * (i + 1), 34, 13, 0, Math.PI * 2);
       ctx.fillStyle = i >= lit ? '#1a1f26' : i < LED_GREEN ? '#36d27f' : i < LED_RED ? '#ff2b2b' : '#4a7dff';
@@ -41,7 +41,7 @@ export const WheelScreen = (() => {
     update(dt, data) {
       if (!mesh.visible || !mesh.parent) return;
       if ((wait -= dt) > 0) return;
-      const key = `${data.gear}|${data.kmh}|${Math.round(data.rpm * LEDS)}|${JSON.stringify(Design.data.hud.theme)}`;
+      const key = `${data.gear}|${data.kmh}|${Math.round(data.revs * LEDS)}|${JSON.stringify(Design.data.hud.theme)}`;
       if (key === lastKey) return;
       wait = 1 / 30; lastKey = key; draw(data);
     },

@@ -1,6 +1,7 @@
 // Track construction: a circuit's control points → closed centripetal Catmull-Rom → N equal-length samples with
 // tangents, right-hand normals, signed curvature, bounds, and the AI's speed profile and racing line.
 import { TUNING, TRACK_DEFAULTS, GRID } from './tuning.js';
+import { cornerSpeed, brakeLimit } from './vehicle.js';
 import { CIRCUITS } from './circuits.js';
 import { clamp } from './math.js';
 
@@ -38,12 +39,15 @@ function resampleClosed(dense, N) {
   return { PX, PZ, L, ds };
 }
 
-// AI reference: VP = speed profile (corner limit + braking look-back), RO = racing-line offset toward corner insides.
+// AI reference: VP = speed profile (corner limit with downforce + braking look-back), RO = racing-line offset toward
+// corner insides. Straights are V_CAP, so there the engine and drag decide the speed.
 function buildAiProfile({ N, HW, ds, K }) {
-  const { VMAX, LAT_AI, BRK_AI } = TUNING;
+  const { grip, brake } = TUNING.AI;
   const VP = new Float32Array(N), RO = new Float32Array(N);
-  for (let i = 0; i < N; i++) VP[i] = Math.min(VMAX, Math.sqrt(LAT_AI / Math.max(Math.abs(K[i]), 1e-5)));
-  for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) { const j = (i+1)%N; VP[i] = Math.min(VP[i], Math.sqrt(VP[j]*VP[j] + 2*BRK_AI*ds)); }
+  for (let i = 0; i < N; i++) VP[i] = cornerSpeed(Math.abs(K[i]), grip);
+  for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) {
+    const j = (i+1)%N; VP[i] = Math.min(VP[i], Math.sqrt(VP[j]*VP[j] + 2*brakeLimit(VP[j])*brake*ds));
+  }
   const raw = new Float32Array(N), S = 40;
   for (let i = 0; i < N; i++) raw[i] = clamp(K[i]*120, -1, 1) * (HW - 2.6);
   for (let i = 0; i < N; i++) { let s = 0; for (let o = -S; o <= S; o++) s += raw[(i+o+N)%N]; RO[i] = s / (2*S+1); }

@@ -9,7 +9,7 @@ export const Hud = (() => {
   for (let i = 0; i < REV_LEDS; i++) { const s = document.createElement('span'); if (i >= REV_RED) s.className = i >= REV_VIOLET ? 'v' : 'r'; $('revs').appendChild(s); revEls.push(s); }
   const lampEls = [];
   for (let i = 0; i < CONFIG.lights.count; i++) { const d = document.createElement('div'); d.className = 'lamp'; d.innerHTML = '<i></i><i></i>'; $('lights').appendChild(d); lampEls.push(d); }
-  const fill = { steer: $('steerFill'), thr: $('thrFill'), brk: $('brkFill') };
+  const fill = { steer: $('steerFill'), thr: $('thrFill'), brk: $('brkFill'), slip: $('slipFill') };
 
   const cache = {}, els = {};
   function setText(id, v) { v = String(v); if (cache[id] === v) return; cache[id] = v; (els[id] ||= $(id)).textContent = v; }
@@ -50,10 +50,13 @@ export const Hud = (() => {
     setStartLamps(n) { lampEls.forEach((l, i) => l.classList.toggle('on', i < n)); },
     showLights(on) { $('lights').hidden = !on; },
     setLapTimes(last, best) { $('tLast').textContent = fmtTime(last); $('tBest').textContent = fmtTime(best); },
-    updateDash({ kmh, gear, rpm, steer, thr, brk, lapTime }) {
+    // revs: rev-light fraction 0..1 (all lit = shift); slip: slipstream strength 0..1
+    updateDash({ kmh, gear, revs, steer, thr, brk, lapTime, slip = 0 }) {
       setText('spd', kmh);
       setText('gear', gear);
-      setOnce('revs', Math.round(rpm * REV_LEDS), n => revEls.forEach((s, i) => s.classList.toggle('on', i < n)));
+      setOnce('revs', Math.round(revs * REV_LEDS), n => revEls.forEach((s, i) => s.classList.toggle('on', i < n)));
+      setOnce('slipOn', slip > 0.08, on => $('slipTag').classList.toggle('on', on));
+      setOnce('slip', Math.round(slip * 40), q => { fill.slip.style.transform = `scaleX(${q / 40})`; });
       setOnce('steer', Math.round(steer * 100), q => { fill.steer.style.transform = `translateX(${q < 0 ? q : 0}%) scaleX(${Math.abs(q) / 100})`; });
       setOnce('thr', Math.round(thr * 50), q => { fill.thr.style.transform = `scaleX(${q / 50})`; });
       setOnce('brk', Math.round(brk * 50), q => { fill.brk.style.transform = `scaleX(${q / 50})`; });

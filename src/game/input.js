@@ -5,9 +5,12 @@ import { $, createEmitter } from './util.js';
 // Exposes `drive` (read by the sim) and emits: 'action' (name), 'padchange' (connected), 'gesture' (for audio unlock).
 export const Input = (() => {
   const KEY_DRIVE = { ArrowUp:'up', KeyW:'up', ArrowDown:'down', KeyS:'down', ArrowLeft:'left', KeyA:'left', ArrowRight:'right', KeyD:'right' };
-  const KEY_ACTIONS = { KeyC:'camera', KeyM:'mute', KeyP:'pause', Escape:'pause', KeyF:'fps', KeyG:'graphics', KeyT:'tweak', KeyL:'layout', KeyV:'fullscreen', KeyI:'inputs' };
-  const PAD = { A: 0, Y: 3, LT: 6, RT: 7, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
-  const PAD_ACTIONS = [[PAD.A, 'confirm'], [PAD.START, 'pause'], [PAD.Y, 'camera']];
+  const KEY_ACTIONS = { KeyC:'camera', KeyM:'mute', KeyP:'pause', Escape:'pause', KeyF:'fps', KeyG:'graphics', KeyT:'tweak', KeyL:'layout', KeyV:'fullscreen', KeyI:'inputs',
+    KeyQ:'shiftDown', KeyE:'shiftUp' };
+  const PAD = { A: 0, B: 1, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
+  // A / B are the phone wheel's buttons 1 and 2: confirm in menus, shift down / up while racing (the game decides)
+  const PAD_ACTIONS = [[PAD.A, 'primary'], [PAD.B, 'secondary'], [PAD.LB, 'shiftDown'], [PAD.RB, 'shiftUp'],
+    [PAD.START, 'pause'], [PAD.Y, 'camera']];
   const TOUCH = { tLeft: 'left', tRight: 'right', tBrake: 'down', tGas: 'up' };
 
   const events = createEmitter();

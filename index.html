@@ -30,6 +30,7 @@
   <div id="tower" class="panel tr"><div class="th"><span class="lbl">Running order</span><span class="lbl num" id="towerLap"></span></div><ol id="towerList"></ol></div>
   <canvas id="map" class="panel bl" width="360" height="360"></canvas>
   <div id="speedo" class="panel br">
+    <div id="slipTag" aria-hidden="true"><span>SLIPSTREAM</span><i><u id="slipFill"></u></i></div>
     <div id="revs"></div>
     <div id="steerMeter" aria-hidden="true"><i id="steerFill"></i><b></b></div>
     <div id="pedals" aria-hidden="true"><span class="lbl">Brk</span><i><u id="brkFill"></u></i><span class="lbl">Gas</span><i><u id="thrFill"></u></i></div>
@@ -74,6 +75,7 @@
       <span><kbd>↑</kbd> <kbd>W</kbd></span><span>Throttle</span>
       <span><kbd>↓</kbd> <kbd>S</kbd></span><span>Brake / reverse</span>
       <span><kbd>←</kbd><kbd>→</kbd> <kbd>A</kbd><kbd>D</kbd></span><span>Steer</span>
+      <span><kbd>Q</kbd> <kbd>E</kbd></span><span>Shift down / up (manual gearbox; phone buttons 1 / 2)</span>
       <span><kbd>C</kbd> <kbd>M</kbd> <kbd>P</kbd> <kbd>F</kbd> <kbd>G</kbd></span><span>Camera, sound, pause, FPS, graphics</span>
       <span><kbd>T</kbd> <kbd>L</kbd> <kbd>V</kbd> <kbd>I</kbd></span><span>Design tools, HUD layout, full screen, input monitor</span>
     </div>
@@ -93,6 +95,13 @@
     <div class="row" id="amountRow">
       <span class="lbl" id="amountLbl">Laps</span>
       <div class="stepper" id="amountStep"><button type="button" data-d="-1" aria-label="Less">−</button><output id="amountVal">3</output><button type="button" data-d="1" aria-label="More">+</button></div>
+    </div>
+    <div class="row">
+      <span class="lbl">Gearbox</span>
+      <div class="seg" id="gearSeg">
+        <button type="button" data-b="auto" aria-pressed="true">AUTO</button>
+        <button type="button" data-b="manual" aria-pressed="false">MANUAL</button>
+      </div>
     </div>
     <div class="row">
       <span class="lbl">Graphics</span>
