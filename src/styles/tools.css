@@ -23,3 +23,18 @@
 .layout-mode #lights[hidden]{display:flex!important}
 .lay-off{visibility:hidden!important}
 .layout-mode .lay-off{visibility:visible!important;opacity:.3}
+/* ---- input monitor (I) ---- */
+#inputMon{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:70;width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;background:var(--panel-solid);padding:12px 14px 14px;display:grid;gap:10px;font-size:14px;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+#inputMon .im-head{display:flex;justify-content:space-between;align-items:center;font-family:var(--display);font-size:18px;letter-spacing:.06em;text-transform:uppercase}
+#imGraph{width:100%;height:auto;background:#0b0e12;border:1px solid var(--rule);border-radius:3px}
+.im-verdict{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.im-verdict b{font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:.04em}
+.im-verdict span{color:var(--muted)}
+.im-verdict.good b{color:var(--green)}
+.im-verdict.fair b{color:var(--amber)}
+.im-verdict.poor b{color:var(--red)}
+.im-verdict.idle b,.im-verdict.none b{color:var(--text)}
+.im-grid{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;align-items:baseline}
+.im-tips{margin:0;padding-left:18px;display:grid;gap:6px;color:var(--text);line-height:1.45}
+.im-tips code{background:#1d232b;padding:1px 5px;border-radius:3px}
+.padrow #testCtlBtn{margin-left:auto;flex:none}

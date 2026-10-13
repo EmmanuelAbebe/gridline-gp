@@ -28,6 +28,7 @@ import { HudStyle } from './hud-style.js';
 import { LayoutEditor } from './layout-editor.js';
 import { TweakPanel } from './tweak-panel.js';
 import { AppShell } from './app-shell.js';
+import { InputMonitor } from './input-monitor.js';
 
 const { EV } = SIM;
 const track = SIM.track;
@@ -209,11 +210,12 @@ function toggleLayout() {
   else if ($('hud').hidden) Hud.toast('Start a race to arrange the HUD');
   else LayoutEditor.enter(CameraRig.mode);
 }
-const escape = () => LayoutEditor.active ? LayoutEditor.exit() : togglePause();
+const escape = () => InputMonitor.open ? InputMonitor.toggle(false) : LayoutEditor.active ? LayoutEditor.exit() : togglePause();
 function toggleMute() { Hud.setMuted(Sound.toggleMute()); }
 
 const ACTIONS = { camera: cycleCamera, mute: toggleMute, pause: escape, fps: Hud.toggleFps, graphics: toggleGfx, confirm,
-  tweak: () => TweakPanel.toggle(), layout: toggleLayout, fullscreen: () => AppShell.toggleFullscreen() };
+  tweak: () => TweakPanel.toggle(), layout: toggleLayout, fullscreen: () => AppShell.toggleFullscreen(),
+  inputs: () => InputMonitor.toggle() };
 Input.on('action', name => ACTIONS[name]?.());
 Input.on('gesture', Sound.init);
 Input.on('padchange', on => { Hud.setPad(on, Input.gamepadAllowed); if (on && game.phase !== PHASE.MENU) Hud.toast('Wheel connected'); });
@@ -227,6 +229,7 @@ $('againBtn').onclick = () => newRace();
 $('endBtn').onclick = endRace;
 $('menuBtn').onclick = toMenu;
 $('designBtn').onclick = () => TweakPanel.toggle();
+$('testCtlBtn').onclick = $('pauseInputsBtn').onclick = () => InputMonitor.toggle(true);
 $('fullBtn').onclick = $('fullStartBtn').onclick = () => AppShell.toggleFullscreen();
 
 // ---- design tools ----
@@ -286,6 +289,7 @@ function frame(now) {
   const dt = Math.min(CONFIG.maxFrameDt, (now - last) / 1000), STEP = CONFIG.physicsStep;
   last = now;
   Input.poll();
+  InputMonitor.sample(dt, Input.drive, Input.pad);
   if (game.carsDirty) { game.carsDirty = false; for (const m of carModels) m.rebuild(Design.data.car); }
   const running = isRunning();
   if (running) { game.acc += dt; while (game.acc >= STEP) { simStep(STEP); game.acc -= STEP; } }

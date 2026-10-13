@@ -5,7 +5,7 @@ import { $, createEmitter } from './util.js';
 // Exposes `drive` (read by the sim) and emits: 'action' (name), 'padchange' (connected), 'gesture' (for audio unlock).
 export const Input = (() => {
   const KEY_DRIVE = { ArrowUp:'up', KeyW:'up', ArrowDown:'down', KeyS:'down', ArrowLeft:'left', KeyA:'left', ArrowRight:'right', KeyD:'right' };
-  const KEY_ACTIONS = { KeyC:'camera', KeyM:'mute', KeyP:'pause', Escape:'pause', KeyF:'fps', KeyG:'graphics', KeyT:'tweak', KeyL:'layout', KeyV:'fullscreen' };
+  const KEY_ACTIONS = { KeyC:'camera', KeyM:'mute', KeyP:'pause', Escape:'pause', KeyF:'fps', KeyG:'graphics', KeyT:'tweak', KeyL:'layout', KeyV:'fullscreen', KeyI:'inputs' };
   const PAD = { A: 0, Y: 3, LT: 6, RT: 7, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
   const PAD_ACTIONS = [[PAD.A, 'confirm'], [PAD.START, 'pause'], [PAD.Y, 'camera']];
   const TOUCH = { tLeft: 'left', tRight: 'right', tBrake: 'down', tGas: 'up' };
@@ -13,6 +13,9 @@ export const Input = (() => {
   const events = createEmitter();
   const held = { up: false, down: false, left: false, right: false };
   const drive = { steer: 0, thr: 0, brk: 0, analog: false };
+  // the connected controller as the browser reports it, for the input monitor: id, mapping, and `timestamp`,
+  // which the browser bumps every time the device sends new data (so its change rate = the controller's update rate)
+  const pad = { connected: false, id: '', mapping: '', timestamp: 0, steerRaw: 0 };
   const gamepadAllowed = !(document.featurePolicy && document.featurePolicy.allowsFeature && !document.featurePolicy.allowsFeature('gamepad'));
   let padPrev = [], padConnected = false;
 
@@ -46,7 +49,9 @@ export const Input = (() => {
     const p = pickPad();
     if (!!p !== padConnected) { padConnected = !!p; events.emit('padchange', padConnected); }
     let steer = (held.right ? 1 : 0) - (held.left ? 1 : 0), thr = held.up ? 1 : 0, brk = held.down ? 1 : 0, analog = false;
+    pad.connected = !!p;
     if (p) {
+      pad.id = p.id; pad.mapping = p.mapping; pad.timestamp = p.timestamp; pad.steerRaw = p.axes[0] || 0;
       const x = deadZone(p.axes[0] || 0, CONFIG.padDeadZone);
       let pt = p.buttons[PAD.RT] ? p.buttons[PAD.RT].value : 0, pb = p.buttons[PAD.LT] ? p.buttons[PAD.LT].value : 0;
       if (p.mapping !== 'standard' && p.axes.length >= 6) {           // raw Xbox layout: triggers on axes 5 / 2, -1 at rest
@@ -66,6 +71,6 @@ export const Input = (() => {
   addEventListener('gamepadconnected', poll);
   addEventListener('gamepaddisconnected', poll);
 
-  return { drive, poll, on: events.on, gamepadAllowed };
+  return { drive, pad, poll, on: events.on, gamepadAllowed };
 })();
 
