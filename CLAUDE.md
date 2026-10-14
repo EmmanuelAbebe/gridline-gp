@@ -8,8 +8,8 @@ which shows up in the browser as a virtual Xbox 360 controller.
 Turning the prototype into a production-grade game. Agreed order: (1) foundation [done: modules, Vite, tests],
 (2) sim-cade physics in 4 parts: [done] engine/gearbox/downforce/slipstream; [done] tyre + chassis model;
 [done] AI on the same chassis (racing line, racecraft, mistakes, difficulty); tuning screen (downforce, grip, power, brake balance), (3) merge the Phone-wheel project into this one (server inside Electron,
-pairing from the settings menu, vibration + rev lights on the phone), (4) car/world visuals: brake lights,
-higher-poly car, crash physics, scenery, (5) HUD, menus, presentation.
+pairing from the settings menu, vibration + rev lights on the phone), (4) car/world visuals: [done 2026-10-14] brake lights,
+F1-style curved car with textures; still to do: crash physics, scenery, (5) HUD, menus, presentation.
 
 ## Files
 - `index.html`: markup only; loads `src/game/main.js` as a module.
@@ -138,8 +138,15 @@ Tunables live in data tables (config modules), not inline in the logic.
      `Gamepad.timestamp`, stalls (pause with steering moving across it), pedal ramp time, advice.
    - `buildWorld(scene, track, drivers)`: ribbons (`strip`, `wall`, painted layers via polygonOffset `decal`),
      gantry, grandstand/crowd, pits, InstancedMesh trees, hills; returns `applyProfile`, `setStartLights`.
-   - `CarModels`: merged vertex-coloured body (`mergeParts`), 4 wheels, blob shadow (6 draw calls/car);
-     model API `sync(car)`, `place`, `showDriver` (cockpit camera hides helmet/halo), `setMaterials`.
+   - `CarModels` (`car-models.js`; shapes in `car-shapes.js`, canvas textures in `car-textures.js`): F1-style body
+     from design parts merged per car into one mesh with a geometry group per finish (paint = clearcoat + sky cube
+     reflection, carbon = twill weave texture, rubber, metal, light, decal); shapes include `loft` (smooth body
+     through cross-sections [x, y, halfW, halfH, roundness, z]), `wing` (cambered airfoil), `rod` (suspension),
+     `decal` (race number, `DRIVERS[].number`). Wheels: lathe tyre with rounded shoulders + sidewall texture,
+     rim + wheel cover. Brake lights (finish `light`: rain light + endplate strips) brighten with `car.brake`
+     (fade ~0.1 s) with a rear-facing additive glow. Model API `sync(car, dt)`, `place`, `useCockpitView`,
+     `setMaterials`. Dev tool: `npm run car-shot -- out.png [driver=MAR&brake=0&part=wing]` renders
+     `tools/showroom/` (six views) offscreen via Electron + Vite.
    - `CameraRig` (reads `Design.data.cameras` live), `createMinimap` (cached track canvas, dots at 30 Hz),
      `Hud` (cached DOM writes), `Screens` (overlays + start-menu controls).
    - Design tools: `DESIGN_DEFAULTS` (cameras, car parts/wheels/steering wheel, HUD theme + layouts) → `Design`
@@ -152,9 +159,10 @@ Tunables live in data tables (config modules), not inline in the logic.
      `car.screen` are positioned relative to the wheel centre; `car.steering` = { pivot (centre in car space),
      rot [x,y,z]°, scale [x,y,z], lock° }. Model: root → mount (pivot/rot/scale) → steering mesh (turns with
      input) → screen (always fixed to the wheel). Panel shows wheel width/height in metres via
-     `CarModels.measure` (natural size × scale). Design format v3; `migrate()` converts v1 (car-space steer
-     parts) and v2 (tilt/uniform scale/screen.steer).
-     Shapes: box, rounded (extruded rounded rectangle, `radius`), sphere, cylinder, torus.
+     `CarModels.measure` (natural size × scale). Design format v4; `migrate()` converts v1 (car-space steer
+     parts), v2 (tilt/uniform scale/screen.steer) and v3 (box car: body parts and wheels replaced by the new defaults,
+     the player's steering-wheel parts kept). Parts named "… R" get a mirrored "… L" twin (`withMirrors`).
+     Shapes: box, rounded (extruded rounded rectangle, `radius`), sphere, cylinder, torus, loft, wing, rod, decal; optional `finish`.
    - `WheelScreen`: canvas texture on the player's steering wheel (top rev lights, middle speed, bottom gear),
      placed by `car.screen` (pos/rot relative to the wheel, size in metres, show), redrawn ≤ 30 Hz only when visible and values change.
      Key handling ignores keystrokes while a tool input has focus.

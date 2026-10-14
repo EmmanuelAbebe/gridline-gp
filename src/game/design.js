@@ -35,6 +35,12 @@ export const Design = (() => {
       }
       if (isObj(s.car.screen)) delete s.car.screen.steer;
     }
+    if (v < 4 && isObj(s.car)) {
+      // v4: the curved F1 body replaced the box car; keep only the player's steering wheel (and its settings)
+      const mine = Array.isArray(s.car.parts) ? s.car.parts.filter(p => isObj(p) && p.steer) : [];
+      s.car.parts = DESIGN_DEFAULTS.car.parts.filter(p => !p.steer).concat(mine.length ? mine : DESIGN_DEFAULTS.car.parts.filter(p => p.steer));
+      delete s.car.wheels;
+    }
     s.version = DESIGN_DEFAULTS.version;
     return s;
   }

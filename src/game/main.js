@@ -286,7 +286,7 @@ function dashGear(p, onLights, thr) {
 }
 function renderFrame(dt) {
   const { race, player } = game, cam = CameraRig.mode;
-  for (const c of race.cars) modelOf.get(c.code).sync(c);
+  for (const c of race.cars) modelOf.get(c.code).sync(c, dt);
   modelOf.get(player.code).useCockpitView(!!cam.cockpitBody);
   CameraRig.update(dt, player, !isRunning());
   Display.render();

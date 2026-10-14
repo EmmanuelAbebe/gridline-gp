@@ -71,7 +71,8 @@ export const TweakPanel = (() => {
   }
 
   // ---- car body ----
-  const SIZE_LABELS = { box: ['Length', 'Height', 'Width'], rounded: ['Thickness', 'Height', 'Width'], sphere: ['Radius'], cylinder: ['Radius', 'Length'], torus: ['Radius', 'Tube', 'Arc °'] };
+  const SIZE_LABELS = { box: ['Length', 'Height', 'Width'], rounded: ['Thickness', 'Height', 'Width'], sphere: ['Radius'], cylinder: ['Radius', 'Length'], torus: ['Radius', 'Tube', 'Arc °'],
+    loft: ['Scale x', 'Scale y', 'Scale z'], wing: ['Chord', 'Thickness', 'Span'], rod: ['To x', 'To y', 'To z'], decal: ['Width', 'Height'] };
   const COLOR_ROLES = [['body', 'Team colour'], ['accent', 'Team accent'], ['dark', 'Carbon (dark)'], ['tyre', 'Rubber'], ['custom', 'Custom…']];
   function renderParts(body) {
     const parts = Design.data.car.parts, ch = () => Design.changed('car'), redo = () => { ch(); rerender('parts'); };
@@ -90,16 +91,19 @@ export const TweakPanel = (() => {
       const picker = h('input', { type: 'color', value: custom ? p.color : '#ffffff', oninput: e => { p.color = e.target.value; ch(); } });
       list.push(
         textRow('Name', p, 'name', redo),
-        choose('Shape', p.shape, [['box', 'Box'], ['rounded', 'Rounded box'], ['sphere', 'Sphere'], ['cylinder', 'Cylinder'], ['torus', 'Torus / ring']], v => { p.shape = v; redo(); }),
+        choose('Shape', p.shape, [['box', 'Box'], ['rounded', 'Rounded box'], ['sphere', 'Sphere'], ['cylinder', 'Cylinder'], ['torus', 'Torus / ring'], ['loft', 'Curved body (sections)'], ['wing', 'Wing'], ['rod', 'Rod'], ['decal', 'Race number']], v => { p.shape = v; redo(); }),
         sub('Size (m)'),
-        ...SIZE_LABELS[p.shape].map((l, i) => num(l, p, 'size', p.shape === 'torus' && i === 2 ? [1, 360, 1] : [0.001, 4, 0.001], ch, i)),
+        ...SIZE_LABELS[p.shape].map((l, i) => num(l, p, 'size', p.shape === 'torus' && i === 2 ? [1, 360, 1] : p.shape === 'rod' ? [-3, 3, 0.001] : [0.001, 4, 0.001], ch, i)),
         p.shape === 'rounded' && num('Corner radius', p, 'radius', [0, 0.5, 0.001], ch),
+        p.shape === 'rod' && num('Rod radius', p, 'radius', [0.002, 0.2, 0.001], ch),
+        p.shape === 'wing' && num('Camber', Object.assign(p, { camber: p.camber ?? 0.05 }), 'camber', [0, 0.2, 0.005], ch),
         ...(p.steer
           ? vec3('Position (m from wheel centre)', p, 'pos', [[-0.5, 0.5, 0.0005], [-0.5, 0.5, 0.0005], [-0.5, 0.5, 0.0005]], ch)
           : vec3('Position (m) · x forward, y up, z right', p, 'pos', [[-4, 4, 0.005], [-1, 3, 0.005], [-2, 2, 0.005]], ch)),
         ...vec3('Rotation (°)', p, 'rot', [[-180, 180, 1], [-180, 180, 1], [-180, 180, 1]], ch),
         choose('Colour', custom ? 'custom' : p.color, COLOR_ROLES, v => { p.color = v === 'custom' ? picker.value : v; redo(); }),
         custom && h('label', { class: 'tw-row wide' }, h('span', {}, 'Custom'), picker),
+        choose('Finish', p.finish || 'auto', [['auto', 'From colour'], ['paint', 'Paint'], ['carbon', 'Carbon'], ['rubber', 'Rubber'], ['metal', 'Metal'], ['light', 'Brake light'], ['decal', 'Race number']], v => { if (v === 'auto') delete p.finish; else p.finish = v; redo(); }),
         choose('Visible', p.show, [['always', 'Always'], ['outside', 'Outside views only'], ['cockpit', 'Cockpit view only'], ['off', 'Hidden']], v => { p.show = v; redo(); }),
         check('Part of the steering wheel', p, 'steer', () => {   // keep the part where it is when switching frames
           const piv = Design.data.car.steering.pivot, sgn = p.steer ? -1 : 1;

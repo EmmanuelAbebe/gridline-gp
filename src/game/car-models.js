@@ -1,82 +1,119 @@
 import * as THREE from 'three';
 import { COLORS } from './config.js';
+import { SHAPES, SIGNED_SIZE, OWN_UV, tyreGeometry } from './car-shapes.js';
+import { carbonTexture, tyreTexture, skyEnvironment, glowTexture, numberTexture } from './car-textures.js';
 
-// Built from Design.data.car. Per car: fixed parts merged into one vertex-coloured mesh, parts that turn with
-// the steering in a second mesh, one mesh per wheel and a blob shadow. In cameras with `cockpitBody` the player
-// car switches to its cockpit-view parts (show: always + cockpit) instead of the outside ones (always + outside).
+// Built from Design.data.car. Per car: fixed parts merged into one mesh with a group per finish (paint, carbon,
+// rubber, metal, light, decal), parts that turn with the steering in a second mesh, one mesh per wheel, brake-light
+// glows and a blob shadow. In cameras with `cockpitBody` the player car switches to its cockpit-view parts
+// (show: always + cockpit) instead of the outside ones (always + outside).
 export const CarModels = (() => {
+  // finish order = material index. A part's finish defaults from its colour role (dark → carbon, tyre → rubber).
+  const FINISHES = ['paint', 'carbon', 'rubber', 'metal', 'light', 'decal'];
+  const finishOf = p => FINISHES.includes(p.finish) ? p.finish : p.color === 'dark' ? 'carbon' : p.color === 'tyre' ? 'rubber' : 'paint';
+  const env = skyEnvironment(), carbon = carbonTexture(), tyre = tyreTexture(), glow = glowTexture();
+  // shared materials for the two graphics profiles (light and decal are per car, see create)
   const MATS = {
-    quality: { body: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.22 }),
-               wheel: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }) },
-    fast:    { body: new THREE.MeshLambertMaterial({ vertexColors: true }), wheel: new THREE.MeshLambertMaterial({ vertexColors: true }) },
+    quality: {
+      paint:  new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.32, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.06, envMap: env, envMapIntensity: 0.45 }),
+      carbon: new THREE.MeshPhysicalMaterial({ vertexColors: true, map: carbon, roughness: 0.38, metalness: 0.25, clearcoat: 0.8, clearcoatRoughness: 0.1, envMap: env, envMapIntensity: 0.5 }),
+      rubber: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }),
+      metal:  new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.85, envMap: env }),
+      tyre:   new THREE.MeshStandardMaterial({ map: tyre, roughness: 0.85 }),
+    },
+    fast: {
+      paint:  new THREE.MeshLambertMaterial({ vertexColors: true }),
+      carbon: new THREE.MeshLambertMaterial({ vertexColors: true, map: carbon }),
+      rubber: new THREE.MeshLambertMaterial({ vertexColors: true }),
+      metal:  new THREE.MeshLambertMaterial({ vertexColors: true }),
+      tyre:   new THREE.MeshLambertMaterial({ map: tyre }),
+    },
   };
+  const LIGHT_OFF = new THREE.Color(0x3a0806), LIGHT_ON = new THREE.Color(0xff2a18);
+  const GLOW_GEO = new THREE.PlaneGeometry(1, 1).rotateY(-Math.PI / 2);   // faces -x (backwards)
   const SHADOW_GEO = new THREE.PlaneGeometry(5.8, 2.4).rotateX(-Math.PI/2);
   const SHADOW_MAT = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.32, depthWrite: false });
   const FRONT_STEER = 0.32;   // radians of front-wheel angle at full lock
+  const CARBON_UV = 3;        // weave repeats per metre
   const DEG = Math.PI / 180;
-  const SHAPES = {
-    box:      (s)    => new THREE.BoxGeometry(s[0], s[1], s[2]),
-    sphere:   (s)    => new THREE.SphereGeometry(s[0], 10, 8),
-    cylinder: (s, p) => new THREE.CylinderGeometry(s[0], s[0], s[1], p.segments || 12),
-    rounded:  (s, p) => roundedBox(s[0], s[1], s[2], p.radius),
-    torus:    (s)    => { const arc = Math.min(360, Math.max(1, s[2])); return new THREE.TorusGeometry(s[0], s[1], 5, Math.max(6, Math.round(arc / 15)), arc * DEG); },
-  };
-  // Box with rounded corners on its y-z face (the face you see from the cockpit): an extruded rounded rectangle.
-  function roundedBox(len, hgt, wid, radius) {
-    const r = Math.max(0, Math.min(radius || 0, hgt / 2 - 1e-4, wid / 2 - 1e-4));
-    const x0 = -wid / 2, x1 = wid / 2, y0 = -hgt / 2, y1 = hgt / 2, sh = new THREE.Shape();
-    sh.moveTo(x0 + r, y0);
-    sh.lineTo(x1 - r, y0); sh.absarc(x1 - r, y0 + r, r, -Math.PI / 2, 0);
-    sh.lineTo(x1, y1 - r); sh.absarc(x1 - r, y1 - r, r, 0, Math.PI / 2);
-    sh.lineTo(x0 + r, y1); sh.absarc(x0 + r, y1 - r, r, Math.PI / 2, Math.PI);
-    sh.lineTo(x0, y0 + r); sh.absarc(x0 + r, y0 + r, r, Math.PI, Math.PI * 1.5);
-    return new THREE.ExtrudeGeometry(sh, { depth: len, bevelEnabled: false, curveSegments: 6 }).translate(0, 0, -len / 2).rotateY(Math.PI / 2);
-  }
   const resolveColor = (c, driver) =>
     c === 'body' ? driver.color : c === 'accent' ? driver.accent : c === 'dark' ? COLORS.carDark : c === 'tyre' ? COLORS.tyre
     : (parseInt(String(c).replace('#', ''), 16) || 0);
 
-  // Design parts → one non-indexed BufferGeometry with vertex colours, positioned relative to `origin`.
+  // Design parts → one non-indexed BufferGeometry (vertex colours, a group per finish), relative to `origin`.
+  // Texture coordinates: decals keep their own; everything else is projected along its face's main axis
+  // (so the carbon weave has the same scale on every part).
   function mergeParts(parts, driver, origin = [0, 0, 0]) {
-    const pos = [], nor = [], col = [], c = new THREE.Color(), o = new THREE.Object3D();
+    const out = FINISHES.map(() => ({ pos: [], nor: [], col: [], uv: [] })), c = new THREE.Color(), o = new THREE.Object3D();
+    const a = new THREE.Vector3(), b = new THREE.Vector3(), n = new THREE.Vector3();
     for (const p of parts) {
-      const size = p.size.map((v, i) => p.shape === 'torus' && i === 2 ? v : Math.max(0.001, Math.abs(v)));
+      const size = p.size.map((v, i) => SIGNED_SIZE.has(p.shape) || (p.shape === 'torus' && i === 2) ? v : Math.max(0.001, Math.abs(v)));
       let g = (SHAPES[p.shape] || SHAPES.box)(size, p);
       if (g.index) { const flat = g.toNonIndexed(); g.dispose(); g = flat; }
       o.position.set(p.pos[0] - origin[0], p.pos[1] - origin[1], p.pos[2] - origin[2]);
       o.rotation.set(p.rot[0] * DEG, p.rot[1] * DEG, p.rot[2] * DEG); o.updateMatrix();
       g.applyMatrix4(o.matrix);
-      const P = g.attributes.position.array, Nn = g.attributes.normal.array;
+      const P = g.attributes.position.array, Nn = g.attributes.normal.array, U = g.attributes.uv && g.attributes.uv.array;
+      const dst = out[FINISHES.indexOf(finishOf(p))], keep = OWN_UV.has(p.shape) && U;
       c.setHex(resolveColor(p.color, driver));
-      for (let i = 0; i < P.length; i++) { pos.push(P[i]); nor.push(Nn[i]); }
-      for (let i = 0; i < P.length / 3; i++) col.push(c.r, c.g, c.b);
+      for (let i = 0; i < P.length; i++) { dst.pos.push(P[i]); dst.nor.push(Nn[i]); }
+      for (let t = 0; t < P.length; t += 9) {
+        a.set(P[t+3] - P[t], P[t+4] - P[t+1], P[t+5] - P[t+2]); b.set(P[t+6] - P[t], P[t+7] - P[t+1], P[t+8] - P[t+2]);
+        n.crossVectors(a, b); const ax = Math.abs(n.x), ay = Math.abs(n.y), az = Math.abs(n.z);
+        for (let k = 0; k < 9; k += 3) {
+          const x = P[t+k], y = P[t+k+1], z = P[t+k+2], vi = (t + k) / 3;
+          if (keep) dst.uv.push(U[vi*2], U[vi*2+1]);
+          else if (ax >= ay && ax >= az) dst.uv.push(z * CARBON_UV, y * CARBON_UV);
+          else if (ay >= az) dst.uv.push(x * CARBON_UV, z * CARBON_UV);
+          else dst.uv.push(x * CARBON_UV, y * CARBON_UV);
+          dst.col.push(c.r, c.g, c.b);
+        }
+      }
       g.dispose();
     }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
-    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    const g = new THREE.BufferGeometry(), all = { pos: [], nor: [], col: [], uv: [] };
+    let start = 0;
+    out.forEach((d, m) => {
+      const count = d.pos.length / 3;
+      if (count) g.addGroup(start, count, m);
+      start += count;
+      for (const k of Object.keys(all)) for (const v of d[k]) all[k].push(v);
+    });
+    g.setAttribute('position', new THREE.Float32BufferAttribute(all.pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(all.nor, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(all.col, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(all.uv, 2));
     return g;
   }
-  const wheelGeo = (r, w, driver) => mergeParts([
-    { shape: 'cylinder', size: [r, w], segments: 14, pos: [0, 0, 0], rot: [90, 0, 0], color: 'tyre' },
-    { shape: 'cylinder', size: [r * 0.56, w + 0.02], segments: 8, pos: [0, 0, 0], rot: [90, 0, 0], color: 'dark' },
-    { shape: 'box', size: [0.08, r * 0.82, w + 0.01], pos: [0, 0, 0], rot: [0, 0, 0], color: 'accent' },
-  ], driver);
+  // Wheel: textured tyre (its own mesh) + rim, wheel cover, accent ring and centre nut (merged parts).
+  const wheelParts = (r, w) => [
+    { shape: 'cylinder', size: [r * 0.63, w * 0.96], pos: [0, 0, 0], rot: [90, 0, 0], color: '#3a3d42', finish: 'metal', segments: 24 },
+    { shape: 'cylinder', size: [r * 0.6, w + 0.012], pos: [0, 0, 0], rot: [90, 0, 0], color: 'dark', finish: 'paint', segments: 24 },
+    { shape: 'torus', size: [r * 0.47, 0.012, 360], pos: [0, 0, w / 2 + 0.006], rot: [0, 0, 0], color: 'accent' },
+    { shape: 'torus', size: [r * 0.47, 0.012, 360], pos: [0, 0, -w / 2 - 0.006], rot: [0, 0, 0], color: 'accent' },
+    { shape: 'cylinder', size: [r * 0.12, w + 0.04], pos: [0, 0, 0], rot: [90, 0, 0], color: 'accent', finish: 'metal', segments: 6 },
+  ];
 
   function create(scene, driver, design) {
+    // per-car materials: the brake lights (brightness follows the brake) and the race number
+    const light = new THREE.MeshBasicMaterial({ color: LIGHT_OFF.clone() });
+    const decal = new THREE.MeshBasicMaterial({ map: numberTexture(driver.number ?? ''), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const glowMat = new THREE.MeshBasicMaterial({ map: glow, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0, fog: true });
+    let mats = MATS.quality;
+    const matList = () => [mats.paint, mats.carbon, mats.rubber, mats.metal, light, decal];
     const root = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BufferGeometry(), MATS.quality.body);
+    const body = new THREE.Mesh(new THREE.BufferGeometry(), matList());
     // steering wheel assembly: mount (position/tilt/scale from car.steering) → steering mesh (turns with input)
-    const mount = new THREE.Group(), steering = new THREE.Mesh(new THREE.BufferGeometry(), MATS.quality.body);
+    const mount = new THREE.Group(), steering = new THREE.Mesh(new THREE.BufferGeometry(), matList());
     mount.add(steering);
     const shadow = new THREE.Mesh(SHADOW_GEO, SHADOW_MAT); shadow.position.y = 0.04; shadow.renderOrder = 1;
     root.add(body, mount, shadow); scene.add(root);
-    let geo = null, wheelGeos = [], pivots = [], wheels = [], fronts = [], mats = MATS.quality, cockpitView = false, lock = 0;
+    let geo = null, wheelGeos = [], pivots = [], wheels = [], fronts = [], glows = [], cockpitView = false, lock = 0, lit = 0;
 
     function showView() {
       body.geometry = cockpitView ? geo.cockpit : geo.outside;
       steering.geometry = cockpitView ? geo.steerCockpit : geo.steerOutside;
+      for (const s of glows) s.visible = !cockpitView && lit > 0.02;
       if (screen) screen.visible = screenSpec.show === 'always' || screenSpec.show === (cockpitView ? 'cockpit' : 'outside');
     }
     // Optional live screen (player car only), fixed to the steering wheel: moves, tilts, scales and turns with it.
@@ -95,6 +132,7 @@ export const CarModels = (() => {
       if (geo) for (const g of Object.values(geo)) g.dispose();
       for (const g of wheelGeos) g.dispose();
       for (const p of pivots) root.remove(p);
+      for (const s of glows) root.remove(s);
       const pick = (steer, view) => parts.filter(p => !!p.steer === steer && (p.show === 'always' || p.show === view));
       geo = {
         outside: mergeParts(pick(false, 'outside'), driver), cockpit: mergeParts(pick(false, 'cockpit'), driver),
@@ -104,11 +142,19 @@ export const CarModels = (() => {
       mount.rotation.set(st.rot[0] * DEG, st.rot[1] * DEG, st.rot[2] * DEG);
       mount.scale.set(...st.scale.map(k => Math.max(0.05, k)));
       lock = st.lock * DEG;
+      // a glow behind every brake light, facing backwards (only seen from behind the car)
+      glows = parts.filter(p => !p.steer && finishOf(p) === 'light' && p.show !== 'off' && p.show !== 'cockpit').map(p => {
+        const s = new THREE.Mesh(GLOW_GEO, glowMat), k = Math.max(0.3, Math.max(...p.size.map(Math.abs)) * 3);
+        s.position.set(p.pos[0] - 0.04, p.pos[1], p.pos[2]); s.scale.set(k, k, 1); root.add(s); return s;
+      });
       wheelGeos = []; pivots = []; wheels = []; fronts = [];
       for (const w of wheelSpecs) {
-        const g = wheelGeo(w.radius, w.width, driver), pivot = new THREE.Group(), m = new THREE.Mesh(g, mats.wheel);
-        pivot.position.set(w.pos[0], w.pos[1], w.pos[2]); pivot.add(m); root.add(pivot);
-        wheelGeos.push(g); pivots.push(pivot); wheels.push(m); if (w.front) fronts.push(pivot);
+        const pivot = new THREE.Group(), spin = new THREE.Group();
+        const tg = tyreGeometry(w.radius, w.width), rg = mergeParts(wheelParts(w.radius, w.width), driver);
+        const tyreMesh = new THREE.Mesh(tg, mats.tyre), rimMesh = new THREE.Mesh(rg, matList());
+        tyreMesh.userData.tyre = true;
+        spin.add(tyreMesh, rimMesh); pivot.position.set(w.pos[0], w.pos[1], w.pos[2]); pivot.add(spin); root.add(pivot);
+        wheelGeos.push(tg, rg); pivots.push(pivot); wheels.push(spin); if (w.front) fronts.push(pivot);
       }
       placeScreen(); showView();
     }
@@ -116,17 +162,25 @@ export const CarModels = (() => {
 
     return {
       rebuild,
-      setMaterials(set) { mats = set; body.material = steering.material = set.body; for (const w of wheels) w.material = set.wheel; },
+      setMaterials(set) {
+        mats = set; body.material = matList(); steering.material = matList();
+        for (const w of wheels) for (const m of w.children) m.material = m.userData.tyre ? set.tyre : matList();
+      },
       useCockpitView(on) { if (on !== cockpitView) { cockpitView = on; showView(); } },
       mountScreen(mesh) { screen = mesh; placeScreen(); showView(); },
       place(x, z, h) { root.position.set(x, 0, z); root.rotation.y = -h; },
       setVisible(on) { root.visible = on; },
-      // copy interpolated sim state (rx/rz/rh) onto the mesh
-      sync(car) {
+      // copy interpolated sim state (rx/rz/rh) onto the mesh; brake lights fade in and out over ~0.1 s
+      sync(car, dt = 1 / 60) {
         this.place(car.rx, car.rz, car.rh);
         for (const w of wheels) w.rotation.z = -car.roll;
         for (const p of fronts) p.rotation.y = -car.steer * FRONT_STEER;
         steering.rotation.x = car.steer * lock;          // + steer (right) turns the wheel clockwise from the driver's seat
+        const want = car.brake > 0.05 ? Math.min(1, 0.6 + car.brake) : 0;
+        lit += (want - lit) * Math.min(1, dt * (want > lit ? 30 : 12));
+        light.color.copy(LIGHT_OFF).lerp(LIGHT_ON, lit);
+        glowMat.opacity = lit * 0.9;
+        for (const s of glows) s.visible = !cockpitView && lit > 0.02;
       },
     };
   }
