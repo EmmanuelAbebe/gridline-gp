@@ -35,11 +35,15 @@ export const Design = (() => {
       }
       if (isObj(s.car.screen)) delete s.car.screen.steer;
     }
-    if (v < 4 && isObj(s.car)) {
-      // v4: the curved F1 body replaced the box car; keep only the player's steering wheel (and its settings)
+    if (v < 5 && isObj(s.car)) {
+      // v4: the curved F1 body replaced the box car; v5: hollow cockpit view, halo in the cockpit, the wheel 27 cm
+      // closer (the driver's arms reach it). Body parts and wheels come from the defaults; the player's steering
+      // wheel parts and settings are kept (an untouched wheel position moves closer).
       const mine = Array.isArray(s.car.parts) ? s.car.parts.filter(p => isObj(p) && p.steer) : [];
       s.car.parts = DESIGN_DEFAULTS.car.parts.filter(p => !p.steer).concat(mine.length ? mine : DESIGN_DEFAULTS.car.parts.filter(p => p.steer));
       delete s.car.wheels;
+      const st = s.car.steering;
+      if (isObj(st) && Array.isArray(st.pivot) && Math.abs(st.pivot[0] - 0.45) < 1e-6) st.pivot[0] = DESIGN_DEFAULTS.car.steering.pivot[0];
     }
     s.version = DESIGN_DEFAULTS.version;
     return s;

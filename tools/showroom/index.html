@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Gridline GP car showroom</title>
 <style>html,body{margin:0;height:100%;background:#a8cbe6}canvas{display:block;width:100%;height:100%}
-#lbl{position:fixed;inset:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);pointer-events:none;font:600 14px sans-serif;color:#102030}
+#lbl{position:fixed;inset:0;display:grid;grid-auto-flow:row;grid-template-columns:var(--cols,repeat(3,1fr));grid-template-rows:var(--rows,repeat(2,1fr));pointer-events:none;font:600 14px sans-serif;color:#102030}
 #lbl span{padding:6px 10px}</style>
 <script type="module" src="./showroom.js"></script></head>
 <body><canvas id="c"></canvas><div id="lbl"></div></body></html>

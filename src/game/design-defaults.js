@@ -10,7 +10,7 @@ const mirrorZ = p => ({ ...p, name: p.name.replace(/R(\d?)$/, 'L$1'), pos: [p.po
 const withMirrors = parts => parts.flatMap(p => /R\d?$/.test(p.name) && !p.steer ? [p, mirrorZ(p)] : [p]);
 
 export const DESIGN_DEFAULTS = {
-  version: 4,
+  version: 5,
   // Camera modes, cycled with C / Y. back/side/height/ahead/lookY are metres relative to the car.
   // k = follow stiffness, rigid = no smoothing, cockpitBody = player car shows its cockpit-view parts.
   cameras: [
@@ -85,8 +85,8 @@ export const DESIGN_DEFAULTS = {
       // driver, halo, mirrors
       { name: 'helmet', shape: 'sphere', size: [0.135], pos: [-0.28, 0.8, 0], color: 'accent', show: 'outside' },
       { name: 'visor', shape: 'torus', size: [0.125, 0.026, 130], pos: [-0.28, 0.825, 0], rot: [90, 0, -65], color: '#101215', finish: 'metal', show: 'outside' },
-      { name: 'halo', shape: 'torus', size: [0.4, 0.028, 260], pos: [0.04, 0.96, 0], rot: [90, 0, -130], color: 'dark', show: 'outside' },
-      { name: 'halo pillar', shape: 'rod', size: [-0.07, 0.24, 0], radius: 0.03, pos: [0.51, 0.72, 0], color: 'dark', show: 'outside' },
+      { name: 'halo', shape: 'torus', size: [0.4, 0.028, 260], pos: [0.04, 0.96, 0], rot: [90, 0, -130], color: 'dark' },
+      { name: 'halo pillar', shape: 'rod', size: [-0.07, 0.24, 0], radius: 0.03, pos: [0.51, 0.72, 0], color: 'dark' },
       { name: 'halo mount R', shape: 'rod', size: [0.02, 0.28, 0.0], radius: 0.022, pos: [-0.24, 0.68, 0.31], color: 'dark', show: 'outside' },
       { name: 'mirror R', shape: 'rounded', size: [0.07, 0.06, 0.16], radius: 0.02, pos: [0.62, 0.8, 0.5], color: 'body' },
       { name: 'mirror glass R', shape: 'box', size: [0.004, 0.045, 0.14], pos: [0.584, 0.8, 0.5], color: '#9fb0c0', finish: 'metal' },
@@ -124,7 +124,7 @@ export const DESIGN_DEFAULTS = {
     ],
     // the steering wheel as one unit (every steer part + the screen): pivot = its centre in car space,
     // rot = degrees (z + leans the top toward the driver), scale = [x, y, z] stretch, lock = degrees turned at full input
-    steering: { pivot: [0.45, 0.675, 0], rot: [0, 0, 0], scale: [1, 1, 1], lock: 90 },
+    steering: { pivot: [0.18, 0.675, 0], rot: [0, 0, 0], scale: [1, 1, 1], lock: 90 },
     // live screen (rev lights, speed, gear), fixed to the player's steering wheel: pos/rot relative to the wheel
     // centre, size = [width, height] in metres
     screen: { show: 'cockpit', pos: [-0.0255, 0.017, 0], rot: [0, -90, 0], size: [0.088, 0.052] },

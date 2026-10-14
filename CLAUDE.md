@@ -8,7 +8,7 @@ which shows up in the browser as a virtual Xbox 360 controller.
 Turning the prototype into a production-grade game. Agreed order: (1) foundation [done: modules, Vite, tests],
 (2) sim-cade physics in 4 parts: [done] engine/gearbox/downforce/slipstream; [done] tyre + chassis model;
 [done] AI on the same chassis (racing line, racecraft, mistakes, difficulty); tuning screen (downforce, grip, power, brake balance), (3) merge the Phone-wheel project into this one (server inside Electron,
-pairing from the settings menu, vibration + rev lights on the phone), (4) car/world visuals: [done 2026-10-14] brake lights, cockpit view (eye 0.77 m, wheel 0.675 m: the user's own settings),
+pairing from the settings menu, vibration + rev lights on the phone), (4) car/world visuals: [done 2026-10-14] brake lights, cockpit view (user's seat: eye 0.33 m back / 0.77 m high, wheel 0.675 m high; wheel at x 0.18 so the arms reach it, halo visible, driver's arms/legs),
 F1-style curved car with textures; still to do: crash physics, scenery, (5) HUD, menus, presentation.
 
 ## Files
@@ -27,8 +27,8 @@ F1-style curved car with textures; still to do: crash physics, scenery, (5) HUD,
   ANGLE-on-Vulkan switches (they corrupt rendering on the RX 9060 XT). Preload exposes `window.gridlineApp`
   {quit, toggleFullscreen, isFullscreen, onFullscreen}; the page's `AppShell` uses it (quit buttons `[data-quit]`
   only appear in the app). `--smoke-test=out.png` renders offscreen in a throwaway profile (default setup, 10 cars;
-  never touches the player's saved settings), screenshots the menu and a running race
-  (`out-race.png`), checks the race clock, clicks full screen + quit, prints JSON. Window class `gridline-gp`.
+  never touches the player's saved settings), screenshots the menu, a running race
+  (`out-race.png`) and the cockpit view steering right (`out-cockpit.png`), checks the race clock, clicks full screen + quit, prints JSON. Window class `gridline-gp`.
   Electron's localStorage is separate from Chrome's (export/import designs to move them).
 - `gridline.sh`: launches the app, rebuilding first when src/index.html/public is newer than dist
   (`--windowed`, `--vulkan`); `--install`/`--uninstall` manage ~/.local/share/applications/gridline-gp.desktop.
@@ -145,7 +145,10 @@ Tunables live in data tables (config modules), not inline in the logic.
      `decal` (race number, `DRIVERS[].number`). Wheels: lathe tyre with rounded shoulders + sidewall texture,
      rim + wheel cover. Brake lights (finish `light`: rain light + endplate strips) brighten with `car.brake`
      (fade ~0.1 s) with a rear-facing additive glow. Model API `sync(car, dt)`, `place`, `useCockpitView`,
-     `setMaterials`. Dev tool: `npm run car-shot -- out.png [driver=MAR&brake=0&part=wing]` renders
+     `setMaterials`, `setPedals(thr, brk)`. Cockpit view (player): own nose-to-bulkhead monocoque + open cockpit sides
+     (parts with show: cockpit), and `driver-body.js` (lazy, cockpit view only): torso, arms solved by two-bone IK to
+     the wheel grips every frame (follow the steering), legs to the pedals (right foot = throttle, left = brake).
+     Dev tool: `npm run car-shot -- out.png [driver=MAR&brake=0&part=wing]` renders
      `tools/showroom/` (six views) offscreen via Electron + Vite.
    - `CameraRig` (reads `Design.data.cameras` live), `createMinimap` (cached track canvas, dots at 30 Hz),
      `Hud` (cached DOM writes), `Screens` (overlays + start-menu controls).
@@ -159,9 +162,9 @@ Tunables live in data tables (config modules), not inline in the logic.
      `car.screen` are positioned relative to the wheel centre; `car.steering` = { pivot (centre in car space),
      rot [x,y,z]°, scale [x,y,z], lock° }. Model: root → mount (pivot/rot/scale) → steering mesh (turns with
      input) → screen (always fixed to the wheel). Panel shows wheel width/height in metres via
-     `CarModels.measure` (natural size × scale). Design format v4; `migrate()` converts v1 (car-space steer
-     parts), v2 (tilt/uniform scale/screen.steer) and v3 (box car: body parts and wheels replaced by the new defaults,
-     the player's steering-wheel parts kept). Parts named "… R" get a mirrored "… L" twin (`withMirrors`).
+     `CarModels.measure` (natural size × scale). Design format v5; `migrate()` converts v1 (car-space steer
+     parts), v2 (tilt/uniform scale/screen.steer) and v3/v4 (body parts and wheels replaced by the new defaults, the
+     player's steering-wheel parts and settings kept; an untouched wheel x 0.45 moves to 0.18). Parts named "… R" get a mirrored "… L" twin (`withMirrors`).
      Shapes: box, rounded (extruded rounded rectangle, `radius`), sphere, cylinder, torus, loft, wing, rod, decal; optional `finish`.
    - `WheelScreen`: canvas texture on the player's steering wheel (top rev lights, middle speed, bottom gear),
      placed by `car.screen` (pos/rot relative to the wheel, size in metres, show), redrawn ≤ 30 Hz only when visible and values change.

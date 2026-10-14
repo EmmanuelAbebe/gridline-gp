@@ -26,24 +26,28 @@ const sun = new THREE.DirectionalLight(0xfff0d4, 0.95); sun.position.set(-300, 5
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: COLORS.asphalt[0] }));
 scene.add(ground);
 const model = CarModels.create(scene, driver, design);
-const brake = q.get('brake') === '0' ? 0 : 1;
-for (let i = 0; i < 30; i++) model.sync({ rx: 0, rz: 0, rh: 0, roll: 0.6, steer: 0.25, brake }, 1 / 30);
+const brake = q.get('brake') === '0' ? 0 : 1, steer = q.get('steer') ? +q.get('steer') : 0.25;
+const pose = () => { model.setPedals(1 - brake, brake); for (let i = 0; i < 30; i++) model.sync({ rx: 0, rz: 0, rh: 0, roll: 0.6, steer, brake }, 1 / 30); };
+pose();
 
 // car space: +x forward, +z right; the car sits at the origin facing +x
 const views = [
   ['front 3/4', [5.2, 2.0, 3.8], [0.4, 0.4, 0]], ['rear 3/4 (braking)', [-5.4, 2.0, -3.6], [-0.4, 0.5, 0]], ['side', [0, 0.9, 7.5], [0.3, 0.5, 0]],
   ['top', [0.2, 9, 0.01], [0.2, 0, 0]], ['front', [7, 0.8, 0], [0, 0.45, 0]], ['cockpit', [-eyeBack, eyeH, 0], [30, 0.8, 0]],
+  ['driver (cockpit parts, from the side)', [0.2, 1.6, 3.2], [0.1, 0.5, 0]],
 ];
-const only = q.get('cockpit') ? views.filter(v => v[0] === 'cockpit') : views;
-const W = innerWidth / (only.length > 1 ? 3 : 1), H = innerHeight / (only.length > 1 ? 2 : 1);
+const only = q.get('cockpit') ? views.filter(v => v[0].startsWith('cockpit') || v[0].startsWith('driver')) : views.slice(0, 6);
+const cols = only.length > 2 ? 3 : only.length, W = innerWidth / cols, H = innerHeight / (only.length > 3 ? 2 : 1);
 only.forEach(([name, eye, at], i) => {
   const cam = new THREE.PerspectiveCamera(name === 'cockpit' ? 56 : 32, W / H, name === 'cockpit' ? 0.12 : 0.1, 200);
-  if (name === 'cockpit') model.useCockpitView(true); else model.useCockpitView(false);
+  model.useCockpitView(name === 'cockpit' || name.startsWith('driver')); pose();
   cam.position.set(...eye); cam.lookAt(...at);
   if (name === 'cockpit') { cam.near = cockpitCam.near; cam.fov = cockpitCam.fov; cam.updateProjectionMatrix(); cam.lookAt(-eyeBack + cockpitCam.ahead, cockpitCam.lookY, 0); }
-  const x = (i % 3) * W, y = innerHeight - (Math.floor(i / 3) + 1) * H;
+  const x = (i % cols) * W, y = innerHeight - (Math.floor(i / cols) + 1) * H;
   renderer.setViewport(x, y, W, H); renderer.setScissor(x, y, W, H);
   renderer.render(scene, cam);
   const s = document.createElement('span'); s.textContent = name; document.getElementById('lbl').append(s);
 });
+const lbl = document.getElementById('lbl').style;
+lbl.setProperty('--cols', `repeat(${cols}, 1fr)`); lbl.setProperty('--rows', `repeat(${only.length > 3 ? 2 : 1}, 1fr)`);
 document.title = 'ready';

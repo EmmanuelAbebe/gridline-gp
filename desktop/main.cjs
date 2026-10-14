@@ -79,6 +79,12 @@ async function smokeTest(win) {
     lapTime: document.getElementById('tCur').textContent, position: document.getElementById('pos').textContent,
     cars: document.querySelectorAll('#towerList > *').length })`);
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-race.png'), (await win.webContents.capturePage()).toPNG());
+  // cockpit camera (C), steering held right for a moment: the driver's arms and the wheel screen
+  await win.webContents.executeJavaScript(`document.getElementById('camBtn').click();
+    addEventListener('keydown', () => {}); dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyD', key: 'd' }))`);
+  await new Promise(r => setTimeout(r, 700));
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-cockpit.png'), (await win.webContents.capturePage()).toPNG());
+  await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyD', key: 'd' }))`);
   await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click()`);
   // exercise the bridge the way a player would: full-screen button, then the quit button (which must end the app)
   await win.webContents.executeJavaScript(`document.getElementById('fullStartBtn').click()`);

@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { COLORS } from './config.js';
 import { SHAPES, SIGNED_SIZE, OWN_UV, tyreGeometry } from './car-shapes.js';
+import { createDriverBody } from './driver-body.js';
 import { carbonTexture, tyreTexture, skyEnvironment, glowTexture, numberTexture } from './car-textures.js';
 
 // Built from Design.data.car. Per car: fixed parts merged into one mesh with a group per finish (paint, carbon,
 // rubber, metal, light, decal), parts that turn with the steering in a second mesh, one mesh per wheel, brake-light
-// glows and a blob shadow. In cameras with `cockpitBody` the player car switches to its cockpit-view parts
+// glows and a blob shadow. The player's cockpit view adds the driver's arms and legs (driver-body.js). In cameras with `cockpitBody` the player car switches to its cockpit-view parts
 // (show: always + cockpit) instead of the outside ones (always + outside).
 export const CarModels = (() => {
   // finish order = material index. A part's finish defaults from its colour role (dark → carbon, tyre → rubber).
@@ -109,11 +110,15 @@ export const CarModels = (() => {
     const shadow = new THREE.Mesh(SHADOW_GEO, SHADOW_MAT); shadow.position.y = 0.04; shadow.renderOrder = 1;
     root.add(body, mount, shadow); scene.add(root);
     let geo = null, wheelGeos = [], pivots = [], wheels = [], fronts = [], glows = [], cockpitView = false, lock = 0, lit = 0;
+    let driverBody = null, grips = [], pedals = [0, 0];
+    const hands = [new THREE.Vector3(), new THREE.Vector3()];
 
     function showView() {
       body.geometry = cockpitView ? geo.cockpit : geo.outside;
       steering.geometry = cockpitView ? geo.steerCockpit : geo.steerOutside;
       for (const s of glows) s.visible = !cockpitView && lit > 0.02;
+      if (cockpitView && !driverBody) { driverBody = createDriverBody(driver); root.add(driverBody.group); }
+      if (driverBody) driverBody.group.visible = cockpitView;
       if (screen) screen.visible = screenSpec.show === 'always' || screenSpec.show === (cockpitView ? 'cockpit' : 'outside');
     }
     // Optional live screen (player car only), fixed to the steering wheel: moves, tilts, scales and turns with it.
@@ -142,6 +147,11 @@ export const CarModels = (() => {
       mount.rotation.set(st.rot[0] * DEG, st.rot[1] * DEG, st.rot[2] * DEG);
       mount.scale.set(...st.scale.map(k => Math.max(0.05, k)));
       lock = st.lock * DEG;
+      // where the hands go: the grips (relative to the wheel centre), else either side of it
+      grips = [['R', 0.135], ['L', -0.135]].map(([side, z]) => {
+        const g = parts.find(p => p.steer && p.show !== 'off' && /grip/i.test(p.name) && p.name.endsWith(side));
+        return new THREE.Vector3(...(g ? g.pos : [0, 0, z]));
+      });
       // a glow behind every brake light, facing backwards (only seen from behind the car)
       glows = parts.filter(p => !p.steer && finishOf(p) === 'light' && p.show !== 'off' && p.show !== 'cockpit').map(p => {
         const s = new THREE.Mesh(GLOW_GEO, glowMat), k = Math.max(0.3, Math.max(...p.size.map(Math.abs)) * 3);
@@ -167,6 +177,7 @@ export const CarModels = (() => {
         for (const w of wheels) for (const m of w.children) m.material = m.userData.tyre ? set.tyre : matList();
       },
       useCockpitView(on) { if (on !== cockpitView) { cockpitView = on; showView(); } },
+      setPedals(thr, brk) { pedals[0] = thr; pedals[1] = brk; },
       mountScreen(mesh) { screen = mesh; placeScreen(); showView(); },
       place(x, z, h) { root.position.set(x, 0, z); root.rotation.y = -h; },
       setVisible(on) { root.visible = on; },
@@ -181,6 +192,11 @@ export const CarModels = (() => {
         light.color.copy(LIGHT_OFF).lerp(LIGHT_ON, lit);
         glowMat.opacity = lit * 0.9;
         for (const s of glows) s.visible = !cockpitView && lit > 0.02;
+        if (cockpitView && driverBody) {
+          root.updateMatrixWorld(true);
+          for (let i = 0; i < 2; i++) root.worldToLocal(hands[i].copy(grips[i]).applyMatrix4(steering.matrixWorld));
+          driverBody.update(hands, pedals[0], pedals[1], dt);
+        }
       },
     };
   }
