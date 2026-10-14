@@ -1,5 +1,6 @@
 // Development showroom: one car from six angles (npm run car-shot, or open /tools/showroom/ on the dev server).
-// ?driver=VOS picks the livery, ?brake=0 turns the brake lights off, ?part=name shows only parts whose name matches.
+// ?driver=VOS picks the livery, ?brake=0 turns the brake lights off, ?part=name shows only parts whose name matches,
+// ?eye=back,height moves the cockpit camera, ?wheel=y sets the steering wheel height, ?cockpit=1 shows only the cockpit view.
 import * as THREE from 'three';
 import { SIM } from '../../src/sim/index.js';
 import { CarModels } from '../../src/game/car-models.js';
@@ -10,6 +11,9 @@ const q = new URLSearchParams(location.search);
 const driver = SIM.DRIVERS.find(d => d.code === (q.get('driver') || 'VOS')) || SIM.DRIVERS[0];
 const design = JSON.parse(JSON.stringify(DESIGN_DEFAULTS.car));
 for (const p of design.parts) { p.rot = p.rot || [0, 0, 0]; p.show = p.show || 'always'; }
+if (q.get('wheel')) design.steering.pivot[1] = +q.get('wheel');
+const cockpitCam = DESIGN_DEFAULTS.cameras.find(c => c.id === 'cockpit');
+const [eyeBack, eyeH] = q.get('eye') ? q.get('eye').split(',').map(Number) : [cockpitCam.back, cockpitCam.height];
 if (q.get('part')) design.parts = design.parts.filter(p => p.name.includes(q.get('part')));
 
 const canvas = document.getElementById('c');
@@ -28,13 +32,15 @@ for (let i = 0; i < 30; i++) model.sync({ rx: 0, rz: 0, rh: 0, roll: 0.6, steer:
 // car space: +x forward, +z right; the car sits at the origin facing +x
 const views = [
   ['front 3/4', [5.2, 2.0, 3.8], [0.4, 0.4, 0]], ['rear 3/4 (braking)', [-5.4, 2.0, -3.6], [-0.4, 0.5, 0]], ['side', [0, 0.9, 7.5], [0.3, 0.5, 0]],
-  ['top', [0.2, 9, 0.01], [0.2, 0, 0]], ['front', [7, 0.8, 0], [0, 0.45, 0]], ['cockpit', [-0.12, 1.08, 0], [30, 0.8, 0]],
+  ['top', [0.2, 9, 0.01], [0.2, 0, 0]], ['front', [7, 0.8, 0], [0, 0.45, 0]], ['cockpit', [-eyeBack, eyeH, 0], [30, 0.8, 0]],
 ];
-const W = innerWidth / 3, H = innerHeight / 2;
-views.forEach(([name, eye, at], i) => {
+const only = q.get('cockpit') ? views.filter(v => v[0] === 'cockpit') : views;
+const W = innerWidth / (only.length > 1 ? 3 : 1), H = innerHeight / (only.length > 1 ? 2 : 1);
+only.forEach(([name, eye, at], i) => {
   const cam = new THREE.PerspectiveCamera(name === 'cockpit' ? 56 : 32, W / H, name === 'cockpit' ? 0.12 : 0.1, 200);
   if (name === 'cockpit') model.useCockpitView(true); else model.useCockpitView(false);
   cam.position.set(...eye); cam.lookAt(...at);
+  if (name === 'cockpit') { cam.near = cockpitCam.near; cam.fov = cockpitCam.fov; cam.updateProjectionMatrix(); cam.lookAt(-eyeBack + cockpitCam.ahead, cockpitCam.lookY, 0); }
   const x = (i % 3) * W, y = innerHeight - (Math.floor(i / 3) + 1) * H;
   renderer.setViewport(x, y, W, H); renderer.setScissor(x, y, W, H);
   renderer.render(scene, cam);

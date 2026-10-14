@@ -8,7 +8,7 @@ which shows up in the browser as a virtual Xbox 360 controller.
 Turning the prototype into a production-grade game. Agreed order: (1) foundation [done: modules, Vite, tests],
 (2) sim-cade physics in 4 parts: [done] engine/gearbox/downforce/slipstream; [done] tyre + chassis model;
 [done] AI on the same chassis (racing line, racecraft, mistakes, difficulty); tuning screen (downforce, grip, power, brake balance), (3) merge the Phone-wheel project into this one (server inside Electron,
-pairing from the settings menu, vibration + rev lights on the phone), (4) car/world visuals: [done 2026-10-14] brake lights,
+pairing from the settings menu, vibration + rev lights on the phone), (4) car/world visuals: [done 2026-10-14] brake lights, cockpit view (eye 0.77 m, wheel 0.675 m: the user's own settings),
 F1-style curved car with textures; still to do: crash physics, scenery, (5) HUD, menus, presentation.
 
 ## Files

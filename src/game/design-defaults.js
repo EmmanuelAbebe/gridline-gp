@@ -15,7 +15,7 @@ export const DESIGN_DEFAULTS = {
   // k = follow stiffness, rigid = no smoothing, cockpitBody = player car shows its cockpit-view parts.
   cameras: [
     { id: 'chase',   label: 'Chase',   back: 9.5,  side: 0, height: 3.3,  ahead: 7,  lookY: 1.1, k: 7,  near: 0.5,  fov: 60, fovGain: 14, lean: 0,     rigid: false, cockpitBody: false },
-    { id: 'cockpit', label: 'Cockpit', back: 0.12, side: 0, height: 1.08, ahead: 30, lookY: 0.8, k: 30, near: 0.12, fov: 56, fovGain: 10, lean: 0.035, rigid: true,  cockpitBody: true },
+    { id: 'cockpit', label: 'Cockpit', back: 0.33, side: 0, height: 0.77, ahead: 30, lookY: 0.8, k: 30, near: 0.12, fov: 56, fovGain: 10, lean: 0.035, rigid: true,  cockpitBody: true },
     { id: 'high',    label: 'High',    back: 16,   side: 0, height: 7,    ahead: 10, lookY: 0.5, k: 4,  near: 0.5,  fov: 60, fovGain: 14, lean: 0,     rigid: false, cockpitBody: false },
   ],
   car: {
@@ -30,25 +30,33 @@ export const DESIGN_DEFAULTS = {
     //   the wheel and turns with the steering input.  Omitted fields: rot [0,0,0], show always, steer false.
     parts: withMirrors([
       // survival cell from the nose tip to the rear crash structure (rain light on its end)
-      { name: 'monocoque', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'body', sections: [
+      { name: 'monocoque', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'body', show: 'outside', sections: [
         [3.3, 0.25, 0.07, 0.05, 2.2], [3.0, 0.28, 0.11, 0.075, 2.4], [2.5, 0.34, 0.16, 0.11, 2.6], [2.0, 0.42, 0.21, 0.15, 2.8],
         [1.5, 0.47, 0.26, 0.19, 3], [1.0, 0.5, 0.31, 0.22, 3.2], [0.6, 0.5, 0.36, 0.24, 3.4], [0.0, 0.45, 0.4, 0.2, 3.6],
         [-0.4, 0.45, 0.4, 0.21, 3.6], [-0.8, 0.42, 0.34, 0.2, 3.2], [-1.3, 0.38, 0.25, 0.16, 3], [-1.9, 0.36, 0.15, 0.12, 2.6],
         [-2.3, 0.38, 0.08, 0.08, 2.2]] },
+      // cockpit view: the same nose up to the front bulkhead, open sides around the driver
+      { name: 'monocoque (cockpit view)', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'body', show: 'cockpit', sections: [
+        [3.3, 0.25, 0.07, 0.05, 2.2], [3.0, 0.28, 0.11, 0.075, 2.4], [2.5, 0.34, 0.16, 0.11, 2.6], [2.0, 0.42, 0.21, 0.15, 2.8],
+        [1.5, 0.47, 0.26, 0.19, 3], [1.0, 0.5, 0.31, 0.22, 3.2], [0.6, 0.5, 0.36, 0.24, 3.4], [0.52, 0.5, 0.36, 0.24, 3.4]] },
+      { name: 'front bulkhead', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: '#0d0e10', finish: 'rubber', show: 'cockpit', sections: [
+        [0.521, 0.49, 0.33, 0.22, 3.4], [0.5, 0.49, 0.33, 0.22, 3.4]] },
+      { name: 'cockpit side R', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'body', show: 'cockpit', sections: [
+        [0.55, 0.52, 0.05, 0.2, 3, 0.31], [0.1, 0.5, 0.06, 0.2, 3, 0.33], [-0.45, 0.5, 0.06, 0.19, 3, 0.31]] },
       { name: 'nose tip', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'accent', sections: [
         [3.36, 0.248, 0.035, 0.022, 2], [3.32, 0.25, 0.06, 0.042, 2.2], [3.2, 0.26, 0.085, 0.058, 2.3], [3.05, 0.272, 0.103, 0.07, 2.4]] },
-      { name: 'cockpit opening', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', sections: [
-        [0.52, 0.705, 0.17, 0.035, 3], [0.3, 0.68, 0.25, 0.035, 3], [-0.15, 0.665, 0.27, 0.035, 3], [-0.42, 0.67, 0.22, 0.035, 3]] },
+      { name: 'cockpit opening', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', show: 'outside', sections: [
+        [0.52, 0.705, 0.17, 0.035, 3], [0.3, 0.68, 0.25, 0.035, 3], [-0.15, 0.665, 0.27, 0.035, 3], [-0.5, 0.67, 0.22, 0.035, 3]] },
       { name: 'engine cover', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'body', sections: [
-        [-0.3, 0.62, 0.2, 0.28, 2.8], [-0.55, 0.64, 0.25, 0.3, 3], [-0.9, 0.62, 0.25, 0.27, 3], [-1.35, 0.56, 0.2, 0.21, 2.8],
+        [-0.45, 0.62, 0.2, 0.28, 2.8], [-0.68, 0.64, 0.25, 0.3, 3], [-0.95, 0.62, 0.25, 0.27, 3], [-1.35, 0.56, 0.2, 0.21, 2.8],
         [-1.85, 0.5, 0.12, 0.15, 2.4], [-2.2, 0.46, 0.05, 0.08, 2.2]] },
       { name: 'airbox', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'body', sections: [
-        [-0.29, 0.98, 0.1, 0.17, 2.4], [-0.6, 0.96, 0.11, 0.16, 2.4], [-1.0, 0.86, 0.08, 0.12, 2.4], [-1.45, 0.74, 0.03, 0.06, 2.2]] },
+        [-0.44, 0.98, 0.1, 0.17, 2.4], [-0.72, 0.96, 0.11, 0.16, 2.4], [-1.05, 0.86, 0.08, 0.12, 2.4], [-1.45, 0.74, 0.03, 0.06, 2.2]] },
       { name: 'airbox inlet', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', sections: [
-        [-0.28, 1.03, 0.065, 0.075, 2.4], [-0.31, 1.03, 0.065, 0.075, 2.4]] },
+        [-0.43, 1.03, 0.065, 0.075, 2.4], [-0.46, 1.03, 0.065, 0.075, 2.4]] },
       { name: 'shark fin', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'body', sections: [
         [-0.95, 0.95, 0.008, 0.06, 6], [-1.3, 0.86, 0.01, 0.1, 6], [-1.7, 0.78, 0.01, 0.12, 6], [-1.98, 0.72, 0.008, 0.1, 6]] },
-      { name: 'camera pod', shape: 'rounded', size: [0.16, 0.05, 0.11], radius: 0.02, pos: [-0.47, 1.16, 0], color: 'accent' },
+      { name: 'camera pod', shape: 'rounded', size: [0.16, 0.05, 0.11], radius: 0.02, pos: [-0.62, 1.16, 0], color: 'accent' },
       { name: 'sidepod R', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'body', sections: [
         [0.42, 0.47, 0.13, 0.14, 3.2, 0.52], [0.2, 0.47, 0.2, 0.17, 3.4, 0.55], [-0.3, 0.45, 0.22, 0.18, 3.4, 0.55],
         [-0.8, 0.4, 0.18, 0.15, 3, 0.5], [-1.3, 0.32, 0.12, 0.1, 2.6, 0.42], [-1.75, 0.25, 0.05, 0.05, 2.2, 0.3]] },
@@ -75,11 +83,11 @@ export const DESIGN_DEFAULTS = {
       { name: 'rain light', shape: 'box', size: [0.03, 0.065, 0.12], pos: [-2.31, 0.38, 0], color: '#ff2a18', finish: 'light' },
       { name: 'endplate light R', shape: 'box', size: [0.02, 0.2, 0.024], pos: [-2.47, 0.9, 0.515], color: '#ff2a18', finish: 'light' },
       // driver, halo, mirrors
-      { name: 'helmet', shape: 'sphere', size: [0.135], pos: [-0.1, 0.84, 0], color: 'accent', show: 'outside' },
-      { name: 'visor', shape: 'torus', size: [0.125, 0.026, 130], pos: [-0.1, 0.865, 0], rot: [90, 0, -65], color: '#101215', finish: 'metal', show: 'outside' },
-      { name: 'halo', shape: 'torus', size: [0.36, 0.028, 230], pos: [0.08, 0.96, 0], rot: [90, 0, -115], color: 'dark', show: 'outside' },
+      { name: 'helmet', shape: 'sphere', size: [0.135], pos: [-0.28, 0.8, 0], color: 'accent', show: 'outside' },
+      { name: 'visor', shape: 'torus', size: [0.125, 0.026, 130], pos: [-0.28, 0.825, 0], rot: [90, 0, -65], color: '#101215', finish: 'metal', show: 'outside' },
+      { name: 'halo', shape: 'torus', size: [0.4, 0.028, 260], pos: [0.04, 0.96, 0], rot: [90, 0, -130], color: 'dark', show: 'outside' },
       { name: 'halo pillar', shape: 'rod', size: [-0.07, 0.24, 0], radius: 0.03, pos: [0.51, 0.72, 0], color: 'dark', show: 'outside' },
-      { name: 'halo mount R', shape: 'rod', size: [0.02, 0.26, 0.02], radius: 0.022, pos: [-0.22, 0.68, 0.29], color: 'dark', show: 'outside' },
+      { name: 'halo mount R', shape: 'rod', size: [0.02, 0.28, 0.0], radius: 0.022, pos: [-0.24, 0.68, 0.31], color: 'dark', show: 'outside' },
       { name: 'mirror R', shape: 'rounded', size: [0.07, 0.06, 0.16], radius: 0.02, pos: [0.62, 0.8, 0.5], color: 'body' },
       { name: 'mirror glass R', shape: 'box', size: [0.004, 0.045, 0.14], pos: [0.584, 0.8, 0.5], color: '#9fb0c0', finish: 'metal' },
       { name: 'mirror stalk R', shape: 'rod', size: [0.06, 0.13, 0.12], radius: 0.012, pos: [0.56, 0.66, 0.37], color: 'dark' },
@@ -116,7 +124,7 @@ export const DESIGN_DEFAULTS = {
     ],
     // the steering wheel as one unit (every steer part + the screen): pivot = its centre in car space,
     // rot = degrees (z + leans the top toward the driver), scale = [x, y, z] stretch, lock = degrees turned at full input
-    steering: { pivot: [0.45, 0.86, 0], rot: [0, 0, 0], scale: [1, 1, 1], lock: 90 },
+    steering: { pivot: [0.45, 0.675, 0], rot: [0, 0, 0], scale: [1, 1, 1], lock: 90 },
     // live screen (rev lights, speed, gear), fixed to the player's steering wheel: pos/rot relative to the wheel
     // centre, size = [width, height] in metres
     screen: { show: 'cockpit', pos: [-0.0255, 0.017, 0], rot: [0, -90, 0], size: [0.088, 0.052] },
