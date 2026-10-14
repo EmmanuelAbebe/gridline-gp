@@ -100,6 +100,13 @@ Tunables live in data tables (config modules), not inline in the logic.
      → `c.mistake` share too fast for `length` m (never with skillOverride). Pointing the wrong way → full lock at
      recoverSpeed. Tests: tests/ai.test.js. Solo fastest-rival laps: pace 0.8 ≈ 36 s, 0.88 ≈ 34, 0.95 ≈ 32.9,
      1.03 ≈ 32.1 (user's best ≈ 33.0 s on 2026-10-13, before the new AI).
+   - Track limits (`LIMITS`, race.js `updateLimits`, run in afterMove): a cut = whole car (|lat| − halfWidth 1.1)
+     past the edge (HW + KERB where kerbed, else HW) on the inside of a corner (`track.CK` = strongest K within ±20
+     samples, > KERB_K) for ≥ cutDist 5 m of track. Each cut: EV.CUT, `c.lapInvalid` (lap can't be best/fastest;
+     `c.lastLapInvalid` after the line); after `warnings` 2, each cut adds `penalty` 2 s to `c.penalty` (EV.PENALTY).
+     Running wide (outside) is never a cut. Classification and finished gaps use `raceTime(c)` = finishTime +
+     penalty. Game: warning/penalty toasts, current/last lap time struck through red when invalid, results show
+     "+N s pen". Tests: tests/limits.test.js.
    - Race formats: `createRace(format, { track, drivers, aiPace = 1 })`, format = number (laps) or { type: 'laps', laps } |
      { type: 'timed', minutes } | { type: 'unlimited' }; `race.laps` / `race.duration` are Infinity when unused.
      Chequered flag (`race.chequered`): first car past the distance, or the leader crossing after time is up;

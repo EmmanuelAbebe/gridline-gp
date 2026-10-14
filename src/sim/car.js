@@ -30,6 +30,8 @@ export function createCar(track, driver, slot) {
     // AI
     offset: lat, bias: (Math.random()-0.5)*1.6, mistake: 0, mistakeEnd: -1, passBy: null, passSide: 1, aiT: -1,   // mistake: share too fast, until mistakeEnd
     // timing
+    // track limits (race.js): metres of the current cut, cuts so far, penalty seconds, current / last lap invalid
+    cutRun: 0, cuts: 0, penalty: 0, lapInvalid: false, lastLapInvalid: false,
     lap: 0, finished: false, finishTime: 0, finishLap: 0, lapStart: 0, lastLap: 0, bestLap: Infinity, cpT: [], lastCp: -1,
     // things that happened this step (EV.*); the game drains this queue. `impact` = speed of the last hit
     events: [] };

@@ -122,9 +122,14 @@ export const SLIP = Object.freeze({
 
 // kerbs where |curvature| > kerbK; gravel traps `sand` m wide past the kerb on the outside where |curvature| > sandK
 export const TRACK_DEFAULTS = Object.freeze({ samples: 1200, halfWidth: 7.5, kerb: 1.4, runoff: 14, sand: 5, sandK: 0.004, kerbK: 0.0025 });
+// Track limits (race.js): a cut = the whole car (centre ± halfWidth) past the edge (the kerb where one is painted, else
+// the white line) on the inside of a corner (curvature over ±cornerSpan samples above KERB_K), for at least cutDist
+// metres of track. Every cut invalidates the lap; after `warnings` cuts in a race each one adds `penalty` s.
+// Running wide on the outside is not a cut: the grass already costs time.
+export const LIMITS = Object.freeze({ halfWidth: 1.1, cutDist: 5, cornerSpan: 20, warnings: 2, penalty: 2 });
 export const GRID = Object.freeze({ front: 6, spacing: 7.5, lat: 3.2 }); // metres behind the line, between slots, off centre
 export const CP = 20;          // checkpoint spacing in samples, for timing gaps
 export const LAP_ZONE = 0.2;   // fraction of the lap either side of the line used to detect a crossing
 // Things that happen to a car during a step; pushed into car.events, drained by the game.
 export const EV = Object.freeze({ LAP: 'lap', FASTEST: 'fastest', FINISH: 'finish', WALL: 'wall', CONTACT: 'contact',
-  SHIFT: 'shift', SHIFT_DENIED: 'shift-denied' });
+  SHIFT: 'shift', SHIFT_DENIED: 'shift-denied', CUT: 'cut', PENALTY: 'penalty' });

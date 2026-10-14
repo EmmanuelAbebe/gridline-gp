@@ -132,10 +132,19 @@ function onPlayerEvent(c, e) {
   const race = game.race;
   switch (e) {
     case EV.LAP:
-      Hud.setLapTimes(c.lastLap, c.bestLap);
-      if (race.fastestBy === c && c.events.includes(EV.FASTEST)) Hud.toast('Fastest lap  ' + fmtTime(c.lastLap), 'purple');
+      Hud.setLapTimes(c.lastLap, c.bestLap, c.lastLapInvalid);
+      if (c.lastLapInvalid) Hud.toast('Lap ' + (c.lap - 1) + '  ' + fmtTime(c.lastLap) + '  invalid', 'warn');
+      else if (race.fastestBy === c && c.events.includes(EV.FASTEST)) Hud.toast('Fastest lap  ' + fmtTime(c.lastLap), 'purple');
       else Hud.toast('Lap ' + (c.lap - 1) + '  ' + fmtTime(c.lastLap));
       if (c.lap === race.laps && !c.finished) announceFinalLap();
+      break;
+    // track limits: a cut invalidates the lap; past the warnings each cut is a time penalty (SIM.LIMITS)
+    case EV.CUT:
+      if (c.cuts <= SIM.LIMITS.warnings) Hud.toast(`Track limits  warning ${c.cuts}/${SIM.LIMITS.warnings}  ·  lap invalid`, 'warn', 3);
+      Sound.beep(...SFX.cut);
+      break;
+    case EV.PENALTY:
+      Hud.toast(`+${SIM.LIMITS.penalty} s penalty  ·  track limits  (total +${c.penalty} s)`, 'warn', 3.5);
       break;
     case EV.FINISH:
       Hud.flash('CHEQUERED FLAG', 2); game.phase = PHASE.DONE; game.resultsAt = race.t + CONFIG.resultsDelay;
@@ -288,6 +297,7 @@ function renderFrame(dt) {
     kmh: Math.round(Math.abs(player.v) * 3.6), gear: gi.gear, revs: gi.revs, slip: onLights ? 0 : player.slip,
     steer: player.finished ? 0 : player.steer, thr: drive.thr, brk: drive.brk,
     lapTime: onLights ? '0:00.000' : fmtTime(player.finished ? player.finishTime : race.t - player.lapStart),
+    lapInvalid: !onLights && !player.finished && player.lapInvalid,
   });
   WheelScreen.update(dt, { gear: gi.gear, kmh: Math.round(Math.abs(player.v) * 3.6), revs: gi.revs });
   Sound.engine(gi.pitch, player.finished ? 0 : drive.thr, isRunning());

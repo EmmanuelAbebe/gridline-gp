@@ -62,6 +62,9 @@
 #toast{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);padding:6px 14px;font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:.04em;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
 #toast.show{opacity:1}
 #toast.purple{color:var(--purple)}
+#toast.warn{color:var(--amber)}
+.invalid{color:var(--red);text-decoration:line-through}
+.res .pen{display:block;font-size:.75em;color:var(--red)}
 
 #hudBtns{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;gap:6px}
 .iconbtn{font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:.1em;color:var(--text);background:var(--panel);border:1px solid var(--rule);border-radius:var(--radius);padding:6px 10px;cursor:pointer}

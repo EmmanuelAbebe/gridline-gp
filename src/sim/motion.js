@@ -1,6 +1,6 @@
 // Moving a car and everything that has to run after any position change.
 import { locate, resolveWalls, updateSurface } from './car.js';
-import { updateLap, updateCheckpoints } from './race.js';
+import { updateLap, updateCheckpoints, updateLimits } from './race.js';
 
 // Record where the car passed each sample it crossed this step (moving forward; skipped when reversing).
 function updateTrail(race, c, old) {
@@ -16,4 +16,5 @@ export function afterMove(race, c) {
   updateCheckpoints(race, c);
   resolveWalls(race.track, c);
   updateSurface(race.track, c);
+  updateLimits(race, c, old);
 }

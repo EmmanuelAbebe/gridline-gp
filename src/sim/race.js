@@ -1,5 +1,5 @@
 // Race formats, lap counting, the chequered flag, timing checkpoints and classification.
-import { EV, CP, LAP_ZONE } from './tuning.js';
+import { EV, CP, LAP_ZONE, LIMITS } from './tuning.js';
 import { DRIVERS } from './drivers.js';
 import { DEFAULT_TRACK } from './track.js';
 import { createCar } from './car.js';
@@ -35,15 +35,34 @@ export function updateLap(race, c, oldIdx) {
   if (oldIdx > N*(1-LAP_ZONE) && c.idx < N*LAP_ZONE) {
     c.lap++;
     if (c.lap >= 2 && !c.finished) {
-      const lt = race.t - c.lapStart; c.lastLap = lt; c.lapStart = race.t;
-      if (lt < c.bestLap) c.bestLap = lt;
-      if (lt < race.fastest) { race.fastest = lt; race.fastestBy = c; c.events.push(EV.FASTEST); }
+      const lt = race.t - c.lapStart; c.lastLap = lt; c.lapStart = race.t; c.lastLapInvalid = c.lapInvalid;
+      if (!c.lapInvalid) {                       // a lap with a cut never counts as a best or the fastest lap
+        if (lt < c.bestLap) c.bestLap = lt;
+        if (lt < race.fastest) { race.fastest = lt; race.fastestBy = c; c.events.push(EV.FASTEST); }
+      }
       c.events.push(EV.LAP);
     }
+    c.lapInvalid = false;
     if (!c.finished && c.lap >= 2 && flagFor(race, c)) {
       race.chequered = true; c.finished = true; c.finishTime = race.t; c.finishLap = c.lap; c.events.push(EV.FINISH);
     }
   } else if (oldIdx < N*LAP_ZONE && c.idx > N*(1-LAP_ZONE)) c.lap--;
+}
+
+// Track limits (LIMITS): count track metres covered with the whole car past the inside edge of a corner; reaching
+// cutDist is one cut (EV.CUT, lap invalid), and past the warnings each cut adds a time penalty (EV.PENALTY).
+export function updateLimits(race, c, oldIdx) {
+  const { N, ds, HW, KERB, K, CK, KERB_K } = race.track, i = c.idx;
+  const edge = Math.abs(K[i]) > KERB_K ? HW + KERB : HW;
+  const cutting = Math.abs(c.lat) - LIMITS.halfWidth > edge && c.lat * CK[i] > 0 && Math.abs(CK[i]) > KERB_K;
+  if (!cutting) { c.cutRun = 0; return; }
+  const d = (i - oldIdx + N) % N;
+  if (d === 0 || d > N / 2 || c.finished) return;            // standing still or going backwards
+  const before = c.cutRun; c.cutRun += d * ds;
+  if (before < LIMITS.cutDist && c.cutRun >= LIMITS.cutDist) {
+    c.cuts++; c.lapInvalid = true; c.events.push(EV.CUT);
+    if (c.cuts > LIMITS.warnings) { c.penalty += LIMITS.penalty; c.events.push(EV.PENALTY); }
+  }
 }
 
 export function updateCheckpoints(race, c) {
@@ -52,9 +71,12 @@ export function updateCheckpoints(race, c) {
 }
 
 // ---------- classification ----------
+// race time including track-limit penalties
+export const raceTime = c => c.finishTime + c.penalty;
+
 export function order(race) {
   return race.cars.slice().sort((a, b) => {
-    if (a.finished && b.finished) return (b.finishLap - a.finishLap) || (a.finishTime - b.finishTime);   // laps done, then time
+    if (a.finished && b.finished) return (b.finishLap - a.finishLap) || (raceTime(a) - raceTime(b));   // laps done, then time
     if (a.finished) return -1; if (b.finished) return 1;
     return progress(race, b) - progress(race, a);
   });
@@ -65,7 +87,7 @@ export function gapTo(race, leader, c) {
   if (c === leader) return null;
   if (leader.finished && c.finished) {
     const down = leader.finishLap - c.finishLap;
-    return down > 0 ? { laps: down } : { t: c.finishTime - leader.finishTime };
+    return down > 0 ? { laps: down } : { t: raceTime(c) - raceTime(leader) };
   }
   const lapsDown = Math.floor((progress(race, leader) - progress(race, c)) / race.track.N);
   if (lapsDown >= 1) return { laps: lapsDown };

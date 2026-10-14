@@ -26,7 +26,7 @@ export const Hud = (() => {
     return gp.laps ? '+' + gp.laps + ' LAP' : '+' + gp.t.toFixed(1);
   };
   const resultTime = (race, leader, c, i) => {
-    if (i === 0) { if (c.finished) return fmtTime(c.finishTime); const n = Math.max(0, c.lap - 1); return `${n} lap${n === 1 ? '' : 's'}`; }   // race ended early
+    if (i === 0) { if (c.finished) return fmtTime(SIM.raceTime(c)); const n = Math.max(0, c.lap - 1); return `${n} lap${n === 1 ? '' : 's'}`; }   // race ended early
     const gp = SIM.gapTo(race, leader, c);
     return gp.laps ? '+' + gp.laps + ' lap' + (gp.laps > 1 ? 's' : '') : '+' + gp.t.toFixed(3);
   };
@@ -49,9 +49,9 @@ export const Hud = (() => {
     },
     setStartLamps(n) { lampEls.forEach((l, i) => l.classList.toggle('on', i < n)); },
     showLights(on) { $('lights').hidden = !on; },
-    setLapTimes(last, best) { $('tLast').textContent = fmtTime(last); $('tBest').textContent = fmtTime(best); },
+    setLapTimes(last, best, lastInvalid = false) { $('tLast').textContent = fmtTime(last); $('tLast').classList.toggle('invalid', lastInvalid); $('tBest').textContent = fmtTime(best); },
     // revs: rev-light fraction 0..1 (all lit = shift); slip: slipstream strength 0..1
-    updateDash({ kmh, gear, revs, steer, thr, brk, lapTime, slip = 0 }) {
+    updateDash({ kmh, gear, revs, steer, thr, brk, lapTime, slip = 0, lapInvalid = false }) {
       setText('spd', kmh);
       setText('gear', gear);
       setOnce('revs', Math.round(revs * REV_LEDS), n => revEls.forEach((s, i) => s.classList.toggle('on', i < n)));
@@ -61,6 +61,7 @@ export const Hud = (() => {
       setOnce('thr', Math.round(thr * 50), q => { fill.thr.style.transform = `scaleX(${q / 50})`; });
       setOnce('brk', Math.round(brk * 50), q => { fill.brk.style.transform = `scaleX(${q / 50})`; });
       setText('tCur', lapTime);
+      setOnce('lapInvalid', lapInvalid, on => $('tCur').classList.toggle('invalid', on));
     },
     updateTower(race, player, showGaps) {
       const ord = SIM.order(race), leader = ord[0];
@@ -79,7 +80,7 @@ export const Hud = (() => {
       $('verdict').innerHTML = pos === 1 ? 'Race <em>winner</em>' : `Finished <em>${ordinal(pos)}</em>`;
       $('verdict').title = gained > 0 ? `Gained ${gained} places` : '';
       $('resBody').innerHTML = ord.map((c, i) =>
-        `<tr class="${c.player ? 'me' : ''}"><td class="num">${i+1}</td><td><i style="background:${hexCss(c.color)}"></i>${c.name}</td><td class="team">${c.team}</td><td class="r num">${resultTime(race, leader, c, i)}</td><td class="r num${race.fastestBy === c ? ' best' : ''}">${fmtTime(c.bestLap)}</td></tr>`).join('');
+        `<tr class="${c.player ? 'me' : ''}"><td class="num">${i+1}</td><td><i style="background:${hexCss(c.color)}"></i>${c.name}</td><td class="team">${c.team}</td><td class="r num">${resultTime(race, leader, c, i)}${c.penalty ? `<span class="pen">+${c.penalty} s pen</span>` : ''}</td><td class="r num${race.fastestBy === c ? ' best' : ''}">${fmtTime(c.bestLap)}</td></tr>`).join('');
     },
     setFps(fps, title) {
       setText('fpsNum', Math.round(fps));

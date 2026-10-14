@@ -1,6 +1,6 @@
 // Track construction: a circuit's control points → closed centripetal Catmull-Rom → N equal-length samples with
 // tangents, right-hand normals, signed curvature, bounds, and the AI's speed profile and racing line.
-import { AI, TRACK_DEFAULTS, GRID } from './tuning.js';
+import { AI, TRACK_DEFAULTS, GRID, LIMITS } from './tuning.js';
 import { cornerSpeed, brakeLimit } from './vehicle.js';
 import { CIRCUITS } from './circuits.js';
 import { clamp, wrapA } from './math.js';
@@ -93,8 +93,11 @@ export function buildTrack(circuit, opts = {}) {
     bounds.minZ = Math.min(bounds.minZ, PZ[i]); bounds.maxZ = Math.max(bounds.maxZ, PZ[i]);
   }
   bounds.cx = (bounds.minX + bounds.maxX) / 2; bounds.cz = (bounds.minZ + bounds.maxZ) / 2;
+  // CK: the curvature of the corner a sample belongs to (the strongest |K| within ±cornerSpan), for track limits
+  const CK = new Float32Array(N);
+  for (let i = 0; i < N; i++) for (let o = -LIMITS.cornerSpan; o <= LIMITS.cornerSpan; o++) { const k = K[(i+o+N)%N]; if (Math.abs(k) > Math.abs(CK[i])) CK[i] = k; }
   const track = { name: circuit.name, landmarks: circuit.landmarks || {}, N, HW, KERB, WALL: HW + runoff, SAND, SAND_K, KERB_K, L, ds,
-    PX, PZ, TX, TZ, NX, NZ, K, bounds };
+    PX, PZ, TX, TZ, NX, NZ, K, CK, bounds };
   return Object.assign(track, buildAiProfile(track));
 }
 

@@ -17,7 +17,7 @@ export const CONFIG = Object.freeze({
 });
 
 export const SFX = Object.freeze({
-  light: [660, 0.12], go: [990, 0.35],
+  light: [660, 0.12], go: [990, 0.35], cut: [330, 0.18],   // beeps: [Hz, s]; cut = track-limits warning
   // impacts: noise low-pass cutoff (Hz), thump pitch (Hz), impact speeds (m/s): silent below `min`, full volume at `fullAt`
   wall:    { cutoff: 700,  thump: 55,  min: 0,   fullAt: 25 },
   contact: { cutoff: 1800, thump: 110, min: 1.0, fullAt: 15 },
