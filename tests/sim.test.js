@@ -39,19 +39,6 @@ test('race: 10-car AI race finishes cleanly in skill order', () => seeded(() => 
   assert.equal(race.fastestBy, ord.find(c => c.bestLap === race.fastest));
 }));
 
-test('player: a scripted lap with drivePlayer finishes without hitting walls', () => seeded(() => {
-  const race = S.createRace(1, { drivers: S.DRIVERS.filter(d => d.player) }), p = race.cars[0];
-  const { N, PX, PZ, VP } = T;
-  const seen = run(S, race, 200, (r, c) => {
-    const ti = (c.idx + 12) % N, diff = S.wrapA(Math.atan2(PZ[ti] - c.z, PX[ti] - c.x) - c.h);
-    const slow = c.v > VP[(c.idx + 4) % N];
-    S.drivePlayer(r, c, { thr: slow ? 0 : 1, brk: slow ? 1 : 0, steer: diff < -0.02 ? -1 : diff > 0.02 ? 1 : 0, analog: false }, DT);
-  });
-  assert.ok(p.finished, 'lap completed');
-  assert.ok(p.finishTime < 60, `lap time ${p.finishTime}`);
-  assert.equal(seen.get(p)[S.EV.WALL] || 0, 0);
-}));
-
 test('player: top speed is VMAX and the brakes stop the car', () => {
   const race = S.createRace(1, { drivers: S.DRIVERS.filter(d => d.player) }), p = race.cars[0];
   // put the car on a long straight heading along the track

@@ -61,6 +61,7 @@ function loadSetup() {
     laps: Math.min(RACE_SETUP.maxLaps, Math.max(1, Math.round(+s.laps) || d.laps)),
     minutes: RACE_SETUP.minutes.includes(+s.minutes) ? +s.minutes : d.minutes,
     gearbox: s.gearbox === 'manual' ? 'manual' : d.gearbox,
+    assists: Object.hasOwn(SIM.ASSISTS, s.assists || '') ? s.assists : d.assists,
   };
 }
 const raceFormat = s => s.type === 'timed' ? { type: 'timed', minutes: s.minutes } : s.type === 'unlimited' ? { type: 'unlimited' } : { type: 'laps', laps: s.laps };
@@ -103,6 +104,7 @@ function newRace() {
   const L = CONFIG.lights;
   const player = race.cars.find(c => c.player);
   player.autoShift = game.setup.gearbox !== 'manual';
+  player.assists = SIM.ASSISTS[game.setup.assists];
   Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, autoShiftHinted: false,
     resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
     lights: { t: 0, lit: 0, hold: L.holdMin + Math.random() * L.holdRand } });
@@ -288,6 +290,7 @@ function renderFrame(dt) {
   });
   WheelScreen.update(dt, { gear: gi.gear, kmh: Math.round(Math.abs(player.v) * 3.6), revs: gi.revs });
   Sound.engine(gi.pitch, player.finished ? 0 : drive.thr, isRunning());
+  Sound.tyres(onLights ? 0 : Math.max(player.slideF, player.slideR, player.lockF || player.spinR ? 1 : 0) * Math.min(1, Math.abs(player.v) / 15), isRunning());
   if (onLights) wakes.hideAll(); else wakes.update(race, player);
   if ((game.towerT -= dt) <= 0) {
     game.towerT = CONFIG.towerInterval;

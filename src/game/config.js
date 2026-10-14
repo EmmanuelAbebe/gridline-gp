@@ -49,7 +49,13 @@ export const GFX_PROFILES = Object.freeze({
 
 // Start-screen race setup: limits and the default choice (the last choice is remembered).
 export const RACE_SETUP = Object.freeze({
-  defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10, gearbox: 'auto' },
+  defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10, gearbox: 'auto', assists: 'medium' },
+  assistNotes: {
+    off: 'No help: the car can spin, lock its brakes and spin its wheels.',
+    low: 'Some help with steering and slides; wheel spin and lock-ups are still possible.',
+    medium: 'Steering matched to grip, slides caught, no wheel spin or lock-ups.',
+    high: 'Everything on, plus a calmer car for on/off keyboard steering.',
+  },
   maxLaps: 99,
   minutes: [1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120],   // stepper stops for timed races
 });

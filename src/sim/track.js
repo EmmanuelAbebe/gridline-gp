@@ -55,7 +55,7 @@ function buildAiProfile({ N, HW, ds, K }) {
 }
 
 export function buildTrack(circuit, opts = {}) {
-  const { samples: N, halfWidth: HW, kerb: KERB, runoff } = { ...TRACK_DEFAULTS, ...opts };
+  const { samples: N, halfWidth: HW, kerb: KERB, runoff, sand: SAND, sandK: SAND_K, kerbK: KERB_K } = { ...TRACK_DEFAULTS, ...opts };
   const { PX, PZ, L, ds } = resampleClosed(catmullRomClosed(circuit.ctrl, 200), N);
   const TX = new Float32Array(N), TZ = new Float32Array(N), NX = new Float32Array(N), NZ = new Float32Array(N), K = new Float32Array(N);
   for (let i = 0; i < N; i++) {
@@ -73,7 +73,7 @@ export function buildTrack(circuit, opts = {}) {
     bounds.minZ = Math.min(bounds.minZ, PZ[i]); bounds.maxZ = Math.max(bounds.maxZ, PZ[i]);
   }
   bounds.cx = (bounds.minX + bounds.maxX) / 2; bounds.cz = (bounds.minZ + bounds.maxZ) / 2;
-  const track = { name: circuit.name, landmarks: circuit.landmarks || {}, N, HW, KERB, WALL: HW + runoff, L, ds,
+  const track = { name: circuit.name, landmarks: circuit.landmarks || {}, N, HW, KERB, WALL: HW + runoff, SAND, SAND_K, KERB_K, L, ds,
     PX, PZ, TX, TZ, NX, NZ, K, bounds };
   return Object.assign(track, buildAiProfile(track));
 }

@@ -1,0 +1,104 @@
+// Tyre model tests (chassis.js): laps with different steering styles, wheel spin and traction control,
+// lock-ups and ABS, the stability assist, surfaces, dirty air.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { SIM as S } from '../src/sim/index.js';
+import { DT, run } from './helpers.js';
+
+const T = S.track, { N, PX, PZ, VP } = T;
+const solo = assists => { const race = S.createRace(1, { drivers: S.DRIVERS.filter(d => d.player) }), c = race.cars[0]; c.assists = S.ASSISTS[assists]; return { race, c }; };
+
+// A test driver: aims at the centre line 12 samples ahead, brakes to the AI speed profile.
+//   analog: proportional steering (phone tilt), tap: keyboard tapping (key held for a share of each 0.12 s),
+//   bang: full lock whenever the error passes 0.02 rad (the crudest keyboard driving)
+function lap(assists, style) {
+  const { race, c } = solo(assists);
+  let step = 0;
+  const seen = run(S, race, 120, (r, car) => {
+    const ti = (car.idx + 12) % N, diff = S.wrapA(Math.atan2(PZ[ti] - car.z, PX[ti] - car.x) - car.h), want = S.clamp(diff * 3, -1, 1);
+    const steer = style === 'analog' ? want : style === 'tap' ? ((step % 14) / 14 < Math.abs(want) ? Math.sign(want) : 0)
+      : diff < -0.02 ? -1 : diff > 0.02 ? 1 : 0;
+    const slow = car.v > VP[(car.idx + 4) % N];
+    S.drivePlayer(r, car, { thr: slow ? 0 : 1, brk: slow ? 1 : 0, steer, analog: style === 'analog' }, DT);
+    step++;
+  });
+  return { c, walls: seen.get(c)[S.EV.WALL] || 0 };
+}
+
+for (const [assists, style] of [['medium', 'analog'], ['medium', 'tap'], ['low', 'analog'], ['high', 'bang']]) {
+  test(`lap: ${style} steering on ${assists} assists is clean and quick`, () => {
+    const { c, walls } = lap(assists, style);
+    assert.ok(c.finished, 'finished');
+    assert.ok(c.finishTime < 42, `lap ${c.finishTime.toFixed(2)} s`);
+    assert.equal(walls, 0);
+  });
+}
+
+test('lap: with no assists the crude keyboard driver loses the car (assists matter)', () => {
+  const { c } = lap('off', 'bang');
+  assert.ok(!c.finished || c.finishTime > 50);
+});
+
+// on a straight: heading pinned along the track, as in the vehicle tests
+const pin = c => { c.h = S.headingAt(T, c.idx) + S.clamp(-c.lat * 0.1, -0.2, 0.2); c.yawRate = 0; c.vy = 0; };
+function straight(race, c, inp, seconds, each = () => {}) {
+  for (let i = 0; i < seconds * 120; i++) { race.t += DT; S.drivePlayer(race, c, inp, DT); pin(c); each(c); }
+}
+
+test('traction control: full throttle from a standstill spins the rears only without it', () => {
+  for (const [assists, expectSpin] of [['off', true], ['medium', false]]) {
+    const { race, c } = solo(assists); let spun = false;
+    straight(race, c, { thr: 1, brk: 0, steer: 0, analog: true }, 3, c => { spun ||= c.spinR; });
+    assert.equal(spun, expectSpin, assists);
+  }
+});
+
+test('ABS: a full stop from 120 km/h locks the fronts only without it, and ABS stops shorter', () => {
+  const stop = assists => {
+    const { race, c } = solo(assists); c.v = 120 / 3.6; c.gear = 4; let locked = false, dist = 0;
+    straight(race, c, { thr: 0, brk: 1, steer: 0, analog: true }, 4, c => { locked ||= c.lockF; if (c.gear !== -1) dist += Math.max(0, c.v) * DT; });
+    return { locked, dist };
+  };
+  const off = stop('off'), on = stop('medium');
+  assert.ok(off.locked, 'locks without ABS');
+  assert.ok(!on.locked, 'no lock with ABS');
+  assert.ok(on.dist < off.dist, `ABS ${on.dist.toFixed(1)} m vs locked ${off.dist.toFixed(1)} m`);
+});
+
+// a circuit 160 m wide, so a car can turn as hard as it likes without leaving the asphalt
+const OPEN = S.buildTrack({ name: 'Pad', ctrl: [[0, 0], [1500, 0], [1500, 1500], [0, 1500]] }, { halfWidth: 160 });
+test('stability: full lock held at 250 km/h stays controlled on medium, rotates the car more with assists off', () => {
+  const drift = assists => {
+    const race = S.createRace(1, { track: OPEN, drivers: S.DRIVERS.filter(d => d.player) }), c = race.cars[0];
+    c.assists = S.ASSISTS[assists]; c.v = 250 / 3.6; c.gear = 6; let maxDrift = 0;
+    for (let i = 0; i < 120 * 1.2; i++) {
+      race.t += DT; S.drivePlayer(race, c, { thr: 0.6, brk: 0, steer: 1, analog: true }, DT);
+      assert.equal(c.surface, 'track'); maxDrift = Math.max(maxDrift, Math.abs(S.driftAngle(c)));
+    }
+    return maxDrift;
+  };
+  const medium = drift('medium'), off = drift('off');
+  assert.ok(medium < 0.12, `medium drift ${medium.toFixed(3)} rad`);
+  assert.ok(off > medium, `off ${off.toFixed(3)} vs medium ${medium.toFixed(3)}`);
+});
+
+test('surfaces: coasting slows hardest in the gravel, then the grass', () => {
+  const coast = surface => {
+    const { race, c } = solo('medium'); c.v = 30; c.gear = 3;
+    for (let i = 0; i < 120; i++) { race.t += DT; c.surface = surface; S.drivePlayer(race, c, { thr: 0, brk: 0, steer: 0, analog: true }, DT); pin(c); }
+    return c.v;
+  };
+  const track = coast('track'), grass = coast('grass'), sand = coast('sand');
+  assert.ok(sand < grass && grass < track, `after 1 s: track ${track.toFixed(1)}, grass ${grass.toFixed(1)}, sand ${sand.toFixed(1)} m/s`);
+});
+
+test('surfaces: the car knows kerb, sand and grass where they are painted', () => {
+  const { c } = solo('medium');
+  // a corner sample: kerbs painted, gravel on the outside
+  const i = [...T.K].findIndex(k => Math.abs(k) > T.SAND_K), outside = T.K[i] > 0 ? -1 : 1;
+  const surface = lat => { c.idx = i; c.x = T.PX[i] + T.NX[i] * lat; c.z = T.PZ[i] + T.NZ[i] * lat; const r = S.createRace(1); r.cars = [c]; S.drivePlayer(r, c, { thr: 0, brk: 0, steer: 0, analog: true }, 0); return c.surface; };
+  assert.equal(surface(0), 'track');
+  assert.equal(surface(outside * (T.HW + 0.7)), 'kerb');
+  assert.equal(surface(outside * (T.HW + T.KERB + 2)), 'sand');
+  assert.equal(surface(-outside * (T.HW + T.KERB + 2)), 'grass', 'no gravel on the inside');
+});

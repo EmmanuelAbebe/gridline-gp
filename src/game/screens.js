@@ -15,13 +15,15 @@ export const Screens = (() => {
       $('introText').textContent = cars === 1 ? 'Just you and the circuit: no rivals, so learn your lines.'
         : `${word} cars, five red lights. You start ${ORDINAL_WORDS[playerSlot] || ordinal(playerSlot + 1)} on the grid.`;
     },
-    // Race setup controls (cars, race type, laps or minutes, gearbox). `setup` is edited in place; onChange after each edit.
+    // Race setup controls (cars, race type, laps or minutes, gearbox, assists). `setup` is edited in place; onChange after each edit.
     bindSetup(setup, maxCars, onChange) {
       const minIdx = () => Math.max(0, RACE_SETUP.minutes.indexOf(setup.minutes));
       function render() {
         $('carsVal').textContent = setup.cars === 1 ? '1 (solo)' : String(setup.cars);
         markSeg($('typeSeg'), 't', setup.type);
         markSeg($('gearSeg'), 'b', setup.gearbox);
+        markSeg($('assistSeg'), 'a', setup.assists);
+        $('assistNote').textContent = RACE_SETUP.assistNotes[setup.assists];
         $('amountRow').hidden = setup.type === 'unlimited';
         $('amountLbl').textContent = setup.type === 'timed' ? 'Race time' : 'Laps';
         $('amountVal').textContent = setup.type === 'timed' ? setup.minutes + ' min' : setup.laps + (setup.laps === 1 ? ' lap' : ' laps');
@@ -49,6 +51,7 @@ export const Screens = (() => {
       });
       bindSeg($('typeSeg'), 't', t => { setup.type = t; change(); });
       bindSeg($('gearSeg'), 'b', b => { setup.gearbox = b; change(); });
+      bindSeg($('assistSeg'), 'a', a => { setup.assists = a; change(); });
       render();
     },
     onGfx(fn) { bindSeg($('gfxSeg'), 'g', fn); },

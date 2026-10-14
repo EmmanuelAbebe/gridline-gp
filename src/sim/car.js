@@ -22,6 +22,9 @@ export function createCar(track, driver, slot) {
     wallHit: false, touching: false, wasTouching: false, impact: 0, onKerb: false, offTrack: false,
     // drivetrain (vehicle.js): gear 1..8, -1 = reverse; autoShift = automatic gearbox; slip = slipstream 0..1
     gear: 1, rpm: 0, shiftT: 0, autoShift: true, drive: 0, slip: 0, slipBy: null,
+    // chassis (chassis.js, player): lateral speed (m/s, + = right), yaw rate (rad/s), last longitudinal accel,
+    // how saturated each axle is (0..1), lock-up / wheel spin flags; surface under the car
+    vy: 0, yawRate: 0, ax: 0, slideF: 0, slideR: 0, lockF: false, spinR: false, surface: 'track', assists: null,
     // trail: lateral offset and time when this car last passed each track sample (its wake, for slipstream)
     trailLat: new Float32Array(track.N), trailT: new Float32Array(track.N).fill(-1),
     // AI
@@ -40,14 +43,18 @@ export function resolveWalls(track, c) {
   const s = Math.sign(c.lat), over = Math.abs(c.lat) - lim;
   c.x -= NX[c.idx]*s*over; c.z -= NZ[c.idx]*s*over; c.lat = s*lim;
   let th = headingAt(track, c.idx);           // nudge the heading back along the wall
-  if (!c.wallHit) { c.impact = Math.abs(c.v * Math.sin(c.h - th)); c.v *= 0.5; c.events.push(EV.WALL); }
+  if (!c.wallHit) { c.impact = Math.abs(c.v * Math.sin(c.h - th)); c.v *= 0.5; c.vy *= 0.3; c.yawRate *= 0.3; c.events.push(EV.WALL); }
   c.wallHit = true;
   if (Math.cos(c.h - th) < 0) th += Math.PI;
   c.h += wrapA(th - c.h) * 0.12;
 }
 
+// Surface under the car: track, kerb (only where kerbs are painted), sand (gravel trap on the outside of corners),
+// else grass. Uses the same rules as the renderer (track KERB_K / SAND_K / SAND).
 export function updateSurface(track, c) {
-  const a = Math.abs(c.lat);
-  c.onKerb = a > track.HW - 0.2 && a <= track.HW + track.KERB;
-  c.offTrack = a > track.HW + track.KERB;
+  const { HW, KERB, SAND, SAND_K, KERB_K } = track, k = track.K[c.idx], a = Math.abs(c.lat);
+  const kerbed = Math.abs(k) > KERB_K, outside = c.lat < 0 ? k > SAND_K : k < -SAND_K;
+  c.surface = a <= HW ? 'track' : a <= HW + KERB ? (kerbed ? 'kerb' : 'grass') : a <= HW + KERB + SAND && outside ? 'sand' : 'grass';
+  c.onKerb = kerbed && a > HW - 0.2 && a <= HW + KERB;
+  c.offTrack = c.surface === 'grass' || c.surface === 'sand';
 }

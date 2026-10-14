@@ -29,14 +29,15 @@ console.log(`\nAI race: ${race.t.toFixed(1)} s, wall hits ${walls}`);
 S.order(race).forEach((c, i) => console.log(
   String(i + 1).padStart(2), c.code, c.finished ? c.finishTime.toFixed(2) + ' s' : 'DNF', ' best', c.bestLap.toFixed(2)));
 
-// Scripted player lap through drivePlayer: brake to the AI speed profile, steer at a look-ahead point
+// Scripted player lap through drivePlayer (tyre model, medium assists): brake to the AI speed profile, steer at a
+// look-ahead point on the centre line
 const r2 = S.createRace(1), p = r2.cars.find(c => c.player);
 let pw = 0;
 for (let step = 0; step < 120 * 200 && !p.finished; step++) {
   r2.t += dt;
   const ti = (p.idx + 12) % N, diff = S.wrapA(Math.atan2(PZ[ti] - p.z, PX[ti] - p.x) - p.h);
   const slow = p.v > VP[(p.idx + 4) % N];
-  S.drivePlayer(r2, p, { thr: slow ? 0 : 1, brk: slow ? 1 : 0, steer: diff < -0.02 ? -1 : diff > 0.02 ? 1 : 0, analog: false }, dt);
+  S.drivePlayer(r2, p, { thr: slow ? 0 : 1, brk: slow ? 1 : 0, steer: S.clamp(diff * 3, -1, 1), analog: true }, dt);   // proportional, like tilt
   pw += countWalls(p);
 }
 console.log(`\nscripted player lap: ${p.finished ? p.finishTime.toFixed(2) + ' s' : 'did not finish'}, wall hits ${pw}`);

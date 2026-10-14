@@ -1,35 +1,21 @@
-// The player's and the AI's driving. Both drive the same car (vehicle.js): engine, gearbox, downforce, brakes and
-// slipstream; they differ only in how throttle, brake and steering are chosen.
+// The player's and the AI's driving. Both use the same engine, gearbox, downforce and slipstream (vehicle.js); the
+// player's car also has the tyre model (chassis.js). The AI still steers without tyre slip (next: AI on the chassis).
 import { TUNING } from './tuning.js';
 import { clamp, wrapA } from './math.js';
 import { progress } from './race.js';
-import { move } from './motion.js';
+import { move, afterMove } from './motion.js';
+import { stepChassis } from './chassis.js';
 import { lateralGrip, brakeLimit, powertrain, slipstream } from './vehicle.js';
 
-const OFF_TRACK_DRAG = 1.25;   // grass: extra deceleration per m/s (player); the AI loses 0.8/s
-
-function integrate(c, a, dt, coasting) {
-  const v0 = c.v;
-  c.v = clamp(c.v + a * dt, -TUNING.REVERSE_MAX, TUNING.V_CAP);
-  if (v0 > 0 && c.v < 0 && c.gear !== -1) c.v = 0;        // brakes and drag stop the car, they don't reverse it
-  if (coasting && Math.abs(c.v) < 0.3) c.v = 0;
-}
-
 // inp: steer -1..1 (+ = right), thr 0..1, brk 0..1, analog = from a wheel/pad (faster steering response),
-// shift = -1/0/+1 (paddles; used with the manual gearbox)
+// shift = -1/0/+1 (paddles; used with the manual gearbox). The car itself is the tyre model in chassis.js.
 export function drivePlayer(race, c, inp, dt) {
   const rate = inp.analog ? 14 : 5;
   c.steer += clamp(clamp(inp.steer, -1, 1) - c.steer, -dt*rate, dt*rate);
   c.brake = inp.brk;
-  const sp = Math.abs(c.v);
-  // full lock turns at the grip limit: yaw rate = lateral grip / speed (grip grows with downforce)
-  const yaw = c.steer * Math.min(TUNING.PLAYER_YAW, lateralGrip(sp) / Math.max(sp, 4)) * Math.min(1, sp/6) * Math.sign(c.v || 1);
-  c.h += yaw * dt;
   slipstream(race, c, progress);
-  let a = powertrain(c, inp, dt);
-  if (c.offTrack) a -= c.v * OFF_TRACK_DRAG;
-  integrate(c, a, dt, inp.thr < 0.02 && inp.brk < 0.02);
-  move(race, c, dt);
+  stepChassis(race, c, inp, dt);
+  afterMove(race, c);
 }
 
 // Look-ahead steering toward the racing line, target speed = profile × skill, simple car-ahead avoidance.

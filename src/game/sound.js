@@ -1,6 +1,6 @@
 // WebAudio "engine" (saw + square through a low-pass) plus one-shot beeps. Starts on a user gesture.
 export const Sound = (() => {
-  let ctx = null, osc1, osc2, filter, gain, noiseBuf = null, muted = false;
+  let ctx = null, osc1, osc2, filter, gain, noiseBuf = null, muted = false, squeal = null;
   function init() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
     try {
@@ -35,6 +35,21 @@ export const Sound = (() => {
     o.frequency.setValueAtTime(thump * 1.6, t); o.frequency.exponentialRampToValueAtTime(thump * 0.6, t + dur);
     o.connect(envelope(vol * 1.2)); o.start(t); o.stop(t + dur);
   }
+  // Tyre squeal: looped noise through a band-pass, loudness = how far past the grip limit the tyres are (0..1).
+  function tyres(amount, active) {
+    if (!ctx) return;
+    if (!squeal) {
+      const buf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), g = ctx.createGain();
+      src.buffer = buf; src.loop = true; bp.type = 'bandpass'; bp.frequency.value = 1300; bp.Q.value = 4; g.gain.value = 0;
+      src.connect(bp); bp.connect(g); g.connect(ctx.destination); src.start();
+      squeal = { g, bp };
+    }
+    const t = ctx.currentTime, a = muted || !active ? 0 : Math.max(0, amount - 0.05);
+    squeal.g.gain.setTargetAtTime(a * 0.09, t, 0.05);
+    squeal.bp.frequency.setTargetAtTime(1100 + a * 600, t, 0.08);
+  }
   function engine(rpm, thr, active) {
     if (!ctx) return;
     const t = ctx.currentTime, f = 55 + rpm * 230;
@@ -42,5 +57,5 @@ export const Sound = (() => {
     filter.frequency.setTargetAtTime(600 + thr * 1400 + rpm * 600, t, 0.05);
     gain.gain.setTargetAtTime(muted || !active ? 0 : 0.018 + thr * 0.03, t, 0.06);
   }
-  return { init, beep, impact, engine, toggleMute() { muted = !muted; return muted; } };
+  return { init, beep, impact, engine, tyres, toggleMute() { muted = !muted; return muted; } };
 })();

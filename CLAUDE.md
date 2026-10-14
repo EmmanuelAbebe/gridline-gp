@@ -6,9 +6,8 @@ which shows up in the browser as a virtual Xbox 360 controller.
 
 ## Goal and roadmap (Oct 2026)
 Turning the prototype into a production-grade game. Agreed order: (1) foundation [done: modules, Vite, tests],
-(2) sim-cade physics in 4 parts: [done] engine/gearbox/downforce/slipstream; tyre + chassis model (slip, load
-transfer, lock-ups, kerbs/grass, assists default MEDIUM: stability, TC, ABS, speed-sensitive steering); AI on the
-new physics; tuning screen (downforce, grip, power, brake balance), (3) merge the Phone-wheel project into this one (server inside Electron,
+(2) sim-cade physics in 4 parts: [done] engine/gearbox/downforce/slipstream; [done] tyre + chassis model (player
+only); AI on the new physics (AI still kinematic: no tyre slip); tuning screen (downforce, grip, power, brake balance), (3) merge the Phone-wheel project into this one (server inside Electron,
 pairing from the settings menu, vibration + rev lights on the phone), (4) car/world visuals: brake lights,
 higher-poly car, crash physics, scenery, (5) HUD, menus, presentation.
 
@@ -59,13 +58,26 @@ Tunables live in data tables (config modules), not inline in the logic.
      `VP` speed profile (`cornerSpeed` with AI grip share, then braking look-back with `brakeLimit`; V_CAP on
      straights so the engine sets straight-line speed) and `RO` racing-line offset.
      `SIM.track` is the default (Elkmoor). A new circuit = a new `CIRCUITS` entry; nothing else hardcodes it.
+   - `chassis.js` (player car): two-axle bicycle model, 4 sub-steps per 120 Hz step. Axle grip = grip × surface ×
+     (weight + downforce·(1 − dirtyAir·slip) ± load transfer from last `c.ax`); tyre curve sin(1.3·atan(Bα)) peaking
+     at 0.1 rad front / 0.075 rear (stiffer, 6% grippier rear = stable); friction circle per axle (`axle()`): too
+     much brake locks (fronts: understeer), too much drive spins (rears). Brakes split by axle load + 0.08 front
+     bias, system max 70 m/s² (can lock at low speed). Below 2–6 m/s blends to kinematic steering; reverse is
+     kinematic. Assists (`ASSISTS` off/low/medium/high, game default medium): `steer` = lock shrinks with speed to the
+     tightest steady turn (`steerLock`), `stability` = yaw-rate correction when the rear slides + rear brake margin,
+     `damping` (high only) = always-on yaw damping for on/off keys, `tc`, `abs`. Car state adds `vy`, `yawRate`,
+     `slideF/slideR` (0..1 past the limit), `lockF`, `spinR`. Tuned against bots in tests/chassis.test.js:
+     proportional (tilt) and key-tapping drivers lap clean on medium; full-lock keyboard needs high.
+   - Surfaces (`SURFACES`, `updateSurface`): track, kerb (only where painted, |K| > KERB_K), sand (gravel trap,
+     outside of corners with |K| > SAND_K, `SAND` m wide), grass. Same rules as world.js draws them (the gravel was
+     drawn on the inside of corners before 2026-10-13; fixed).
    - `car.js` (locate, createCar, resolveWalls, updateSurface; car has `gear`, `rpm`, `autoShift`, `slip`, `brake`,
      and `trailLat`/`trailT` per track sample = its wake), `race.js` (formats, createRace, progress, lap +
      flag rules, checkpoints, order, gapTo), `motion.js` (move, afterMove), `driving.js` (powertrain, drivePlayer,
      driveAI), `collide.js`.
    - Car state: `x, z, h`, `v`, `idx` (nearest sample), `lat`, `lap`. `progress(race, c)` = `lap * N + idx`.
      After every move: `updateLap` (wrap >0.8N → <0.2N), `updateCheckpoints`, `resolveWalls`, `updateSurface`.
-   - `drivePlayer(race, car, {steer, thr, brk, analog, shift}, dt)`: yaw limit = lateralGrip/v (no tyre slip yet);
+   - `drivePlayer(race, car, {steer, thr, brk, analog, shift}, dt)`: steering smoothing, slipstream, `stepChassis`;
      `driveAI(race, car, dt, skillOverride = 0)`: same powertrain, full throttle below target / braking above it.
    - Race formats: `createRace(format, { track, drivers })`, format = number (laps) or { type: 'laps', laps } |
      { type: 'timed', minutes } | { type: 'unlimited' }; `race.laps` / `race.duration` are Infinity when unused.
@@ -86,6 +98,8 @@ Tunables live in data tables (config modules), not inline in the logic.
      D-pad backup, A confirm, START pause, Y camera; non-standard mapping falls back to triggers on axes 5/2.
    - `Sound` (WebAudio saw+square engine + beeps; pitch from real rpm). Dash (`dashGear` in main.js): gear and rpm
      from the car; rev lights from `CONFIG.revLights.from` (8500) to the auto upshift point (all lit = shift).
+   - Start menu also has Assists OFF/LOW/MEDIUM/HIGH (`game.setup.assists` → `player.assists`). `Sound.tyres`:
+     band-passed noise squeal from slideF/slideR/lock/spin.
    - Gearbox: start menu AUTO / MANUAL (`game.setup.gearbox`). Shift: Q/E, pad LB/RB, and pad A/B (phone buttons
      1/2) = down/up while racing (A still confirms in menus). Paddles in auto mode show a one-time hint.
    - `slipstream-fx.js`: fuzzy band on the road behind each car ahead of the player (≤160 m), built from the car's

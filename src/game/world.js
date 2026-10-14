@@ -63,13 +63,14 @@ export function buildWorld(scene, track, drivers) {
   stripes.position.set(cx, -0.03, cz); scene.add(stripes);
 
   // runoff (outside of corners only), road, edge lines, kerbs, barriers
-  const CORNER = 0.004, KERB_CORNER = 0.0025;
-  strip(-(HW+KERB+5), -(HW+KERB), 0.01, i => K[i] < -CORNER ? COLORS.sand : null);
-  strip(HW+KERB, HW+KERB+5, 0.01, i => K[i] > CORNER ? COLORS.sand : null);
+  // gravel on the outside of corners: K > 0 turns right (toward +N), so its outside is the -N side
+  const { SAND, SAND_K, KERB_K } = track;
+  strip(-(HW+KERB+SAND), -(HW+KERB), 0.01, i => K[i] > SAND_K ? COLORS.sand : null);
+  strip(HW+KERB, HW+KERB+SAND, 0.01, i => K[i] < -SAND_K ? COLORS.sand : null);
   strip(-HW, HW, 0.03, i => COLORS.asphalt[i % 40 < 20 ? 0 : 1]);
   strip(-HW+0.25, -HW+0.55, 0.06, () => COLORS.paint, 3);
   strip(HW-0.55, HW-0.25, 0.06, () => COLORS.paint, 3);
-  const kerbColor = i => Math.abs(K[i]) > KERB_CORNER ? COLORS.kerb[(i >> 1) % 2] : null;
+  const kerbColor = i => Math.abs(K[i]) > KERB_K ? COLORS.kerb[(i >> 1) % 2] : null;
   strip(-(HW+KERB), -HW+0.02, 0.05, kerbColor, 2);
   strip(HW-0.02, HW+KERB, 0.05, kerbColor, 2);
   const barrierColor = i => COLORS.barrier[(i >> 2) % 2];

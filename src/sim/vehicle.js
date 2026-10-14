@@ -100,26 +100,35 @@ export function slipstream(race, c, progressOf) {
 }
 
 // ---------- one step of the drivetrain ----------
-// inp: thr 0..1, brk 0..1, shift -1/0/+1. Updates gear and rpm; returns the longitudinal acceleration (m/s²).
-// Reverse: brake drives backwards, gas brakes.
-export function powertrain(c, { thr, brk, shift = 0 }, dt) {
+// Engine side: gear and rpm, the engine's drive at the rear wheels (per mass, before any tyre limit) and the
+// resistances (drag with slipstream, rolling, engine braking), signed so that `-resist` opposes the motion.
+// inp: thr 0..1, brk 0..1, shift -1/0/+1.
+export function drivetrain(c, { thr, brk, shift = 0 }, dt) {
   updateGear(c, thr, brk, shift, dt);
   const v = c.v, dragK = DRAG_K * (1 - SLIP.drag * (c.slip || 0));
-  let a = -dragK * v * Math.abs(v) - Math.sign(v) * aero.rolling;
-  if (c.gear === -1) {
-    c.rpm = engine.idle + brk * 3000;
-    a += v > 0 ? -brakeLimit(0) * brk : -TUNING.REVERSE_ACC * brk;
-    if (thr > 0 && v < 0) a += brakeLimit(0) * thr;
-    c.drive = 0;
-    return a;
-  }
+  let resist = dragK * v * Math.abs(v) + Math.sign(v) * aero.rolling;
+  if (c.gear === -1) { c.rpm = engine.idle + brk * 3000; c.drive = 0; return { drive: 0, resist, reverse: true }; }
   const rpm = engineRpm(v, c.gear, thr);
   c.rpm = rpm;
-  let drive = Math.min(driveAccel(rpm, c.gear) * thr, tractionLimit(v));   // perfect traction for now
+  let drive = driveAccel(rpm, c.gear) * thr;
   if (c.shiftT > 0) drive *= gearbox.shiftCut;
+  if (thr < 0.05 && v > 0.5) resist += engine.engineBrake * Math.min(1, rpm / engine.redline);
   c.drive = drive;
-  a += drive;
-  if (thr < 0.05) a -= engine.engineBrake * Math.min(1, rpm / engine.redline) * (v > 0.5 ? 1 : 0);
+  return { drive, resist, reverse: false };
+}
+
+// Longitudinal acceleration for a car without a tyre model (the AI): perfect traction up to tractionLimit, brakes
+// at brakeLimit. Reverse: brake drives backwards, gas brakes.
+export function powertrain(c, inp, dt) {
+  const { thr, brk } = inp, d = drivetrain(c, inp, dt), v = c.v;
+  let a = -d.resist;
+  if (d.reverse) {
+    a += v > 0 ? -brakeLimit(0) * brk : -TUNING.REVERSE_ACC * brk;
+    if (thr > 0 && v < 0) a += brakeLimit(0) * thr;
+    return a;
+  }
+  c.drive = Math.min(d.drive, tractionLimit(v));
+  a += c.drive;
   if (brk > 0 && v > 0) a -= brakeLimit(v) * brk;
   return a;
 }
