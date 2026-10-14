@@ -62,6 +62,7 @@ function loadSetup() {
     minutes: RACE_SETUP.minutes.includes(+s.minutes) ? +s.minutes : d.minutes,
     gearbox: s.gearbox === 'manual' ? 'manual' : d.gearbox,
     assists: Object.hasOwn(SIM.ASSISTS, s.assists || '') ? s.assists : d.assists,
+    ai: Object.hasOwn(RACE_SETUP.aiLevels, s.ai || '') ? s.ai : d.ai,
   };
 }
 const raceFormat = s => s.type === 'timed' ? { type: 'timed', minutes: s.minutes } : s.type === 'unlimited' ? { type: 'unlimited' } : { type: 'laps', laps: s.laps };
@@ -99,7 +100,7 @@ function setStartLights(n) { Hud.setStartLamps(n); world.setStartLights(n); }
 function newRace() {
   timers.clear();
   const field = buildField(game.setup.cars);
-  const race = SIM.createRace(raceFormat(game.setup), { track, drivers: field });
+  const race = SIM.createRace(raceFormat(game.setup), { track, drivers: field, aiPace: RACE_SETUP.aiLevels[game.setup.ai].pace });
   for (const [code, m] of modelOf) m.setVisible(field.some(d => d.code === code));
   const L = CONFIG.lights;
   const player = race.cars.find(c => c.player);

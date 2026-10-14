@@ -1,11 +1,11 @@
 // The car's performance: grip and downforce, drag, engine and gearbox, brakes, slipstream.
-// One model for every car; the player and AI drivers (driving.js) decide throttle, brake and steering.
+// One model for every car; the tyres and chassis are in chassis.js, the drivers (player and AI) in driving.js.
 // Everything is per unit mass (m/s²) so it reads as accelerations.
-import { TUNING, CAR, SLIP, EV } from './tuning.js';
+import { TUNING, CAR, CHASSIS, SLIP, EV } from './tuning.js';
 import { clamp } from './math.js';
 
 const G = 9.81, TAU = 2 * Math.PI;
-const { aero, engine, gearbox, brakes } = CAR;
+const { aero, engine, gearbox } = CAR;
 const R_WHEEL = TUNING.WHEEL_RADIUS;
 export const DOWNFORCE_K = 0.5 * aero.rho * aero.liftArea / CAR.mass;   // downforce / mass = K·v²
 export const DRAG_K = 0.5 * aero.rho * aero.dragArea / CAR.mass;        // drag / mass = K·v²
@@ -14,8 +14,9 @@ export const GEARS = gearbox.top.length - 1;
 // ---------- grip ----------
 // Cornering limit (m/s²): tyre friction × (weight + downforce). Grows with v², so fast corners open up.
 export const lateralGrip = v => CAR.grip * (G + DOWNFORCE_K * v * v);
-export const brakeLimit = v => brakes.mech + brakes.aero * CAR.grip * DOWNFORCE_K * v * v;
-export const tractionLimit = v => CAR.traction * lateralGrip(v);
+// Straight-line braking limit of the tyres (ABS at the peak): longitudinal grip × (weight + downforce), up to what the
+// brake system can ask for. The AI's speed profile brakes at a share of this.
+export const brakeLimit = v => Math.min(CHASSIS.brakeSystem, CAR.grip * CHASSIS.longGrip * (G + DOWNFORCE_K * v * v));
 
 // Fastest steady speed through curvature |k| using `share` of the grip: v² = R·a(v) solved for v (V_CAP when the
 // downforce outgrows the corner, i.e. it is flat out).
@@ -115,22 +116,6 @@ export function drivetrain(c, { thr, brk, shift = 0 }, dt) {
   if (thr < 0.05 && v > 0.5) resist += engine.engineBrake * Math.min(1, rpm / engine.redline);
   c.drive = drive;
   return { drive, resist, reverse: false };
-}
-
-// Longitudinal acceleration for a car without a tyre model (the AI): perfect traction up to tractionLimit, brakes
-// at brakeLimit. Reverse: brake drives backwards, gas brakes.
-export function powertrain(c, inp, dt) {
-  const { thr, brk } = inp, d = drivetrain(c, inp, dt), v = c.v;
-  let a = -d.resist;
-  if (d.reverse) {
-    a += v > 0 ? -brakeLimit(0) * brk : -TUNING.REVERSE_ACC * brk;
-    if (thr > 0 && v < 0) a += brakeLimit(0) * thr;
-    return a;
-  }
-  c.drive = Math.min(d.drive, tractionLimit(v));
-  a += c.drive;
-  if (brk > 0 && v > 0) a -= brakeLimit(v) * brk;
-  return a;
 }
 
 export const VEHICLE_INFO = Object.freeze({ redline: engine.redline, limiter: engine.limiter, idle: engine.idle,

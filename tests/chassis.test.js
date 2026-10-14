@@ -3,12 +3,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SIM as S } from '../src/sim/index.js';
-import { DT, run } from './helpers.js';
+import { DT, run, centreProfile } from './helpers.js';
 
-const T = S.track, { N, PX, PZ, VP } = T;
+const T = S.track, { N, PX, PZ } = T, VP = centreProfile(S, T);
 const solo = assists => { const race = S.createRace(1, { drivers: S.DRIVERS.filter(d => d.player) }), c = race.cars[0]; c.assists = S.ASSISTS[assists]; return { race, c }; };
 
-// A test driver: aims at the centre line 12 samples ahead, brakes to the AI speed profile.
+// A test driver: aims at the centre line 12 samples ahead, brakes to a centre-line speed profile.
 //   analog: proportional steering (phone tilt), tap: keyboard tapping (key held for a share of each 0.12 s),
 //   bang: full lock whenever the error passes 0.02 rad (the crudest keyboard driving)
 function lap(assists, style) {

@@ -12,9 +12,10 @@ function normalizeFormat(f) {
   if (f && f.type === 'unlimited') return { type: 'unlimited' };
   return { type: 'laps', laps: Math.max(1, Math.round(+(f && f.laps) || 3)) };
 }
-export function createRace(format, { track = DEFAULT_TRACK, drivers = DRIVERS } = {}) {
+// aiPace scales every AI driver's skill (difficulty, 1 = their own).
+export function createRace(format, { track = DEFAULT_TRACK, drivers = DRIVERS, aiPace = 1 } = {}) {
   const fmt = normalizeFormat(format);
-  return { track, format: fmt,
+  return { track, format: fmt, aiPace,
     laps: fmt.type === 'laps' ? fmt.laps : Infinity,               // distance; Infinity for timed / unlimited
     duration: fmt.type === 'timed' ? fmt.minutes * 60 : Infinity,  // seconds; the clock starts at lights out
     chequered: false, t: 0, fastest: Infinity, fastestBy: null, cars: drivers.map((d, slot) => createCar(track, d, slot)) };

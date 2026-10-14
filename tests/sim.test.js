@@ -52,7 +52,7 @@ test('player: top speed is VMAX and the brakes stop the car', () => {
 test('formats: timed race flags the leader after time is up; lapped cars finish a lap down', () => seeded(() => {
   const four = S.DRIVERS.filter(d => ['VOS', 'MAR', 'YOU', 'COS'].includes(d.code));
   const race = S.createRace({ type: 'timed', minutes: 1.5 }, { drivers: four });
-  run(S, race, 400, aiDriver(S, { COS: 0.55 }));
+  run(S, race, 400, aiDriver(S, { COS: 0.4 }));
   assert.ok(race.cars.every(c => c.finished));
   const ord = S.order(race), leader = ord[0];
   assert.ok(leader.finishTime >= 90, 'flag only after the clock ran out');
@@ -70,14 +70,29 @@ test('formats: unlimited never finishes; plain numbers mean laps', () => seeded(
   assert.deepEqual(S.createRace({ type: 'laps', laps: 0 }).format, { type: 'laps', laps: 3 });   // invalid → default
 }));
 
-test('contact: cars that touch push apart and report the impact once', () => {
-  const race = S.createRace(1, { drivers: S.DRIVERS.slice(0, 2) }), [a, b] = race.cars;
-  b.x = a.x + 2; b.z = a.z; a.v = 20; a.h = 0; b.v = 5; b.h = 0;
+test('contact: a nose-to-tail hit pushes apart, trades speed and reports the impact once', () => {
+  const race = S.createRace(1, { drivers: S.DRIVERS.slice(0, 2) }), [a, b] = race.cars, C = S.CONTACT;
+  const reach = C.front + C.rear + 2 * C.radius;            // centre distance at which the bodies touch, in line
+  a.h = b.h = 0; b.z = a.z; b.x = a.x + reach - 0.3; a.v = 20; b.v = 5;
   S.collide(race);
-  assert.ok(Math.hypot(b.x - a.x, b.z - a.z) >= S.TUNING.CAR_RADIUS - 1e-6, 'separated');
+  assert.ok(S.carGap(a, b) >= -1e-6, 'separated');
   assert.deepEqual(a.events, [S.EV.CONTACT]);
-  assert.ok(a.impact > 10);
-  a.events.length = 0; b.x = a.x + 3; b.z = a.z;
+  assert.ok(a.impact > 10, `impact ${a.impact}`);
+  assert.ok(a.v < 20 && b.v > 5 && Math.abs(a.v + b.v - 25) < 1e-6, `speeds ${a.v} ${b.v}: the hit car is shoved, momentum kept`);
+  a.events.length = 0;
   S.collide(race);
   assert.deepEqual(a.events, [], 'still touching: no second event');
+});
+
+test('contact: cars fit side by side a car width apart; a side swipe pushes sideways', () => {
+  const race = S.createRace(1, { drivers: S.DRIVERS.slice(0, 2) }), [a, b] = race.cars;
+  a.h = b.h = 0; a.v = b.v = 50; b.x = a.x; b.z = a.z + 2 * S.CONTACT.radius + 0.2;   // +z is to the right at h = 0
+  S.collide(race);
+  assert.deepEqual(a.events, [], 'no contact alongside');
+  a.vy = 3;                                                     // a drifts into b
+  b.z = a.z + 2 * S.CONTACT.radius - 0.1;
+  S.collide(race);
+  assert.deepEqual(b.events, [S.EV.CONTACT]);
+  assert.ok(b.vy > 0 && a.vy < 3, `b pushed right (${b.vy.toFixed(2)}), a slowed sideways (${a.vy.toFixed(2)})`);
+  assert.ok(Math.abs(a.v - 50) < 0.01 && Math.abs(b.v - 50) < 0.01, 'forward speeds untouched');
 });

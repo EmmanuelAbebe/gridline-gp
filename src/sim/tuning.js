@@ -4,10 +4,39 @@ export const TUNING = Object.freeze({
   V_CAP: 100,         // hard speed cap, above anything the car can reach
   REVERSE_MAX: 9,
   REVERSE_ACC: 5,
-  CAR_RADIUS: 4.4,    // centre-to-centre contact distance
   WHEEL_RADIUS: 0.36, // driven wheel: gearing and wheel spin
-  PLAYER_YAW: 1.5,    // cap on the player's turn rate (rad/s) at low speed
-  AI: Object.freeze({ grip: 0.9, brake: 0.85, yaw: 1.15 }),   // AI uses this share of the car's grip and brakes
+});
+
+// Car contact (collide.js): each car is a capsule from `rear` to `front` m along its heading (from the car's origin,
+// between the axles), `radius` wide each side: about the bodywork. restitution = bounce of the closing speed, spin =
+// how much an off-centre hit turns the car (0..1 of the free-body rotation).
+export const CONTACT = Object.freeze({ rear: 1.5, front: 2.3, radius: 1.05, restitution: 0.2, spin: 0.5 });
+
+// The AI drivers (driving.js): they drive the same car as the player, through steering, throttle and brake.
+export const AI = Object.freeze({
+  grip: 1.0,           // share of the cornering grip the speed profile plans with, on the racing line
+  brake: 0.85,          // share of the braking limit the profile plans with
+  lineMargin: 2.2,      // m: the racing line keeps the car's centre this far inside the road edge
+  lineStrides: [24, 12, 6, 3], lineIterations: 300,   // racing-line smoothing passes, coarse to fine (track.js)
+  look: 8, lookTime: 0.3,   // steering aims at a point this far ahead: metres + seconds × speed
+  yawGain: 0.6,         // steering correction toward the turn rate the path needs
+  steerRate: 10,        // how fast the AI turns the wheel (full lock per 1/steerRate s)
+  thrGain: 0.5,         // throttle per m/s under the target speed
+  brakeGain: 0.12,      // extra brake per m/s over the target speed
+  brakeLook: 60,        // samples ahead checked for braking
+  lockThrottle: 0.25,   // throttle at most while the steering is at its lock or the front slides
+  // moving across to a new line (racing line, passing): rate 1/s, at most lineSlope m per m driven and lineSpeed m/s
+  lineRate: 2, lineSlope: 0.06, lineSpeed: 2.5,
+  // racecraft (m): bodies touch at 2 × CONTACT.radius sideways. A car within followRange ahead and closer than sideGap
+  // sideways is in our lane: move to pass it; closer than followLat we can't get by yet, so close only to followGap
+  // (followGain m/s per metre). A car within ±alongside along the track: keep sideGap from it.
+  sideGap: 3.4, followLat: 2.3, followRange: 40, followGap: 8, followGain: 0.6, alongside: 6,
+  cutRange: 10,         // m: a car this close ahead counts where it is heading as well as where it is
+  recoverSpeed: 8,      // m/s: pointing the wrong way (after a spin), turn back at this speed
+  // late braking: per braking zone (speed to lose > minDrop m/s), chance × (1 − driver skill) × 10; the next `length`
+  // metres are then driven `over` too fast
+  mistakes: Object.freeze({ chance: 0.12, over: [0.06, 0.14], length: 140, minDrop: 8 }),
+  assists: 'medium',    // the AI drives with the same assists the game defaults to
 });
 
 // The car: one performance model for every car (player and AI). Accelerations are m/s² per unit mass.
@@ -34,8 +63,6 @@ export const CAR = Object.freeze({
     shiftCut: 0.3,    // drive kept during the shift
     autoUp: 11800, autoDown: 8000, autoBrakeDown: 11000,   // automatic gearbox shift points (rpm), see vehicle.js
   }),
-  brakes: Object.freeze({ mech: 22, aero: 0.8 }),   // limit = mech + aero × grip × downforce/mass (m/s²)
-  traction: 0.45,     // share of the cornering grip the rear tyres can use to accelerate (no wheel spin yet)
 });
 
 // The player's chassis (chassis.js): a two-axle car whose tyres make grip from slip angle.

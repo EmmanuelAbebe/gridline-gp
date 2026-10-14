@@ -6,8 +6,8 @@ which shows up in the browser as a virtual Xbox 360 controller.
 
 ## Goal and roadmap (Oct 2026)
 Turning the prototype into a production-grade game. Agreed order: (1) foundation [done: modules, Vite, tests],
-(2) sim-cade physics in 4 parts: [done] engine/gearbox/downforce/slipstream; [done] tyre + chassis model (player
-only); AI on the new physics (AI still kinematic: no tyre slip); tuning screen (downforce, grip, power, brake balance), (3) merge the Phone-wheel project into this one (server inside Electron,
+(2) sim-cade physics in 4 parts: [done] engine/gearbox/downforce/slipstream; [done] tyre + chassis model;
+[done] AI on the same chassis (racing line, racecraft, mistakes, difficulty); tuning screen (downforce, grip, power, brake balance), (3) merge the Phone-wheel project into this one (server inside Electron,
 pairing from the settings menu, vibration + rev lights on the phone), (4) car/world visuals: brake lights,
 higher-poly car, crash physics, scenery, (5) HUD, menus, presentation.
 
@@ -26,7 +26,8 @@ higher-poly car, crash physics, scenery, (5) HUD, menus, presentation.
   F5/Ctrl+R reload, Ctrl+Shift+I devtools. GPU: Chromium default; `GRIDLINE_GPU=vulkan` adds the old laptop's
   ANGLE-on-Vulkan switches (they corrupt rendering on the RX 9060 XT). Preload exposes `window.gridlineApp`
   {quit, toggleFullscreen, isFullscreen, onFullscreen}; the page's `AppShell` uses it (quit buttons `[data-quit]`
-  only appear in the app). `--smoke-test=out.png` renders offscreen, screenshots the menu and a running race
+  only appear in the app). `--smoke-test=out.png` renders offscreen in a throwaway profile (default setup, 10 cars;
+  never touches the player's saved settings), screenshots the menu and a running race
   (`out-race.png`), checks the race clock, clicks full screen + quit, prints JSON. Window class `gridline-gp`.
   Electron's localStorage is separate from Chrome's (export/import designs to move them).
 - `gridline.sh`: launches the app, rebuilding first when src/index.html/public is newer than dist
@@ -41,29 +42,34 @@ higher-poly car, crash physics, scenery, (5) HUD, menus, presentation.
 ## Architecture
 Tunables live in data tables (config modules), not inline in the logic.
 1. **SIM** (`src/sim/`, exported as one `SIM` object from `index.js`):
-   - `tuning.js`: `TUNING` (VMAX nominal, V_CAP, reverse, contact radius, `AI` grip/brake/yaw shares), `CAR` (mass,
-     tyre `grip` 3.0, `aero` liftArea 3.2 / dragArea 1.45, `engine` power curve + rpm points, `gearbox` km/h per gear
-     at redline + auto shift points, `brakes`, `traction`), `SLIP` (wake range/width/drag cut), `TRACK_DEFAULTS`,
+   - `tuning.js`: `TUNING` (VMAX nominal, V_CAP, reverse), `CONTACT` (car capsule), `AI` (driver table, see
+     driving.js), `CAR` (mass, tyre `grip` 3.0, `aero` liftArea 3.2 / dragArea 1.45, `engine` power curve + rpm
+     points, `gearbox` km/h per gear at redline + auto shift points), `CHASSIS`, `SURFACES`, `ASSISTS`, `SLIP` (wake range/width/drag cut), `TRACK_DEFAULTS`,
      `GRID`, `CP`, `LAP_ZONE`, `EV` (event names, incl. SHIFT / SHIFT_DENIED).
    - `vehicle.js`: the one performance model every car uses. `lateralGrip(v)` = grip·(g + downforce/m) (grows with
-     v², so corners above ~139 m radius are flat out), `brakeLimit(v)`, `tractionLimit`, `cornerSpeed(|k|, share)`,
-     `rpmAt(v, gear)`, `powertrain(c, {thr, brk, shift}, dt)` → longitudinal accel (drag ×(1 − slip·0.35), rolling,
-     engine braking, launch clutch slip in 1st, limiter, shift cut), `updateGear` (auto: up at 11800, down at 8000 on
+     v², so corners above ~139 m radius are flat out), `brakeLimit(v)` = the tyres' straight-line ABS limit
+     (min(brakeSystem, grip·longGrip·(g + downforce/m))), `cornerSpeed(|k|, share)`, `rpmAt(v, gear)`,
+     `drivetrain(c, {thr, brk, shift}, dt)` → engine drive + resistances (drag ×(1 − slip·0.35), rolling, engine
+     braking, launch clutch slip in 1st, limiter, shift cut) for chassis.js, `updateGear` (auto: up at 11800, down at 8000 on
      the throttle or as soon as the lower gear is < 11000 rpm off it; manual: paddles, over-rev downshift refused;
      brake at standstill = reverse). `slipstream(race, c)` sets `c.slip` 0..1 / `c.slipBy` from the leader's trail. `circuits.js`: `CIRCUITS` (control points + render `landmarks` sample indices).
      `drivers.js`: `DRIVERS`. `math.js`: `wrapA`, `clamp`.
    - `track.js`: `buildTrack(circuit)` → track object: closed centripetal Catmull-Rom → resampled to `N = 1200` equal steps
      (`ds` ≈ 2.06 m). Per sample: `PX/PZ`, tangent `TX/TZ`, right-hand normal `NX/NZ`, signed curvature `K`
      (>0 turns toward +N, i.e. right), plus `bounds`, `HW/KERB/WALL`, and the AI arrays:
-     `VP` speed profile (`cornerSpeed` with AI grip share, then braking look-back with `brakeLimit`; V_CAP on
-     straights so the engine sets straight-line speed) and `RO` racing-line offset.
+     `RO` racing-line offset = a minimum-curvature line (each point moved to minimise the second difference with
+     neighbours s and 2s away, s = 24 → 12 → 6 → 3 samples, kept `AI.lineMargin` inside the edge), `LK` the line's
+     curvature, `VP` speed profile along the line (`cornerSpeed(|LK|, AI.grip)`, then braking look-back at
+     `AI.brake × brakeLimit`; V_CAP on straights so the engine sets straight-line speed). On this line turn 1
+     (~770 m) is flat out at ~320 km/h; the hairpin ~107 km/h.
      `SIM.track` is the default (Elkmoor). A new circuit = a new `CIRCUITS` entry; nothing else hardcodes it.
-   - `chassis.js` (player car): two-axle bicycle model, 4 sub-steps per 120 Hz step. Axle grip = grip × surface ×
+   - `chassis.js` (every car: player and AI): two-axle bicycle model, 4 sub-steps per 120 Hz step. Axle grip = grip × surface ×
      (weight + downforce·(1 − dirtyAir·slip) ± load transfer from last `c.ax`); tyre curve sin(1.3·atan(Bα)) peaking
      at 0.1 rad front / 0.075 rear (stiffer, 6% grippier rear = stable); friction circle per axle (`axle()`): too
      much brake locks (fronts: understeer), too much drive spins (rears). Brakes split by axle load + 0.08 front
-     bias, system max 70 m/s² (can lock at low speed). Below 2–6 m/s blends to kinematic steering; reverse is
-     kinematic. Assists (`ASSISTS` off/low/medium/high, game default medium): `steer` = lock shrinks with speed to the
+     bias, system max 70 m/s² (can lock at low speed). Below 2–6 m/s blends to kinematic steering (vy = rear-axle
+     geometry B_REAR·yawRate, so the rear tyres don't slip; until 2026-10-14 it was 0, which saturated the rears at
+     full lock and left a car crawling at 2 m/s on grass); reverse is kinematic. Assists (`ASSISTS` off/low/medium/high, game default medium): `steer` = lock shrinks with speed to the
      tightest steady turn (`steerLock`), `stability` = yaw-rate correction when the rear slides + rear brake margin,
      `damping` (high only) = always-on yaw damping for on/off keys, `tc`, `abs`. Car state adds `vy`, `yawRate`,
      `slideF/slideR` (0..1 past the limit), `lockF`, `spinR`. Tuned against bots in tests/chassis.test.js:
@@ -73,13 +79,25 @@ Tunables live in data tables (config modules), not inline in the logic.
      drawn on the inside of corners before 2026-10-13; fixed).
    - `car.js` (locate, createCar, resolveWalls, updateSurface; car has `gear`, `rpm`, `autoShift`, `slip`, `brake`,
      and `trailLat`/`trailT` per track sample = its wake), `race.js` (formats, createRace, progress, lap +
-     flag rules, checkpoints, order, gapTo), `motion.js` (move, afterMove), `driving.js` (powertrain, drivePlayer,
-     driveAI), `collide.js`.
+     flag rules, checkpoints, order, gapTo), `motion.js` (afterMove), `driving.js` (drivePlayer, driveAI),
+     `collide.js` (cars are capsules `CONTACT` rear 1.5 / front 2.3 m, radius 1.05: side by side fits at 2.1 m;
+     impulses along the contact normal with restitution 0.2 change v, vy and yaw (`spin`); `carGap(a, b)`).
    - Car state: `x, z, h`, `v`, `idx` (nearest sample), `lat`, `lap`. `progress(race, c)` = `lap * N + idx`.
      After every move: `updateLap` (wrap >0.8N → <0.2N), `updateCheckpoints`, `resolveWalls`, `updateSurface`.
    - `drivePlayer(race, car, {steer, thr, brk, analog, shift}, dt)`: steering smoothing, slipstream, `stepChassis`;
-     `driveAI(race, car, dt, skillOverride = 0)`: same powertrain, full throttle below target / braking above it.
-   - Race formats: `createRace(format, { track, drivers })`, format = number (laps) or { type: 'laps', laps } |
+     `driveAI(race, car, dt, skillOverride = 0)`: the AI drives the same chassis through steer/thr/brk (assists
+     `AI.assists` = medium). Steering: pure pursuit to a point `look + lookTime·v` ahead on its line offset
+     (`c.offset`, moved toward the target at ≤ lineSlope m/m and ≤ lineSpeed m/s) + yaw-rate correction, divided by
+     `steerLock`. Speed: skill = driver skill × `race.aiPace` (difficulty); target = VP × skill, reduced off the
+     racing line by the offset path's corner speed; brakes once the decel needed over `brakeLook` samples reaches
+     ~0.9 × the planned decel (late, not long); no throttle at full lock. Racecraft: car ahead within followRange
+     and < sideGap sideways → pass on the side with room (`passBy`/`passSide` sticky); < followLat → close only to
+     followGap; within ±alongside → hard clamp of `c.offset` to keep sideGap; close ahead (cutRange) also counts
+     where an AI car is heading (`o.offset`). Mistakes: at the start of a braking zone, chance × (1 − skill) × 10
+     → `c.mistake` share too fast for `length` m (never with skillOverride). Pointing the wrong way → full lock at
+     recoverSpeed. Tests: tests/ai.test.js. Solo fastest-rival laps: pace 0.8 ≈ 36 s, 0.88 ≈ 34, 0.95 ≈ 32.9,
+     1.03 ≈ 32.1 (user's best ≈ 33.0 s on 2026-10-13, before the new AI).
+   - Race formats: `createRace(format, { track, drivers, aiPace = 1 })`, format = number (laps) or { type: 'laps', laps } |
      { type: 'timed', minutes } | { type: 'unlimited' }; `race.laps` / `race.duration` are Infinity when unused.
      Chequered flag (`race.chequered`): first car past the distance, or the leader crossing after time is up;
      then every car finishes at its next crossing (lapped cars too). Finished cars sort by `finishLap`, then time.
@@ -98,7 +116,9 @@ Tunables live in data tables (config modules), not inline in the logic.
      D-pad backup, A confirm, START pause, Y camera; non-standard mapping falls back to triggers on axes 5/2.
    - `Sound` (WebAudio saw+square engine + beeps; pitch from real rpm). Dash (`dashGear` in main.js): gear and rpm
      from the car; rev lights from `CONFIG.revLights.from` (8500) to the auto upshift point (all lit = shift).
-   - Start menu also has Assists OFF/LOW/MEDIUM/HIGH (`game.setup.assists` → `player.assists`). `Sound.tyres`:
+   - Start menu also has Assists OFF/LOW/MEDIUM/HIGH (`game.setup.assists` → `player.assists`) and Rivals
+     ROOKIE/CLUB/PRO/LEGEND (`game.setup.ai` → `RACE_SETUP.aiLevels[].pace` → createRace aiPace; default pro;
+     hidden for solo). `Sound.tyres`:
      band-passed noise squeal from slideF/slideR/lock/spin.
    - Gearbox: start menu AUTO / MANUAL (`game.setup.gearbox`). Shift: Q/E, pad LB/RB, and pad A/B (phone buttons
      1/2) = down/up while racing (A still confirms in menus). Paddles in auto mode show a one-time hint.
@@ -158,7 +178,8 @@ them on. Before Performance mode existed the game ran at ~30 fps; target is 60.
 - No real teams, drivers or liveries: fictional teams (Halcyon, Kestrel, Meridian...).
 - A logarithmic depth buffer was tried and removed (slow); road layering uses polygonOffset instead.
 - Road strips were wound facing down once (rendered almost black); winding is now up-facing.
-- Oct 2026: player was slower on straights (extra drag only on the player); all cars now share `powertrain()`.
+- Oct 2026: player was slower on straights (extra drag only on the player); all cars now share the drivetrain, and
+  since 2026-10-14 the same chassis (the old kinematic AI and `powertrain()` are gone).
   Car contact fires EV.CONTACT once per touch with `impact` speed → impact sound (walls too).
 - Oct 2026: refactored into sections inside one file (pre-git copy was in `backup/`, now replaced by git history).
 - 2026-10-13: split into ES modules under `src/` with a Vite single-file build; SIM output bit-identical

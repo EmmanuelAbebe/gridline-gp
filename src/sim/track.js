@@ -1,9 +1,9 @@
 // Track construction: a circuit's control points → closed centripetal Catmull-Rom → N equal-length samples with
 // tangents, right-hand normals, signed curvature, bounds, and the AI's speed profile and racing line.
-import { TUNING, TRACK_DEFAULTS, GRID } from './tuning.js';
+import { AI, TRACK_DEFAULTS, GRID } from './tuning.js';
 import { cornerSpeed, brakeLimit } from './vehicle.js';
 import { CIRCUITS } from './circuits.js';
-import { clamp } from './math.js';
+import { clamp, wrapA } from './math.js';
 
 // Closed centripetal Catmull-Rom through the control points, `steps` points per segment.
 function catmullRomClosed(ctrl, steps) {
@@ -39,19 +39,39 @@ function resampleClosed(dense, N) {
   return { PX, PZ, L, ds };
 }
 
-// AI reference: VP = speed profile (corner limit with downforce + braking look-back), RO = racing-line offset toward
-// corner insides. Straights are V_CAP, so there the engine and drag decide the speed.
-function buildAiProfile({ N, HW, ds, K }) {
-  const { grip, brake } = TUNING.AI;
-  const VP = new Float32Array(N), RO = new Float32Array(N);
-  for (let i = 0; i < N; i++) VP[i] = cornerSpeed(Math.abs(K[i]), grip);
-  for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) {
-    const j = (i+1)%N; VP[i] = Math.min(VP[i], Math.sqrt(VP[j]*VP[j] + 2*brakeLimit(VP[j])*brake*ds));
+// AI reference: RO = racing-line offset toward corner insides; VP = speed profile along that line (corner limit with
+// downforce from the line's own curvature, then braking look-back). Straights are V_CAP: the engine and drag decide.
+function buildAiProfile({ N, HW, ds, K, PX, PZ, NX, NZ }) {
+  const { grip, brake } = AI;
+  // the line: a minimum-curvature path within the road (outside → apex → outside). Each point moves to where it best
+  // straightens the line with its neighbours `s` and 2·s samples away (least squared second difference), first on a
+  // coarse set of points, then finer, filling in between.
+  const RO = new Float64Array(N), lim = HW - AI.lineMargin;
+  const at = (j, o) => { j = (j+N)%N; return [PX[j] + NX[j]*RO[j], PZ[j] + NZ[j]*RO[j]][o]; };
+  for (const s of AI.lineStrides) {
+    for (let it = 0; it < AI.lineIterations; it++) for (let i = 0; i < N; i += s) {
+      const mx = (4*(at(i-s, 0) + at(i+s, 0)) - at(i-2*s, 0) - at(i+2*s, 0)) / 6;
+      const mz = (4*(at(i-s, 1) + at(i+s, 1)) - at(i-2*s, 1) - at(i+2*s, 1)) / 6;
+      RO[i] = clamp((mx - PX[i])*NX[i] + (mz - PZ[i])*NZ[i], -lim, lim);
+    }
+    for (let i = 0; i < N; i++) if (i % s) { const i0 = i - i % s, f = (i % s) / s; RO[i] = RO[i0]*(1-f) + RO[(i0+s)%N]*f; }
   }
-  const raw = new Float32Array(N), S = 40;
-  for (let i = 0; i < N; i++) raw[i] = clamp(K[i]*120, -1, 1) * (HW - 2.6);
-  for (let i = 0; i < N; i++) { let s = 0; for (let o = -S; o <= S; o++) s += raw[(i+o+N)%N]; RO[i] = s / (2*S+1); }
-  return { VP, RO };
+  // the line: segment lengths and headings, curvature over ±W samples (same window as K)
+  const LS = new Float32Array(N), LH = new Float32Array(N), LK = new Float32Array(N), W = 5;
+  for (let i = 0; i < N; i++) {
+    const j = (i+1)%N, dx = PX[j] + NX[j]*RO[j] - PX[i] - NX[i]*RO[i], dz = PZ[j] + NZ[j]*RO[j] - PZ[i] - NZ[i]*RO[i];
+    LS[i] = Math.hypot(dx, dz) || ds; LH[i] = Math.atan2(dz, dx);
+  }
+  for (let i = 0; i < N; i++) {
+    let len = 0; for (let o = -W; o < W; o++) len += LS[(i+o+N)%N];
+    LK[i] = wrapA(LH[(i+W-1)%N] - LH[(i-W+N)%N]) / (len - LS[(i+W-1)%N] / 2 - LS[(i-W+N)%N] / 2 || ds);
+  }
+  const VP = new Float32Array(N);
+  for (let i = 0; i < N; i++) VP[i] = cornerSpeed(Math.abs(LK[i]), grip);
+  for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) {
+    const j = (i+1)%N; VP[i] = Math.min(VP[i], Math.sqrt(VP[j]*VP[j] + 2*brakeLimit(VP[j])*brake*LS[i]));
+  }
+  return { VP, RO, LK };
 }
 
 export function buildTrack(circuit, opts = {}) {

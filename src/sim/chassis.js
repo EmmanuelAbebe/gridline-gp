@@ -62,9 +62,10 @@ export function stepChassis(race, c, inp, dt) {
       else { a += Math.min(d.drive, CAR.grip * G * (1 - CH.frontWeight) * CH.longGrip); if (v > 0) a -= 20 * inp.brk; }
       const v0 = c.v; c.v = clamp(c.v + a * h, -TUNING.REVERSE_MAX, TUNING.V_CAP);
       if (!d.reverse && v0 >= 0 && c.v < 0) c.v = 0;
-      c.yawRate = c.v * Math.tan(delta) / L; c.vy = 0;
+      // the rear axle rolls straight: sideways speed at the centre of mass is B_REAR × yaw rate (no tyre slip)
+      c.yawRate = c.v * Math.tan(delta) / L; c.vy = B_REAR * c.yawRate;
       c.h += c.yawRate * h;
-      c.x += Math.cos(c.h) * c.v * h; c.z += Math.sin(c.h) * c.v * h;
+      c.x += (Math.cos(c.h) * c.v - Math.sin(c.h) * c.vy) * h; c.z += (Math.sin(c.h) * c.v + Math.cos(c.h) * c.vy) * h;
       continue;
     }
     // axle loads (per mass): weight + downforce (less in dirty air) ± load transfer from the last acceleration
@@ -111,7 +112,7 @@ export function stepChassis(race, c, inp, dt) {
     c.v = Math.min(c.v, TUNING.V_CAP);
     // below blendSpeed fade toward kinematic steering, which is stable at walking pace
     const k = clamp((c.v - CH.lowSpeed) / (CH.blendSpeed - CH.lowSpeed), 0, 1);
-    if (k < 1) { c.yawRate = k * c.yawRate + (1 - k) * c.v * Math.tan(delta) / L; c.vy *= k; }
+    if (k < 1) { const w0 = c.v * Math.tan(delta) / L; c.yawRate = k * c.yawRate + (1 - k) * w0; c.vy = k * c.vy + (1 - k) * B_REAR * w0; }
     c.h += c.yawRate * h;
     c.x += (Math.cos(c.h) * c.v - Math.sin(c.h) * c.vy) * h;
     c.z += (Math.sin(c.h) * c.v + Math.cos(c.h) * c.vy) * h;

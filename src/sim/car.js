@@ -28,7 +28,7 @@ export function createCar(track, driver, slot) {
     // trail: lateral offset and time when this car last passed each track sample (its wake, for slipstream)
     trailLat: new Float32Array(track.N), trailT: new Float32Array(track.N).fill(-1),
     // AI
-    offset: lat, bias: (Math.random()-0.5)*1.6,
+    offset: lat, bias: (Math.random()-0.5)*1.6, mistake: 0, mistakeEnd: -1, passBy: null, passSide: 1, aiT: -1,   // mistake: share too fast, until mistakeEnd
     // timing
     lap: 0, finished: false, finishTime: 0, finishLap: 0, lapStart: 0, lastLap: 0, bestLap: Infinity, cpT: [], lastCp: -1,
     // things that happened this step (EV.*); the game drains this queue. `impact` = speed of the last hit

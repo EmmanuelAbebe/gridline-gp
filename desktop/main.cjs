@@ -2,7 +2,8 @@
 // Start with `npm start` (builds first), ./gridline.sh, or the "Gridline GP" applications-menu entry.
 // Loads the built game (dist/index.html); `npm run dev:app` loads the Vite dev server instead (GRIDLINE_DEV_URL).
 //   --windowed            start as a maximised window instead of full screen
-//   --smoke-test=out.png  (development) load hidden, screenshot the menu and a running race, print info, quit
+//   --smoke-test=out.png  (development) load hidden in a throwaway profile, screenshot the menu and a running race
+//                         (default setup: 10 cars), print info, quit
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -13,6 +14,8 @@ const smokeOut = arg('smoke-test');
 const DEV_URL = process.env.GRIDLINE_DEV_URL || '';
 
 app.setName('Gridline GP');
+// the smoke test gets a fresh, throwaway profile: default race setup, and the player's saved settings stay untouched
+if (smokeOut) app.setPath('userData', fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'gridline-smoke-')));
 // GPU: Chromium's default path renders correctly on the current PC (Radeon RX 9060 XT, Mesa). The old Intel HD 520
 // laptop needed hardware WebGL through ANGLE on Vulkan, which corrupts the picture on the Radeon, so that setup is
 // opt-in: GRIDLINE_GPU=vulkan (./gridline.sh --vulkan).
@@ -73,7 +76,8 @@ async function smokeTest(win) {
   await win.webContents.executeJavaScript(`document.getElementById('startBtn').click()`);
   await new Promise(r => setTimeout(r, 9000));
   info.race = await win.webContents.executeJavaScript(`({ hud: !document.getElementById('hud').hidden,
-    lapTime: document.getElementById('tCur').textContent, position: document.getElementById('pos').textContent })`);
+    lapTime: document.getElementById('tCur').textContent, position: document.getElementById('pos').textContent,
+    cars: document.querySelectorAll('#towerList > *').length })`);
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-race.png'), (await win.webContents.capturePage()).toPNG());
   await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click()`);
   // exercise the bridge the way a player would: full-screen button, then the quit button (which must end the app)

@@ -1,24 +1,65 @@
-// Car-to-car contact.
-import { TUNING, EV } from './tuning.js';
-import { progress } from './race.js';
+// Car-to-car contact. Each car is a capsule along its heading (CONTACT: a segment from `rear` to `front` metres from
+// the car's origin, swept by `radius`), about the size of the bodywork, so cars can run side by side a car's width
+// apart. Overlapping cars are pushed apart, and closing speed along the contact normal is exchanged as an impulse
+// (equal masses, a little bounce): nose-to-tail the rear car slows and the front one is shoved, a side swipe pushes
+// both sideways, and an off-centre hit turns the car (`spin`). EV.CONTACT fires once per touch with `impact` =
+// closing speed (m/s).
+import { CONTACT, EV, CHASSIS } from './tuning.js';
 import { afterMove } from './motion.js';
 
-// Push overlapping cars apart; scrub speed only when contact is mostly nose-to-tail.
-// EV.CONTACT fires once when a car starts touching another, with `impact` = closing speed (m/s).
+const { rear: REAR, front: FRONT, radius: RADIUS, restitution: E, spin: SPIN } = CONTACT;
+const K2 = CHASSIS.gyration * CHASSIS.gyration;
+
+// the car's capsule segment in world space
+function segment(c) {
+  const cx = Math.cos(c.h), sz = Math.sin(c.h);
+  return [c.x - cx * REAR, c.z - sz * REAR, c.x + cx * FRONT, c.z + sz * FRONT];
+}
+// closest points between segments P0P1 and Q0Q1 (2D): returns [px, pz, qx, qz]
+function closest([ax, az, bx, bz], [cx, cz, dx, dz]) {
+  const ux = bx - ax, uz = bz - az, vx = dx - cx, vz = dz - cz, wx = ax - cx, wz = az - cz;
+  const a = ux*ux + uz*uz, b = ux*vx + uz*vz, c = vx*vx + vz*vz, d = ux*wx + uz*wz, e = vx*wx + vz*wz;
+  const den = a*c - b*b;
+  let s = den > 1e-9 ? Math.min(1, Math.max(0, (b*e - c*d) / den)) : 0;
+  let t = (b*s + e) / c;
+  if (t < 0) { t = 0; s = Math.min(1, Math.max(0, -d / a)); }
+  else if (t > 1) { t = 1; s = Math.min(1, Math.max(0, (b - d) / a)); }
+  return [ax + ux*s, az + uz*s, cx + vx*t, cz + vz*t];
+}
+// clearance between two cars' bodies (m); < 0 = overlapping
+export function carGap(a, b) {
+  const [px, pz, qx, qz] = closest(segment(a), segment(b));
+  return Math.hypot(qx - px, qz - pz) - 2 * RADIUS;
+}
+
+const velocity = c => [Math.cos(c.h) * c.v - Math.sin(c.h) * c.vy, Math.sin(c.h) * c.v + Math.cos(c.h) * c.vy];
+// add a world-space velocity change (jx, jz) applied at (px, pz) to car c
+function kick(c, jx, jz, px, pz) {
+  const fx = Math.cos(c.h), fz = Math.sin(c.h);
+  c.v += jx * fx + jz * fz;
+  c.vy += -jx * fz + jz * fx;
+  c.yawRate += SPIN * ((px - c.x) * jz - (pz - c.z) * jx) / K2;
+}
+
 export function collide(race) {
-  const cars = race.cars, R = TUNING.CAR_RADIUS;
+  const cars = race.cars, reach = Math.max(REAR, FRONT) * 2 + 2 * RADIUS;
   for (const c of cars) { c.wasTouching = c.touching; c.touching = false; }
   for (let i = 0; i < cars.length; i++) for (let j = i+1; j < cars.length; j++) {
     const a = cars[i], b = cars[j];
-    let dx = b.x - a.x, dz = b.z - a.z; const d2 = dx*dx + dz*dz;
-    if (d2 > R*R || d2 < 1e-6) continue;
-    const d = Math.sqrt(d2), push = (R - d) / 2; dx /= d; dz /= d;
-    const closing = Math.max(0, (a.v*Math.cos(a.h) - b.v*Math.cos(b.h)) * dx + (a.v*Math.sin(a.h) - b.v*Math.sin(b.h)) * dz);
+    if (Math.abs(b.x - a.x) > reach || Math.abs(b.z - a.z) > reach) continue;
+    const [px, pz, qx, qz] = closest(segment(a), segment(b));
+    let nx = qx - px, nz = qz - pz; const d = Math.hypot(nx, nz);
+    if (d >= 2 * RADIUS) continue;
+    if (d > 1e-6) { nx /= d; nz /= d; } else { nx = -Math.sin(a.h); nz = Math.cos(a.h); }   // centred on top: push sideways
+    const [vax, vaz] = velocity(a), [vbx, vbz] = velocity(b);
+    const closing = Math.max(0, (vax - vbx) * nx + (vaz - vbz) * nz);
     for (const c of [a, b]) { if (!c.wasTouching && !c.touching) { c.impact = closing; c.events.push(EV.CONTACT); } c.touching = true; }
-    a.x -= dx*push; a.z -= dz*push; b.x += dx*push; b.z += dz*push;
-    const [rear, front] = progress(race, a) < progress(race, b) ? [a, b] : [b, a];
-    const along = Math.abs(dx*Math.cos(front.h) + dz*Math.sin(front.h));
-    if (along > 0.6 && rear.v > front.v) { const avg = (rear.v + front.v)/2; rear.v = avg*0.97; front.v = Math.max(front.v, avg*0.99); }
+    const push = (2 * RADIUS - d) / 2;
+    a.x -= nx*push; a.z -= nz*push; b.x += nx*push; b.z += nz*push;
+    if (closing > 0) {
+      const jn = (1 + E) * closing / 2, mx = (px + qx) / 2, mz = (pz + qz) / 2;
+      kick(a, -nx*jn, -nz*jn, mx, mz); kick(b, nx*jn, nz*jn, mx, mz);
+    }
     afterMove(race, a); afterMove(race, b);
   }
 }

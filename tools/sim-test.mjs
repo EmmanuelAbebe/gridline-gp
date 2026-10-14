@@ -1,9 +1,11 @@
 // Headless race check for Gridline GP: prints track stats, a full AI race, a scripted player lap and race formats.
 // Usage: node tools/sim-test.mjs [old.html | path/to/sim/index.js]   (default: the source modules in src/sim)
 import { loadSim } from './load-sim.mjs';
+import { centreProfile } from '../tests/helpers.js';
 
 const S = await loadSim(process.argv[2]);
 const T = S.track, { N, PX, PZ, K, ds, WALL, VP } = T;
+const CP = S.cornerSpeed ? centreProfile(S, T) : VP;   // the scripted lap drives the centre line
 const countWalls = c => { const n = c.events.filter(e => e === S.EV.WALL).length; c.events.length = 0; return n; };
 
 console.log(`${T.name}: track length ${T.L.toFixed(0)} m, sample spacing ${ds.toFixed(2)} m`);
@@ -29,14 +31,14 @@ console.log(`\nAI race: ${race.t.toFixed(1)} s, wall hits ${walls}`);
 S.order(race).forEach((c, i) => console.log(
   String(i + 1).padStart(2), c.code, c.finished ? c.finishTime.toFixed(2) + ' s' : 'DNF', ' best', c.bestLap.toFixed(2)));
 
-// Scripted player lap through drivePlayer (tyre model, medium assists): brake to the AI speed profile, steer at a
+// Scripted player lap through drivePlayer (tyre model, medium assists): brake to a centre-line speed profile, steer at a
 // look-ahead point on the centre line
 const r2 = S.createRace(1), p = r2.cars.find(c => c.player);
 let pw = 0;
 for (let step = 0; step < 120 * 200 && !p.finished; step++) {
   r2.t += dt;
   const ti = (p.idx + 12) % N, diff = S.wrapA(Math.atan2(PZ[ti] - p.z, PX[ti] - p.x) - p.h);
-  const slow = p.v > VP[(p.idx + 4) % N];
+  const slow = p.v > CP[(p.idx + 4) % N];
   S.drivePlayer(r2, p, { thr: slow ? 0 : 1, brk: slow ? 1 : 0, steer: S.clamp(diff * 3, -1, 1), analog: true }, dt);   // proportional, like tilt
   pw += countWalls(p);
 }
@@ -53,7 +55,7 @@ function runAI(r, maxSeconds, skills = {}) {
   return r;
 }
 const four = S.DRIVERS.filter(d => ['VOS', 'MAR', 'YOU', 'COS'].includes(d.code));
-const timed = runAI(S.createRace({ type: 'timed', minutes: 1.5 }, { drivers: four }), 400, { COS: 0.55 });
+const timed = runAI(S.createRace({ type: 'timed', minutes: 1.5 }, { drivers: four }), 400, { COS: 0.4 });
 console.log(`\ntimed 1.5 min, 4 cars (COS slowed): flag at ${Math.min(...timed.cars.map(c => c.finishTime)).toFixed(1)} s, all finished at ${timed.t.toFixed(1)} s`);
 S.order(timed).forEach((c, i) => { const g = S.gapTo(timed, S.order(timed)[0], c);
   console.log(String(i + 1).padStart(2), c.code, `${c.finishLap - 1} laps`, g ? (g.laps ? `+${g.laps} lap` : `+${g.t.toFixed(2)} s`) : 'winner'); });
