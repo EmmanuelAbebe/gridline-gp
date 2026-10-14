@@ -13,6 +13,8 @@ import { DOWNFORCE_K, lateralGrip, drivetrain } from './vehicle.js';
 const G = 9.81, L = CH.wheelbase;
 const A_FRONT = L * (1 - CH.frontWeight), B_REAR = L * CH.frontWeight;   // CG to front / rear axle
 const K2 = CH.gyration * CH.gyration;
+// extra deceleration from the surface (signed to oppose the motion): rolling + drag on the speed above its cap
+const surfaceDrag = (surf, v) => Math.sign(v) * (surf.rolling + Math.min(surf.maxDrag, surf.drag * Math.max(0, Math.abs(v) - surf.cap)));
 // tyre curve: sin(C·atan(B·α)), peaking at the axle's peak slip angle
 const C_SHAPE = CH.falloff, B_UNIT = Math.tan(Math.PI / (2 * C_SHAPE));
 export const tyreCurve = (alpha, peak = CH.peakSlip) => Math.sin(C_SHAPE * Math.atan(B_UNIT / peak * alpha));
@@ -57,7 +59,7 @@ export function stepChassis(race, c, inp, dt) {
     const delta = c.steer * steerLock(v, A.steer);
     // reverse and crawling: plain kinematic steering
     if (d.reverse || v < CH.lowSpeed) {
-      let a = -d.resist - surf.drag * v;
+      let a = -d.resist - surfaceDrag(surf, v);
       if (d.reverse) { a += v > 0 ? -CH.brakeSystem * 0.4 * inp.brk : -TUNING.REVERSE_ACC * inp.brk; if (inp.thr > 0 && v < 0) a += 20 * inp.thr; }
       else { a += Math.min(d.drive, CAR.grip * G * (1 - CH.frontWeight) * CH.longGrip); if (v > 0) a -= 20 * inp.brk; }
       const v0 = c.v; c.v = clamp(c.v + a * h, -TUNING.REVERSE_MAX, TUNING.V_CAP);
@@ -93,7 +95,7 @@ export function stepChassis(race, c, inp, dt) {
     if (rear.over > 1 && rearLong > 0) spinR = true;
     // equations of motion in the car's frame
     const cosD = Math.cos(delta), sinD = Math.sin(delta);
-    const ax = rear.fx + front.fx * cosD - front.fy * sinD - d.resist - surf.drag * v;
+    const ax = rear.fx + front.fx * cosD - front.fy * sinD - d.resist - surfaceDrag(surf, v);
     const ay = front.fy * cosD + front.fx * sinD + rear.fy;
     let dw = (A_FRONT * (front.fy * cosD + front.fx * sinD) - B_REAR * rear.fy) / K2;
     // stability assist: when the rear slides, pull the yaw rate back toward what the steering asks for

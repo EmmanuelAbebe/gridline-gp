@@ -90,12 +90,15 @@ export const CHASSIS = Object.freeze({
   dampingGain: 6,       // 1/s: always-on yaw-rate correction of the damping assist
 });
 
-// Surfaces: grip multiplier, extra drag per m/s
+// Surfaces: grip multiplier; off the track a rolling drag (m/s²), and above `cap` (m/s) a drag of `drag` per m/s over
+// it, at most `maxDrag` m/s²: a car that runs wide is slowed firmly (not stopped dead) to about 60 km/h, and can
+// drive at that pace back to the track but not faster.
+const OFF_CAP = 60 / 3.6;
 export const SURFACES = Object.freeze({
-  track: Object.freeze({ grip: 1, drag: 0 }),
-  kerb:  Object.freeze({ grip: 0.92, drag: 0 }),
-  grass: Object.freeze({ grip: 0.5, drag: 0.8 }),
-  sand:  Object.freeze({ grip: 0.4, drag: 2.4 }),
+  track: Object.freeze({ grip: 1, rolling: 0, drag: 0, maxDrag: 0, cap: Infinity }),
+  kerb:  Object.freeze({ grip: 0.92, rolling: 0, drag: 0, maxDrag: 0, cap: Infinity }),
+  grass: Object.freeze({ grip: 0.5, rolling: 0.5, drag: 4, maxDrag: 22, cap: OFF_CAP }),
+  sand:  Object.freeze({ grip: 0.45, rolling: 1, drag: 4, maxDrag: 30, cap: OFF_CAP }),
 });
 
 // Driver assists, each 0..1. steer: speed-sensitive steering (full lock asks only for what the front tyres can give),

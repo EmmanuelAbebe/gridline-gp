@@ -74,7 +74,10 @@ Tunables live in data tables (config modules), not inline in the logic.
      `damping` (high only) = always-on yaw damping for on/off keys, `tc`, `abs`. Car state adds `vy`, `yawRate`,
      `slideF/slideR` (0..1 past the limit), `lockF`, `spinR`. Tuned against bots in tests/chassis.test.js:
      proportional (tilt) and key-tapping drivers lap clean on medium; full-lock keyboard needs high.
-   - Surfaces (`SURFACES`, `updateSurface`): track, kerb (only where painted, |K| > KERB_K), sand (gravel trap,
+   - Surfaces (`SURFACES`, `updateSurface`; grip, rolling drag, and above `cap` = 60 km/h a drag of 4/s per m/s,
+     at most maxDrag 22 (grass) / 30 (sand) m/s²: running wide slows firmly to ~60 km/h, never a dead stop, and the
+     car can drive ~65 km/h there; user asked 2026-10-14, the old linear drag left ~35 km/h on grass, ~9 on sand):
+     track, kerb (only where painted, |K| > KERB_K), sand (gravel trap,
      outside of corners with |K| > SAND_K, `SAND` m wide), grass. Same rules as world.js draws them (the gravel was
      drawn on the inside of corners before 2026-10-13; fixed).
    - `car.js` (locate, createCar, resolveWalls, updateSurface; car has `gear`, `rpm`, `autoShift`, `slip`, `brake`,

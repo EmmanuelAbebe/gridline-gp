@@ -82,14 +82,19 @@ test('stability: full lock held at 250 km/h stays controlled on medium, rotates 
   assert.ok(off > medium, `off ${off.toFixed(3)} vs medium ${medium.toFixed(3)}`);
 });
 
-test('surfaces: coasting slows hardest in the gravel, then the grass', () => {
-  const coast = surface => {
-    const { race, c } = solo('medium'); c.v = 30; c.gear = 3;
-    for (let i = 0; i < 120; i++) { race.t += DT; c.surface = surface; S.drivePlayer(race, c, { thr: 0, brk: 0, steer: 0, analog: true }, DT); pin(c); }
-    return c.v;
+test('surfaces: off the track the car is slowed to about 60 km/h, firmly but not like a wall, and can drive at that', () => {
+  const drive = (surface, v0, thr, seconds) => {
+    const { race, c } = solo('medium'); c.v = v0; c.gear = v0 ? 7 : 1;
+    for (let i = 0; i < seconds * 120; i++) { race.t += DT; c.surface = surface; S.drivePlayer(race, c, { thr, brk: 0, steer: 0, analog: true }, DT); pin(c); }
+    return c.v * 3.6;
   };
-  const track = coast('track'), grass = coast('grass'), sand = coast('sand');
-  assert.ok(sand < grass && grass < track, `after 1 s: track ${track.toFixed(1)}, grass ${grass.toFixed(1)}, sand ${sand.toFixed(1)} m/s`);
+  for (const surface of ['grass', 'sand']) {
+    const top = drive(surface, 0, 1, 6);
+    assert.ok(top > 55 && top < 72, `${surface}: full throttle settles at ${top.toFixed(0)} km/h`);
+    assert.ok(drive(surface, 300 / 3.6, 0, 1) > 120, `${surface}: one second after running wide at 300 km/h`);
+    assert.ok(drive(surface, 300 / 3.6, 1, 4) < 80, `${surface}: slowed to near 60 km/h even on the throttle`);
+  }
+  assert.ok(drive('sand', 300 / 3.6, 0, 1) < drive('grass', 300 / 3.6, 0, 1), 'gravel slows harder than grass');
 });
 
 test('surfaces: the car knows kerb, sand and grass where they are painted', () => {
