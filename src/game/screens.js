@@ -8,6 +8,7 @@ export const Screens = (() => {
   const bindSeg = (seg, attr, fn) => seg.addEventListener('click', e => { const b = e.target.closest('button'); if (b) fn(b.dataset[attr]); });
   return {
     show(name, focusId) { for (const [k, el] of Object.entries(overlays)) el.hidden = k !== name; if (focusId) $(focusId).focus(); },
+    current() { return Object.keys(overlays).find(k => !overlays[k].hidden) || null; },
     hud(on) { $('hud').hidden = !on; },
     describeEvent(track, cars, playerSlot) {
       $('eventLine').textContent = `Round 1 · ${track.name} Circuit · ${(track.L / 1000).toFixed(2)} km`;
@@ -15,15 +16,13 @@ export const Screens = (() => {
       $('introText').textContent = cars === 1 ? 'Just you and the circuit: no rivals, so learn your lines.'
         : `${word} cars, five red lights. You start ${ORDINAL_WORDS[playerSlot] || ordinal(playerSlot + 1)} on the grid.`;
     },
-    // Race setup controls (cars, race type, laps or minutes, gearbox, assists, rivals). `setup` is edited in place; onChange after each edit.
+    // Race setup controls (cars, race type, laps or minutes, rivals; gearbox and assists are on the Settings screen).
+    // `setup` is edited in place; onChange after each edit. Returns render(), for edits made elsewhere.
     bindSetup(setup, maxCars, onChange) {
       const minIdx = () => Math.max(0, RACE_SETUP.minutes.indexOf(setup.minutes));
       function render() {
         $('carsVal').textContent = setup.cars === 1 ? '1 (solo)' : String(setup.cars);
         markSeg($('typeSeg'), 't', setup.type);
-        markSeg($('gearSeg'), 'b', setup.gearbox);
-        markSeg($('assistSeg'), 'a', setup.assists);
-        $('assistNote').textContent = RACE_SETUP.assistNotes[setup.assists];
         markSeg($('aiSeg'), 'l', setup.ai);
         $('aiNote').textContent = RACE_SETUP.aiLevels[setup.ai].note;
         $('aiSeg').closest('.row').hidden = $('aiNote').hidden = setup.cars === 1;
@@ -53,12 +52,11 @@ export const Screens = (() => {
         else setup.laps = Math.min(RACE_SETUP.maxLaps, Math.max(1, setup.laps + d));
       });
       bindSeg($('typeSeg'), 't', t => { setup.type = t; change(); });
-      bindSeg($('gearSeg'), 'b', b => { setup.gearbox = b; change(); });
-      bindSeg($('assistSeg'), 'a', a => { setup.assists = a; change(); });
       bindSeg($('aiSeg'), 'l', l => { setup.ai = l; change(); });
       render();
+      return render;
     },
-    onGfx(fn) { bindSeg($('gfxSeg'), 'g', fn); },
-    showGfx(id, note) { markSeg($('gfxSeg'), 'g', id); $('gfxNote').textContent = note; },
+    // one line under the race setup: the Settings-screen choices that change how the race drives
+    summary(text) { $('setupSummary').textContent = text; },
   };
 })();

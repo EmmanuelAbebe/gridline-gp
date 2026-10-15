@@ -1,15 +1,16 @@
 // WebAudio "engine" (saw + square through a low-pass) plus one-shot beeps. Starts on a user gesture.
 export const Sound = (() => {
-  let ctx = null, osc1, osc2, filter, gain, noiseBuf = null, muted = false, squeal = null;
+  let ctx = null, osc1, osc2, filter, gain, master, noiseBuf = null, muted = false, squeal = null, volume = 0.8;
   function init() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
     try {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
+      master = ctx.createGain(); master.gain.value = volume; master.connect(ctx.destination);
       osc1 = ctx.createOscillator(); osc1.type = 'sawtooth';
       osc2 = ctx.createOscillator(); osc2.type = 'square';
       filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 1100; filter.Q.value = 3;
       gain = ctx.createGain(); gain.gain.value = 0;
-      osc1.connect(filter); osc2.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      osc1.connect(filter); osc2.connect(filter); filter.connect(gain); gain.connect(master);
       osc1.start(); osc2.start();
     } catch (e) { ctx = null; }
   }
@@ -17,7 +18,7 @@ export const Sound = (() => {
     if (!ctx || muted) return;
     const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = freq;
     g.gain.setValueAtTime(0.12, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
-    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + dur);
+    o.connect(g); g.connect(master); o.start(); o.stop(ctx.currentTime + dur);
   }
   // Crash/contact: a burst of filtered noise plus a falling low thump, both scaled by strength (0..1).
   function impact(strength, { cutoff, thump }) {
@@ -27,7 +28,7 @@ export const Sound = (() => {
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     }
     const t = ctx.currentTime, vol = 0.05 + 0.25 * strength, dur = 0.12 + 0.25 * strength;
-    const envelope = peak => { const g = ctx.createGain(); g.gain.setValueAtTime(peak, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur); g.connect(ctx.destination); return g; };
+    const envelope = peak => { const g = ctx.createGain(); g.gain.setValueAtTime(peak, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur); g.connect(master); return g; };
     const src = ctx.createBufferSource(), lp = ctx.createBiquadFilter();
     src.buffer = noiseBuf; lp.type = 'lowpass'; lp.frequency.value = cutoff * (0.7 + 0.6 * strength);
     src.connect(lp); lp.connect(envelope(vol)); src.start(t); src.stop(t + dur);
@@ -43,7 +44,7 @@ export const Sound = (() => {
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       const src = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), g = ctx.createGain();
       src.buffer = buf; src.loop = true; bp.type = 'bandpass'; bp.frequency.value = 1300; bp.Q.value = 4; g.gain.value = 0;
-      src.connect(bp); bp.connect(g); g.connect(ctx.destination); src.start();
+      src.connect(bp); bp.connect(g); g.connect(master); src.start();
       squeal = { g, bp };
     }
     const t = ctx.currentTime, a = muted || !active ? 0 : Math.max(0, amount - 0.05);
@@ -57,5 +58,10 @@ export const Sound = (() => {
     filter.frequency.setTargetAtTime(600 + thr * 1400 + rpm * 600, t, 0.05);
     gain.gain.setTargetAtTime(muted || !active ? 0 : 0.018 + thr * 0.03, t, 0.06);
   }
-  return { init, beep, impact, engine, tyres, toggleMute() { muted = !muted; return muted; } };
+  return { init, beep, impact, engine, tyres,
+    toggleMute() { muted = !muted; return muted; },
+    setMuted(m) { muted = !!m; },
+    get muted() { return muted; },
+    setVolume(v) { volume = v; if (master) master.gain.setTargetAtTime(v, ctx.currentTime, 0.02); },   // 0..1
+  };
 })();

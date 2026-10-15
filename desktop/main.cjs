@@ -69,7 +69,7 @@ async function smokeTest(win) {
   await new Promise(r => win.webContents.once('did-finish-load', r));
   await new Promise(r => setTimeout(r, 6000));
   const info = await win.webContents.executeJavaScript(`({ booted: document.getElementById('loading').hidden, appApi: !!window.gridlineApp,
-    gpu: document.getElementById('gfxNote').textContent, startScreen: !document.getElementById('startOv').hidden,
+    setup: document.getElementById('setupSummary').textContent, startScreen: !document.getElementById('startOv').hidden,
     quitButtons: [...document.querySelectorAll('[data-quit]')].filter(b => !b.hidden).length })`);
   fs.writeFileSync(smokeOut, (await win.webContents.capturePage()).toPNG());
   // start a race: lights take about 5-7 s, so after 9 s the race clock must be running; second screenshot in-race
@@ -86,6 +86,14 @@ async function smokeTest(win) {
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-cockpit.png'), (await win.webContents.capturePage()).toPNG());
   await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyD', key: 'd' }))`);
   await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click()`);
+  // settings from the pause menu, Controller tab (screenshot), then Done returns to the pause menu
+  await win.webContents.executeJavaScript(`document.getElementById('pauseSettingsBtn').click();
+    [...document.querySelectorAll('#setTabs button')].find(b => b.textContent === 'Controller').click()`);
+  await new Promise(r => setTimeout(r, 300));
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-settings.png'), (await win.webContents.capturePage()).toPNG());
+  info.settings = await win.webContents.executeJavaScript(`(() => { const shown = !document.getElementById('setOv').hidden;
+    const smoothing = document.querySelector('#setBody output').textContent; document.getElementById('setClose').click();
+    return { shown, smoothing, backToPause: !document.getElementById('pauseOv').hidden }; })()`);
   // exercise the bridge the way a player would: full-screen button, then the quit button (which must end the app)
   await win.webContents.executeJavaScript(`document.getElementById('fullStartBtn').click()`);
   await new Promise(r => setTimeout(r, 1500));

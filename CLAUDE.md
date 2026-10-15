@@ -28,7 +28,7 @@ F1-style curved car with textures; still to do: crash physics, scenery, (5) HUD,
   {quit, toggleFullscreen, isFullscreen, onFullscreen}; the page's `AppShell` uses it (quit buttons `[data-quit]`
   only appear in the app). `--smoke-test=out.png` renders offscreen in a throwaway profile (default setup, 10 cars;
   never touches the player's saved settings), screenshots the menu, a running race
-  (`out-race.png`) and the cockpit view steering right (`out-cockpit.png`), checks the race clock, clicks full screen + quit, prints JSON. Window class `gridline-gp`.
+  (`out-race.png`), the cockpit view steering right (`out-cockpit.png`) and Settings → Controller from the pause menu (`out-settings.png`), checks the race clock, clicks full screen + quit, prints JSON. Window class `gridline-gp`.
   Electron's localStorage is separate from Chrome's (export/import designs to move them).
 - `gridline.sh`: launches the app, rebuilding first when src/index.html/public is newer than dist
   (`--windowed`, `--vulkan`); `--install`/`--uninstall` manage ~/.local/share/applications/gridline-gp.desktop.
@@ -87,7 +87,8 @@ Tunables live in data tables (config modules), not inline in the logic.
      impulses along the contact normal with restitution 0.2 change v, vy and yaw (`spin`); `carGap(a, b)`).
    - Car state: `x, z, h`, `v`, `idx` (nearest sample), `lat`, `lap`. `progress(race, c)` = `lap * N + idx`.
      After every move: `updateLap` (wrap >0.8N → <0.2N), `updateCheckpoints`, `resolveWalls`, `updateSurface`.
-   - `drivePlayer(race, car, {steer, thr, brk, analog, shift}, dt)`: steering smoothing, slipstream, `stepChassis`;
+   - `drivePlayer(race, car, {steer, thr, brk, analog, steerRate, shift}, dt)`: steering ramp (keyboard 5/s; analog
+     `steerRate`, default 14, the game sends Infinity = no smoothing unless Settings → Controller sets it), slipstream, `stepChassis`;
      `driveAI(race, car, dt, skillOverride = 0)`: the AI drives the same chassis through steer/thr/brk (assists
      `AI.assists` = medium). Steering: pure pursuit to a point `look + lookTime·v` ahead on its line offset
      (`c.offset`, moved toward the target at ≤ lineSlope m/m and ≤ lineSpeed m/s) + yaw-rate correction, divided by
@@ -124,13 +125,22 @@ Tunables live in data tables (config modules), not inline in the logic.
    - `Input`: keyboard/touch/Gamepad → `Input.drive`; key/button bindings are tables (`KEY_ACTIONS`, `PAD`,
      `PAD_ACTIONS`); emits `action`, `padchange`, `gesture`. Steer axes[0] dead zone 0.035, RT gas, LT brake,
      D-pad backup, A confirm, START pause, Y camera; non-standard mapping falls back to triggers on axes 5/2.
+     Analog steering is shaped by `Input.setConfig(prefs)`: dead zone → full lock at `range` of travel → curve
+     exponent; triggers get their own dead zone.
+   - `SettingsScreen` (`settings-screen.js`; start menu SETTINGS, pause menu, HUD button, O): tabs Driving (gearbox,
+     assists: they left the start menu), Controller (steering smoothing, default OFF, the only place to change it;
+     dead zone, full-lock range, response curve, trigger dead zone, live raw/shaped steering bars, reset), Keys,
+     Graphics (mode, FPS counter), Sound (on/off, volume via a master gain), Tools. Built from the `TABS` table; main.js
+     binds get/set/note/action. Prefs (`PREFS` in config.js: defaults + limits) saved in localStorage `gridline.prefs`;
+     gearbox/assists stay in `game.setup` and apply to the player at once, mid-race too. Opening it mid-race pauses;
+     closing returns to the menu it came from. The start menu shows a one-line summary of these choices.
    - `Sound` (WebAudio saw+square engine + beeps; pitch from real rpm). Dash (`dashGear` in main.js): gear and rpm
      from the car; rev lights from `CONFIG.revLights.from` (8500) to the auto upshift point (all lit = shift).
-   - Start menu also has Assists OFF/LOW/MEDIUM/HIGH (`game.setup.assists` → `player.assists`) and Rivals
+   - Assists OFF/LOW/MEDIUM/HIGH (Settings → Driving, `game.setup.assists` → `player.assists`); start menu has Rivals
      ROOKIE/CLUB/PRO/LEGEND (`game.setup.ai` → `RACE_SETUP.aiLevels[].pace` → createRace aiPace; default pro;
      hidden for solo). `Sound.tyres`:
      band-passed noise squeal from slideF/slideR/lock/spin.
-   - Gearbox: start menu AUTO / MANUAL (`game.setup.gearbox`). Shift: Q/E, pad LB/RB, and pad A/B (phone buttons
+   - Gearbox: Settings → Driving AUTO / MANUAL (`game.setup.gearbox`). Shift: Q/E, pad LB/RB, and pad A/B (phone buttons
      1/2) = down/up while racing (A still confirms in menus). Paddles in auto mode show a one-time hint.
    - `slipstream-fx.js`: fuzzy band on the road behind each car ahead of the player (≤160 m), built from the car's
      trail + `SIM.wakeHalfWidth`, brighter for the wake the player is in. HUD `#slipTag` chip above the speedo.

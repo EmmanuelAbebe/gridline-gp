@@ -3,7 +3,7 @@ export const CONFIG = Object.freeze({
   physicsStep: 1 / 120,
   maxFrameDt: 0.1,
   sky: 0xa8cbe6,
-  storageKeys: { gfx: 'gridline.gfx', design: 'gridline.design', race: 'gridline.race' },
+  storageKeys: { gfx: 'gridline.gfx', design: 'gridline.design', race: 'gridline.race', prefs: 'gridline.prefs' },
   lights: { count: 5, interval: 0.9, holdMin: 0.4, holdRand: 1.8, hideAfterGo: 0.7 },
   resultsDelay: 2.2,           // seconds of race time after the chequered flag
   finalLapFlashDelay: 0.9,
@@ -11,7 +11,6 @@ export const CONFIG = Object.freeze({
   towerInterval: 0.2,
   mapInterval: 1 / 30,
   fps: { window: 0.5, low: 50, adaptBelow: 52, slowWindowsToAdapt: 2 },
-  padDeadZone: 0.035,
   // rev lights: first LED at `from` rpm, all lit at the automatic upshift point (shift now)
   revLights: { from: 8500 },
 });
@@ -66,6 +65,21 @@ export const RACE_SETUP = Object.freeze({
   },
   maxLaps: 99,
   minutes: [1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120],   // stepper stops for timed races
+});
+
+// Settings screen values (saved in localStorage `gridline.prefs`). Controller values only touch a wheel/pad's analog
+// steering and triggers; the keyboard keeps its own steering ramp (SIM drivePlayer).
+export const PREFS = Object.freeze({
+  defaults: {
+    smoothing: 0,        // controller steering smoothing level, 0 = off (the steering goes straight to the car)
+    deadZone: 3.5,       // % of steering travel ignored around the centre
+    range: 100,          // % of the controller's travel that gives full lock
+    curve: 1,            // steering response exponent: 1 = linear, more = finer near the centre
+    pedalDeadZone: 0,    // % of trigger travel ignored at rest
+    volume: 80, muted: false, showFps: true,
+  },
+  smoothingRate: 40,     // smoothing level n: the steering moves at most 40/n of full lock per second
+  limits: { smoothing: [0, 10, 1], deadZone: [0, 20, 0.5], range: [40, 100, 5], curve: [1, 3, 0.1], pedalDeadZone: [0, 20, 1], volume: [0, 100, 5] },
 });
 
 export const PHASE = Object.freeze({ MENU: 'menu', LIGHTS: 'lights', RACE: 'race', DONE: 'done' });

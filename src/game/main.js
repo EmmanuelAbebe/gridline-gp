@@ -9,7 +9,7 @@ import '../styles/hud.css';
 import '../styles/menus.css';
 import '../styles/tools.css';
 import { SIM } from '../sim/index.js';
-import { CONFIG, SFX, GFX_PROFILES, RACE_SETUP, PHASE } from './config.js';
+import { CONFIG, SFX, GFX_PROFILES, RACE_SETUP, PREFS, PHASE } from './config.js';
 import { $, fmtTime, createTimers } from './util.js';
 import { Settings } from './settings.js';
 import { Design } from './design.js';
@@ -28,6 +28,7 @@ import { LayoutEditor } from './layout-editor.js';
 import { TweakPanel } from './tweak-panel.js';
 import { AppShell } from './app-shell.js';
 import { InputMonitor } from './input-monitor.js';
+import { SettingsScreen } from './settings-screen.js';
 import { createSlipstreamFx } from './slipstream-fx.js';
 
 const { EV } = SIM;
@@ -44,10 +45,11 @@ const fpsMonitor = createFpsMonitor(CONFIG.fps.window);
 
 const game = {
   phase: PHASE.MENU, paused: false, frozen: false, race: null, player: null, gfx: null,
-  setup: loadSetup(),            // start-screen choices: cars, race type, laps / minutes
+  setup: loadSetup(),            // start-screen choices: cars, race type, laps / minutes (+ gearbox, assists from Settings)
+  prefs: loadPrefs(),            // Settings screen: controller, sound, FPS counter
   lights: { t: 0, lit: 0, hold: 0 }, resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
   towerT: 0, mapT: 0, slowWindows: 0, acc: 0, carsDirty: false,
-  pendingShift: 0, autoShiftHinted: false,   // paddle press waiting for the next sim step
+  pendingShift: 0, autoShiftHinted: false, steerRate: Infinity,   // paddle press waiting for the next sim step
 };
 const isRunning = () => !!game.race && game.phase !== PHASE.MENU && !game.paused && !game.frozen;
 
@@ -65,6 +67,24 @@ function loadSetup() {
     ai: Object.hasOwn(RACE_SETUP.aiLevels, s.ai || '') ? s.ai : d.ai,
   };
 }
+function loadPrefs() {
+  let saved = null; try { saved = JSON.parse(Settings.get(CONFIG.storageKeys.prefs)); } catch (e) {}
+  const s = saved && typeof saved === 'object' ? saved : {}, out = {};
+  for (const [k, d] of Object.entries(PREFS.defaults)) {
+    const lim = PREFS.limits[k];
+    out[k] = typeof d === 'boolean' ? (typeof s[k] === 'boolean' ? s[k] : d)
+      : Number.isFinite(+s[k]) && s[k] !== null && s[k] !== '' ? Math.min(lim[1], Math.max(lim[0], +s[k])) : d;
+  }
+  return out;
+}
+const savePrefs = () => Settings.set(CONFIG.storageKeys.prefs, JSON.stringify(game.prefs));
+// Push the prefs into the modules that use them.
+function applyPrefs() {
+  const p = game.prefs;
+  Input.setConfig(p); Sound.setVolume(p.volume / 100); Sound.setMuted(p.muted); Hud.setMuted(p.muted); Hud.showFps(p.showFps);
+}
+// controller steering smoothing level → how fast the car's steering may follow (SIM drivePlayer steerRate)
+const steerRate = () => game.prefs.smoothing ? PREFS.smoothingRate / game.prefs.smoothing : Infinity;
 const raceFormat = s => s.type === 'timed' ? { type: 'timed', minutes: s.minutes } : s.type === 'unlimited' ? { type: 'unlimited' } : { type: 'laps', laps: s.laps };
 // The grid: the fastest `cars - 1` rivals in skill order, with you about three-quarters of the way back.
 function buildField(cars) {
@@ -79,8 +99,9 @@ function setGfx(id, announce) {
   const p = GFX_PROFILES[id], gpu = Display.gpu;
   game.gfx = id;
   Display.applyProfile(p); world.applyProfile(p); CarModels.applyProfile(carModels, p);
-  Screens.showGfx(id, (gpu.short ? 'Graphics: ' + gpu.short + '. ' : '') + p.note(gpu.weak));
+  game.gfxNote = (gpu.short ? 'Graphics: ' + gpu.short + '. ' : '') + p.note(gpu.weak);
   if (announce) { Settings.set(CONFIG.storageKeys.gfx, id); Hud.toast(p.label); }
+  describeSetup(); SettingsScreen.redraw();
 }
 const toggleGfx = () => setGfx(game.gfx === 'perf' ? 'quality' : 'perf', true);
 
@@ -194,7 +215,7 @@ function simStep(dt) {
   if (game.phase === PHASE.LIGHTS) { stepStartLights(dt); return; }
   race.t += dt;
   for (const c of race.cars) {
-    if (c.player && !c.finished) { SIM.drivePlayer(race, c, { ...Input.drive, shift: game.pendingShift }, dt); game.pendingShift = 0; }
+    if (c.player && !c.finished) { SIM.drivePlayer(race, c, { ...Input.drive, steerRate: game.steerRate, shift: game.pendingShift }, dt); game.pendingShift = 0; }
     else SIM.driveAI(race, c, dt, c.finished ? CONFIG.finishedAiSkill : 0);
   }
   SIM.collide(race);
@@ -216,9 +237,10 @@ const racing = () => isRunning() && game.phase === PHASE.RACE && !game.player.fi
 function shift(dir) {
   if (!racing()) return;
   if (!game.player.autoShift) { game.pendingShift = dir; return; }
-  if (!game.autoShiftHinted) { game.autoShiftHinted = true; Hud.toast('Automatic gearbox: pick MANUAL on the start screen to shift yourself'); }
+  if (!game.autoShiftHinted) { game.autoShiftHinted = true; Hud.toast('Automatic gearbox: pick MANUAL in Settings (O) to shift yourself'); }
 }
 function confirm() {                                   // pad A
+  if (SettingsScreen.open || InputMonitor.open) return;
   if (game.phase === PHASE.MENU) startFromMenu();
   else if (game.resultsShown) newRace();
   else if (game.paused) togglePause();
@@ -234,22 +256,76 @@ function toggleLayout() {
   else if ($('hud').hidden) Hud.toast('Start a race to arrange the HUD');
   else LayoutEditor.enter(CameraRig.mode);
 }
-const escape = () => InputMonitor.open ? InputMonitor.toggle(false) : LayoutEditor.active ? LayoutEditor.exit() : togglePause();
-function toggleMute() { Hud.setMuted(Sound.toggleMute()); }
+const escape = () => InputMonitor.open ? InputMonitor.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
+  : LayoutEditor.active ? LayoutEditor.exit() : togglePause();
+function setPref(key, value) {
+  game.prefs[key] = value; savePrefs(); applyPrefs();
+  if (key === 'smoothing') game.steerRate = steerRate();
+  describeSetup();
+}
+function toggleMute() { setPref('muted', !game.prefs.muted); }
 
-const ACTIONS = { camera: cycleCamera, mute: toggleMute, pause: escape, fps: Hud.toggleFps, graphics: toggleGfx, confirm,
+// ---- settings screen ----
+// Opened over the start menu or the pause menu (a running race pauses first); closing goes back to that menu.
+let settingsBack = null;
+function openSettings(tab) {
+  if (SettingsScreen.open) return;
+  if (game.race && game.phase !== PHASE.MENU && !game.resultsShown && !game.paused) togglePause();
+  settingsBack = Screens.current();
+  Screens.show(null); SettingsScreen.show(tab);
+}
+SettingsScreen.on('close', () => { if (settingsBack) Screens.show(settingsBack); settingsBack = null; });
+function setDriving(key, value) {
+  game.setup[key] = value; renderSetup(); saveSetup();
+  if (game.player) {                         // takes effect at once, also mid-race
+    if (key === 'gearbox') game.player.autoShift = value !== 'manual';
+    if (key === 'assists') game.player.assists = SIM.ASSISTS[value];
+  }
+}
+SettingsScreen.bind({
+  get(key) {
+    return key === 'gearbox' || key === 'assists' ? game.setup[key] : key === 'gfx' ? game.gfx
+      : key === 'sound' ? !game.prefs.muted : game.prefs[key];
+  },
+  set(key, value) {
+    if (key === 'gearbox' || key === 'assists') setDriving(key, value);
+    else if (key === 'gfx') setGfx(value, true);
+    else if (key === 'sound') { Sound.init(); setPref('muted', !value); }
+    else setPref(key, value);
+  },
+  note: key => key === 'gfx' ? game.gfxNote : undefined,
+  action(name) {
+    if (name === 'resetController') {
+      for (const k of ['smoothing', 'deadZone', 'range', 'curve', 'pedalDeadZone']) game.prefs[k] = PREFS.defaults[k];
+      setPref('smoothing', PREFS.defaults.smoothing); SettingsScreen.redraw();
+    } else if (name === 'inputs') InputMonitor.toggle(true);
+    else if (name === 'fullscreen') AppShell.toggleFullscreen();
+    else if (name === 'tweak') { SettingsScreen.close(); TweakPanel.toggle(); }
+    else if (name === 'layout') { SettingsScreen.close(); toggleLayout(); }
+  },
+});
+// The start menu's line about the Settings-screen choices.
+function describeSetup() {
+  const s = game.setup, p = game.prefs, cap = w => w[0].toUpperCase() + w.slice(1);
+  Screens.summary(`${cap(s.gearbox)} gearbox · ${cap(s.assists)} assists · ${GFX_PROFILES[game.gfx]?.label.replace(' mode', '') ?? ''} graphics`
+    + ` · controller smoothing ${p.smoothing ? p.smoothing : 'off'}`);
+}
+
+const ACTIONS = { camera: cycleCamera, mute: toggleMute, pause: escape, fps: () => setPref('showFps', !game.prefs.showFps), graphics: toggleGfx, confirm,
+  settings: () => SettingsScreen.open ? SettingsScreen.close() : openSettings(),
   tweak: () => TweakPanel.toggle(), layout: toggleLayout, fullscreen: () => AppShell.toggleFullscreen(),
   inputs: () => InputMonitor.toggle(),
   shiftUp: () => shift(+1), shiftDown: () => shift(-1),
   // phone buttons 1 / 2 (pad A / B): shift down / up while racing, confirm / resume in menus
   primary: () => racing() ? shift(-1) : confirm(),
-  secondary: () => racing() ? shift(+1) : game.paused ? togglePause() : null };
+  secondary: () => racing() ? shift(+1) : SettingsScreen.open ? SettingsScreen.close() : game.paused ? togglePause() : null };
 Input.on('action', name => ACTIONS[name]?.());
 Input.on('gesture', Sound.init);
 Input.on('padchange', on => { Hud.setPad(on, Input.gamepadAllowed); if (on && game.phase !== PHASE.MENU) Hud.toast('Wheel connected'); });
 
 $('camBtn').onclick = cycleCamera;
 $('muteBtn').onclick = () => { Sound.init(); toggleMute(); };
+$('settingsBtn').onclick = $('pauseSettingsBtn').onclick = $('setBtn').onclick = () => openSettings();
 $('pauseBtn').onclick = togglePause;
 $('resumeBtn').onclick = togglePause;
 $('restartBtn').onclick = () => newRace();
@@ -269,11 +345,12 @@ Design.on('change', section => {
   if (section === 'hud' || section === 'all') HudStyle.apply(CameraRig.mode.id);
 });
 $('startBtn').onclick = startFromMenu;
-Screens.bindSetup(game.setup, SIM.DRIVERS.length, () => {
+function saveSetup() {
   Settings.set(CONFIG.storageKeys.race, JSON.stringify(game.setup));
   Screens.describeEvent(track, game.setup.cars, playerSlotOf(game.setup.cars));
-});
-Screens.onGfx(id => setGfx(id, true));
+  describeSetup();
+}
+const renderSetup = Screens.bindSetup(game.setup, SIM.DRIVERS.length, saveSetup);
 
 // ---- per-frame ----
 // Gear, rev lights (0..1, all lit at the shift point) and engine pitch (0..1, idle..limiter) from the car's drivetrain.
@@ -330,6 +407,7 @@ function frame(now) {
   last = now;
   Input.poll();
   InputMonitor.sample(dt, Input.drive, Input.pad);
+  SettingsScreen.tick(Input.pad, Input.shapeSteer(Input.pad.steerRaw));
   if (game.carsDirty) { game.carsDirty = false; for (const m of carModels) m.rebuild(Design.data.car); }
   const running = isRunning();
   if (running) { game.acc += dt; while (game.acc >= STEP) { simStep(STEP); game.acc -= STEP; } }
@@ -346,9 +424,11 @@ function frame(now) {
   SIM.createRace(1, { track }).cars.forEach((c, i) => carModels[i].place(c.x, c.z, c.h)); }
 { const saved = Settings.get(CONFIG.storageKeys.gfx);
   setGfx(Object.hasOwn(GFX_PROFILES, saved || '') ? saved : (Display.gpu.weak ? 'perf' : 'quality'), false); }
+applyPrefs(); game.steerRate = steerRate();
 Hud.setPad(false, Input.gamepadAllowed);
 HudStyle.apply(CameraRig.mode.id);
 Screens.describeEvent(track, game.setup.cars, playerSlotOf(game.setup.cars));
+describeSetup();
 $('loading').hidden = true;
 Screens.show('start', 'startBtn');
 requestAnimationFrame(frame);

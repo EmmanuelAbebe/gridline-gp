@@ -38,3 +38,25 @@ table.res i{display:inline-block;width:4px;height:14px;vertical-align:-2px;margi
 .verdict em{font-style:normal;color:var(--amber)}
 #loading{position:fixed;inset:0;display:grid;place-items:center;font-family:var(--display);letter-spacing:.14em;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){#msg,#toast{transition:none}}
+/* Start-menu line about the Settings choices, and the Settings screen (tabs + controls built by settings-screen.js). */
+.summary{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:-6px}
+.card .summary p.gpu{margin:0}
+.btn.small{font-size:15px;padding:8px 14px}
+.card.settings{width:min(640px,100%);max-height:calc(100vh - 32px);grid-template-rows:auto auto minmax(0,1fr);gap:14px}
+.set-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.set-tabs{width:100%;max-width:100%;overflow-x:auto}
+.set-tabs button{flex:1;padding:8px 10px}
+.set-body{overflow:auto;display:grid;gap:14px;align-content:start;min-height:300px;padding-right:2px}
+.set-item{display:grid;gap:6px}
+.set-item .note,.card .set-item p.note{margin:0;font-size:13px;color:var(--muted);line-height:1.45}
+.set-item .btns .btn{flex:0 1 auto}
+.set-slider{display:flex;align-items:center;gap:10px;flex:1;max-width:330px}
+.set-slider input{flex:1;min-width:0;accent-color:var(--amber)}
+.set-slider output{min-width:92px;text-align:right;font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:.04em}
+.set-readout{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center}
+.set-readout i{position:relative;display:block;height:10px;background:#1d232b;border:1px solid var(--rule);border-radius:2px}
+.set-readout i b{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--muted)}
+.set-readout i u{position:absolute;top:0;bottom:0;left:50%;width:0;background:var(--amber)}
+.set-item.btns{display:flex}
+#startOv .card{width:min(560px,100%);gap:14px}
+#startOv .btns .btn{white-space:nowrap}

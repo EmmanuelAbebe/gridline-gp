@@ -42,6 +42,7 @@
     <span class="iconbtn chip" id="padChip" hidden><span class="dot"></span>WHEEL</span>
     <button class="iconbtn" id="camBtn" type="button">CAM</button>
     <button class="iconbtn" id="muteBtn" type="button">SOUND ON</button>
+    <button class="iconbtn" id="setBtn" type="button" title="Settings (O)">SETTINGS</button>
     <button class="iconbtn" id="designBtn" type="button" title="Design tools (T)">DESIGN</button>
     <button class="iconbtn" id="fullBtn" type="button" title="Full screen (V)">FULL SCREEN</button>
     <button class="iconbtn" id="quitBtn" type="button" title="Close the game" aria-label="Close the game" data-quit hidden>✕</button>
@@ -71,14 +72,6 @@
       <h1>Gridline <em>GP</em></h1>
       <p><span id="introText">Ten cars, five red lights. You start eighth on the grid.</span> Brake before the corners, keep it off the grass, and see how many you can pass.</p>
     </div>
-    <div class="keys">
-      <span><kbd>↑</kbd> <kbd>W</kbd></span><span>Throttle</span>
-      <span><kbd>↓</kbd> <kbd>S</kbd></span><span>Brake / reverse</span>
-      <span><kbd>←</kbd><kbd>→</kbd> <kbd>A</kbd><kbd>D</kbd></span><span>Steer</span>
-      <span><kbd>Q</kbd> <kbd>E</kbd></span><span>Shift down / up (manual gearbox; phone buttons 1 / 2)</span>
-      <span><kbd>C</kbd> <kbd>M</kbd> <kbd>P</kbd> <kbd>F</kbd> <kbd>G</kbd></span><span>Camera, sound, pause, FPS, graphics</span>
-      <span><kbd>T</kbd> <kbd>L</kbd> <kbd>V</kbd> <kbd>I</kbd></span><span>Design tools, HUD layout, full screen, input monitor</span>
-    </div>
     <div class="padrow" id="padStatus"><span class="dot"></span><span id="padText">Phone wheel: press gas on your phone once so the browser sees it.</span><button class="iconbtn" id="testCtlBtn" type="button" title="Input monitor (I)">TEST CONTROLS</button></div>
     <div class="row">
       <span class="lbl">Cars on the grid</span>
@@ -97,23 +90,6 @@
       <div class="stepper" id="amountStep"><button type="button" data-d="-1" aria-label="Less">−</button><output id="amountVal">3</output><button type="button" data-d="1" aria-label="More">+</button></div>
     </div>
     <div class="row">
-      <span class="lbl">Gearbox</span>
-      <div class="seg" id="gearSeg">
-        <button type="button" data-b="auto" aria-pressed="true">AUTO</button>
-        <button type="button" data-b="manual" aria-pressed="false">MANUAL</button>
-      </div>
-    </div>
-    <div class="row">
-      <span class="lbl">Assists</span>
-      <div class="seg" id="assistSeg">
-        <button type="button" data-a="off" aria-pressed="false">OFF</button>
-        <button type="button" data-a="low" aria-pressed="false">LOW</button>
-        <button type="button" data-a="medium" aria-pressed="true">MEDIUM</button>
-        <button type="button" data-a="high" aria-pressed="false">HIGH</button>
-      </div>
-    </div>
-    <p class="gpu" id="assistNote"></p>
-    <div class="row">
       <span class="lbl">Rivals</span>
       <div class="seg" id="aiSeg">
         <button type="button" data-l="rookie" aria-pressed="false">ROOKIE</button>
@@ -123,14 +99,7 @@
       </div>
     </div>
     <p class="gpu" id="aiNote"></p>
-    <div class="row">
-      <span class="lbl">Graphics</span>
-      <div class="seg" id="gfxSeg">
-        <button type="button" data-g="quality" aria-pressed="false">QUALITY</button>
-        <button type="button" data-g="perf" aria-pressed="false">PERFORMANCE</button>
-      </div>
-    </div>
-    <p class="gpu" id="gfxNote"></p>
+    <div class="summary"><p class="gpu" id="setupSummary"></p><button class="iconbtn" id="settingsBtn" type="button" title="Settings (O)">SETTINGS</button></div>
     <div class="btns"><button class="btn" id="startBtn" type="button">To the grid</button><button class="btn ghost" id="fullStartBtn" type="button">Full screen</button><button class="btn ghost" type="button" data-quit hidden>Quit</button></div>
   </div>
 </div>
@@ -138,7 +107,15 @@
 <div id="pauseOv" class="overlay" hidden>
   <div class="card">
     <p class="verdict">Paused</p>
-    <div class="btns"><button class="btn" id="resumeBtn" type="button">Resume</button><button class="btn ghost" id="restartBtn" type="button">Restart race</button><button class="btn ghost" id="endBtn" type="button">End race</button><button class="btn ghost" id="pauseInputsBtn" type="button">Input monitor</button><button class="btn ghost" type="button" data-quit hidden>Quit game</button></div>
+    <div class="btns"><button class="btn" id="resumeBtn" type="button">Resume</button><button class="btn ghost" id="restartBtn" type="button">Restart race</button><button class="btn ghost" id="endBtn" type="button">End race</button><button class="btn ghost" id="pauseSettingsBtn" type="button">Settings</button><button class="btn ghost" id="pauseInputsBtn" type="button">Input monitor</button><button class="btn ghost" type="button" data-quit hidden>Quit game</button></div>
+  </div>
+</div>
+
+<div id="setOv" class="overlay" hidden>
+  <div class="card wide settings" role="dialog" aria-label="Settings">
+    <div class="set-head"><p class="verdict">Settings</p><button class="btn small" id="setClose" type="button">Done</button></div>
+    <div class="seg set-tabs" id="setTabs"></div>
+    <div class="set-body" id="setBody"></div>
   </div>
 </div>
 

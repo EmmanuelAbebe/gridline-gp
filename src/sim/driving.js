@@ -8,9 +8,10 @@ import { stepChassis, steerLock, driftAngle } from './chassis.js';
 import { slipstream, cornerSpeed, brakeLimit } from './vehicle.js';
 
 // inp: steer -1..1 (+ = right), thr 0..1, brk 0..1, analog = from a wheel/pad (faster steering response),
-// shift = -1/0/+1 (paddles; used with the manual gearbox). The car itself is the tyre model in chassis.js.
+// steerRate = how fast analog steering may move (full lock per second; Infinity = no smoothing, the game's default
+// for controllers), shift = -1/0/+1 (paddles; used with the manual gearbox). The car itself is the tyre model in chassis.js.
 export function drivePlayer(race, c, inp, dt) {
-  const rate = inp.analog ? 14 : 5;
+  const rate = inp.analog ? inp.steerRate ?? 14 : 5;
   c.steer += clamp(clamp(inp.steer, -1, 1) - c.steer, -dt*rate, dt*rate);
   c.brake = inp.brk;
   slipstream(race, c, progress);

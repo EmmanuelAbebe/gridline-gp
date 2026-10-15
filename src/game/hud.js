@@ -86,7 +86,7 @@ export const Hud = (() => {
       setText('fpsNum', Math.round(fps));
       const chip = $('fpsChip'); chip.classList.toggle('low', fps < CONFIG.fps.low); chip.title = title;
     },
-    toggleFps() { const chip = $('fpsChip'); chip.hidden = !chip.hidden; },
+    showFps(on) { $('fpsChip').hidden = !on; },
     setMuted(m) { $('muteBtn').textContent = m ? 'SOUND OFF' : 'SOUND ON'; },
     setPad(on, allowed) {
       $('padChip').hidden = !on; $('padChip').classList.toggle('on', on);
