@@ -18,9 +18,11 @@ export const Screens = (() => {
     },
     // Race setup controls (cars, race type, laps or minutes, rivals; gearbox and assists are on the Settings screen).
     // `setup` is edited in place; onChange after each edit. Returns render(), for edits made elsewhere.
-    bindSetup(setup, maxCars, onChange) {
+    // circuits: [{ id, name, blurb }]; the length is filled in by trackInfo() once the circuit is built
+    bindSetup(setup, maxCars, circuits, onChange) {
       const minIdx = () => Math.max(0, RACE_SETUP.minutes.indexOf(setup.minutes));
       function render() {
+        $('trackVal').textContent = circuits.find(c => c.id === setup.track)?.name ?? setup.track;
         $('carsVal').textContent = setup.cars === 1 ? '1 (solo)' : String(setup.cars);
         markSeg($('typeSeg'), 't', setup.type);
         markSeg($('aiSeg'), 'l', setup.ai);
@@ -46,6 +48,10 @@ export const Screens = (() => {
           b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); step(+b.dataset.d); change(); } });
         }
       }
+      for (const b of $('trackStep').querySelectorAll('button')) b.addEventListener('click', () => {
+        const i = circuits.findIndex(c => c.id === setup.track), n = circuits.length;
+        setup.track = circuits[(i + +b.dataset.d + n) % n].id; change();
+      });
       stepper($('carsStep'), d => { setup.cars = Math.min(maxCars, Math.max(1, setup.cars + d)); });
       stepper($('amountStep'), d => {
         if (setup.type === 'timed') setup.minutes = RACE_SETUP.minutes[Math.min(RACE_SETUP.minutes.length - 1, Math.max(0, minIdx() + d))];
@@ -56,6 +62,7 @@ export const Screens = (() => {
       render();
       return render;
     },
+    trackInfo(track, blurb) { $('trackNote').textContent = `${(track.L / 1000).toFixed(2)} km · ${blurb}`; },
     // one line under the race setup: the Settings-screen choices that change how the race drives
     summary(text) { $('setupSummary').textContent = text; },
   };

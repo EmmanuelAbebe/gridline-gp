@@ -70,9 +70,14 @@
     <div class="brand">
       <span class="lbl" id="eventLine">Round 1 · Elkmoor Park Circuit</span>
       <h1>Gridline <em>GP</em></h1>
-      <p><span id="introText">Ten cars, five red lights. You start eighth on the grid.</span> Brake before the corners, keep it off the grass, and see how many you can pass.</p>
+      <p><span id="introText">Ten cars, five red lights. You start eighth on the grid.</span></p>
     </div>
     <div class="padrow" id="padStatus"><span class="dot"></span><span id="padText">Phone wheel: press gas on your phone once so the browser sees it.</span><button class="iconbtn" id="testCtlBtn" type="button" title="Input monitor (I)">TEST CONTROLS</button></div>
+    <div class="row">
+      <span class="lbl">Circuit</span>
+      <div class="stepper circuit" id="trackStep"><button type="button" data-d="-1" aria-label="Previous circuit">‹</button><output id="trackVal">Elkmoor Park</output><button type="button" data-d="1" aria-label="Next circuit">›</button></div>
+    </div>
+    <div class="trackinfo"><canvas id="trackPreview" width="112" height="64" aria-hidden="true"></canvas><p class="gpu" id="trackNote"></p></div>
     <div class="row">
       <span class="lbl">Cars on the grid</span>
       <div class="stepper" id="carsStep"><button type="button" data-d="-1" aria-label="Fewer cars">−</button><output id="carsVal">10</output><button type="button" data-d="1" aria-label="More cars">+</button></div>

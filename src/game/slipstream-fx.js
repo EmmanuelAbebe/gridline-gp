@@ -32,9 +32,11 @@ function wakeTexture() {
   return t;
 }
 
-export function createSlipstreamFx(scene, track, cars) {
-  const { N, ds, PX, PZ, NX, NZ } = track, { range, edge } = SIM.SLIP;
-  const ROWS = Math.ceil(range / ds) + 1, tex = wakeTexture();
+// Works on any circuit: the track comes from the race each frame (every circuit samples about every 2 m).
+export function createSlipstreamFx(scene, cars) {
+  const { range, edge } = SIM.SLIP;
+  const ROWS = Math.ceil(range / 2) + 1, tex = wakeTexture();
+  let track = null;
   const wakes = new Map();
   for (const d of cars) {
     const g = new THREE.BufferGeometry(), pos = new Float32Array(ROWS * 2 * 3), uv = new Float32Array(ROWS * 2 * 2), idx = [];
@@ -54,7 +56,7 @@ export function createSlipstreamFx(scene, track, cars) {
 
   // Rebuild the band behind `c` from its trail; returns false when there is nothing to draw.
   function shape(w, c, t) {
-    const p = w.pos;
+    const p = w.pos, { N, ds, PX, PZ, NX, NZ } = track;
     let last = null;
     for (let k = 0; k < ROWS; k++) {
       const i = (c.idx - k + N) % N, fresh = c.trailT[i] >= 0 && t - c.trailT[i] < FX.maxAge;
@@ -70,7 +72,8 @@ export function createSlipstreamFx(scene, track, cars) {
 
   return {
     update(race, player) {
-      const myP = SIM.progress(race, player);
+      track = race.track;
+      const myP = SIM.progress(race, player), { ds } = track;
       for (const c of race.cars) {
         const w = wakes.get(c.code); if (!w) continue;
         const ahead = (SIM.progress(race, c) - myP) * ds;

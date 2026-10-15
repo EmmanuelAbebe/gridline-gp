@@ -58,5 +58,10 @@ table.res i{display:inline-block;width:4px;height:14px;vertical-align:-2px;margi
 .set-readout i b{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--muted)}
 .set-readout i u{position:absolute;top:0;bottom:0;left:50%;width:0;background:var(--amber)}
 .set-item.btns{display:flex}
-#startOv .card{width:min(560px,100%);gap:14px}
+#startOv .card{width:min(560px,100%);gap:10px;padding-top:20px}
+#startOv .trackinfo,#startOv .summary{margin-top:-2px}
 #startOv .btns .btn{white-space:nowrap}
+.stepper.circuit output{min-width:150px}
+.trackinfo{display:flex;align-items:center;gap:12px;margin-top:-6px}
+.trackinfo canvas{flex:none;width:112px;height:64px;background:#0d1015;border:1px solid var(--rule);border-radius:3px}
+.card .trackinfo p.gpu{margin:0}

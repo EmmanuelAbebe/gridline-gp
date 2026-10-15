@@ -22,7 +22,7 @@ test('track: Elkmoor geometry is drivable', () => {
 
 test('track: a new circuit only needs control points', () => {
   const square = S.buildTrack({ name: 'Test', ctrl: [[0, 0], [400, 0], [400, 400], [0, 400]] });
-  assert.equal(square.N, 1200);
+  assert.ok(Math.abs(square.ds - 2.06) < 0.02, `a sample every ${square.ds} m`);   // sample count follows the length
   assert.ok(square.L > 1500 && square.L < 1800, `length ${square.L}`);   // the spline bulges past a 4-point square's 1600 m
   assert.equal(square.VP.length, square.N);
 });

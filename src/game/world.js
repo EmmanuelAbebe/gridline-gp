@@ -3,8 +3,10 @@ import { SIM } from '../sim/index.js';
 import { CONFIG, COLORS, GFX_PROFILES } from './config.js';
 import { hexCss } from './util.js';
 
-// Static track and scenery. Returns handles for what graphics profiles and the start lights change.
-export function buildWorld(scene, track, drivers) {
+// Static track and scenery, all under one group. Returns handles for what graphics profiles and the start lights
+// change, and dispose() to take it out of the scene (switching circuits).
+export function buildWorld(parent, track, drivers) {
+  const scene = new THREE.Group(); parent.add(scene);
   const { N, HW, KERB, WALL, PX, PZ, NX, NZ, K, bounds, landmarks } = track;
   const { minX, maxX, minZ, maxZ, cx, cz } = bounds;
   const lambert = opts => new THREE.MeshLambertMaterial(opts);
@@ -160,5 +162,13 @@ export function buildWorld(scene, track, drivers) {
       for (const h of hills) h.visible = p.hills;
     },
     setStartLights(n) { gantryLights.forEach((l, i) => l.material.color.setHex(i < n ? COLORS.lampOn : COLORS.lampOff)); },
+    dispose() {
+      parent.remove(scene);
+      const seen = new Set();
+      scene.traverse(o => {
+        if (o.geometry && !seen.has(o.geometry)) { seen.add(o.geometry); o.geometry.dispose(); }
+        for (const m of [].concat(o.material || [])) if (!seen.has(m)) { seen.add(m); m.map?.dispose(); m.dispose(); }
+      });
+    },
   };
 }

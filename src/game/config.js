@@ -52,10 +52,10 @@ export const RACE_SETUP = Object.freeze({
   // rival pace: scales every AI driver's skill (SIM createRace aiPace). Lap times: the fastest rival alone, measured
   // with tools/sim-test.mjs-style solo laps on Elkmoor (traffic and dirty air make race laps a little slower)
   aiLevels: {
-    rookie: { pace: 0.8,  note: 'Rivals take it easy: the fastest laps in about 36 s.' },
-    club:   { pace: 0.88, note: 'Quick club drivers: the fastest laps in about 34 s.' },
-    pro:    { pace: 0.95, note: 'Racing drivers: the fastest laps in about 33 s.' },
-    legend: { pace: 1.03, note: 'On the limit everywhere: the fastest laps in about 32 s.' },
+    rookie: { pace: 0.8,  note: 'Rivals take it easy (Elkmoor: fastest laps about 36 s).' },
+    club:   { pace: 0.88, note: 'Quick club drivers (Elkmoor: about 34 s).' },
+    pro:    { pace: 0.95, note: 'Racing drivers (Elkmoor: about 33 s).' },
+    legend: { pace: 1.03, note: 'On the limit everywhere (Elkmoor: about 32 s).' },
   },
   assistNotes: {
     off: 'No help: the car can spin, lock its brakes and spin its wheels.',

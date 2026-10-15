@@ -1,5 +1,16 @@
 import { hexCss } from './util.js';
 
+// A small static outline of a circuit (start menu preview), start line in amber.
+export function drawOutline(canvas, track, color = '#e9ebe6') {
+  const { N, PX, PZ } = track, { minX, maxX, minZ, maxZ } = track.bounds, P = 6, W = canvas.width, H = canvas.height;
+  const s = Math.min((W - 2*P) / (maxX - minX), (H - 2*P) / (maxZ - minZ));
+  const x = v => P + (v - minX) * s + (W - 2*P - (maxX - minX) * s) / 2, z = v => P + (v - minZ) * s + (H - 2*P - (maxZ - minZ) * s) / 2;
+  const g = canvas.getContext('2d'); g.clearRect(0, 0, W, H); g.lineJoin = 'round';
+  g.beginPath(); for (let i = 0; i <= N; i += 4) { const k = i % N; i ? g.lineTo(x(PX[k]), z(PZ[k])) : g.moveTo(x(PX[k]), z(PZ[k])); }
+  g.closePath(); g.strokeStyle = color; g.lineWidth = 2.5; g.stroke();
+  g.fillStyle = '#ffc21a'; g.beginPath(); g.arc(x(PX[0]), z(PZ[0]), 3.5, 0, Math.PI*2); g.fill();
+}
+
 // Track outline drawn once to an offscreen canvas; each frame blits it and adds the car dots.
 export function createMinimap(canvas, track) {
   const SIZE = canvas.width, PAD = 26, inner = SIZE - PAD*2, { N, PX, PZ, NX, NZ } = track, { minX, maxX, minZ, maxZ } = track.bounds;

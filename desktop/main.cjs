@@ -72,6 +72,11 @@ async function smokeTest(win) {
     setup: document.getElementById('setupSummary').textContent, startScreen: !document.getElementById('startOv').hidden,
     quitButtons: [...document.querySelectorAll('[data-quit]')].filter(b => !b.hidden).length })`);
   fs.writeFileSync(smokeOut, (await win.webContents.capturePage()).toPNG());
+  // pick the next circuit (the race below runs there): the menu shows its name, outline and 3D scene
+  await win.webContents.executeJavaScript(`document.querySelector('#trackStep [data-d="1"]').click()`);
+  await new Promise(r => setTimeout(r, 1500));
+  info.circuit = await win.webContents.executeJavaScript(`document.getElementById('eventLine').textContent`);
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-circuit.png'), (await win.webContents.capturePage()).toPNG());
   // start a race: lights take about 5-7 s, so after 9 s the race clock must be running; second screenshot in-race
   await win.webContents.executeJavaScript(`document.getElementById('startBtn').click()`);
   await new Promise(r => setTimeout(r, 9000));

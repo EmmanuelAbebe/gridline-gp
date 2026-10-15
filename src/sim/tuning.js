@@ -126,7 +126,8 @@ export const SLIP = Object.freeze({
 });
 
 // kerbs where |curvature| > kerbK; gravel traps `sand` m wide past the kerb on the outside where |curvature| > sandK
-export const TRACK_DEFAULTS = Object.freeze({ samples: 1200, halfWidth: 7.5, kerb: 1.4, runoff: 14, sand: 5, sandK: 0.004, kerbK: 0.0025 });
+// samples: fixed count, or (when absent) one sample every `ds` metres; Elkmoor fixes 1200 (≈ 2.06 m)
+export const TRACK_DEFAULTS = Object.freeze({ ds: 2.06, halfWidth: 7.5, kerb: 1.4, runoff: 14, sand: 5, sandK: 0.004, kerbK: 0.0025 });
 // Track limits (race.js): a cut = the whole car (centre ± halfWidth) past the edge (the kerb where one is painted, else
 // the white line) on the inside of a corner (curvature over ±cornerSpan samples above KERB_K), for at least cutDist
 // metres of track. Every cut invalidates the lap; after `warnings` cuts in a race each one adds `penalty` s.

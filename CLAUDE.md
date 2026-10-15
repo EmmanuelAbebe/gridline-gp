@@ -1,7 +1,8 @@
 # Gridline GP: project context
 
-A browser F1-style racing game: 1–10 cars, five-light start, lap / timed / unlimited races on an invented 2.47 km circuit
-("Elkmoor Park"). Built to be driven with the user's phone tilt wheel (github.com/EmmanuelAbebe/Phone-wheel),
+A browser F1-style racing game: 1–10 cars, five-light start, lap / timed / unlimited races on five invented circuits
+(Elkmoor Park 2.47 km, the original; Harrow Downs 3.89 fast; Cobalt Bay 3.01 street; Marrow Hill 2.60 twisty;
+Northfold 4.91 long), picked on the start menu. Built to be driven with the user's phone tilt wheel (github.com/EmmanuelAbebe/Phone-wheel),
 which shows up in the browser as a virtual Xbox 360 controller.
 
 ## Goal and roadmap (Oct 2026)
@@ -52,17 +53,22 @@ Tunables live in data tables (config modules), not inline in the logic.
      `drivetrain(c, {thr, brk, shift}, dt)` → engine drive + resistances (drag ×(1 − slip·0.35), rolling, engine
      braking, launch clutch slip in 1st, limiter, shift cut) for chassis.js, `updateGear` (auto: up at 11800, down at 8000 on
      the throttle or as soon as the lower gear is < 11000 rpm off it; manual: paddles; a downshift that would over-rev waits in `c.downQueue` and goes in once the lower gear is under the limiter (HUD gear label shows "▼ n"; an upshift cancels the queue; stopped = 1st);
-     brake at standstill = reverse). `slipstream(race, c)` sets `c.slip` 0..1 / `c.slipBy` from the leader's trail. `circuits.js`: `CIRCUITS` (control points + render `landmarks` sample indices).
+     brake at standstill = reverse). `slipstream(race, c)` sets `c.slip` 0..1 / `c.slipBy` from the leader's trail. `circuits.js`: `CIRCUITS` {name, ctrl, landmarks, blurb, samples?; `id` added}. New circuits use `corners(poly)`:
+     polygon vertices [x, z, radius] → arcs of exactly that radius + straights (r 15–25 = hairpin / street corner;
+     ≥ ~140 m is flat out with downforce). `landmarks` = sample index or negative = metres before the line.
      `drivers.js`: `DRIVERS`. `math.js`: `wrapA`, `clamp`.
-   - `track.js`: `buildTrack(circuit)` → track object: closed centripetal Catmull-Rom → resampled to `N = 1200` equal steps
-     (`ds` ≈ 2.06 m). Per sample: `PX/PZ`, tangent `TX/TZ`, right-hand normal `NX/NZ`, signed curvature `K`
+   - `track.js`: `buildTrack(circuit)` → track object: closed centripetal Catmull-Rom → resampled to N equal steps
+     of ~`TRACK_DEFAULTS.ds` 2.06 m (Elkmoor fixes samples 1200 so its physics stay bit-identical); AI and limits
+     constants are in samples, so every circuit keeps ~2 m spacing. Per sample: `PX/PZ`, tangent `TX/TZ`, right-hand normal `NX/NZ`, signed curvature `K`
      (>0 turns toward +N, i.e. right), plus `bounds`, `HW/KERB/WALL`, and the AI arrays:
      `RO` racing-line offset = a minimum-curvature line (each point moved to minimise the second difference with
      neighbours s and 2s away, s = 24 → 12 → 6 → 3 samples, kept `AI.lineMargin` inside the edge), `LK` the line's
      curvature, `VP` speed profile along the line (`cornerSpeed(|LK|, AI.grip)`, then braking look-back at
      `AI.brake × brakeLimit`; V_CAP on straights so the engine sets straight-line speed). On this line turn 1
      (~770 m) is flat out at ~320 km/h; the hairpin ~107 km/h.
-     `SIM.track` is the default (Elkmoor). A new circuit = a new `CIRCUITS` entry; nothing else hardcodes it.
+     `SIM.track` is the default (Elkmoor). A new circuit = a new `CIRCUITS` entry; tests/circuits.test.js checks every
+     entry (no overlapping run-off, straight before the line for the grid, solo AI lap clean, full field finishes,
+     proportional test driver laps it). Fastest-AI solo laps: Elkmoor 32.9, Marrow 43, Harrow 54, Cobalt 59, Northfold 68 s.
    - `chassis.js` (every car: player and AI): two-axle bicycle model, 4 sub-steps per 120 Hz step. Axle grip = grip × surface ×
      (weight + downforce·(1 − dirtyAir·slip) ± load transfer from last `c.ax`); tyre curve sin(1.3·atan(Bα)) peaking
      at 0.1 rad front / 0.075 rear (stiffer, 6% grippier rear = stable); friction circle per axle (`axle()`): too
@@ -151,7 +157,10 @@ Tunables live in data tables (config modules), not inline in the logic.
      trail + `SIM.wakeHalfWidth`, brighter for the wake the player is in. HUD `#slipTag` chip above the speedo.
    - `input-monitor.js` (I, start-menu TEST CONTROLS, pause menu): live inputs graph, controller reports/s via
      `Gamepad.timestamp`, stalls (pause with steering moving across it), pedal ramp time, advice.
-   - `buildWorld(scene, track, drivers)`: ribbons (`strip`, `wall`, painted layers via polygonOffset `decal`),
+   - Circuit switching (main.js `setTrack`, start-menu Circuit stepper + outline `drawOutline` + blurb; `game.setup.track`):
+     tracks built on first use and cached; world disposed and rebuilt, minimap rebuilt, a finished race on the old
+     circuit dropped. `createSlipstreamFx` reads the track from the race each frame.
+   - `buildWorld(scene, track, drivers)` (everything in one group; `dispose()`): ribbons (`strip`, `wall`, painted layers via polygonOffset `decal`),
      gantry, grandstand/crowd, pits, InstancedMesh trees, hills; returns `applyProfile`, `setStartLights`.
    - `CarModels` (`car-models.js`; shapes in `car-shapes.js`, canvas textures in `car-textures.js`): F1-style body
      from design parts merged per car into one mesh with a geometry group per finish (paint = clearcoat + sky cube

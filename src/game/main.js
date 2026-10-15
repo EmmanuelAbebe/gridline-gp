@@ -19,7 +19,7 @@ import { Sound } from './sound.js';
 import { buildWorld } from './world.js';
 import { CarModels } from './car-models.js';
 import { CameraRig } from './camera-rig.js';
-import { createMinimap } from './minimap.js';
+import { createMinimap, drawOutline } from './minimap.js';
 import { Hud } from './hud.js';
 import { Screens } from './screens.js';
 import { WheelScreen } from './wheel-screen.js';
@@ -32,14 +32,14 @@ import { SettingsScreen } from './settings-screen.js';
 import { createSlipstreamFx } from './slipstream-fx.js';
 
 const { EV } = SIM;
-const track = SIM.track;
-
-const world = buildWorld(Display.scene, track, SIM.DRIVERS);
+// circuits are built on first use (~40 ms) and kept
+const tracks = new Map([[SIM.track.id, SIM.track]]);
+const trackOf = id => { if (!tracks.has(id)) tracks.set(id, SIM.buildTrack(SIM.CIRCUITS[id])); return tracks.get(id); };
+let track = null, world = null, minimap = null;
 const carModels = SIM.DRIVERS.map(d => CarModels.create(Display.scene, d, Design.data.car));
 const modelOf = new Map(SIM.DRIVERS.map((d, i) => [d.code, carModels[i]]));   // car model by driver code
 carModels[SIM.DRIVERS.findIndex(d => d.player)].mountScreen(WheelScreen.mesh);
-const minimap = createMinimap($('map'), track);
-const wakes = createSlipstreamFx(Display.scene, track, SIM.DRIVERS);
+const wakes = createSlipstreamFx(Display.scene, SIM.DRIVERS);
 const timers = createTimers();
 const fpsMonitor = createFpsMonitor(CONFIG.fps.window);
 
@@ -65,6 +65,7 @@ function loadSetup() {
     gearbox: ['auto', 'semi', 'manual'].includes(s.gearbox) ? s.gearbox : d.gearbox,
     assists: Object.hasOwn(SIM.ASSISTS, s.assists || '') ? s.assists : d.assists,
     ai: Object.hasOwn(RACE_SETUP.aiLevels, s.ai || '') ? s.ai : d.ai,
+    track: Object.hasOwn(SIM.CIRCUITS, s.track || '') ? s.track : SIM.track.id,
   };
 }
 function loadPrefs() {
@@ -98,7 +99,7 @@ const playerSlotOf = cars => buildField(cars).findIndex(d => d.player);
 function setGfx(id, announce) {
   const p = GFX_PROFILES[id], gpu = Display.gpu;
   game.gfx = id;
-  Display.applyProfile(p); world.applyProfile(p); CarModels.applyProfile(carModels, p);
+  Display.applyProfile(p); world?.applyProfile(p); CarModels.applyProfile(carModels, p);
   game.gfxNote = (gpu.short ? 'Graphics: ' + gpu.short + '. ' : '') + p.note(gpu.weak);
   if (announce) { Settings.set(CONFIG.storageKeys.gfx, id); Hud.toast(p.label); }
   describeSetup(); SettingsScreen.redraw();
@@ -351,11 +352,12 @@ Design.on('change', section => {
 });
 $('startBtn').onclick = startFromMenu;
 function saveSetup() {
+  setTrack(game.setup.track);
   Settings.set(CONFIG.storageKeys.race, JSON.stringify(game.setup));
   Screens.describeEvent(track, game.setup.cars, playerSlotOf(game.setup.cars));
   describeSetup();
 }
-const renderSetup = Screens.bindSetup(game.setup, SIM.DRIVERS.length, saveSetup);
+const renderSetup = Screens.bindSetup(game.setup, SIM.DRIVERS.length, Object.values(SIM.CIRCUITS), saveSetup);
 
 // ---- per-frame ----
 // Gear, rev lights (0..1, all lit at the shift point) and engine pitch (0..1, idle..limiter) from the car's drivetrain.
@@ -422,11 +424,25 @@ function frame(now) {
   monitorFps(dt);
 }
 
-// ---- boot: idle scene behind the menu (cars parked on the grid) ----
-{ const { PX, PZ, NX, NZ, TX, TZ, N } = track;
+// ---- circuit: world, minimap and the idle scene behind the menu (cars parked on the grid) ----
+function setTrack(id) {
+  if (track && track.id === id) return;
+  track = trackOf(id);
+  if (game.race) { game.race = null; game.player = null; wakes.hideAll(); }    // the last race was on the old circuit
+  drawOutline($('trackPreview'), track); Screens.trackInfo(track, SIM.CIRCUITS[id].blurb);
+  world?.dispose();
+  world = buildWorld(Display.scene, track, SIM.DRIVERS);
+  if (game.gfx) world.applyProfile(GFX_PROFILES[game.gfx]);
+  minimap = createMinimap($('map'), track);
+  const { PX, PZ, NX, NZ, TX, TZ, N } = track;
   Display.camera.position.set(PX[0] + NX[0]*30 - TX[0]*40, 14, PZ[0] + NZ[0]*30 - TZ[0]*40);
   Display.camera.lookAt(PX[N-40], 0, PZ[N-40]);
-  SIM.createRace(1, { track }).cars.forEach((c, i) => carModels[i].place(c.x, c.z, c.h)); }
+  SIM.createRace(1, { track }).cars.forEach((c, i) => { carModels[i].setVisible(true); carModels[i].place(c.x, c.z, c.h); });
+  Screens.describeEvent(track, game.setup.cars, playerSlotOf(game.setup.cars));
+}
+
+// ---- boot ----
+setTrack(game.setup.track);
 { const saved = Settings.get(CONFIG.storageKeys.gfx);
   setGfx(Object.hasOwn(GFX_PROFILES, saved || '') ? saved : (Display.gpu.weak ? 'perf' : 'quality'), false); }
 applyPrefs(); game.steerRate = steerRate();
