@@ -51,7 +51,7 @@ Tunables live in data tables (config modules), not inline in the logic.
      v², so corners above ~139 m radius are flat out), `brakeLimit(v)` = the tyres' straight-line ABS limit
      (min(brakeSystem, grip·longGrip·(g + downforce/m))), `cornerSpeed(|k|, share)`, `rpmAt(v, gear)`,
      `drivetrain(c, {thr, brk, shift}, dt)` → engine drive + resistances (drag ×(1 − slip·0.35), rolling, engine
-     braking, launch clutch slip in 1st, limiter, shift cut) for chassis.js, `updateGear` (auto: up at 11800, down at 8000 on
+     braking, launch clutch slip in 1st, limiter, shift cut) for chassis.js, `updateGear` (auto: up at 11800, down at 8000 (autoLug 6000 below full throttle without full TC, so part-throttle kick-downs don't spin the rears) on
      the throttle or as soon as the lower gear is < 11000 rpm off it; manual: paddles; a downshift that would over-rev waits in `c.downQueue` and goes in once the lower gear is under the limiter (HUD gear label shows "▼ n"; an upshift cancels the queue; stopped = 1st);
      brake at standstill = reverse). `slipstream(race, c)` sets `c.slip` 0..1 / `c.slipBy` from the leader's trail. `circuits.js`: `CIRCUITS` {name, ctrl, landmarks, blurb, samples?; `id` added}. New circuits use `corners(poly)`:
      polygon vertices [x, z, radius] → arcs of exactly that radius + straights (r 15–25 = hairpin / street corner;
@@ -147,7 +147,9 @@ Tunables live in data tables (config modules), not inline in the logic.
      closing returns to the menu it came from. The start menu shows a one-line summary of these choices.
    - `Sound` (WebAudio saw+square engine + beeps; pitch from real rpm). Dash (`dashGear` in main.js): gear and rpm
      from the car; rev lights from `CONFIG.revLights.from` (8500) to the auto upshift point (all lit = shift).
-   - Assists OFF/LOW/MEDIUM/HIGH (Settings → Driving, `game.setup.assists` → `player.assists`); start menu has Rivals
+   - Assists OFF/LOW/MEDIUM/HIGH/CUSTOM (Settings → Driving, `game.setup.assists` → `assistsOf()` → `player.assists`; CUSTOM =
+     steering help / stability / traction control / ABS each OFF/LOW/ON, ON = medium's strength, `game.setup.custom`;
+     the start-menu summary flags reduced traction control: the user once wondered why the car spun at half throttle on OFF); start menu has Rivals
      ROOKIE/CLUB/PRO/LEGEND (`game.setup.ai` → `RACE_SETUP.aiLevels[].pace` → createRace aiPace; default pro;
      hidden for solo). `Sound.tyres`:
      band-passed noise squeal from slideF/slideR/lock/spin.

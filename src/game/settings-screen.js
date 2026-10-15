@@ -5,10 +5,11 @@ import { $, createEmitter } from './util.js';
 // Values live elsewhere (race setup, prefs, graphics mode); main.js passes a binding { get(key), set(key, value),
 // note?(key, value), action(name) } and this module only draws the controls and reports changes.
 const pct = v => v + ' %';
-const seg = (key, label, options, note) => ({ type: 'seg', key, label, options, note });
+const seg = (key, label, options, note, when) => ({ type: 'seg', key, label, options, note, when });
 const slider = (key, label, fmt, note) => ({ type: 'slider', key, label, fmt, note, limits: PREFS.limits[key] });
 const buttons = (...list) => ({ type: 'buttons', list });
 const ON_OFF = [[true, 'ON'], [false, 'OFF']];
+const LEVELS = [['off', 'OFF'], ['low', 'LOW'], ['on', 'ON']];
 
 const KEYS = `<div class="keys">
   <span><kbd>↑</kbd> <kbd>W</kbd></span><span>Throttle</span>
@@ -31,7 +32,12 @@ const TABS = [
       semi: 'You shift up, the car shifts down as you slow. You can still click down early.',
       manual: 'You shift every gear. Clicks down while too fast wait and go in as you slow.' })[v]
       + (v === 'auto' ? '' : ' Shift: Q / E, pad LB / RB, phone buttons 1 / 2 or flicks on the phone pedals.')),
-    seg('assists', 'Assists', [['off', 'OFF'], ['low', 'LOW'], ['medium', 'MEDIUM'], ['high', 'HIGH']], v => RACE_SETUP.assistNotes[v]),
+    seg('assists', 'Assists', [['off', 'OFF'], ['low', 'LOW'], ['medium', 'MEDIUM'], ['high', 'HIGH'], ['custom', 'CUSTOM']], v => RACE_SETUP.assistNotes[v]),
+    ...[['steer', 'Steering help', 'Full tilt asks only for the grip there is: no running wide from too much lock.'],
+      ['stability', 'Stability', 'Catches the rear when it starts to slide.'],
+      ['tc', 'Traction control', 'Stops wheel spin on the throttle. Off: full gas in low gears spins the rears.'],
+      ['abs', 'ABS', 'Stops the brakes locking. Off: too much brake locks the fronts and the car goes straight on.']]
+      .map(([k, label, note]) => seg('a.' + k, label, LEVELS, () => note, b => b.get('assists') === 'custom')),
   ] },
   { id: 'controller', label: 'Controller', items: [
     { type: 'status' },
@@ -95,7 +101,7 @@ export const SettingsScreen = (() => {
       const s = document.createElement('div'); s.className = 'seg';
       for (const [value, text] of it.options) {
         const b = document.createElement('button'); b.type = 'button'; b.textContent = text;
-        b.onclick = () => { bind.set(it.key, value); redraw(); };
+        b.onclick = () => { bind.set(it.key, value); render(); };   // a choice may show or hide other controls
         s.append(b);
       }
       head.append(s);
@@ -124,7 +130,7 @@ export const SettingsScreen = (() => {
       b.setAttribute('aria-pressed', String(t.id === tab)); b.onclick = () => { tab = t.id; render(); };
       tabBar.append(b);
     }
-    for (const it of TABS.find(t => t.id === tab).items) body.append(control(it));
+    for (const it of TABS.find(t => t.id === tab).items) if (!it.when || it.when(bind)) body.append(control(it));
     redraw();
   }
   function redraw() { for (const f of refresh) f(); }

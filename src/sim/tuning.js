@@ -61,7 +61,7 @@ export const CAR = Object.freeze({
     top: [0, 108, 142, 174, 205, 235, 265, 296, 340],   // km/h at redline per gear (1..8); ratios are derived from it
     shiftTime: 0.06,  // s of reduced drive during a shift
     shiftCut: 0.3,    // drive kept during the shift
-    autoUp: 11800, autoDown: 8000, autoBrakeDown: 11000,   // automatic gearbox shift points (rpm), see vehicle.js
+    autoUp: 11800, autoDown: 8000, autoBrakeDown: 11000, autoLug: 6000,   // automatic gearbox shift points (rpm), see vehicle.js
   }),
 });
 

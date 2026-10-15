@@ -62,7 +62,11 @@ export const RACE_SETUP = Object.freeze({
     low: 'Some help with steering and slides; wheel spin and lock-ups are still possible.',
     medium: 'Steering matched to grip, slides caught, no wheel spin or lock-ups.',
     high: 'Everything on, plus a calmer car for on/off keyboard steering.',
+    custom: 'Pick each assist yourself below.',
   },
+  // Custom assists: each one OFF / LOW / ON; ON = the MEDIUM preset's strength (SIM.ASSISTS.medium)
+  customLevels: { off: 0, low: 0.5, on: 1 },
+  customDefault: { steer: 'on', stability: 'on', tc: 'on', abs: 'on' },
   maxLaps: 99,
   minutes: [1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120],   // stepper stops for timed races
 });

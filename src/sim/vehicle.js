@@ -57,9 +57,11 @@ function driveAccel(rpm, gear) {
 // from the paddles; a downshift that would over-rev is refused (EV.SHIFT_DENIED). Gear -1 = reverse.
 // Automatic downshift: off the throttle as soon as the lower gear is under autoBrakeDown (engine braking into the
 // corner), on it only when the revs have fallen below autoDown and the lower gear has room.
+// Without full traction control a part-throttle kick-down (e.g. into 1st at 90 km/h) would spin the rears, so then
+// the box only kicks down on (nearly) full throttle or when the revs are really low (autoLug).
 const autoDown = (c, v, thr) => c.gear > 1 && (thr < 0.05
   ? rpmAt(v, c.gear - 1) < gearbox.autoBrakeDown
-  : rpmAt(v, c.gear) < gearbox.autoDown && rpmAt(v, c.gear - 1) < gearbox.autoUp - 400);
+  : rpmAt(v, c.gear) < ((c.assists?.tc ?? 1) >= 1 || thr > 0.9 ? gearbox.autoDown : gearbox.autoLug) && rpmAt(v, c.gear - 1) < gearbox.autoUp - 400);
 
 // c.autoShift: automatic gearbox. Otherwise paddles (shift -1/+1); c.autoDown = semi-automatic: the player shifts up,
 // the car also shifts down by itself (the player can still click down earlier).

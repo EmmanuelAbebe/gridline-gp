@@ -63,7 +63,9 @@ function loadSetup() {
     laps: Math.min(RACE_SETUP.maxLaps, Math.max(1, Math.round(+s.laps) || d.laps)),
     minutes: RACE_SETUP.minutes.includes(+s.minutes) ? +s.minutes : d.minutes,
     gearbox: ['auto', 'semi', 'manual'].includes(s.gearbox) ? s.gearbox : d.gearbox,
-    assists: Object.hasOwn(SIM.ASSISTS, s.assists || '') ? s.assists : d.assists,
+    assists: Object.hasOwn(SIM.ASSISTS, s.assists || '') || s.assists === 'custom' ? s.assists : d.assists,
+    custom: Object.fromEntries(Object.entries(RACE_SETUP.customDefault).map(([k, v]) =>
+      [k, Object.hasOwn(RACE_SETUP.customLevels, s.custom?.[k] || '') ? s.custom[k] : v])),
     ai: Object.hasOwn(RACE_SETUP.aiLevels, s.ai || '') ? s.ai : d.ai,
     track: Object.hasOwn(SIM.CIRCUITS, s.track || '') ? s.track : SIM.track.id,
   };
@@ -127,7 +129,7 @@ function newRace() {
   const L = CONFIG.lights;
   const player = race.cars.find(c => c.player);
   setGearbox(player, game.setup.gearbox);
-  player.assists = SIM.ASSISTS[game.setup.assists];
+  player.assists = assistsOf(game.setup);
   Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, autoShiftHinted: false, queueHinted: false,
     resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
     lights: { t: 0, lit: 0, hold: L.holdMin + Math.random() * L.holdRand } });
@@ -281,20 +283,27 @@ function openSettings(tab) {
   Screens.show(null); SettingsScreen.show(tab);
 }
 SettingsScreen.on('close', () => { if (settingsBack) Screens.show(settingsBack); settingsBack = null; });
+// The player's assists: a preset, or CUSTOM = each assist off / low / on (on = the medium preset's strength).
+function assistsOf(s) {
+  if (s.assists !== 'custom') return SIM.ASSISTS[s.assists];
+  const M = SIM.ASSISTS.medium, L = RACE_SETUP.customLevels, c = s.custom;
+  return { steer: M.steer * L[c.steer], stability: M.stability * L[c.stability], damping: 0, tc: M.tc * L[c.tc], abs: M.abs * L[c.abs] };
+}
 function setDriving(key, value) {
-  game.setup[key] = value; renderSetup(); saveSetup();
+  if (key.startsWith('a.')) game.setup.custom[key.slice(2)] = value; else game.setup[key] = value;
+  renderSetup(); saveSetup();
   if (game.player) {                         // takes effect at once, also mid-race
     if (key === 'gearbox') setGearbox(game.player, value);
-    if (key === 'assists') game.player.assists = SIM.ASSISTS[value];
+    if (key === 'assists' || key.startsWith('a.')) game.player.assists = assistsOf(game.setup);
   }
 }
 SettingsScreen.bind({
   get(key) {
-    return key === 'gearbox' || key === 'assists' ? game.setup[key] : key === 'gfx' ? game.gfx
+    return key === 'gearbox' || key === 'assists' ? game.setup[key] : key.startsWith('a.') ? game.setup.custom[key.slice(2)] : key === 'gfx' ? game.gfx
       : key === 'sound' ? !game.prefs.muted : game.prefs[key];
   },
   set(key, value) {
-    if (key === 'gearbox' || key === 'assists') setDriving(key, value);
+    if (key === 'gearbox' || key === 'assists' || key.startsWith('a.')) setDriving(key, value);
     else if (key === 'gfx') setGfx(value, true);
     else if (key === 'sound') { Sound.init(); setPref('muted', !value); }
     else setPref(key, value);
@@ -313,7 +322,8 @@ SettingsScreen.bind({
 // The start menu's line about the Settings-screen choices.
 function describeSetup() {
   const s = game.setup, p = game.prefs, cap = w => w[0].toUpperCase() + w.slice(1);
-  Screens.summary(`${s.gearbox === 'semi' ? 'Semi-auto' : cap(s.gearbox)} gearbox · ${cap(s.assists)} assists · ${GFX_PROFILES[game.gfx]?.label.replace(' mode', '') ?? ''} graphics`
+  const tc = assistsOf(s).tc, tcText = tc >= 1 ? '' : tc > 0 ? ' (traction control low)' : ' (no traction control)';
+  Screens.summary(`${s.gearbox === 'semi' ? 'Semi-auto' : cap(s.gearbox)} gearbox · ${cap(s.assists)} assists${tcText} · ${GFX_PROFILES[game.gfx]?.label.replace(' mode', '') ?? ''} graphics`
     + ` · controller smoothing ${p.smoothing ? p.smoothing : 'off'}`);
 }
 
