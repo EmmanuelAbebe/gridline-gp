@@ -82,7 +82,8 @@ export const CHASSIS = Object.freeze({
   lockLateral: 0.35,    // cornering grip left on a locked or spinning axle
   slideLong: 0.9,       // braking / drive force of a sliding tyre, relative to its peak
   maxSteer: 0.3,        // rad of road-wheel angle at full lock (no steering assist)
-  steerMargin: 0.02,    // rad the steering assist allows past the tightest steady turn
+  limitTurn: 1.25,      // steering assist: full lock = this × the geometric angle of the tightest steady turn
+  steerMargin: 0.01,    //   + this many rad (both measured: full lock lands just past the grip limit)
   lowSpeed: 2, blendSpeed: 6,   // m/s: below lowSpeed the car steers kinematically, blended up to blendSpeed
   substeps: 4,          // tyre forces are stiff: integrate in 4 sub-steps of the 120 Hz step
   dirtyAir: 0.25,       // downforce lost at full wake strength (following closely through corners)

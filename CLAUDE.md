@@ -70,7 +70,9 @@ Tunables live in data tables (config modules), not inline in the logic.
      bias, system max 70 m/s² (can lock at low speed). Below 2–6 m/s blends to kinematic steering (vy = rear-axle
      geometry B_REAR·yawRate, so the rear tyres don't slip; until 2026-10-14 it was 0, which saturated the rears at
      full lock and left a car crawling at 2 m/s on grass); reverse is kinematic. Assists (`ASSISTS` off/low/medium/high, game default medium): `steer` = lock shrinks with speed to the
-     tightest steady turn (`steerLock`), `stability` = yaw-rate correction when the rear slides + rear brake margin,
+     tightest steady turn (`steerLock` = geometric angle × limitTurn 1.25 + steerMargin 0.01 rad, raw lock mixed back
+     by (1 − assist)²; since 2026-10-15 medium full tilt ≈ the grip limit and half tilt ≈ 60–70% of the cornering: before,
+     medium's lock was ~2× the limit at 300 km/h, so a small tilt already slid (user: "tiny tilt makes the car slip")), `stability` = yaw-rate correction when the rear slides + rear brake margin,
      `damping` (high only) = always-on yaw damping for on/off keys, `tc`, `abs`. Car state adds `vy`, `yawRate`,
      `slideF/slideR` (0..1 past the limit), `lockF`, `spinR`. Tuned against bots in tests/chassis.test.js:
      proportional (tilt) and key-tapping drivers lap clean on medium; full-lock keyboard needs high.

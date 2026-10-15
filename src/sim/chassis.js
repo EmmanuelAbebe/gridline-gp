@@ -20,12 +20,13 @@ const C_SHAPE = CH.falloff, B_UNIT = Math.tan(Math.PI / (2 * C_SHAPE));
 export const tyreCurve = (alpha, peak = CH.peakSlip) => Math.sin(C_SHAPE * Math.atan(B_UNIT / peak * alpha));
 
 // Road-wheel angle at full lock. With the steering assist the lock shrinks with speed toward the angle of the
-// tightest steady turn the tyres can hold (bicycle geometry: wheelbase / radius + front − rear slip at the limit),
-// so a full tilt or a held key at 300 km/h asks for exactly the grip there is, not more.
+// tightest steady turn the tyres can hold (wheelbase / radius, plus the tyres' slip, measured: limitTurn, steerMargin),
+// so a full tilt or a held key at 300 km/h asks for the grip there is, not more, and half tilt is about half the
+// cornering. Less assist mixes back the raw lock (squared, so medium stays close to the grip limit).
 export function steerLock(v, assist) {
   const sp = Math.max(Math.abs(v), 1);
-  const useful = Math.min(CH.maxSteer, L * lateralGrip(sp) / (sp * sp) + CH.peakSlip - CH.rearPeakSlip + CH.steerMargin);
-  return CH.maxSteer + (useful - CH.maxSteer) * assist;
+  const useful = Math.min(CH.maxSteer, L * lateralGrip(sp) / (sp * sp) * CH.limitTurn + CH.steerMargin);
+  return useful + (CH.maxSteer - useful) * (1 - assist) ** 2;
 }
 
 // One axle's forces. D = grip (per mass), alpha = slip angle, long = braking (−) or drive (+) asked of it.
