@@ -90,3 +90,4 @@
   .bigpos{font-size:36px}
   #map{width:120px;height:120px}
 }
+.gear .lbl.queued{color:var(--amber)}

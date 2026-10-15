@@ -20,8 +20,8 @@ export function createCar(track, driver, slot) {
     // physics
     idx, x: PX[idx] + NX[idx]*lat, z: PZ[idx] + NZ[idx]*lat, h: headingAt(track, idx), v: 0, lat, steer: 0, roll: 0,
     wallHit: false, touching: false, wasTouching: false, impact: 0, onKerb: false, offTrack: false,
-    // drivetrain (vehicle.js): gear 1..8, -1 = reverse; autoShift = automatic gearbox; slip = slipstream 0..1
-    gear: 1, rpm: 0, shiftT: 0, autoShift: true, drive: 0, slip: 0, slipBy: null,
+    // drivetrain (vehicle.js): gear 1..8, -1 = reverse; autoShift = automatic gearbox; downQueue = manual downshifts waiting for the revs; slip = slipstream 0..1
+    gear: 1, rpm: 0, shiftT: 0, autoShift: true, downQueue: 0, drive: 0, slip: 0, slipBy: null,
     // chassis (chassis.js, player): lateral speed (m/s, + = right), yaw rate (rad/s), last longitudinal accel,
     // how saturated each axle is (0..1), lock-up / wheel spin flags; surface under the car
     vy: 0, yawRate: 0, ax: 0, slideF: 0, slideR: 0, lockF: false, spinR: false, surface: 'track', assists: null,

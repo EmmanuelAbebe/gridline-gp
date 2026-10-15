@@ -68,10 +68,17 @@ function updateGear(c, thr, brk, shift, dt) {
         ? rpmAt(v, c.gear - 1) < gearbox.autoBrakeDown
         : rpmAt(v, c.gear) < gearbox.autoDown && rpmAt(v, c.gear - 1) < gearbox.autoUp - 400)) c.gear--;
       else if (v < 2) c.gear = 1;
-    } else if (shift > 0 && c.gear < GEARS) c.gear++;
-    else if (shift < 0 && c.gear > 1) {
-      if (rpmAt(v, c.gear - 1) <= engine.limiter) c.gear--;
-      else c.events.push(EV.SHIFT_DENIED);
+    } else {
+      // manual: an upshift cancels waiting downshifts. A downshift that would over-rev is not lost: it waits
+      // (c.downQueue) and goes in as soon as the lower gear is under the limiter, so the player can click down
+      // early while braking. Stopped: back to 1st, ready to pull away.
+      if (shift > 0) { c.downQueue = 0; if (c.gear < GEARS) c.gear++; }
+      else if (shift < 0 && c.gear - (c.downQueue || 0) > 1) {
+        if (!c.downQueue && rpmAt(v, c.gear - 1) <= engine.limiter) c.gear--;
+        else { c.downQueue = (c.downQueue || 0) + 1; c.events.push(EV.SHIFT_DENIED); }
+      }
+      if (c.downQueue > 0 && rpmAt(v, c.gear - 1) <= engine.limiter) { c.gear--; c.downQueue--; }
+      if (v < 2 && thr < 0.05) { c.gear = 1; c.downQueue = 0; }
     }
   }
   if (c.gear !== before) { if (before > 0 && c.gear > 0) c.shiftT = gearbox.shiftTime; c.events.push(EV.SHIFT); }

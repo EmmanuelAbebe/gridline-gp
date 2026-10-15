@@ -49,7 +49,7 @@ const game = {
   prefs: loadPrefs(),            // Settings screen: controller, sound, FPS counter
   lights: { t: 0, lit: 0, hold: 0 }, resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
   towerT: 0, mapT: 0, slowWindows: 0, acc: 0, carsDirty: false,
-  pendingShift: 0, autoShiftHinted: false, steerRate: Infinity,   // paddle press waiting for the next sim step
+  pendingShift: 0, autoShiftHinted: false, queueHinted: false, steerRate: Infinity,   // paddle press waiting for the next sim step
 };
 const isRunning = () => !!game.race && game.phase !== PHASE.MENU && !game.paused && !game.frozen;
 
@@ -127,7 +127,7 @@ function newRace() {
   const player = race.cars.find(c => c.player);
   player.autoShift = game.setup.gearbox !== 'manual';
   player.assists = SIM.ASSISTS[game.setup.assists];
-  Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, autoShiftHinted: false,
+  Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, autoShiftHinted: false, queueHinted: false,
     resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
     lights: { t: 0, lit: 0, hold: L.holdMin + Math.random() * L.holdRand } });
   setStartLights(0); Hud.showLights(true); Hud.setLapTimes(0, 0);
@@ -163,6 +163,9 @@ function onPlayerEvent(c, e) {
     case EV.CUT:
       if (c.cuts <= SIM.LIMITS.warnings) Hud.toast(`Track limits  warning ${c.cuts}/${SIM.LIMITS.warnings}  ·  lap invalid`, 'warn', 3);
       Sound.beep(...SFX.cut);
+      break;
+    case EV.SHIFT_DENIED:     // manual: a downshift waiting for the revs to drop (shown in the gear label)
+      if (!game.queueHinted) { game.queueHinted = true; Hud.toast('Too fast for that gear: the downshift goes in as you slow down'); }
       break;
     case EV.PENALTY:
       Hud.toast(`+${SIM.LIMITS.penalty} s penalty  ·  track limits  (total +${c.penalty} s)`, 'warn', 3.5);
@@ -358,7 +361,7 @@ const renderSetup = Screens.bindSetup(game.setup, SIM.DRIVERS.length, saveSetup)
 const V = SIM.VEHICLE, REV_FROM = CONFIG.revLights.from;
 function dashGear(p, onLights, thr) {
   const rpm = onLights ? V.idle + thr * (V.redline - V.idle) * (0.9 + Math.random() * 0.06) : p.rpm;
-  return { gear: onLights ? 'N' : p.gear === -1 ? 'R' : String(p.gear),
+  return { gear: onLights ? 'N' : p.gear === -1 ? 'R' : String(p.gear), next: !onLights && p.downQueue > 0 ? p.gear - p.downQueue : null,
     revs: SIM.clamp((rpm - REV_FROM) / (V.autoUp - REV_FROM), 0, 1), pitch: SIM.clamp((rpm - V.idle) / (V.limiter - V.idle), 0, 1) };
 }
 function renderFrame(dt) {
@@ -372,7 +375,7 @@ function renderFrame(dt) {
   const drive = Input.drive, onLights = game.phase === PHASE.LIGHTS;
   const gi = dashGear(player, onLights, drive.thr);
   Hud.updateDash({
-    kmh: Math.round(Math.abs(player.v) * 3.6), gear: gi.gear, revs: gi.revs, slip: onLights ? 0 : player.slip,
+    kmh: Math.round(Math.abs(player.v) * 3.6), gear: gi.gear, gearNext: gi.next, revs: gi.revs, slip: onLights ? 0 : player.slip,
     steer: player.finished ? 0 : player.steer, thr: drive.thr, brk: drive.brk,
     lapTime: onLights ? '0:00.000' : fmtTime(player.finished ? player.finishTime : race.t - player.lapStart),
     lapInvalid: !onLights && !player.finished && player.lapInvalid,

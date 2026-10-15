@@ -51,9 +51,11 @@ export const Hud = (() => {
     showLights(on) { $('lights').hidden = !on; },
     setLapTimes(last, best, lastInvalid = false) { $('tLast').textContent = fmtTime(last); $('tLast').classList.toggle('invalid', lastInvalid); $('tBest').textContent = fmtTime(best); },
     // revs: rev-light fraction 0..1 (all lit = shift); slip: slipstream strength 0..1
-    updateDash({ kmh, gear, revs, steer, thr, brk, lapTime, slip = 0, lapInvalid = false }) {
+    // gearNext: the gear a waiting manual downshift will drop to (shown in the gear label), or null
+    updateDash({ kmh, gear, gearNext = null, revs, steer, thr, brk, lapTime, slip = 0, lapInvalid = false }) {
       setText('spd', kmh);
       setText('gear', gear);
+      setOnce('gearNext', gearNext, n => { $('gearLbl').textContent = n ? '▼ ' + n : 'Gear'; $('gearLbl').classList.toggle('queued', !!n); });
       setOnce('revs', Math.round(revs * REV_LEDS), n => revEls.forEach((s, i) => s.classList.toggle('on', i < n)));
       setOnce('slipOn', slip > 0.08, on => $('slipTag').classList.toggle('on', on));
       setOnce('slip', Math.round(slip * 40), q => { fill.slip.style.transform = `scaleX(${q / 40})`; });

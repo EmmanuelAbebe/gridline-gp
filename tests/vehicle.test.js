@@ -65,8 +65,18 @@ test('manual gearbox: paddles shift, over-revving downshift is refused, wrong ge
   straight(race, c, GAS, 5);
   c.events.length = 0;
   straight(race, c, { ...GAS, shift: -1 }, DT); straight(race, c, { ...GAS, shift: -1 }, DT); straight(race, c, { ...GAS, shift: -1 }, DT);
-  assert.ok(c.events.includes(S.EV.SHIFT_DENIED), 'downshift into an over-rev was refused');
-  assert.equal(c.gear, 4, 'all three refused: 3rd would over-rev at this speed');
+  assert.ok(c.events.includes(S.EV.SHIFT_DENIED), 'downshift into an over-rev was held back');
+  assert.equal(c.gear, 4, 'all three wait: 3rd would over-rev at this speed');
+  assert.equal(c.downQueue, 3);
+  // braking: each waiting downshift goes in once its gear is under the limiter, never over-revving
+  let maxRpm = 0, seen = [];
+  straight(race, c, { thr: 0, brk: 1, steer: 0, analog: false }, 1.5, () => { maxRpm = Math.max(maxRpm, c.rpm); if (seen.at(-1) !== c.gear) seen.push(c.gear); });
+  assert.deepEqual(seen.slice(0, 4), [4, 3, 2, 1], `gears while braking ${seen}`);
+  assert.ok(maxRpm <= V.limiter + 1, `max ${maxRpm.toFixed(0)} rpm`);
+  // an upshift cancels waiting downshifts
+  straight(race, c, GAS, 4);
+  straight(race, c, { ...GAS, shift: -1 }, DT); straight(race, c, { ...GAS, shift: +1 }, DT);
+  assert.equal(c.downQueue, 0);
   // from 80 km/h, 3rd pulls much harder than 8th
   const pull = gear => { const t = solo(); t.c.autoShift = false; t.c.gear = gear; t.c.v = 80 / 3.6; straight(t.race, t.c, GAS, 2); return t.c.v; };
   assert.ok(pull(3) > pull(8) + 8, `3rd ${kmh(pull(3)).toFixed(0)} vs 8th ${kmh(pull(8)).toFixed(0)} km/h after 2 s`);
