@@ -14,7 +14,7 @@ const KEYS = `<div class="keys">
   <span><kbd>↑</kbd> <kbd>W</kbd></span><span>Throttle</span>
   <span><kbd>↓</kbd> <kbd>S</kbd></span><span>Brake / reverse</span>
   <span><kbd>←</kbd><kbd>→</kbd> <kbd>A</kbd><kbd>D</kbd></span><span>Steer (eased in, so a tap is not full lock)</span>
-  <span><kbd>Q</kbd> <kbd>E</kbd></span><span>Shift down / up (manual gearbox)</span>
+  <span><kbd>Q</kbd> <kbd>E</kbd></span><span>Shift down / up (semi-auto and manual gearbox)</span>
   <span><kbd>C</kbd></span><span>Camera</span>
   <span><kbd>P</kbd> <kbd>Esc</kbd></span><span>Pause</span>
   <span><kbd>O</kbd></span><span>Settings</span>
@@ -26,8 +26,11 @@ while racing, A confirms in menus, START pauses, Y changes camera.</p>`;
 
 const TABS = [
   { id: 'driving', label: 'Driving', items: [
-    seg('gearbox', 'Gearbox', [['auto', 'AUTO'], ['manual', 'MANUAL']],
-      v => v === 'auto' ? 'The car shifts for you.' : 'You shift: Q / E, pad LB / RB, or phone buttons 1 / 2.'),
+    seg('gearbox', 'Gearbox', [['auto', 'AUTO'], ['semi', 'SEMI-AUTO'], ['manual', 'MANUAL']], v => ({
+      auto: 'The car shifts for you.',
+      semi: 'You shift up, the car shifts down as you slow. You can still click down early.',
+      manual: 'You shift every gear. Clicks down while too fast wait and go in as you slow.' })[v]
+      + (v === 'auto' ? '' : ' Shift: Q / E, pad LB / RB, phone buttons 1 / 2 or flicks on the phone pedals.')),
     seg('assists', 'Assists', [['off', 'OFF'], ['low', 'LOW'], ['medium', 'MEDIUM'], ['high', 'HIGH']], v => RACE_SETUP.assistNotes[v]),
   ] },
   { id: 'controller', label: 'Controller', items: [

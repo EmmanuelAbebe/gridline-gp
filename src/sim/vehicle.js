@@ -55,6 +55,14 @@ function driveAccel(rpm, gear) {
 // braking) shift down as soon as the next gear stays under autoBrakeDown, the way a driver goes down the box into a
 // corner, so the gear always matches the speed. Manual: `shift` = +1/-1
 // from the paddles; a downshift that would over-rev is refused (EV.SHIFT_DENIED). Gear -1 = reverse.
+// Automatic downshift: off the throttle as soon as the lower gear is under autoBrakeDown (engine braking into the
+// corner), on it only when the revs have fallen below autoDown and the lower gear has room.
+const autoDown = (c, v, thr) => c.gear > 1 && (thr < 0.05
+  ? rpmAt(v, c.gear - 1) < gearbox.autoBrakeDown
+  : rpmAt(v, c.gear) < gearbox.autoDown && rpmAt(v, c.gear - 1) < gearbox.autoUp - 400);
+
+// c.autoShift: automatic gearbox. Otherwise paddles (shift -1/+1); c.autoDown = semi-automatic: the player shifts up,
+// the car also shifts down by itself (the player can still click down earlier).
 function updateGear(c, thr, brk, shift, dt) {
   if (c.shiftT > 0) c.shiftT -= dt;
   const v = c.v, before = c.gear;
@@ -64,9 +72,7 @@ function updateGear(c, thr, brk, shift, dt) {
   if (c.gear > 0) {
     if (c.autoShift) {
       if (c.gear < GEARS && rpmAt(v, c.gear) > gearbox.autoUp) c.gear++;
-      else if (c.gear > 1 && (thr < 0.05
-        ? rpmAt(v, c.gear - 1) < gearbox.autoBrakeDown
-        : rpmAt(v, c.gear) < gearbox.autoDown && rpmAt(v, c.gear - 1) < gearbox.autoUp - 400)) c.gear--;
+      else if (autoDown(c, v, thr)) c.gear--;
       else if (v < 2) c.gear = 1;
     } else {
       // manual: an upshift cancels waiting downshifts. A downshift that would over-rev is not lost: it waits
@@ -78,6 +84,7 @@ function updateGear(c, thr, brk, shift, dt) {
         else { c.downQueue = (c.downQueue || 0) + 1; c.events.push(EV.SHIFT_DENIED); }
       }
       if (c.downQueue > 0 && rpmAt(v, c.gear - 1) <= engine.limiter) { c.gear--; c.downQueue--; }
+      else if (c.autoDown && shift <= 0 && autoDown(c, v, thr)) { c.gear--; c.downQueue = Math.max(0, c.downQueue - 1); }
       if (v < 2 && thr < 0.05) { c.gear = 1; c.downQueue = 0; }
     }
   }

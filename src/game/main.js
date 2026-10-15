@@ -62,7 +62,7 @@ function loadSetup() {
     type: ['laps', 'timed', 'unlimited'].includes(s.type) ? s.type : d.type,
     laps: Math.min(RACE_SETUP.maxLaps, Math.max(1, Math.round(+s.laps) || d.laps)),
     minutes: RACE_SETUP.minutes.includes(+s.minutes) ? +s.minutes : d.minutes,
-    gearbox: s.gearbox === 'manual' ? 'manual' : d.gearbox,
+    gearbox: ['auto', 'semi', 'manual'].includes(s.gearbox) ? s.gearbox : d.gearbox,
     assists: Object.hasOwn(SIM.ASSISTS, s.assists || '') ? s.assists : d.assists,
     ai: Object.hasOwn(RACE_SETUP.aiLevels, s.ai || '') ? s.ai : d.ai,
   };
@@ -125,7 +125,7 @@ function newRace() {
   for (const [code, m] of modelOf) m.setVisible(field.some(d => d.code === code));
   const L = CONFIG.lights;
   const player = race.cars.find(c => c.player);
-  player.autoShift = game.setup.gearbox !== 'manual';
+  setGearbox(player, game.setup.gearbox);
   player.assists = SIM.ASSISTS[game.setup.assists];
   Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, autoShiftHinted: false, queueHinted: false,
     resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
@@ -235,12 +235,14 @@ function togglePause() {
 }
 function startFromMenu() { Sound.init(); newRace(); }
 function toMenu() { game.phase = PHASE.MENU; game.resultsShown = false; Screens.hud(false); Screens.show('start', 'startBtn'); }
+// auto: the car shifts; semi: you shift up, the car shifts down (you may click down too); manual: you shift.
+function setGearbox(car, mode) { car.autoShift = mode === 'auto'; car.autoDown = mode === 'semi'; car.downQueue = 0; }
 // Paddles (Q/E, phone buttons 1/2, LB/RB). With the automatic gearbox they do nothing; say so once per race.
 const racing = () => isRunning() && game.phase === PHASE.RACE && !game.player.finished;
 function shift(dir) {
   if (!racing()) return;
   if (!game.player.autoShift) { game.pendingShift = dir; return; }
-  if (!game.autoShiftHinted) { game.autoShiftHinted = true; Hud.toast('Automatic gearbox: pick MANUAL in Settings (O) to shift yourself'); }
+  if (!game.autoShiftHinted) { game.autoShiftHinted = true; Hud.toast('Automatic gearbox: pick SEMI-AUTO or MANUAL in Settings (O) to shift yourself'); }
 }
 function confirm() {                                   // pad A
   if (SettingsScreen.open || InputMonitor.open) return;
@@ -281,7 +283,7 @@ SettingsScreen.on('close', () => { if (settingsBack) Screens.show(settingsBack);
 function setDriving(key, value) {
   game.setup[key] = value; renderSetup(); saveSetup();
   if (game.player) {                         // takes effect at once, also mid-race
-    if (key === 'gearbox') game.player.autoShift = value !== 'manual';
+    if (key === 'gearbox') setGearbox(game.player, value);
     if (key === 'assists') game.player.assists = SIM.ASSISTS[value];
   }
 }
@@ -310,7 +312,7 @@ SettingsScreen.bind({
 // The start menu's line about the Settings-screen choices.
 function describeSetup() {
   const s = game.setup, p = game.prefs, cap = w => w[0].toUpperCase() + w.slice(1);
-  Screens.summary(`${cap(s.gearbox)} gearbox · ${cap(s.assists)} assists · ${GFX_PROFILES[game.gfx]?.label.replace(' mode', '') ?? ''} graphics`
+  Screens.summary(`${s.gearbox === 'semi' ? 'Semi-auto' : cap(s.gearbox)} gearbox · ${cap(s.assists)} assists · ${GFX_PROFILES[game.gfx]?.label.replace(' mode', '') ?? ''} graphics`
     + ` · controller smoothing ${p.smoothing ? p.smoothing : 'off'}`);
 }
 

@@ -82,6 +82,19 @@ test('manual gearbox: paddles shift, over-revving downshift is refused, wrong ge
   assert.ok(pull(3) > pull(8) + 8, `3rd ${kmh(pull(3)).toFixed(0)} vs 8th ${kmh(pull(8)).toFixed(0)} km/h after 2 s`);
 });
 
+test('semi-automatic gearbox: only the player shifts up, the car shifts down by itself under braking', () => {
+  const { race, c } = solo();
+  c.autoShift = false; c.autoDown = true;
+  straight(race, c, GAS, 3);
+  assert.equal(c.gear, 1, 'no automatic upshifts');
+  for (let g = 2; g <= 6; g++) { straight(race, c, { ...GAS, shift: +1 }, DT); straight(race, c, GAS, 1.2); }
+  assert.equal(c.gear, 6);
+  let maxRpm = 0;
+  straight(race, c, { thr: 0, brk: 1, steer: 0, analog: false }, 2.5, () => { maxRpm = Math.max(maxRpm, c.rpm); });
+  assert.ok(c.gear <= 2, `down to gear ${c.gear} at ${kmh(c.v).toFixed(0)} km/h without touching the paddles`);
+  assert.ok(maxRpm <= V.limiter + 1, `max ${maxRpm.toFixed(0)} rpm`);
+});
+
 test('downforce: slow corners like before, fast corners much faster; brakes stronger at speed', () => {
   const old = R => Math.sqrt(37 * R);          // the old constant-grip model
   assert.ok(Math.abs(S.cornerSpeed(1 / 24) / old(24) - 1) < 0.05, 'hairpin about the same');

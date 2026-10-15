@@ -142,7 +142,7 @@ Tunables live in data tables (config modules), not inline in the logic.
      ROOKIE/CLUB/PRO/LEGEND (`game.setup.ai` → `RACE_SETUP.aiLevels[].pace` → createRace aiPace; default pro;
      hidden for solo). `Sound.tyres`:
      band-passed noise squeal from slideF/slideR/lock/spin.
-   - Gearbox: Settings → Driving AUTO / MANUAL (`game.setup.gearbox`). Shift: Q/E, pad LB/RB, and pad A/B (phone buttons
+   - Gearbox: Settings → Driving AUTO / SEMI-AUTO / MANUAL (`game.setup.gearbox` → `setGearbox`: car.autoShift, car.autoDown = semi: player shifts up, the car's automatic downshift rule also runs). Shift: Q/E, pad LB/RB, and pad A/B (phone buttons
      1/2) = down/up while racing (A still confirms in menus). Paddles in auto mode show a one-time hint.
    - `slipstream-fx.js`: fuzzy band on the road behind each car ahead of the player (≤160 m), built from the car's
      trail + `SIM.wakeHalfWidth`, brighter for the wake the player is in. HUD `#slipTag` chip above the speedo.
