@@ -218,7 +218,7 @@ function simStep(dt) {
   if (game.phase === PHASE.LIGHTS) { stepStartLights(dt); return; }
   race.t += dt;
   for (const c of race.cars) {
-    if (c.player && !c.finished) { SIM.drivePlayer(race, c, { ...Input.drive, steerRate: game.steerRate, shift: game.pendingShift }, dt); game.pendingShift = 0; }
+    if (c.player && !c.finished) { SIM.drivePlayer(race, c, { ...Input.drive, steerRate: game.steerRate, calm: game.prefs.calm / 100, shift: game.pendingShift }, dt); game.pendingShift = 0; }
     else SIM.driveAI(race, c, dt, c.finished ? CONFIG.finishedAiSkill : 0);
   }
   SIM.collide(race);
@@ -301,7 +301,7 @@ SettingsScreen.bind({
   note: key => key === 'gfx' ? game.gfxNote : undefined,
   action(name) {
     if (name === 'resetController') {
-      for (const k of ['smoothing', 'deadZone', 'range', 'curve', 'pedalDeadZone']) game.prefs[k] = PREFS.defaults[k];
+      for (const k of ['smoothing', 'calm', 'deadZone', 'range', 'curve', 'pedalDeadZone']) game.prefs[k] = PREFS.defaults[k];
       setPref('smoothing', PREFS.defaults.smoothing); SettingsScreen.redraw();
     } else if (name === 'inputs') InputMonitor.toggle(true);
     else if (name === 'fullscreen') AppShell.toggleFullscreen();

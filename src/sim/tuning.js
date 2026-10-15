@@ -82,6 +82,10 @@ export const CHASSIS = Object.freeze({
   lockLateral: 0.35,    // cornering grip left on a locked or spinning axle
   slideLong: 0.9,       // braking / drive force of a sliding tyre, relative to its peak
   maxSteer: 0.3,        // rad of road-wheel angle at full lock (no steering assist)
+  // player analog steering at speed (driving.js, inp.calm 0..1): the slope near the centre is cut so a small tilt
+  // turns the car like the original game (37 m/s² at full tilt; the tyres give ~1.35× their share at small angles,
+  // hence 27), and a cubic brings full tilt back up to the grip limit
+  calmLateral: 27, calmMinSlope: 0.3,
   limitTurn: 1.25,      // steering assist: full lock = this × the geometric angle of the tightest steady turn
   steerMargin: 0.01,    //   + this many rad (both measured: full lock lands just past the grip limit)
   lowSpeed: 2, blendSpeed: 6,   // m/s: below lowSpeed the car steers kinematically, blended up to blendSpeed

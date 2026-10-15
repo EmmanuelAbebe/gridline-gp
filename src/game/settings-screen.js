@@ -38,6 +38,9 @@ const TABS = [
     slider('smoothing', 'Steering smoothing', v => v ? String(v) : 'OFF',
       v => v ? `The steering takes ${Math.round(1000 * v / PREFS.smoothingRate)} ms from centre to full lock.`
         : 'Off: the car gets your controller\'s steering exactly as it arrives. Smoothing on the phone wheel is set in its own app.'),
+    slider('calm', 'Steering at speed', v => v ? v + ' % calm' : 'DIRECT', v => v
+      ? 'Small tilts turn the car gently at any speed, like the first versions; full tilt still uses all the grip.'
+      : 'Direct: the same tilt asks for the same share of grip, so at high speed (lots of downforce) a small tilt turns hard.'),
     slider('deadZone', 'Steering dead zone', pct, () => 'Steering ignored around the centre.'),
     slider('range', 'Full lock at', v => v + ' % travel', v => v < 100 ? `Full lock arrives at ${v} % of the controller's travel.` : 'Full lock at the end of the controller\'s travel.'),
     slider('curve', 'Steering response', v => v === 1 ? 'LINEAR' : v.toFixed(1),

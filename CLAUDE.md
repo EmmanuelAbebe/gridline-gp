@@ -90,7 +90,10 @@ Tunables live in data tables (config modules), not inline in the logic.
    - Car state: `x, z, h`, `v`, `idx` (nearest sample), `lat`, `lap`. `progress(race, c)` = `lap * N + idx`.
      After every move: `updateLap` (wrap >0.8N → <0.2N), `updateCheckpoints`, `resolveWalls`, `updateSurface`.
    - `drivePlayer(race, car, {steer, thr, brk, analog, steerRate, shift}, dt)`: steering ramp (keyboard 5/s; analog
-     `steerRate`, default 14, the game sends Infinity = no smoothing unless Settings → Controller sets it), slipstream, `stepChassis`;
+     `steerRate`, default 14, the game sends Infinity = no smoothing unless Settings → Controller sets it), `calm` 0..1 (analog only; game default 1, Settings → Controller "Steering at speed"): `calmSteer` s' = k·s + (1−k)·s³
+     with centre slope k = calmLateral 27 / lateralGrip(v), so a small tilt turns the car like the original game at any
+     speed while full tilt still reaches the grip limit (the user found the downforce-scaled steering "absurd": up to
+     3× the old turn per tilt at 300 km/h); state `c.steerIn` = smoothed input, `c.steer` = shaped. Slipstream, `stepChassis`;
      `driveAI(race, car, dt, skillOverride = 0)`: the AI drives the same chassis through steer/thr/brk (assists
      `AI.assists` = medium). Steering: pure pursuit to a point `look + lookTime·v` ahead on its line offset
      (`c.offset`, moved toward the target at ≤ lineSlope m/m and ≤ lineSpeed m/s) + yaw-rate correction, divided by

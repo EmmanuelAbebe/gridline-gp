@@ -5,18 +5,28 @@ import { clamp, wrapA } from './math.js';
 import { progress } from './race.js';
 import { afterMove } from './motion.js';
 import { stepChassis, steerLock, driftAngle } from './chassis.js';
-import { slipstream, cornerSpeed, brakeLimit } from './vehicle.js';
+import { slipstream, cornerSpeed, brakeLimit, lateralGrip } from './vehicle.js';
 
 // inp: steer -1..1 (+ = right), thr 0..1, brk 0..1, analog = from a wheel/pad (faster steering response),
 // steerRate = how fast analog steering may move (full lock per second; Infinity = no smoothing, the game's default
 // for controllers), shift = -1/0/+1 (paddles; used with the manual gearbox). The car itself is the tyre model in chassis.js.
+// calm = 0..1 (analog only): at speed, small tilts turn the car about as gently as the original game (CHASSIS
+// calmLateral), full tilt still reaches the grip limit; 0 = steering in proportion to the grip (the default here).
 export function drivePlayer(race, c, inp, dt) {
   const rate = inp.analog ? inp.steerRate ?? 14 : 5;
-  c.steer += clamp(clamp(inp.steer, -1, 1) - c.steer, -dt*rate, dt*rate);
+  c.steerIn ??= c.steer;
+  c.steerIn += clamp(clamp(inp.steer, -1, 1) - c.steerIn, -dt*rate, dt*rate);
+  c.steer = inp.analog && inp.calm ? calmSteer(c.steerIn, c.v, inp.calm) : c.steerIn;
   c.brake = inp.brk;
   slipstream(race, c, progress);
   stepChassis(race, c, inp, dt);
   afterMove(race, c);
+}
+
+// s' = k·s + (1 − k)·s³: slope k at the centre, 1 at full tilt
+export function calmSteer(s, v, calm) {
+  const slope = clamp(CHASSIS.calmLateral / lateralGrip(Math.abs(v)), CHASSIS.calmMinSlope, 1), k = 1 - (1 - slope) * calm;
+  return k * s + (1 - k) * s * s * s;
 }
 
 // The AI drives the same car as the player (chassis.js), only through steering, throttle and brake.

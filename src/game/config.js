@@ -75,11 +75,12 @@ export const PREFS = Object.freeze({
     deadZone: 3.5,       // % of steering travel ignored around the centre
     range: 100,          // % of the controller's travel that gives full lock
     curve: 1,            // steering response exponent: 1 = linear, more = finer near the centre
+    calm: 100,           // % calm steering at speed (SIM drivePlayer calm): small tilts as gentle as the original game
     pedalDeadZone: 0,    // % of trigger travel ignored at rest
     volume: 80, muted: false, showFps: true,
   },
   smoothingRate: 40,     // smoothing level n: the steering moves at most 40/n of full lock per second
-  limits: { smoothing: [0, 10, 1], deadZone: [0, 20, 0.5], range: [40, 100, 5], curve: [1, 3, 0.1], pedalDeadZone: [0, 20, 1], volume: [0, 100, 5] },
+  limits: { smoothing: [0, 10, 1], deadZone: [0, 20, 0.5], range: [40, 100, 5], curve: [1, 3, 0.1], calm: [0, 100, 10], pedalDeadZone: [0, 20, 1], volume: [0, 100, 5] },
 });
 
 export const PHASE = Object.freeze({ MENU: 'menu', LIGHTS: 'lights', RACE: 'race', DONE: 'done' });

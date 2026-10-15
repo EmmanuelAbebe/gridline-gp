@@ -11,7 +11,7 @@ const solo = assists => { const race = S.createRace(1, { drivers: S.DRIVERS.filt
 // A test driver: aims at the centre line 12 samples ahead, brakes to a centre-line speed profile.
 //   analog: proportional steering (phone tilt), tap: keyboard tapping (key held for a share of each 0.12 s),
 //   bang: full lock whenever the error passes 0.02 rad (the crudest keyboard driving)
-function lap(assists, style, steerRate) {
+function lap(assists, style, steerRate, calm) {
   const { race, c } = solo(assists);
   let step = 0;
   const seen = run(S, race, 120, (r, car) => {
@@ -19,7 +19,7 @@ function lap(assists, style, steerRate) {
     const steer = style === 'analog' ? want : style === 'tap' ? ((step % 14) / 14 < Math.abs(want) ? Math.sign(want) : 0)
       : diff < -0.02 ? -1 : diff > 0.02 ? 1 : 0;
     const slow = car.v > VP[(car.idx + 4) % N];
-    S.drivePlayer(r, car, { thr: slow ? 0 : 1, brk: slow ? 1 : 0, steer, analog: style === 'analog', steerRate }, DT);
+    S.drivePlayer(r, car, { thr: slow ? 0 : 1, brk: slow ? 1 : 0, steer, analog: style === 'analog', steerRate, calm }, DT);
     step++;
   });
   return { c, walls: seen.get(c)[S.EV.WALL] || 0 };
@@ -43,6 +43,16 @@ test('lap: analog steering with no smoothing (steerRate Infinity) on medium is c
   const { race, c: d } = solo('medium');
   S.drivePlayer(race, d, { thr: 0, brk: 0, steer: 0.8, analog: true, steerRate: Infinity }, DT);
   assert.equal(d.steer, 0.8);
+});
+
+test('calm steering at speed: a small tilt turns gently, full tilt still reaches the grip limit; laps clean', () => {
+  const { c, walls } = lap('medium', 'analog', Infinity, 1);
+  assert.ok(c.finished && c.finishTime < 42 && walls === 0, `lap ${c.finishTime?.toFixed(2)} s, ${walls} wall hits`);
+  const v = 300 / 3.6;
+  assert.ok(Math.abs(S.calmSteer(0.1, v, 1)) < 0.05, `0.1 tilt -> ${S.calmSteer(0.1, v, 1).toFixed(3)}`);
+  assert.equal(S.calmSteer(1, v, 1), 1);
+  assert.equal(S.calmSteer(0.1, v, 0), 0.1);
+  assert.ok(Math.abs(S.calmSteer(0.1, 60 / 3.6, 1) - 0.1) < 0.02, 'little change at low speed');
 });
 
 test('lap: with no assists the crude keyboard driver loses the car (assists matter)', () => {

@@ -8,11 +8,11 @@ import { DRIVERS } from './drivers.js';
 import { clamp, wrapA } from './math.js';
 import { buildTrack, gridSlot, headingAt, DEFAULT_TRACK } from './track.js';
 import { createRace, order, gapTo, progress, raceTime } from './race.js';
-import { drivePlayer, driveAI } from './driving.js';
+import { drivePlayer, driveAI, calmSteer } from './driving.js';
 import { collide, carGap } from './collide.js';
 import { rpmAt, cornerSpeed, lateralGrip, brakeLimit, wakeHalfWidth, VEHICLE_INFO } from './vehicle.js';
 
 export const SIM = Object.freeze({ TUNING, AI, CONTACT, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, CIRCUITS,
   steerLock, tyreCurve, driftAngle, DRIVERS, EV, track: DEFAULT_TRACK,
   rpmAt, cornerSpeed, lateralGrip, brakeLimit, wakeHalfWidth, VEHICLE: VEHICLE_INFO,
-  buildTrack, gridSlot, headingAt, createRace, drivePlayer, driveAI, collide, carGap, order, gapTo, progress, raceTime, clamp, wrapA });
+  buildTrack, gridSlot, headingAt, createRace, drivePlayer, driveAI, calmSteer, collide, carGap, order, gapTo, progress, raceTime, clamp, wrapA });
