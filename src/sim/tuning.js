@@ -76,8 +76,10 @@ export const CHASSIS = Object.freeze({
   rearGrip: 1.06,       // and grip a little more
   falloff: 1.3,         // tyre curve shape: grip past the peak falls to sin(falloff·π/2) ≈ 89%
   longGrip: 0.9,        // braking/driving grip relative to cornering grip
-  brakeSystem: 70,      // m/s² the brakes can ask for (more than the tyres give at low speed: they can lock)
-  brakeBias: 0.08,      // brake split = front load share + this (front locks first: understeer, not a spin)
+  brakeSystem: 70,      // m/s² the brakes can ask for at most
+  brakePedal: 1.15,     // full pedal = this × the tyres' straight-line limit at the current speed (capped by brakeSystem):
+                        // only the last ~15% of pedal locks, so partial braking (and trail braking) is controllable
+  brakeBias: 0.12,      // brake split = front load share + this (front locks first: understeer, not a spin)
   rearBrakeMargin: 0.2, // with the stability assist on, rear braking keeps this share of grip spare for cornering
   lockLateral: 0.35,    // cornering grip left on a locked or spinning axle
   slideLong: 0.9,       // braking / drive force of a sliding tyre, relative to its peak

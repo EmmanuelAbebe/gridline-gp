@@ -5,7 +5,7 @@ import { clamp, wrapA } from './math.js';
 import { progress } from './race.js';
 import { afterMove } from './motion.js';
 import { stepChassis, steerLock, driftAngle } from './chassis.js';
-import { slipstream, cornerSpeed, brakeLimit, lateralGrip } from './vehicle.js';
+import { slipstream, cornerSpeed, brakeLimit, brakeMax, lateralGrip } from './vehicle.js';
 
 // inp: steer -1..1 (+ = right), thr 0..1, brk 0..1, analog = from a wheel/pad (faster steering response),
 // steerRate = how fast analog steering may move (full lock per second; Infinity = no smoothing, the game's default
@@ -106,7 +106,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   }
   const over = sp - targetV;
   let thr = 0, brk = 0;
-  if (need > 2 || over > 1) brk = clamp(need / CHASSIS.brakeSystem + Math.max(0, over) * AI.brakeGain, 0, 1);
+  if (need > 2 || over > 1) brk = clamp(need / brakeMax(sp) + Math.max(0, over) * AI.brakeGain, 0, 1);
   else if (need <= 0) thr = clamp(0.5 - over * AI.thrGain, 0, 1);
   // no throttle while asking the front tyres for more than they have (it would only push the car wide)
   if (!lost && sp > AI.recoverSpeed && (Math.abs(want) > 0.95 || c.slideF > 0.3)) thr = Math.min(thr, AI.lockThrottle);

@@ -17,6 +17,9 @@ export const lateralGrip = v => CAR.grip * (G + DOWNFORCE_K * v * v);
 // Straight-line braking limit of the tyres (ABS at the peak): longitudinal grip × (weight + downforce), up to what the
 // brake system can ask for. The AI's speed profile brakes at a share of this.
 export const brakeLimit = v => Math.min(CHASSIS.brakeSystem, CAR.grip * CHASSIS.longGrip * (G + DOWNFORCE_K * v * v));
+// Deceleration asked for at full pedal: brake pressure follows the grip (like a real car's brakes set up for its
+// downforce), a little past the limit so a stamp on the pedal still locks without ABS.
+export const brakeMax = v => Math.min(CHASSIS.brakeSystem, CHASSIS.brakePedal * CAR.grip * CHASSIS.longGrip * (G + DOWNFORCE_K * v * v));
 
 // Fastest steady speed through curvature |k| using `share` of the grip: v² = R·a(v) solved for v (V_CAP when the
 // downforce outgrows the corner, i.e. it is flat out).

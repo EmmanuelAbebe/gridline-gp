@@ -8,7 +8,7 @@
 // Everything is per unit mass, so forces read as accelerations (m/s²).
 import { TUNING, CAR, CHASSIS as CH, SURFACES, ASSISTS } from './tuning.js';
 import { clamp } from './math.js';
-import { DOWNFORCE_K, lateralGrip, drivetrain } from './vehicle.js';
+import { DOWNFORCE_K, lateralGrip, brakeMax, drivetrain } from './vehicle.js';
 
 const G = 9.81, L = CH.wheelbase;
 const A_FRONT = L * (1 - CH.frontWeight), B_REAR = L * CH.frontWeight;   // CG to front / rear axle
@@ -81,13 +81,14 @@ export function stepChassis(race, c, inp, dt) {
     const alphaF = Math.atan2(vy + A_FRONT * w, Math.max(sp, 1)) - delta;
     const alphaR = Math.atan2(vy - B_REAR * w, Math.max(sp, 1));
     // brakes split by axle load (+ a front bias), drive on the rear
-    const brake = CH.brakeSystem * inp.brk * (v > 0 ? 1 : 0);
+    const brake = brakeMax(sp) * inp.brk * (v > 0 ? 1 : 0);
     const bias = clamp(Df / (Df + Dr) + CH.brakeBias, 0.3, 0.8);
     const absLimit = A.abs > 0 ? 0.97 + 0.15 * (1 - A.abs) : null, tcLimit = A.tc > 0 ? 0.97 + 0.25 * (1 - A.tc) : null;
     const front = axle(Df, alphaF, CH.peakSlip, -brake * bias, absLimit);
     const rearLong = d.drive - brake * (1 - bias);
     // rear braking: ABS, and (stability assist) a margin kept for cornering, like brake-force distribution
-    const rearBrakeLimit = absLimit === null ? null : absLimit * (1 - CH.rearBrakeMargin * A.stability);
+    // any ABS keeps the rears from locking (a locked rear turning in spins the car); partial ABS only lets the fronts lock a little
+    const rearBrakeLimit = absLimit === null ? null : Math.min(0.97, absLimit) * (1 - CH.rearBrakeMargin * A.stability);
     const rear = axle(Dr, alphaR, CH.rearPeakSlip, rearLong, rearLong >= 0 ? tcLimit : rearBrakeLimit);
     // how far past the grip limit each axle is: 0 = gripping, 1 = fully sliding (locked, spinning or past peak slip)
     slideF = Math.max(slideF, front.over - 1, Math.abs(alphaF) / CH.peakSlip - 1);

@@ -103,6 +103,26 @@ test('stability: full lock held at 250 km/h stays controlled on medium, rotates 
   assert.ok(off > medium, `off ${off.toFixed(3)} vs medium ${medium.toFixed(3)}`);
 });
 
+test('trail braking: on OFF and LOW, braking while turning in stays controllable; a stamp on the pedal still locks without ABS', () => {
+  // brake straight 0.3 s, then ease the steering in over 0.3 s while still braking
+  const trail = (assists, kmh, brk, steer) => {
+    const race = S.createRace(1, { track: OPEN, drivers: S.DRIVERS.filter(d => d.player) }), c = race.cars[0];
+    c.assists = S.ASSISTS[assists]; c.v = kmh / 3.6; c.gear = 6; let drift = 0, lock = false;
+    for (let i = 0; i < 156 && c.v > 15; i++) {
+      race.t += DT; S.drivePlayer(race, c, { thr: 0, brk, steer: i < 36 ? 0 : steer * Math.min(1, (i - 36) / 36), analog: true, calm: 1, steerRate: Infinity }, DT);
+      drift = Math.max(drift, Math.abs(S.driftAngle(c))); lock ||= c.lockF;
+    }
+    return { drift, lock };
+  };
+  for (const assists of ['off', 'low']) for (const kmh of [120, 200, 280]) {
+    const { drift } = trail(assists, kmh, 0.3, 0.3);
+    assert.ok(drift < 0.08, `${assists} ${kmh} km/h: drift ${(drift * 57.3).toFixed(0)}°`);
+  }
+  for (const kmh of [120, 200, 280]) assert.ok(trail('off', kmh, 0.5, 0.5).drift < 0.1, `off ${kmh}: half brake + half tilt does not spin`);
+  assert.ok(!trail('off', 120, 0.5, 0).lock, 'half pedal in a straight line does not lock');
+  assert.ok(trail('off', 120, 1, 0).lock, 'full pedal locks without ABS');
+});
+
 test('surfaces: off the track the car is slowed to about 60 km/h, firmly but not like a wall, and can drive at that', () => {
   const drive = (surface, v0, thr, seconds) => {
     const { race, c } = solo('medium'); c.v = v0; c.gear = v0 ? 7 : 1;
