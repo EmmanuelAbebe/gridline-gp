@@ -1,4 +1,4 @@
-// The whole soundscape on one AudioContext (live or offline). No game imports: main.js feeds it plain numbers each
+// The whole soundscape on one AudioContext (live or offline; call after loadEngineWorklet(ctx) has resolved). No game imports: main.js feeds it plain numbers each
 // frame (frame(state, t)), so tools/sound-check can drive it with scripted scenes.
 //
 // Buses: engine / effects / ambience → master → compressor → output. Sounds that come from the player's own car
@@ -22,7 +22,7 @@ export function createSoundEngine(ctx) {
   const low = filter(ctx, 'lowshelf', SOUND.eq.lowHz, 0.7), high = filter(ctx, 'highshelf', SOUND.eq.highHz, 0.7), cabin = gain(ctx, 1);
   chain(cabin, low, high, engineBus);
   const cabinFx = gain(ctx, 1); chain(cabinFx, filter(ctx, 'highshelf', 3000, 0.7), fxBus);   // tyres, surfaces
-  const player = createEngineVoice(ctx, cabin, { full: true });
+  const player = createEngineVoice(ctx, cabin, { full: true, seed: 1 });
   const intakeMix = gain(ctx, 1), turboMix = gain(ctx, 1);
   player.outputs.intake.connect(intakeMix).connect(cabin);
   // turbo and ERS through the cabin EQ too, so the treble setting reaches every high sound of the car
@@ -31,10 +31,10 @@ export function createSoundEngine(ctx) {
 
   // rivals
   const R = SOUND.rivals, rivalsEq = filter(ctx, 'highshelf', 2500, 0.7); rivalsEq.connect(engineBus);
-  const voices = Array.from({ length: R.voices }, () => {
+  const voices = Array.from({ length: R.voices }, (_, i) => {
     const p = panner(ctx, R.refDistance, R.rolloff), g = gain(ctx, 0);
     chain(g, p, rivalsEq);
-    return { voice: createEngineVoice(ctx, g, { full: false }), out: g, panner: p, id: null, gear: 0 };
+    return { voice: createEngineVoice(ctx, g, { full: false, seed: 2 + i }), out: g, panner: p, id: null, gear: 0 };   // each engine a little different
   });
 
   // continuous effects: tyres, surfaces, wind (each a noise source → filter → level)
@@ -89,7 +89,8 @@ export function createSoundEngine(ctx) {
     refresh(t = ctx.currentTime) {
       const mix = st.mix; st.mix = null; setMix(mix, t);
       glide(low.frequency, SOUND.eq.lowHz, t, 0.05); glide(high.frequency, SOUND.eq.highHz, t, 0.05);
-      for (const vc of voices) { vc.panner.refDistance = R.refDistance; vc.panner.rolloffFactor = R.rolloff; }
+      player.configure();
+      for (const vc of voices) { vc.voice.configure(); vc.panner.refDistance = R.refDistance; vc.panner.rolloffFactor = R.rolloff; }
       crowdPanner.refDistance = SOUND.crowd.refDistance;
       setNoiseColour(ctx, t);
     },

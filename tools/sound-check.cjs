@@ -11,14 +11,15 @@ app.whenReady().then(async () => {
   const win = new BrowserWindow({ show: false, webPreferences: { offscreen: true, backgroundThrottling: false } });
   win.webContents.on('console-message', e => { if (e.level === 'error' || e.level === 'warning') console.log('page:', e.message); });
   const q = process.argv.find(a => a.startsWith('--race')) ? '?race' + (process.argv.find(a => a.startsWith('--colour='))?.replace('--', '&') || '') : '';
-  await win.loadURL(server.resolvedUrls.local[0] + 'tools/soundlab/' + q);
+  const extra = ['only', 'set'].map(k => process.argv.find(a => a.startsWith('--' + k + '='))).filter(Boolean).map(a => a.slice(2).replace(/^(\w+)=(.*)$/, (m, k, v) => k + '=' + encodeURIComponent(v)));
+  await win.loadURL(server.resolvedUrls.local[0] + 'tools/soundlab/' + (q || '?') + (extra.length ? '&' + extra.join('&') : ''));
   for (let i = 0; i < 600 && await win.webContents.executeJavaScript('document.title') !== 'done'; i++) await new Promise(r => setTimeout(r, 100));
   const results = await win.webContents.executeJavaScript('window.soundlab && window.soundlab.results');
   if (!results) { console.log('soundlab did not finish'); app.exit(1); return; }
   fs.mkdirSync(outDir, { recursive: true });
   for (const [name, r] of Object.entries(results)) {
     if (r.wav) fs.writeFileSync(path.join(outDir, name + '.wav'), Buffer.from(r.wav, 'base64'));
-    if (r.rmsDb) console.log(name.padEnd(11), 'peak', r.peak, ' dB', r.rmsDb.join(' '), r.doppler ? '\n            doppler ' + JSON.stringify(r.doppler) : '');
+    if (r.rmsDb) console.log(name.padEnd(11), 'peak', r.peak, ' dB', r.rmsDb.join(' '), r.doppler ? '\n            doppler ' + JSON.stringify(r.doppler) : '', r.orders ? '\n            orders 0.5..24 (dB re 3rd): ' + r.orders.join(' ') : '');
     else console.log(name.padEnd(12), 'above 2 kHz', r.above2k + '%', ' tonal peaks', r.peaks.map(p => `${p.hz} Hz ${p.db} dB (+${p.prom})`).join(', ') || 'none');
   }
   await server.close(); app.exit(0);

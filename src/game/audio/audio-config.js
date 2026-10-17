@@ -2,23 +2,31 @@
 // SOUND is live: the Sound Studio (sound-studio.js) edits its leaf values in place and saves the changes
 // (localStorage gridline.sound); SOUND_DEFAULTS keeps the shipped values.
 //
-// The engine is a modern 1.6 l 90° V6 turbo hybrid. A 4-stroke V6 fires 3 times per crank revolution, so the main
-// tone is rpm / 60 × 3 (600 Hz at 12 000 rpm). A 90° V6 fires unevenly, which puts energy at half orders too: the
-// engine oscillators run at 1.5 × the crank rate, their even harmonics are the firing orders (3, 6, 9, …) and the odd
-// ones the half orders (1.5, 4.5, …) that give the growl.
+// The engine is a modern 1.6 l V6 turbo hybrid, as a physical model (engine-worklet.js): a 4-stroke V6 fires 3 times
+// per crank revolution (the main tone: rpm / 60 × 3 = 600 Hz at 12 000 rpm); the cylinders differ a little and every
+// firing varies, so the sound repeats only every 2 revolutions (energy at all half orders); the pulses ring through
+// exhaust pipes whose resonances stay fixed while the rpm changes.
 const DEFAULTS = {
   speedOfSound: 343,           // m/s, for Doppler
   engine: {
-    order: 1.5,                // oscillator frequency = rpm / 60 × order
-    harmonics: 28,
-    // harmonic n (of the 1.5-order base): firing orders (n even) at full weight, half orders (n odd) at `halfOrder`
-    halfOrder: 0.32,
-    loadTilt: 0.8,             // amplitude ∝ 1 / n^tilt: on the throttle (bright, raspy; lower = brighter)
-    coastTilt: 1.25,           //                         off the throttle (dull)
-    jitterCents: 9,            // slow random wander of the pitch (combustion is never perfectly even)
+    order: 1.5,                // rpm / 60 × order = the half-order base (used by tools/soundlab's pitch check)
+    model: {
+      decay: 0.25,             // a firing's pressure pulse decays over this share of the gap to the next firing
+      sharpness: 0.05,         // rise time / decay time: lower = sharper, more bark
+      coast: 0.22,             // pulse strength off the throttle (1 = as on full throttle)
+      noise: 0.5,              // combustion noise in every pulse (the grit)
+      spread: 0.3,             // how different the 6 cylinders are (the 2-revolution "grunt")
+      jitter: 0.15,            // random strength change per firing
+      timing: 0.006,           // random timing change per firing (share of a cycle)
+      soundSpeed: 600,         // m/s in the hot exhaust gas
+      pipe1: 0.5, pipe2: 0.95, pipe3: 1.7,   // m: primaries, collector, tailpipe (their round trips are the resonances)
+      mix1: 0.5, mix2: 0.35, mix3: 0.3,
+      feedback: 0.62,          // how strongly the pipes ring
+      damping: 0.75,           // 1 = the reflections keep their highs, lower = warmer
+      gain: 1.4,
+    },
     drive: { coast: 0.6, load: 1.5 },   // into a tanh shaper: more = rasp
-    tone: { base: 800, rpm: 3000, load: 2200 },   // exhaust low-pass: base + rpm share × rpm + throttle × load
-    texture: 0.16,             // combustion noise pulsing at the firing rate, × throttle
+    tone: { base: 3500, rpm: 2500, load: 2500 },   // exhaust low-pass: base + rpm share × rpm + throttle × load
     gain: { idle: 0.16, load: 0.34, rpm: 0.18 },
     limiterHz: 17,             // rev-limiter cut-in rate
     crackle: { rate: 18, minRpm: 7200, gain: 0.25 },   // pops per second on the overrun at high rpm

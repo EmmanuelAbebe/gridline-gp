@@ -149,9 +149,11 @@ Tunables live in data tables (config modules), not inline in the logic.
      closing returns to the menu it came from. The start menu shows a one-line summary of these choices.
    - Sound (2026-10-16, modern V6 hybrid, all synthesised, no files): `audio/audio-config.js` `SOUND` (every tunable),
      `audio/synth.js` (noise, filters, engine PeriodicWaves, one-shots, HRTF panners; everything takes a time `t`, so
-     it renders offline too), `audio/engine-voice.js` (full voice: load/coast waves at rpm/60 × 1.5 (even harmonics =
-     firing orders 3, 6…, odd = the 90° V6's uneven half orders) cross-faded by throttle, pitch wander, firing-rate
-     combustion noise, tanh rasp, exhaust low-pass, limiter cut, airbox / turbo (spool + lift chirp) / ERS outputs,
+     it renders offline too), `audio/engine-worklet.js` (2026-10-17, after the user said the oscillator engine sounded like an RC toy: a physical
+     model on the audio thread: 6 cylinders' combustion pulses (fast rise, decay, combustion noise; per-cylinder spread
+     and per-firing jitter → energy at every half order) into 3 exhaust waveguides whose resonances stay fixed while
+     the rpm sweeps; Doppler time-scales it; loaded as a Blob module, `loadEngineWorklet(ctx)` before the engine),
+     `audio/engine-voice.js` (the graph around it: tanh rasp, exhaust low-pass, limiter cut, airbox / turbo (spool + lift chirp) / ERS outputs,
      overrun pops; light voice for rivals), `audio/sound-engine.js` (buses engine/fx/ambience → compressor; `cabin` EQ
      = the mix: driver (cockpit camera: helmet + earplugs, lows up, highs −9 dB, airbox on, wind down) or tv; 4 rival
      voices on the nearest cars with HRTF, air absorption and Doppler f' = f(c + v_listener·n)/(c + v_source·n) from

@@ -17,6 +17,8 @@ const passBy = kmh => ({
 });
 
 export const SCENARIOS = {
+  steady: { label: 'Steady 10 000 rpm, full throttle (outside)', seconds: 3, mix: 'tv',
+    at() { return { listener: listenerAt(0, 1, 0), player: car({ rpm: 10000, thr: 1, gear: 5, speed: 60 }), rivals: [] }; } },
   rev: { label: 'Rev sweep (cockpit)', seconds: 7, mix: 'driver',
     at(t) {   // idle → limiter over 4 s, hold the limiter 1 s, lift (overrun pops) and let it fall
       const up = Math.min(1, t / 4), rpm = t < 5 ? 4000 + 8500 * up : Math.max(4000, 12500 - (t - 5) * 4500);

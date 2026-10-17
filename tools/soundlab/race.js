@@ -5,12 +5,14 @@ import { SIM } from '../../src/sim/index.js';
 import { createSoundEngine } from '../../src/game/audio/sound-engine.js';
 import { SOUND, SOUND_DEFAULTS } from '../../src/game/audio/audio-config.js';
 import { createProximity } from '../../src/game/proximity.js';
+import { loadEngineWorklet } from '../../src/game/audio/engine-worklet.js';
 
 const SR = 44100, DT = 1 / 120, SECONDS = 14;
 export async function renderRace(layersOff = []) {
   for (const k of Object.keys(SOUND.layers)) SOUND.layers[k] = layersOff.includes(k) ? 0 : 1;
   const real = Math.random; let seed = 7; Math.random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-  const ctx = new OfflineAudioContext(2, SR * (SECONDS + 0.5), SR), eng = createSoundEngine(ctx), prox = createProximity();
+  const ctx = new OfflineAudioContext(2, SR * (SECONDS + 0.5), SR); await loadEngineWorklet(ctx);
+  const eng = createSoundEngine(ctx), prox = createProximity();
   eng.setVolumes({ master: 0.8 }, 0);
   const race = SIM.createRace(3, { aiPace: 0.95 }), player = race.cars.find(c => c.player);
   const V = SIM.VEHICLE;

@@ -461,6 +461,7 @@ function setTrack(id) {
 }
 
 // ---- boot ----
+window.gridlineDebug = { soundReady: () => Sound.ready };   // for the desktop smoke test
 setTrack(game.setup.track);
 { const saved = Settings.get(CONFIG.storageKeys.gfx);
   setGfx(Object.hasOwn(GFX_PROFILES, saved || '') ? saved : (Display.gpu.weak ? 'perf' : 'quality'), false); }

@@ -3,6 +3,7 @@
 import { createSoundEngine } from '../../src/game/audio/sound-engine.js';
 import { SCENARIOS, playScenario } from '../../src/game/audio/scenarios.js';
 import { SOUND } from '../../src/game/audio/audio-config.js';
+import { loadEngineWorklet } from '../../src/game/audio/engine-worklet.js';
 
 const SR = 44100;
 function wav(buf) {
@@ -33,18 +34,34 @@ if (location.search.includes('race')) {   // which layer makes which high sound,
   for (const k of Object.keys(SOUND.layers)) results['no ' + k] = analyse(await renderRace([k]));
   window.soundlab = { results }; document.title = 'done';
 }
-else for (const [name, sc] of Object.entries(SCENARIOS)) {
-  const ctx = new OfflineAudioContext(2, Math.ceil(SR * (sc.seconds + 0.6)), SR), eng = createSoundEngine(ctx);
+// ?set={"engine.model.decay":0.3,...} tries settings; ?only=steady renders one scene
+const q = new URLSearchParams(location.search);
+if (q.get('set')) { const { applySoundOverrides } = await import('../../src/game/audio/audio-config.js'); applySoundOverrides(JSON.parse(q.get('set'))); }
+if (!location.search.includes('race')) for (const [name, sc] of Object.entries(SCENARIOS)) {
+  if (q.get('only') && !q.get('only').split(',').includes(name)) continue;
+  const ctx = new OfflineAudioContext(2, Math.ceil(SR * (sc.seconds + 0.6)), SR); await loadEngineWorklet(ctx); const eng = createSoundEngine(ctx);
   eng.setVolumes({ master: 0.8 }, 0);
   playScenario(eng, name, 0, false);
   const buf = await ctx.startRendering(), L = buf.getChannelData(0), R = buf.getChannelData(1), mono = L.map((v, i) => (v + R[i]) / 2);
   let peak = 0; for (let i = 0; i < L.length; i++) peak = Math.max(peak, Math.abs(L[i]), Math.abs(R[i]));
   const rms = []; for (let s = 0; s < sc.seconds; s += 0.5) { let e = 0; const a = s * SR, n = 0.5 * SR; for (let i = a; i < a + n; i++) e += mono[i] * mono[i]; rms.push(+(20 * Math.log10(Math.sqrt(e / n) + 1e-9)).toFixed(1)); }
   const r = { peak: +peak.toFixed(3), rmsDb: rms, wav: wav(buf) };
+  if (name === 'steady') {   // level of every half order (rpm/120 multiples) relative to the firing order (3rd)
+    const N = 16384, a = SR * 1, re = new Float64Array(N), im = new Float64Array(N);
+    for (let i = 0; i < N; i++) { re[i] = mono[a + i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / N)); }
+    const mag = f => { let s = 0, c = 0; for (let i = 0; i < N; i++) { const w = 2 * Math.PI * f * i / SR; s += re[i] * Math.sin(w); c += re[i] * Math.cos(w); } return Math.hypot(s, c); };
+    const half = 10000 / 120, ref = mag(half * 6), orders = [];
+    for (let k = 1; k <= 48; k++) orders.push(+(20 * Math.log10(mag(half * k) / ref + 1e-9)).toFixed(0));
+    r.orders = orders;   // index k-1 = order k/2
+  }
   if (name.startsWith('pass')) {   // Doppler: rival's base tone early (approaching) vs late (leaving), against the formula
     const kmh = +name.slice(4), v = kmh / 3.6, c = SOUND.speedOfSound;
     const st = sc.at(0.6), base = st.rivals[0].rpm / 60 * SOUND.engine.order;
-    const f = t => pitch(mono, t, 0.06, base * 0.5, base * 1.9);
+    // the firing note (2 × the half-order base): strongest frequency in a window, scanned 1 Hz apart
+    const f = t => { const a = Math.floor(t * SR), n = 4096; let best = 0, bf = 0;
+      for (let fr = base * 2 * 0.55; fr < base * 2 * 1.6; fr += 1) { let s = 0, c = 0; for (let i = 0; i < n; i++) { const w = 2 * Math.PI * fr * i / SR, x = mono[a + i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / n)); s += x * Math.sin(w); c += x * Math.cos(w); }
+        const m = s * s + c * c; if (m > best) { best = m; bf = fr; } }
+      return bf / 2; };
     const cosAt = t => { const x = (t - 3) * v; return -x / Math.hypot(x, 12); };   // component of velocity toward the listener
     r.doppler = { base: +base.toFixed(1), early: +f(1.2).toFixed(1), late: +f(4.8).toFixed(1),
       theoryEarly: +(base * c / (c - v * cosAt(1.2))).toFixed(1), theoryLate: +(base * c / (c - v * cosAt(4.8))).toFixed(1) };

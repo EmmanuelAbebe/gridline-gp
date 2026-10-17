@@ -20,14 +20,30 @@ const GROUPS = [
   ['Engine character', [
     ['engine.drive.load', 'Rasp on throttle', 0.3, 4, 0.05, 'saturation: higher = harsher, more aggressive'],
     ['engine.drive.coast', 'Rasp off throttle', 0.2, 2.5, 0.05],
-    ['engine.loadTilt', 'Mellowness on throttle', 0.3, 2, 0.02, 'higher = fewer high harmonics, smoother'],
-    ['engine.coastTilt', 'Mellowness off throttle', 0.5, 2.5, 0.02],
-    ['engine.halfOrder', 'V6 growl', 0, 1, 0.01, 'the uneven-firing half orders'],
-    ['engine.tone.base', 'Exhaust filter base (Hz)', 200, 4000, 25, 'everything above is cut'],
+    ['engine.tone.base', 'Exhaust filter base (Hz)', 200, 8000, 25, 'everything above is cut'],
     ['engine.tone.rpm', 'Filter opens with rpm (Hz)', 0, 8000, 50],
     ['engine.tone.load', 'Filter opens with throttle (Hz)', 0, 8000, 50],
-    ['engine.texture', 'Combustion grit', 0, 0.6, 0.01],
-    ['engine.jitterCents', 'Roughness (pitch wander, cents)', 0, 40, 0.5],
+  ]],
+  ['Engine model: combustion', [
+    ['engine.model.decay', 'Pulse length', 0.15, 1.2, 0.01, 'how long each firing rings: longer = smoother, fuller'],
+    ['engine.model.sharpness', 'Pulse softness', 0.05, 0.9, 0.01, 'lower = a sharper crack per firing (more bark)'],
+    ['engine.model.coast', 'Off-throttle strength', 0, 1, 0.01],
+    ['engine.model.noise', 'Combustion grit', 0, 1.5, 0.01, 'noise in every firing'],
+    ['engine.model.spread', 'Cylinder differences (grunt)', 0, 0.5, 0.01, 'makes the low 2-revolution growl under the note'],
+    ['engine.model.jitter', 'Firing-to-firing variation', 0, 0.4, 0.005, 'roughness: 0 = machine-perfect (toy-like)'],
+    ['engine.model.timing', 'Timing wobble', 0, 0.04, 0.001],
+  ]],
+  ['Engine model: exhaust pipes', [
+    ['engine.model.pipe1', 'Primary pipes (m)', 0.1, 2, 0.01, 'each pipe adds resonances that stay fixed as the revs change'],
+    ['engine.model.pipe2', 'Collector (m)', 0.1, 3, 0.01],
+    ['engine.model.pipe3', 'Tailpipe (m)', 0.1, 4, 0.01],
+    ['engine.model.mix1', 'Primaries level', 0, 1, 0.01],
+    ['engine.model.mix2', 'Collector level', 0, 1, 0.01],
+    ['engine.model.mix3', 'Tailpipe level', 0, 1, 0.01],
+    ['engine.model.feedback', 'Pipe resonance', 0, 0.92, 0.01, 'how strongly the pipes ring'],
+    ['engine.model.damping', 'Pipe brightness', 0.05, 1, 0.01, 'lower = warmer, the reflections lose their highs'],
+    ['engine.model.soundSpeed', 'Gas temperature (speed of sound, m/s)', 340, 800, 5],
+    ['engine.model.gain', 'Model output', 0.2, 4, 0.05],
   ]],
   ['Engine level', [
     ['engine.gain.idle', 'Level at idle', 0, 0.6, 0.01],
@@ -83,10 +99,12 @@ const GROUPS = [
 // presets: overrides on top of the defaults
 const PRESETS = {
   Default: {},
-  Warm: { 'engine.drive.load': 1.1, 'engine.loadTilt': 1.0, 'engine.tone.load': 1500, 'engine.texture': 0.1,
-    'mix.driver.low': 13, 'mix.driver.high': -14, 'mix.tv.low': 8, 'mix.tv.high': -7 },
-  Raw: { 'engine.drive.load': 2.1, 'engine.drive.coast': 0.7, 'engine.loadTilt': 0.62, 'engine.tone.base': 900, 'engine.tone.rpm': 3600,
-    'engine.tone.load': 3200, 'engine.texture': 0.22, 'mix.driver.low': 7, 'mix.driver.high': -9, 'mix.tv.low': 2, 'mix.tv.high': 0 },
+  Smooth: { 'engine.model.decay': 0.5, 'engine.model.sharpness': 0.22, 'engine.model.noise': 0.3, 'engine.model.spread': 0.14,
+    'engine.model.jitter': 0.08, 'engine.model.damping': 0.45, 'engine.drive.load': 1.1, 'mix.driver.low': 13, 'mix.driver.high': -14 },
+  Aggressive: { 'engine.model.decay': 0.16, 'engine.model.sharpness': 0.03, 'engine.model.noise': 0.75, 'engine.model.jitter': 0.2,
+    'engine.drive.load': 2.2, 'engine.tone.base': 5000, 'mix.driver.high': -7, 'mix.tv.high': 0 },
+  Deep: { 'engine.model.pipe1': 0.8, 'engine.model.pipe2': 1.6, 'engine.model.pipe3': 2.6, 'engine.model.soundSpeed': 500,
+    'engine.model.spread': 0.4, 'mix.driver.low': 14, 'mix.tv.low': 10, 'engine.intake.gain': 0.4 },
 };
 const GEAR_KMH = [0, 108, 142, 174, 205, 235, 265, 296, 340];
 const LAYERS = [['engine', 'Engine'], ['texture', 'Combustion grit'], ['intake', 'Airbox'], ['turbo', 'Turbo whistle'], ['ers', 'Hybrid whine'],
@@ -163,6 +181,7 @@ export const SoundStudio = (() => {
       d.append(body2); root.append(d);
     }
     root.querySelector('details:nth-of-type(4)').open = true;   // tone, the first thing to try
+    root.querySelector('details:nth-of-type(6)').open = true;   // the engine model
   }
   function set(path, v) { setPath(SOUND, path, v); Sound.refresh(); save(); }
   function use(over) { applySoundOverrides(over); Sound.refresh(); save(); for (const i of inputs) i.draw(); }

@@ -1,6 +1,7 @@
 // Live sound: the AudioContext (started on the first user gesture, as browsers require) around the sound engine
 // (audio/sound-engine.js), plus mute, volumes and the test scenes. Without a context every call is a no-op.
 import { createSoundEngine } from './audio/sound-engine.js';
+import { loadEngineWorklet } from './audio/engine-worklet.js';
 import { playScenario } from './audio/scenarios.js';
 
 export const Sound = (() => {
@@ -11,8 +12,11 @@ export const Sound = (() => {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
     try {
       ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
-      engine = createSoundEngine(ctx); apply();
-      if (crowdAt) engine.setCrowd(...crowdAt);
+      // the engine model runs on the audio thread: load it, then build the sound
+      loadEngineWorklet(ctx).then(() => {
+        engine = createSoundEngine(ctx); apply();
+        if (crowdAt) engine.setCrowd(...crowdAt);
+      }).catch(() => { engine = null; });
     } catch (e) { ctx = engine = null; }
   }
   return {
@@ -33,7 +37,7 @@ export const Sound = (() => {
     get muted() { return muted; },
     // test scenes (audio/scenarios.js); the game's own sound pauses while one plays
     test(name, onEnd) {
-      init(); if (!engine) return;
+      init(); if (!engine) { setTimeout(() => engine && this.test(name, onEnd), 300); return; }
       stopTest?.();
       const done = () => { stopTest = null; onEnd?.(); };
       const end = playScenario(engine, name, ctx.currentTime, true, done);
