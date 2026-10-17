@@ -73,7 +73,7 @@ function updateGear(c, thr, brk, shift, dt) {
   const v = c.v, before = c.gear;
   // reverse: brake held at a standstill engages it, gas or rolling forward leaves it
   if (c.gear === -1) { if (v > 0.5 || (thr > 0.02 && v > -0.3)) c.gear = 1; }
-  else if (v <= 0.3 && brk > 0.1 && thr < 0.02) c.gear = -1;
+  else if (Math.hypot(v, c.vy || 0) <= 0.3 && brk > 0.1 && thr < 0.02) c.gear = -1;   // stopped, not sliding sideways
   if (c.gear > 0) {
     if (c.autoShift) {
       if (c.gear < GEARS && rpmAt(v, c.gear) > gearbox.autoUp) c.gear++;

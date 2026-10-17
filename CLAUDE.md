@@ -75,7 +75,9 @@ Tunables live in data tables (config modules), not inline in the logic.
      much brake locks (fronts: understeer), too much drive spins (rears). Brakes split by axle load + 0.12 front
      bias; full pedal = `brakeMax(v)` = brakePedal 1.15 × the straight-line grip limit (≤ 70 m/s²), so only the
      last ~15% of pedal locks at any speed and trail braking works without ABS (2026-10-15: before, a fixed 70 m/s²
-     locked at 30% pedal at 120 km/h). Any ABS level fully protects the rears (partial ABS used to let them lock: spins). Below 2–6 m/s blends to kinematic steering (vy = rear-axle
+     locked at 30% pedal at 120 km/h). Any ABS level fully protects the rears (partial ABS used to let them lock: spins). Below 2–6 m/s of real speed (hypot(v, vy), since 2026-10-17: by v alone a car sliding sideways counted as crawling and
+     every spin stopped dead near 90°; v may now go negative = travelling backwards in a spin, brakes act against it)
+     blends to kinematic steering (vy = rear-axle
      geometry B_REAR·yawRate, so the rear tyres don't slip; until 2026-10-14 it was 0, which saturated the rears at
      full lock and left a car crawling at 2 m/s on grass); reverse is kinematic. Assists (`ASSISTS` off/low/medium/high, game default medium): `steer` = lock shrinks with speed to the
      tightest steady turn (`steerLock` = geometric angle × limitTurn 1.25 + steerMargin 0.01 rad, raw lock mixed back

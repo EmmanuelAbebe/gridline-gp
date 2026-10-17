@@ -38,7 +38,7 @@ export function createRaceAudio() {
       Sound.frame({
         mix: o.cam.cockpitBody ? 'driver' : 'tv', active: o.running, dt, doppler: prefs.doppler, shiftBeep: prefs.shiftBeep,
         listener: { x: cam.position.x, y: cam.position.y, z: cam.position.z, fx: fwd.x, fy: fwd.y, fz: fwd.z, ux: up.x, uy: up.y, uz: up.z, vx: vel.x, vy: vel.y, vz: vel.z },
-        player: { rpm, thr: P.finished ? 0 : o.thr, brk: o.brk, speed: Math.abs(P.v), gear: o.onLights ? 0 : P.gear,
+        player: { rpm, thr: P.finished ? 0 : o.thr, brk: o.brk, speed: Math.hypot(P.v, P.vy || 0), gear: o.onLights ? 0 : P.gear,
           limiter: rpm >= V.limiter - 120, slideF: P.slideF, slideR: P.slideR, lockF: P.lockF, spinR: P.spinR,
           surface: P.surface, onKerb: P.onKerb, slip: P.slip, beepRpm: P.autoShift ? 0 : V.autoUp },
         rivals,

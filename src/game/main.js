@@ -398,12 +398,12 @@ function renderFrame(dt) {
   const drive = Input.drive, onLights = game.phase === PHASE.LIGHTS;
   const gi = dashGear(player, onLights, drive.thr);
   Hud.updateDash({
-    kmh: Math.round(Math.abs(player.v) * 3.6), gear: gi.gear, gearNext: gi.next, revs: gi.revs, slip: onLights ? 0 : player.slip,
+    kmh: Math.round(Math.hypot(player.v, player.vy || 0) * 3.6), gear: gi.gear, gearNext: gi.next, revs: gi.revs, slip: onLights ? 0 : player.slip,
     steer: player.finished ? 0 : player.steer, thr: drive.thr, brk: drive.brk,
     lapTime: onLights ? '0:00.000' : fmtTime(player.finished ? player.finishTime : race.t - player.lapStart),
     lapInvalid: !onLights && !player.finished && player.lapInvalid,
   });
-  WheelScreen.update(dt, { gear: gi.gear, kmh: Math.round(Math.abs(player.v) * 3.6), revs: gi.revs });
+  WheelScreen.update(dt, { gear: gi.gear, kmh: Math.round(Math.hypot(player.v, player.vy || 0) * 3.6), revs: gi.revs });
   raceAudio.frame(dt, { race, player, cam, running: isRunning(), onLights, thr: player.finished ? 0 : drive.thr, brk: player.finished ? 0 : drive.brk, prefs: game.prefs });
   if (onLights) wakes.hideAll(); else wakes.update(race, player);
   if ((game.towerT -= dt) <= 0) {

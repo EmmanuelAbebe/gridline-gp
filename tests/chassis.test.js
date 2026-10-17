@@ -103,6 +103,20 @@ test('stability: full lock held at 250 km/h stays controlled on medium, rotates 
   assert.ok(off > medium, `off ${off.toFixed(3)} vs medium ${medium.toFixed(3)}`);
 });
 
+test('spins: with no assists, full lock and full throttle spins the car right round, keeping its speed through 90°', () => {
+  // (until 2026-10-17 a car past ~60–90° counted as crawling, by its speed along its heading, and the slide was wiped out)
+  const race = S.createRace(1, { track: OPEN, drivers: S.DRIVERS.filter(d => d.player) }), c = race.cars[0];
+  c.assists = S.ASSISTS.off; c.v = 120 / 3.6; c.gear = 4;
+  let maxSlide = 0, prev = Math.hypot(c.v, c.vy), maxDrop = 0;
+  for (let i = 0; i < 120 * 2; i++) {
+    race.t += DT; S.drivePlayer(race, c, { thr: 1, brk: 0, steer: 1, analog: true, steerRate: Infinity }, DT);
+    maxSlide = Math.max(maxSlide, Math.abs(Math.atan2(c.vy, c.v)));
+    const sp = Math.hypot(c.v, c.vy); maxDrop = Math.max(maxDrop, (prev - sp) / DT); prev = sp;
+  }
+  assert.ok(maxSlide > 2.5, `slid ${(maxSlide * 57.3).toFixed(0)}° (past 140°: the car goes round)`);
+  assert.ok(maxDrop < 40, `speed never drops faster than the tyres can slow it (${maxDrop.toFixed(0)} m/s²)`);
+});
+
 test('trail braking: on OFF and LOW, braking while turning in stays controllable; a stamp on the pedal still locks without ABS', () => {
   // brake straight 0.3 s, then ease the steering in over 0.3 s while still braking
   const trail = (assists, kmh, brk, steer) => {

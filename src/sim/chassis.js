@@ -56,10 +56,11 @@ export function stepChassis(race, c, inp, dt) {
   const n = CH.substeps, h = dt / n;
   let slideF = 0, slideR = 0, lockF = false, spinR = false;
   for (let s = 0; s < n; s++) {
-    const v = c.v, sp = Math.abs(v), vy = c.vy, w = c.yawRate;
+    // v: along the car's heading (negative = travelling backwards, e.g. past 90° in a spin), vy: sideways
+    const v = c.v, sp = Math.abs(v), vy = c.vy, w = c.yawRate, speed = Math.hypot(v, vy);
     const delta = c.steer * steerLock(v, A.steer);
-    // reverse and crawling: plain kinematic steering
-    if (d.reverse || v < CH.lowSpeed) {
+    // reverse gear and crawling (by the real speed: a car sliding sideways at 90° is not crawling): kinematic steering
+    if (d.reverse || speed < CH.lowSpeed) {
       let a = -d.resist - surfaceDrag(surf, v);
       if (d.reverse) { a += v > 0 ? -CH.brakeSystem * 0.4 * inp.brk : -TUNING.REVERSE_ACC * inp.brk; if (inp.thr > 0 && v < 0) a += 20 * inp.thr; }
       else { a += Math.min(d.drive, CAR.grip * G * (1 - CH.frontWeight) * CH.longGrip); if (v > 0) a -= 20 * inp.brk; }
@@ -78,23 +79,26 @@ export function stepChassis(race, c, inp, dt) {
     const Df = mu * Math.max(0.5, G * CH.frontWeight + df * CH.aeroFront - transfer);
     const Dr = mu * CH.rearGrip * Math.max(0.5, G * (1 - CH.frontWeight) + df * (1 - CH.aeroFront) + transfer);
     // slip angles (velocity at each axle vs where its wheels point)
-    const alphaF = Math.atan2(vy + A_FRONT * w, Math.max(sp, 1)) - delta;
+    // (rolling backwards the steering acts the other way round)
+    const back = v / Math.max(sp, 0.5);   // +1 forwards, −1 backwards, smooth through 0 (brakes then damp v to rest)
+    const alphaF = Math.atan2(vy + A_FRONT * w, Math.max(sp, 1)) - delta * Math.sign(back || 1);
     const alphaR = Math.atan2(vy - B_REAR * w, Math.max(sp, 1));
     // brakes split by axle load (+ a front bias), drive on the rear
-    const brake = brakeMax(sp) * inp.brk * (v > 0 ? 1 : 0);
+    const brake = brakeMax(sp) * inp.brk;
     const bias = clamp(Df / (Df + Dr) + CH.brakeBias, 0.3, 0.8);
     const absLimit = A.abs > 0 ? 0.97 + 0.15 * (1 - A.abs) : null, tcLimit = A.tc > 0 ? 0.97 + 0.25 * (1 - A.tc) : null;
-    const front = axle(Df, alphaF, CH.peakSlip, -brake * bias, absLimit);
-    const rearLong = d.drive - brake * (1 - bias);
+    const front = axle(Df, alphaF, CH.peakSlip, -brake * bias * back, absLimit);
+    const rearLong = d.drive - brake * (1 - bias) * back;
     // rear braking: ABS, and (stability assist) a margin kept for cornering, like brake-force distribution
     // any ABS keeps the rears from locking (a locked rear turning in spins the car); partial ABS only lets the fronts lock a little
     const rearBrakeLimit = absLimit === null ? null : Math.min(0.97, absLimit) * (1 - CH.rearBrakeMargin * A.stability);
-    const rear = axle(Dr, alphaR, CH.rearPeakSlip, rearLong, rearLong >= 0 ? tcLimit : rearBrakeLimit);
+    const braking = brake * (1 - bias) > d.drive;   // which limit applies: ABS while braking, traction control on the throttle
+    const rear = axle(Dr, alphaR, CH.rearPeakSlip, rearLong, braking ? rearBrakeLimit : tcLimit);
     // how far past the grip limit each axle is: 0 = gripping, 1 = fully sliding (locked, spinning or past peak slip)
     slideF = Math.max(slideF, front.over - 1, Math.abs(alphaF) / CH.peakSlip - 1);
     slideR = Math.max(slideR, rear.over - 1, Math.abs(alphaR) / CH.rearPeakSlip - 1);
     if (front.over > 1 && brake > 0) lockF = true;
-    if (rear.over > 1 && rearLong > 0) spinR = true;
+    if (rear.over > 1 && !braking && d.drive > 0) spinR = true;
     // equations of motion in the car's frame
     const cosD = Math.cos(delta), sinD = Math.sin(delta);
     const ax = rear.fx + front.fx * cosD - front.fy * sinD - d.resist - surfaceDrag(surf, v);
@@ -112,10 +116,10 @@ export function stepChassis(race, c, inp, dt) {
     c.v += (ax + vy * w) * h;
     c.vy += (ay - v * w) * h;
     c.yawRate += dw * h;
-    if (v0 > 0 && c.v < 0) c.v = 0;
+    if (v0 > 0 && c.v < 0 && Math.hypot(c.v, c.vy) < CH.lowSpeed) c.v = 0;   // braking to a stop doesn't roll back
     c.v = Math.min(c.v, TUNING.V_CAP);
-    // below blendSpeed fade toward kinematic steering, which is stable at walking pace
-    const k = clamp((c.v - CH.lowSpeed) / (CH.blendSpeed - CH.lowSpeed), 0, 1);
+    // below blendSpeed (the real speed) fade toward kinematic steering, which is stable at walking pace
+    const k = clamp((Math.hypot(c.v, c.vy) - CH.lowSpeed) / (CH.blendSpeed - CH.lowSpeed), 0, 1);
     if (k < 1) { const w0 = c.v * Math.tan(delta) / L; c.yawRate = k * c.yawRate + (1 - k) * w0; c.vy = k * c.vy + (1 - k) * B_REAR * w0; }
     c.h += c.yawRate * h;
     c.x += (Math.cos(c.h) * c.v - Math.sin(c.h) * c.vy) * h;
