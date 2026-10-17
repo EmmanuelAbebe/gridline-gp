@@ -68,6 +68,7 @@ const TABS = [
     slider('engineVol', 'Engines', pct, () => 'Your engine and the other cars.'),
     slider('fxVol', 'Effects', pct, () => 'Tyres, kerbs, wind, shifts, crashes, cars rushing past.'),
     slider('ambVol', 'Crowd', pct),
+    seg('noiseColour', 'Noise', [[0, 'WHITE'], [1, 'PINK'], [2, 'BROWN']], v => ['White: flat and hissy.', 'Pink: softer highs, easy on the ears for long sessions.', 'Brown: deep and rumbly, the softest.'][v] + ' For wind, tyres, kerbs, gravel and the other noise-based sounds.'),
     seg('doppler', 'Doppler', ON_OFF, v => v ? 'Cars rise in pitch coming at you and drop going away, by the real speed difference: strongest when you are slow or stopped.' : 'Other cars keep their own pitch.'),
     slider('shake', 'Camera shake', v => v ? v + ' %' : 'OFF', () => 'A jolt when a car passes close, buffeting in dirty air.'),
     seg('shiftBeep', 'Shift beep', ON_OFF, () => 'A beep in your ear at the shift point (semi-auto and manual), as some drivers use.'),

@@ -165,7 +165,13 @@ Tunables live in data tables (config modules), not inline in the logic.
      bench (manual rpm/throttle, rev sweep, gears; cockpit/outside; a rival passing at 100/200/300) + 56 sliders over
      SOUND paths, presets Default/Warm/Raw, export/import; saves the overrides (`soundOverrides`) in localStorage
      `gridline.sound`, applied at start. Voices pick edits up live (waves rebuilt on change, `engine.refresh()`).
-     2026-10-17 user: first version "a bit harsh" → defaults warmer (less rasp/brightness, more bass; old = Raw preset). Dash (`dashGear` in main.js): gear and rpm
+     2026-10-17 user: first version "a bit harsh" → defaults warmer (less rasp/brightness, more bass; old = Raw preset).
+     2026-10-17 user heard a high pitch they couldn't remove: the turbo whistle (sine up to 7.4 kHz) and ERS whine
+     bypassed the cabin EQ. Now both go through it (turbo ≤ 5.2 kHz, quieter; ERS a pure sine), shaper oversampling
+     4×, noise colour SOUND.noise.colour (0 white / 1 pink default / 2 brown; synth.js colour buffers, live swap;
+     modulators always white), SOUND.layers on/off per layer (Studio + Settings → Sound → Noise).
+     `npm run sound-check -- dir --race [--colour=n]` renders a real SIM race start from the cockpit with each layer
+     off in turn and lists tonal peaks above 1.5 kHz (tools/soundlab/race.js): none since this fix. Dash (`dashGear` in main.js): gear and rpm
      from the car; rev lights from `CONFIG.revLights.from` (8500) to the auto upshift point (all lit = shift).
    - Assists OFF/LOW/MEDIUM/HIGH/CUSTOM (Settings → Driving, `game.setup.assists` → `assistsOf()` → `player.assists`; CUSTOM =
      steering help / stability / traction control / ABS each OFF/LOW/ON, ON = medium's strength, `game.setup.custom`;

@@ -30,6 +30,7 @@ import { AppShell } from './app-shell.js';
 import { InputMonitor } from './input-monitor.js';
 import { SettingsScreen } from './settings-screen.js';
 import { SoundStudio } from './sound-studio.js';
+import { SOUND } from './audio/audio-config.js';
 import { createSlipstreamFx } from './slipstream-fx.js';
 import { createRaceAudio } from './race-audio.js';
 
@@ -303,11 +304,13 @@ function setDriving(key, value) {
 }
 SettingsScreen.bind({
   get(key) {
+    if (key === 'noiseColour') return SOUND.noise.colour;
     return key === 'gearbox' || key === 'assists' ? game.setup[key] : key.startsWith('a.') ? game.setup.custom[key.slice(2)] : key === 'gfx' ? game.gfx
       : key === 'sound' ? !game.prefs.muted : game.prefs[key];
   },
   set(key, value) {
-    if (key === 'gearbox' || key === 'assists' || key.startsWith('a.')) setDriving(key, value);
+    if (key === 'noiseColour') SoundStudio.set('noise.colour', value);
+    else if (key === 'gearbox' || key === 'assists' || key.startsWith('a.')) setDriving(key, value);
     else if (key === 'gfx') setGfx(value, true);
     else if (key === 'sound') { Sound.init(); setPref('muted', !value); }
     else setPref(key, value);

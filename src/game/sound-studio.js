@@ -89,6 +89,10 @@ const PRESETS = {
     'engine.tone.load': 3200, 'engine.texture': 0.22, 'mix.driver.low': 7, 'mix.driver.high': -9, 'mix.tv.low': 2, 'mix.tv.high': 0 },
 };
 const GEAR_KMH = [0, 108, 142, 174, 205, 235, 265, 296, 340];
+const LAYERS = [['engine', 'Engine'], ['texture', 'Combustion grit'], ['intake', 'Airbox'], ['turbo', 'Turbo whistle'], ['ers', 'Hybrid whine'],
+  ['pops', 'Overrun pops'], ['shifts', 'Gear shifts'], ['tyres', 'Tyres'], ['surfaces', 'Kerbs / grass / gravel'], ['wind', 'Wind'],
+  ['crowd', 'Crowd'], ['rivals', 'Other cars'], ['whoosh', 'Pass-by whoosh']];
+const NOISE = [[0, 'WHITE'], [1, 'PINK'], [2, 'BROWN']];
 
 export const SoundStudio = (() => {
   try { applySoundOverrides(JSON.parse(Settings.get(KEY) || '{}')); } catch (e) {}
@@ -140,6 +144,13 @@ export const SoundStudio = (() => {
     const exp = Object.assign(document.createElement('button'), { type: 'button', className: 'iconbtn', textContent: 'EXPORT' }); exp.onclick = () => { io.value = JSON.stringify(soundOverrides(), null, 1); io.select(); };
     const imp = Object.assign(document.createElement('button'), { type: 'button', className: 'iconbtn', textContent: 'IMPORT' }); imp.onclick = () => { try { use(JSON.parse(io.value)); } catch (e) { io.value = 'Not valid settings: ' + e.message; } };
     btns.append(exp, imp); pb.append(btns, io); pr.append(pb); root.append(pr);
+    // noise colour + every layer on / off (to find a sound you don't like)
+    const ly = document.createElement('details'); ly.open = true; ly.innerHTML = '<summary>Noise colour, layers on / off</summary>';
+    const lb = document.createElement('div'); lb.className = 'tw-body';
+    lb.append(seg('Noise', NOISE, () => SOUND.noise.colour, v => set('noise.colour', v)));
+    lb.append(Object.assign(document.createElement('p'), { className: 'tw-note', textContent: 'White: flat, hissy. Pink: softer highs, easy for long sessions. Brown: deep, rumbly. Used by wind, tyres, kerbs, gravel, airbox, grit, crowd, pops and shifts.' }));
+    for (const [k, label] of LAYERS) lb.append(seg(label, [[1, 'ON'], [0, 'OFF']], () => SOUND.layers[k], v => set('layers.' + k, v)));
+    ly.append(lb); root.append(ly);
     // every setting
     inputs.length = 0;
     for (const [title, items] of GROUPS) {
@@ -151,8 +162,9 @@ export const SoundStudio = (() => {
       }
       d.append(body2); root.append(d);
     }
-    root.querySelector('details:nth-of-type(3)').open = true;   // tone, the first thing to try
+    root.querySelector('details:nth-of-type(4)').open = true;   // tone, the first thing to try
   }
+  function set(path, v) { setPath(SOUND, path, v); Sound.refresh(); save(); }
   function use(over) { applySoundOverrides(over); Sound.refresh(); save(); for (const i of inputs) i.draw(); }
 
   // the bench: listener in the car (cockpit) or 6 m to the side (outside); a rival every 6 s at bench.pass km/h
@@ -187,5 +199,5 @@ export const SoundStudio = (() => {
     }
   }
   root.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); toggle(false); } });
-  return { toggle, get open() { return open; } };
+  return { toggle, set, get open() { return open; } };
 })();

@@ -2,19 +2,55 @@
 // time `t`, so the same code runs live (t = ctx.currentTime) and in an OfflineAudioContext (tools/sound-check).
 import { SOUND } from './audio-config.js';
 
-// One second of white noise per context, looped wherever a noise source is needed.
+// Noise in three colours (SOUND.noise.colour): 0 white (flat), 1 pink (−3 dB per octave: easier on the ears),
+// 2 brown (−6 dB per octave: a soft rumble). 3 s per context and colour, all at the same loudness, seamless loop.
 const noiseBuffers = new WeakMap();
-export function noiseBuffer(ctx) {
-  if (!noiseBuffers.has(ctx)) {
-    const b = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate), d = b.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    noiseBuffers.set(ctx, b);
+export function noiseBuffer(ctx, colour = SOUND.noise.colour) {
+  if (!noiseBuffers.has(ctx)) noiseBuffers.set(ctx, []);
+  const set = noiseBuffers.get(ctx), c = Math.max(0, Math.min(2, Math.round(colour)));
+  if (!set[c]) {
+    const N = ctx.sampleRate * 3, K = 4096, seq = new Float32Array(N + K);
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, br = 0;
+    for (let i = 0; i < N + K; i++) {
+      const w = Math.random() * 2 - 1;
+      if (c === 0) seq[i] = w;
+      else if (c === 1) {   // Paul Kellet's pink filter
+        b0 = 0.99886 * b0 + w * 0.0555179; b1 = 0.99332 * b1 + w * 0.0750759; b2 = 0.969 * b2 + w * 0.153852;
+        b3 = 0.8665 * b3 + w * 0.3104856; b4 = 0.55 * b4 + w * 0.5329522; b5 = -0.7616 * b5 - w * 0.016898;
+        seq[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362; b6 = w * 0.115926;
+      } else { br = (br + 0.02 * w) / 1.02; seq[i] = br; }   // leaky integrator
+    }
+    let mean = 0; for (let i = 0; i < N + K; i++) mean += seq[i]; mean /= N + K;
+    const b = ctx.createBuffer(1, N, ctx.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < N; i++) d[i] = seq[i] - mean;
+    for (let i = 0; i < K; i++) { const a = i / K; d[i] = (seq[i] - mean) * a + (seq[N + i] - mean) * (1 - a); }   // the end runs into the start
+    let rms = 0; for (let i = 0; i < N; i++) rms += d[i] * d[i]; rms = Math.sqrt(rms / N);
+    for (let i = 0; i < N; i++) d[i] *= 0.577 / rms;   // white noise's loudness for every colour
+    set[c] = b;
   }
-  return noiseBuffers.get(ctx);
+  return set[c];
 }
-export function noise(ctx, t, loop = true) {
-  const s = ctx.createBufferSource(); s.buffer = noiseBuffer(ctx); s.loop = loop;
-  s.loopStart = 0; s.loopEnd = 1; s.start(t, Math.random()); return s;
+// A noise source. Continuous ones (loop) come back as a gain node that keeps working when the colour changes
+// (setNoiseColour swaps the source behind it); `fixed` = always white (modulators: their depth must not change).
+const live = new WeakMap();
+const startSource = (ctx, t, buffer, loop) => {
+  const s = ctx.createBufferSource(); s.buffer = buffer; s.loop = loop;
+  s.loopStart = 0; s.loopEnd = buffer.duration; s.start(t, Math.random() * buffer.duration * 0.9); return s;
+};
+export function noise(ctx, t, loop = true, { fixed = false } = {}) {
+  if (!loop) return startSource(ctx, t, noiseBuffer(ctx), false);
+  const outlet = gain(ctx, 1), rec = { outlet, colour: fixed ? 0 : SOUND.noise.colour };
+  rec.src = startSource(ctx, t, noiseBuffer(ctx, rec.colour), true); rec.src.connect(outlet);
+  outlet.stop = when => rec.src.stop(when);
+  if (!fixed) { if (!live.has(ctx)) live.set(ctx, new Set()); live.get(ctx).add(rec); }
+  return outlet;
+}
+export function setNoiseColour(ctx, t = ctx.currentTime) {
+  for (const rec of live.get(ctx) || []) {
+    if (rec.colour === SOUND.noise.colour) continue;
+    rec.colour = SOUND.noise.colour; rec.src.stop(t + 0.01);
+    rec.src = startSource(ctx, t, noiseBuffer(ctx, rec.colour), true); rec.src.connect(rec.outlet);
+  }
 }
 export const filter = (ctx, type, frequency, Q = 0.7, gain = 0) => {
   const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = frequency; f.Q.value = Q; f.gain.value = gain; return f;
@@ -47,7 +83,8 @@ export function engineWaves(ctx) {
 let tanhCurve = null;
 export function shaper(ctx) {
   if (!tanhCurve) { tanhCurve = new Float32Array(1024); for (let i = 0; i < 1024; i++) tanhCurve[i] = Math.tanh((i / 511.5 - 1) * 2.5) / Math.tanh(2.5); }
-  const s = ctx.createWaveShaper(); s.curve = tanhCurve; s.oversample = '2x'; return s;
+  // 4× oversampling: the saturation's harmonics don't fold back as high whistles
+  const s = ctx.createWaveShaper(); s.curve = tanhCurve; s.oversample = '4x'; return s;
 }
 
 // ---- one-shots: a node graph that plays once from t and stops itself ----

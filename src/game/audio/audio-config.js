@@ -23,8 +23,8 @@ const DEFAULTS = {
     limiterHz: 17,             // rev-limiter cut-in rate
     crackle: { rate: 18, minRpm: 7200, gain: 0.25 },   // pops per second on the overrun at high rpm
     intake: { gain: 0.28, cutoff: 420 },              // airbox roar (cockpit): low-passed pulses + rush of air
-    turbo: { low: 2400, high: 7400, gain: 0.018, spoolUp: 0.22, spoolDown: 0.45, chirp: 0.06 },
-    ers: { ratio: 8, gain: 0.010, harvest: 0.012 },  // MGU-K whine: rpm / 60 × ratio; deploying on the throttle, harvesting on the brakes
+    turbo: { low: 1800, high: 5200, gain: 0.007, spoolUp: 0.22, spoolDown: 0.45, chirp: 0.06 },
+    ers: { ratio: 8, gain: 0.005, harvest: 0.006 },  // MGU-K whine: rpm / 60 × ratio; deploying on the throttle, harvesting on the brakes
   },
   // rival engines: the same waves, fewer layers; only the nearest few play
   rivals: { voices: 4, maxDistance: 520, gain: 1.3, refDistance: 9, rolloff: 1.15,
@@ -39,11 +39,14 @@ const DEFAULTS = {
   // the two mixes: driver = what you hear in the helmet (earplugs: highs down, engine behind you felt in the lows, the
   // airbox above your head, wind kept down); tv = an outside/onboard microphone (brighter exhaust, more wind)
   mix: {
-    driver: { low: 10, high: -11, intake: 1, wind: 0.4, rivalsHigh: -4, turbo: 0.7 },
+    driver: { low: 10, high: -11, intake: 1, wind: 0.4, rivalsHigh: -8, turbo: 0.7 },
     tv:     { low: 5, high: -4, intake: 0.2, wind: 1, rivalsHigh: -2, turbo: 1 },
   },
   shake: { passBy: 0.05, buffet: 0.012, decay: 0.28 },   // camera shake (m of jitter at strength 1), dirty air, decay s
   eq: { lowHz: 160, highHz: 2500 },   // the mix's bass / treble shelf corners
+  noise: { colour: 1 },               // 0 white, 1 pink, 2 brown (synth.js noiseBuffer): every noise-based sound
+  // every layer can be switched off (1 on, 0 off): Sound Studio → Layers, to find a sound you don't like
+  layers: { engine: 1, texture: 1, intake: 1, turbo: 1, ers: 1, pops: 1, shifts: 1, tyres: 1, surfaces: 1, wind: 1, crowd: 1, rivals: 1, whoosh: 1 },
 };
 
 const clone = o => JSON.parse(JSON.stringify(o));

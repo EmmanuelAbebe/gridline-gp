@@ -7,7 +7,7 @@
 // HRTF panner, with Doppler computed from the real relative velocity (Web Audio has none built in) and air absorption.
 import { SOUND } from './audio-config.js';
 import { createEngineVoice } from './engine-voice.js';
-import { noise, filter, gain, chain, glide, burst, thump, ring, beep, panner, place } from './synth.js';
+import { noise, filter, gain, chain, glide, burst, thump, ring, beep, panner, place, setNoiseColour } from './synth.js';
 
 const clamp01 = x => Math.max(0, Math.min(1, x));
 
@@ -25,8 +25,9 @@ export function createSoundEngine(ctx) {
   const player = createEngineVoice(ctx, cabin, { full: true });
   const intakeMix = gain(ctx, 1), turboMix = gain(ctx, 1);
   player.outputs.intake.connect(intakeMix).connect(cabin);
-  player.outputs.turbo.connect(turboMix).connect(engineBus);
-  player.outputs.ers.connect(engineBus);
+  // turbo and ERS through the cabin EQ too, so the treble setting reaches every high sound of the car
+  player.outputs.turbo.connect(turboMix).connect(cabin);
+  player.outputs.ers.connect(cabin);
 
   // rivals
   const R = SOUND.rivals, rivalsEq = filter(ctx, 'highshelf', 2500, 0.7); rivalsEq.connect(engineBus);
@@ -44,16 +45,16 @@ export function createSoundEngine(ctx) {
   const kerb = layer('lowpass', 210, 1); const kAm = gain(ctx, 0.5), kSq = ctx.createOscillator(), kAmt = gain(ctx, 0.5);
   kerb.g.disconnect(); kerb.g.connect(kAm).connect(cabinFx); kSq.type = 'square'; kSq.start(t0); chain(kSq, kAmt); kAmt.connect(kAm.gain);
   // gravel: crunchy band of noise, its level wobbling with slow noise
-  const sand = layer('bandpass', 2300, 0.7); const sAm = gain(ctx, 0.6), sMod = noise(ctx, t0), sLp = filter(ctx, 'lowpass', 14, 0.5), sAmt = gain(ctx, 18);
+  const sand = layer('bandpass', 2300, 0.7); const sAm = gain(ctx, 0.6), sMod = noise(ctx, t0, true, { fixed: true }), sLp = filter(ctx, 'lowpass', 14, 0.5), sAmt = gain(ctx, 18);
   sand.g.disconnect(); sand.g.connect(sAm).connect(cabinFx); chain(sMod, sLp, sAmt); sAmt.connect(sAm.gain);
   // dirty-air buffeting: slow noise wobbling the wind
-  const wAm = gain(ctx, 1), bMod = noise(ctx, t0), bLp = filter(ctx, 'lowpass', 7, 0.5), bAmt = gain(ctx, 0);
+  const wAm = gain(ctx, 1), bMod = noise(ctx, t0, true, { fixed: true }), bLp = filter(ctx, 'lowpass', 7, 0.5), bAmt = gain(ctx, 0);
   wind.g.disconnect(); wind.g.connect(wAm).connect(fxBus); chain(bMod, bLp, bAmt); bAmt.connect(wAm.gain);
 
   // crowd at the grandstand
   const crowd = (() => {
     const C = SOUND.crowd, p = panner(ctx, C.refDistance, 1.2), n = noise(ctx, t0), b = filter(ctx, 'bandpass', 950, 0.5), g = gain(ctx, 0);
-    const am = gain(ctx, 0.8), m = noise(ctx, t0), lp = filter(ctx, 'lowpass', 1.5, 0.5), amt = gain(ctx, 12);
+    const am = gain(ctx, 0.8), m = noise(ctx, t0, true, { fixed: true }), lp = filter(ctx, 'lowpass', 1.5, 0.5), amt = gain(ctx, 12);
     chain(n, b, am, g, p, ambBus); chain(m, lp, amt); amt.connect(am.gain);
     return { p, g };
   })();
@@ -70,13 +71,14 @@ export function createSoundEngine(ctx) {
 
   // ---- one-shots ----
   function shiftFx(up, t) {
-    const S = SOUND.shift, cockpit = st.mix === 'driver';
+    const S = SOUND.shift, cockpit = st.mix === 'driver', k = SOUND.layers.shifts;
+    if (!k) return;
     if (up) {   // ignition cut: a crack from the exhaust, a clunk from the gearbox behind you
-      burst(ctx, cabin, t, { type: 'highpass', freq: 1800, Q: 0.7, decay: 0.035, level: S.crack });
-      thump(ctx, cabin, t, { freq: 120, to: 60, decay: 0.07, level: S.clunk * (cockpit ? 1 : 0.4) });
+      burst(ctx, cabin, t, { type: 'highpass', freq: 1800, Q: 0.7, decay: 0.035, level: k * S.crack });
+      thump(ctx, cabin, t, { freq: 120, to: 60, decay: 0.07, level: k * S.clunk * (cockpit ? 1 : 0.4) });
     } else {    // throttle blip on the downshift: a short "brap"
-      burst(ctx, cabin, t, { freq: 700, to: 1500, Q: 1.2, attack: 0.01, decay: 0.07, level: S.blip });
-      thump(ctx, cabin, t + 0.02, { freq: 95, to: 55, decay: 0.06, level: S.clunk * (cockpit ? 0.9 : 0.35) });
+      burst(ctx, cabin, t, { freq: 700, to: 1500, Q: 1.2, attack: 0.01, decay: 0.07, level: k * S.blip });
+      thump(ctx, cabin, t + 0.02, { freq: 95, to: 55, decay: 0.06, level: k * S.clunk * (cockpit ? 0.9 : 0.35) });
     }
   }
 
@@ -89,6 +91,7 @@ export function createSoundEngine(ctx) {
       glide(low.frequency, SOUND.eq.lowHz, t, 0.05); glide(high.frequency, SOUND.eq.highHz, t, 0.05);
       for (const vc of voices) { vc.panner.refDistance = R.refDistance; vc.panner.rolloffFactor = R.rolloff; }
       crowdPanner.refDistance = SOUND.crowd.refDistance;
+      setNoiseColour(ctx, t);
     },
     setVolumes({ master: m = 0.8, engine = 1, fx = 1, ambience = 1 }, t = ctx.currentTime) {
       glide(master.gain, m, t, 0.02); glide(engineBus.gain, engine, t, 0.02); glide(fxBus.gain, fx, t, 0.02); glide(ambBus.gain, ambience, t, 0.02);
@@ -107,16 +110,17 @@ export function createSoundEngine(ctx) {
     },
     // a car passing close: a burst of air sweeping down, on its side (side −1 left, +1 right), strength 0..1
     whoosh(side, strength, t = ctx.currentTime) {
-      const P = SOUND.passBy, pan = ctx.createStereoPanner(); pan.pan.value = Math.max(-1, Math.min(1, side * 0.75)); pan.connect(fxBus);
-      burst(ctx, pan, t, { freq: 2400, to: 380, Q: 0.8, attack: 0.06, decay: 0.38, level: P.gain * strength });
-      thump(ctx, pan, t + 0.03, { freq: 70, to: 40, decay: 0.2, level: P.gain * 0.7 * strength });
+      const P = SOUND.passBy, k = SOUND.layers.whoosh; if (!k) return;
+      const pan = ctx.createStereoPanner(); pan.pan.value = Math.max(-1, Math.min(1, side * 0.75)); pan.connect(fxBus);
+      burst(ctx, pan, t, { freq: 2400, to: 380, Q: 0.8, attack: 0.06, decay: 0.38, level: k * P.gain * strength });
+      thump(ctx, pan, t + 0.03, { freq: 70, to: 40, decay: 0.2, level: k * P.gain * 0.7 * strength });
     },
     // Everything continuous, once per frame. state: { mix, active, playerOn (default true), doppler, shiftBeep,
     //   listener { x, y, z, fx, fy, fz, ux, uy, uz, vx, vy, vz }, player { rpm, thr, brk, speed, gear, limiter,
     //   slideF, slideR, lockF, spinR, surface, onKerb, slip, beepRpm }, rivals [{ id, x, y, z, vx, vz, rpm, thr, gear }] }
     frame(s, t = ctx.currentTime) {
       setMix(s.mix, t);
-      const on = s.active ? 1 : 0, p = s.player, L = s.listener, M = SOUND.mix[st.mix];
+      const on = s.active ? 1 : 0, p = s.player, L = s.listener, M = SOUND.mix[st.mix], Y = SOUND.layers;
       // listener = the camera
       const li = ctx.listener;
       if (li.positionX) {
@@ -131,23 +135,23 @@ export function createSoundEngine(ctx) {
       if (s.active && s.shiftBeep && p.beepRpm && st.rpm < p.beepRpm && p.rpm >= p.beepRpm) beep(ctx, fxBus, t, SOUND.shift.beepHz, 0.07, 0.08);
       st.gear = p.gear; st.rpm = p.rpm;
       // tyres
-      const T = SOUND.tyres, moving = clamp01(p.speed / 15), slide = Math.max(p.slideF, p.slideR);
-      glide(squeal.g.gain, on * T.squeal * clamp01(slide - 0.05) * moving * (p.lockF || p.spinR ? 0.4 : 1), t, 0.04);
+      const T = SOUND.tyres, ty = on * Y.tyres, moving = clamp01(p.speed / 15), slide = Math.max(p.slideF, p.slideR);
+      glide(squeal.g.gain, ty * T.squeal * clamp01(slide - 0.05) * moving * (p.lockF || p.spinR ? 0.4 : 1), t, 0.04);
       glide(squeal.f.frequency, 950 + 700 * slide, t, 0.08);
-      glide(lock.g.gain, on * (p.lockF ? T.lock : 0) * moving, t, 0.03);
-      glide(spin.g.gain, on * (p.spinR ? T.spin : 0) * moving, t, 0.03);
+      glide(lock.g.gain, ty * (p.lockF ? T.lock : 0) * moving, t, 0.03);
+      glide(spin.g.gain, ty * (p.spinR ? T.spin : 0) * moving, t, 0.03);
       // surfaces
-      const U = SOUND.surface, v = p.speed;
-      glide(kerb.g.gain, on * (p.onKerb ? U.kerb * clamp01(v / 25) : 0), t, 0.03);
+      const U = SOUND.surface, v = p.speed, su = on * Y.surfaces;
+      glide(kerb.g.gain, su * (p.onKerb ? U.kerb * clamp01(v / 25) : 0), t, 0.03);
       glide(kSq.frequency, Math.max(4, Math.min(90, v / U.ridge)), t, 0.03);
-      glide(grass.g.gain, on * (p.surface === 'grass' ? U.grass * clamp01(v / 20) : 0), t, 0.05);
-      glide(sand.g.gain, on * (p.surface === 'sand' ? U.sand * clamp01(v / 15) : 0), t, 0.05);
+      glide(grass.g.gain, su * (p.surface === 'grass' ? U.grass * clamp01(v / 20) : 0), t, 0.05);
+      glide(sand.g.gain, su * (p.surface === 'sand' ? U.sand * clamp01(v / 15) : 0), t, 0.05);
       // wind (kept down in the helmet), dirty-air buffeting when close behind someone
       const Wd = SOUND.wind, w = clamp01(v / Wd.vmax);
-      glide(wind.g.gain, on * Wd.gain * M.wind * w * w, t, 0.1); glide(wind.f.frequency, 250 + 900 * w, t, 0.1);
-      glide(hiss.g.gain, on * Wd.gain * 0.25 * M.wind * w * w * w, t, 0.1);
+      glide(wind.g.gain, on * Y.wind * Wd.gain * M.wind * w * w, t, 0.1); glide(wind.f.frequency, 250 + 900 * w, t, 0.1);
+      glide(hiss.g.gain, on * Y.wind * Wd.gain * 0.25 * M.wind * w * w * w, t, 0.1);
       glide(bAmt.gain, on * 25 * clamp01(p.slip) * w, t, 0.2);
-      glide(crowd.g.gain, on * SOUND.crowd.gain, t, 0.5);
+      glide(crowd.g.gain, on * Y.crowd * SOUND.crowd.gain, t, 0.5);
 
       // rivals: the nearest few get a voice; voices stay on their car while it is still among them
       const near = s.rivals.map(r => ({ r, d: Math.hypot(r.x - L.x, r.y - L.y, r.z - L.z) }))
@@ -167,7 +171,7 @@ export function createSoundEngine(ctx) {
         }
         const air = Math.max(R.air.min, R.air.full * Math.exp(-d / R.air.perMetre));
         vc.voice.update({ rpm: r.rpm, thr: r.thr, on, pitch, air }, t);
-        glide(vc.out.gain, on * R.gain, t, 0.05);
+        glide(vc.out.gain, on * Y.rivals * R.gain, t, 0.05);
         if (r.gear > vc.gear && d < 40) burst(ctx, vc.out, t, { type: 'highpass', freq: 1800, decay: 0.03, level: 0.2 });
         vc.gear = r.gear;
       }

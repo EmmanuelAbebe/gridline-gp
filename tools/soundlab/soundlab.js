@@ -25,8 +25,15 @@ function pitch(x, at, win, lo, hi) {
   }
   return lag ? SR / lag : 0;
 }
+import { renderRace, analyse } from './race.js';
 const results = {};
-for (const [name, sc] of Object.entries(SCENARIOS)) {
+if (location.search.includes('race')) {   // which layer makes which high sound, in a real race
+  const colour = /colour=(\d)/.exec(location.search); if (colour) SOUND.noise.colour = +colour[1];
+  const all = await renderRace(); results.race = { wav: wav(all), ...analyse(all) };
+  for (const k of Object.keys(SOUND.layers)) results['no ' + k] = analyse(await renderRace([k]));
+  window.soundlab = { results }; document.title = 'done';
+}
+else for (const [name, sc] of Object.entries(SCENARIOS)) {
   const ctx = new OfflineAudioContext(2, Math.ceil(SR * (sc.seconds + 0.6)), SR), eng = createSoundEngine(ctx);
   eng.setVolumes({ master: 0.8 }, 0);
   playScenario(eng, name, 0, false);
@@ -44,5 +51,4 @@ for (const [name, sc] of Object.entries(SCENARIOS)) {
   }
   results[name] = r;
 }
-window.soundlab = { results };
-document.title = 'done';
+if (!location.search.includes('race')) { window.soundlab = { results }; document.title = 'done'; }
