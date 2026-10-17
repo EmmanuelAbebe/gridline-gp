@@ -4,7 +4,7 @@ import { createSoundEngine } from './audio/sound-engine.js';
 import { playScenario } from './audio/scenarios.js';
 
 export const Sound = (() => {
-  let ctx = null, engine = null, muted = false, stopTest = null, crowdAt = null;
+  let ctx = null, engine = null, muted = false, stopTest = null, crowdAt = null, bench = false;
   const vol = { master: 0.8, engine: 1, fx: 1, ambience: 1 };
   const apply = () => engine && engine.setVolumes({ ...vol, master: muted ? 0 : vol.master });
   function init() {
@@ -21,7 +21,11 @@ export const Sound = (() => {
     beep(freq, dur) { if (engine && !muted) engine.beep(freq, dur); },
     impact(strength, kind) { if (engine && !muted) engine.impact(strength, kind); },
     whoosh(side, strength) { if (engine && !muted) engine.whoosh(side, strength); },
-    frame(state) { if (engine && !stopTest) engine.frame(state); },
+    frame(state) { if (engine && !stopTest && !bench) engine.frame(state); },
+    // Sound Studio test bench: while on, the studio drives the sound instead of the race
+    bench(on) { bench = !!on; if (on) init(); },
+    benchFrame(state) { if (engine && bench && !stopTest) engine.frame(state); },
+    refresh() { engine?.refresh(); },   // after editing SOUND
     setCrowd(x, y, z) { crowdAt = [x, y, z]; if (engine) engine.setCrowd(x, y, z); },
     // volumes 0..1: master, engine, fx, ambience
     setVolumes(v) { Object.assign(vol, v); apply(); },

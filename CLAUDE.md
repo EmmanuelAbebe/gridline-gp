@@ -160,7 +160,12 @@ Tunables live in data tables (config modules), not inline in the logic.
      Settings → Sound → Test sounds; `npm run sound-check -- dir` renders them offline in Electron to WAVs and checks
      levels + Doppler against the formula). `sound.js` = the live AudioContext + mute/volumes; `race-audio.js` builds
      the per-frame state (listener = camera, its velocity from motion; grid revs before the lights) and turns
-     `proximity.js` close passes into whoosh + `CameraRig.shake`; dirty air → `CameraRig.buffet`. Dash (`dashGear` in main.js): gear and rpm
+     `proximity.js` close passes into whoosh + `CameraRig.shake`; dirty air → `CameraRig.buffet`.
+     `SOUND` is live (SOUND_DEFAULTS = shipped values); `sound-studio.js` (Settings → Sound → Sound studio) = a test
+     bench (manual rpm/throttle, rev sweep, gears; cockpit/outside; a rival passing at 100/200/300) + 56 sliders over
+     SOUND paths, presets Default/Warm/Raw, export/import; saves the overrides (`soundOverrides`) in localStorage
+     `gridline.sound`, applied at start. Voices pick edits up live (waves rebuilt on change, `engine.refresh()`).
+     2026-10-17 user: first version "a bit harsh" → defaults warmer (less rasp/brightness, more bass; old = Raw preset). Dash (`dashGear` in main.js): gear and rpm
      from the car; rev lights from `CONFIG.revLights.from` (8500) to the auto upshift point (all lit = shift).
    - Assists OFF/LOW/MEDIUM/HIGH/CUSTOM (Settings → Driving, `game.setup.assists` → `assistsOf()` → `player.assists`; CUSTOM =
      steering help / stability / traction control / ABS each OFF/LOW/ON, ON = medium's strength, `game.setup.custom`;

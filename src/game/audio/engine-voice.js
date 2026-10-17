@@ -11,7 +11,8 @@ const E = SOUND.engine, IDLE = 4000, LIMIT = 12500;
 const clamp01 = x => Math.max(0, Math.min(1, x));
 
 export function createEngineVoice(ctx, out, { full = true } = {}) {
-  const t0 = ctx.currentTime, W = engineWaves(ctx);
+  const t0 = ctx.currentTime;
+  let W = engineWaves(ctx);
   const osc = w => { const o = ctx.createOscillator(); o.setPeriodicWave(w); o.frequency.value = IDLE / 60 * E.order; o.start(t0); return o; };
   const oLoad = osc(W.load), oCoast = osc(W.coast), gLoad = gain(ctx, 0), gCoast = gain(ctx, 1), sum = gain(ctx, 1);
   oLoad.connect(gLoad).connect(sum); oCoast.connect(gCoast).connect(sum);
@@ -33,7 +34,7 @@ export function createEngineVoice(ctx, out, { full = true } = {}) {
     // rev limiter: a square wave pulling the level down at limiterHz while on the limiter
     const lim = gain(ctx, 1), sq = ctx.createOscillator(), depth = gain(ctx, 0);
     sq.type = 'square'; sq.frequency.value = E.limiterHz; sq.start(t0); chain(sq, depth); depth.connect(lim.gain); nodes.push(sq);
-    limiter = { lim, depth };
+    limiter = { lim, depth, sq };
     chain(sum, drive, shaper(ctx), tone, lim, level, out);
     // airbox, turbo, ERS: own outputs
     const intakeOut = gain(ctx, 1), turboOut = gain(ctx, 1), ersOut = gain(ctx, 1);
@@ -55,6 +56,7 @@ export function createEngineVoice(ctx, out, { full = true } = {}) {
       const dt = Math.max(0, t - s.lastT); s.lastT = t;
       const rpm = Math.max(1500, v.rpm || IDLE), thr = clamp01(v.thr), r = clamp01((rpm - IDLE) / (LIMIT - IDLE));
       const pitch = v.pitch ?? 1, base = rpm / 60 * E.order * pitch;
+      const w = engineWaves(ctx); if (w !== W) { W = w; oLoad.setPeriodicWave(W.load); oCoast.setPeriodicWave(W.coast); }   // settings changed
       s.load += (thr - s.load) * (1 - Math.exp(-dt / 0.04));
       glide(oLoad.frequency, base, t, 0.012); glide(oCoast.frequency, base, t, 0.012);
       glide(gLoad.gain, s.load, t, 0.02); glide(gCoast.gain, 1 - s.load * 0.85, t, 0.02);
@@ -64,6 +66,8 @@ export function createEngineVoice(ctx, out, { full = true } = {}) {
       const on = v.on ?? 1, lvl = on * (E.gain.idle + E.gain.load * s.load + E.gain.rpm * r);
       glide(level.gain, lvl, t, 0.03);
       if (!full) { s.thr = thr; return; }
+      glide(jitter.gain, E.jitterCents * 55, t, 0.1); glide(limiter.sq.frequency, E.limiterHz, t, 0.05);
+      glide(extras.iLp.frequency, E.intake.cutoff, t, 0.05);
       glide(drive.gain, E.drive.coast + (E.drive.load - E.drive.coast) * s.load, t, 0.04);
       // texture pulses at the firing rate (3 per revolution)
       const fire = rpm / 60 * 3;

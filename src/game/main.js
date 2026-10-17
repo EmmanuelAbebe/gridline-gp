@@ -29,6 +29,7 @@ import { TweakPanel } from './tweak-panel.js';
 import { AppShell } from './app-shell.js';
 import { InputMonitor } from './input-monitor.js';
 import { SettingsScreen } from './settings-screen.js';
+import { SoundStudio } from './sound-studio.js';
 import { createSlipstreamFx } from './slipstream-fx.js';
 import { createRaceAudio } from './race-audio.js';
 
@@ -267,7 +268,7 @@ function toggleLayout() {
   else if ($('hud').hidden) Hud.toast('Start a race to arrange the HUD');
   else LayoutEditor.enter(CameraRig.mode);
 }
-const escape = () => InputMonitor.open ? InputMonitor.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
+const escape = () => InputMonitor.open ? InputMonitor.toggle(false) : SoundStudio.open ? SoundStudio.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
   : LayoutEditor.active ? LayoutEditor.exit() : togglePause();
 function setPref(key, value) {
   game.prefs[key] = value; savePrefs(); applyPrefs();
@@ -318,6 +319,7 @@ SettingsScreen.bind({
       setPref('smoothing', PREFS.defaults.smoothing); SettingsScreen.redraw();
     } else if (name === 'inputs') InputMonitor.toggle(true);
     else if (name.startsWith('sound:')) Sound.test(name.slice(6));
+    else if (name === 'studio') { SettingsScreen.close(); SoundStudio.toggle(true); }
     else if (name === 'fullscreen') AppShell.toggleFullscreen();
     else if (name === 'tweak') { SettingsScreen.close(); TweakPanel.toggle(); }
     else if (name === 'layout') { SettingsScreen.close(); toggleLayout(); }

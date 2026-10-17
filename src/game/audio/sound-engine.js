@@ -19,7 +19,7 @@ export function createSoundEngine(ctx) {
   engineBus.connect(master); fxBus.connect(master); ambBus.connect(master); chain(master, comp, ctx.destination);
 
   // the cabin EQ: everything heard from inside / on the player's car
-  const low = filter(ctx, 'lowshelf', 160, 0.7), high = filter(ctx, 'highshelf', 2500, 0.7), cabin = gain(ctx, 1);
+  const low = filter(ctx, 'lowshelf', SOUND.eq.lowHz, 0.7), high = filter(ctx, 'highshelf', SOUND.eq.highHz, 0.7), cabin = gain(ctx, 1);
   chain(cabin, low, high, engineBus);
   const cabinFx = gain(ctx, 1); chain(cabinFx, filter(ctx, 'highshelf', 3000, 0.7), fxBus);   // tyres, surfaces
   const player = createEngineVoice(ctx, cabin, { full: true });
@@ -57,6 +57,7 @@ export function createSoundEngine(ctx) {
     chain(n, b, am, g, p, ambBus); chain(m, lp, amt); amt.connect(am.gain);
     return { p, g };
   })();
+  const crowdPanner = crowd.p;
 
   const st = { mix: null, gear: 0, rpm: 0, lastRivalIds: '' };
   function setMix(name, t) {
@@ -82,6 +83,13 @@ export function createSoundEngine(ctx) {
   return {
     ctx,
     setMix,
+    // SOUND was edited (Sound Studio): re-apply what is only set on change or at creation
+    refresh(t = ctx.currentTime) {
+      const mix = st.mix; st.mix = null; setMix(mix, t);
+      glide(low.frequency, SOUND.eq.lowHz, t, 0.05); glide(high.frequency, SOUND.eq.highHz, t, 0.05);
+      for (const vc of voices) { vc.panner.refDistance = R.refDistance; vc.panner.rolloffFactor = R.rolloff; }
+      crowdPanner.refDistance = SOUND.crowd.refDistance;
+    },
     setVolumes({ master: m = 0.8, engine = 1, fx = 1, ambience = 1 }, t = ctx.currentTime) {
       glide(master.gain, m, t, 0.02); glide(engineBus.gain, engine, t, 0.02); glide(fxBus.gain, fx, t, 0.02); glide(ambBus.gain, ambience, t, 0.02);
     },

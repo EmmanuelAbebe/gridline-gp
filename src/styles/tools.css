@@ -1,19 +1,19 @@
 /* ---- design tools: T = tweak panel, L = HUD layout mode ---- */
-#tweak{position:fixed;top:0;right:0;bottom:0;width:350px;max-width:100vw;overflow:auto;z-index:50;background:var(--panel-solid);border-left:1px solid var(--rule);padding:12px 12px 40px;display:grid;gap:8px;align-content:start;font-size:13px;-webkit-user-select:text;user-select:text;touch-action:auto}
-#tweak .tw-head{display:flex;justify-content:space-between;align-items:center;font-family:var(--display);font-size:18px;letter-spacing:.06em;text-transform:uppercase}
-#tweak details{border:1px solid var(--rule);border-radius:3px}
-#tweak summary{cursor:pointer;padding:8px 10px;font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.08em;text-transform:uppercase}
-#tweak .tw-body{padding:4px 10px 10px;display:grid;gap:6px}
-#tweak .tw-row{display:grid;grid-template-columns:92px 1fr 66px;gap:8px;align-items:center}
-#tweak .tw-row.wide{grid-template-columns:92px 1fr}
-#tweak .tw-row>span{color:var(--muted)}
-#tweak .tw-row input[type=range]{width:100%;min-width:0;accent-color:var(--amber)}
-#tweak input[type=number],#tweak input[type=text],#tweak select,#layBar select{min-width:0;background:#1d232b;color:var(--text);border:1px solid var(--rule);border-radius:3px;padding:3px 6px;font:inherit}
-#tweak input[type=color]{width:100%;height:26px;padding:0;border:1px solid var(--rule);border-radius:3px;background:none}
-#tweak .tw-check{display:flex;gap:8px;align-items:center;cursor:pointer}
-#tweak .tw-sub{margin-top:6px;font-family:var(--display);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-#tweak .tw-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
-#tweak .tw-note{margin:0;color:var(--muted);line-height:1.45}
+:is(#tweak,#studio){position:fixed;top:0;right:0;bottom:0;width:350px;max-width:100vw;overflow:auto;z-index:50;background:var(--panel-solid);border-left:1px solid var(--rule);padding:12px 12px 40px;display:grid;gap:8px;align-content:start;font-size:13px;-webkit-user-select:text;user-select:text;touch-action:auto}
+:is(#tweak,#studio) .tw-head{display:flex;justify-content:space-between;align-items:center;font-family:var(--display);font-size:18px;letter-spacing:.06em;text-transform:uppercase}
+:is(#tweak,#studio) details{border:1px solid var(--rule);border-radius:3px}
+:is(#tweak,#studio) summary{cursor:pointer;padding:8px 10px;font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.08em;text-transform:uppercase}
+:is(#tweak,#studio) .tw-body{padding:4px 10px 10px;display:grid;gap:6px}
+:is(#tweak,#studio) .tw-row{display:grid;grid-template-columns:92px 1fr 66px;gap:8px;align-items:center}
+:is(#tweak,#studio) .tw-row.wide{grid-template-columns:92px 1fr}
+:is(#tweak,#studio) .tw-row>span{color:var(--muted)}
+:is(#tweak,#studio) .tw-row input[type=range]{width:100%;min-width:0;accent-color:var(--amber)}
+:is(#tweak,#studio) input[type=number],:is(#tweak,#studio) input[type=text],:is(#tweak,#studio) select,#layBar select{min-width:0;background:#1d232b;color:var(--text);border:1px solid var(--rule);border-radius:3px;padding:3px 6px;font:inherit}
+:is(#tweak,#studio) input[type=color]{width:100%;height:26px;padding:0;border:1px solid var(--rule);border-radius:3px;background:none}
+:is(#tweak,#studio) .tw-check{display:flex;gap:8px;align-items:center;cursor:pointer}
+:is(#tweak,#studio) .tw-sub{margin-top:6px;font-family:var(--display);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+:is(#tweak,#studio) .tw-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+:is(#tweak,#studio) .tw-note{margin:0;color:var(--muted);line-height:1.45}
 #layBar{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px;max-width:calc(100vw - 32px)}
 #layBar .tw-note{color:var(--muted);font-size:13px;min-width:150px}
 .layout-mode .lay-target{cursor:move;pointer-events:auto!important;outline:1px dashed rgba(255,194,26,.65);outline-offset:3px;touch-action:none}
@@ -38,3 +38,8 @@
 .im-tips{margin:0;padding-left:18px;display:grid;gap:6px;color:var(--text);line-height:1.45}
 .im-tips code{background:#1d232b;padding:1px 5px;border-radius:3px}
 .padrow #testCtlBtn{margin-left:auto;flex:none}
+/* sound studio: same panel look as the design tools, a little wider, choice buttons light up */
+#studio{width:420px;z-index:55}
+#studio .tw-row{grid-template-columns:150px 1fr 56px}
+#studio .tw-row.wide{grid-template-columns:96px 1fr}
+#studio .tw-btns .iconbtn.on{background:var(--amber);color:#111}

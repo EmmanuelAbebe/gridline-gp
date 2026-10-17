@@ -25,10 +25,12 @@ export function chain(...nodes) { for (let i = 0; i < nodes.length - 1; i++) nod
 export const glide = (param, value, t, tc = 0.03) => param.setTargetAtTime(value, t, tc);
 
 // Engine waves (see SOUND.engine): harmonic n of the 1.5-order base; even n = firing orders, odd n = half orders.
+// Rebuilt when the wave settings change (Sound Studio); voices compare the returned object and swap waves.
 const waves = new WeakMap();
 export function engineWaves(ctx) {
-  if (!waves.has(ctx)) {
-    const E = SOUND.engine, make = tilt => {
+  const E = SOUND.engine, key = [E.harmonics, E.halfOrder, E.loadTilt, E.coastTilt].join('|');
+  if (waves.get(ctx)?.key !== key) {
+    const make = tilt => {
       const re = new Float32Array(E.harmonics + 1), im = new Float32Array(E.harmonics + 1);
       for (let n = 1; n <= E.harmonics; n++) {
         const a = (n % 2 ? E.halfOrder : 1) / n ** tilt;
@@ -36,7 +38,7 @@ export function engineWaves(ctx) {
       }
       return ctx.createPeriodicWave(re, im);
     };
-    waves.set(ctx, { load: make(E.loadTilt), coast: make(E.coastTilt) });
+    waves.set(ctx, { key, load: make(E.loadTilt), coast: make(E.coastTilt) });
   }
   return waves.get(ctx);
 }

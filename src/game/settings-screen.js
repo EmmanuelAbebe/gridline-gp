@@ -71,6 +71,7 @@ const TABS = [
     seg('doppler', 'Doppler', ON_OFF, v => v ? 'Cars rise in pitch coming at you and drop going away, by the real speed difference: strongest when you are slow or stopped.' : 'Other cars keep their own pitch.'),
     slider('shake', 'Camera shake', v => v ? v + ' %' : 'OFF', () => 'A jolt when a car passes close, buffeting in dirty air.'),
     seg('shiftBeep', 'Shift beep', ON_OFF, () => 'A beep in your ear at the shift point (semi-auto and manual), as some drivers use.'),
+    buttons(['Sound studio: tweak the sound by ear', 'studio']),
     { type: 'html', html: '<p class="lbl" style="margin:4px 0 0">Test sounds</p>' },
     buttons(...Object.entries(SCENARIOS).map(([id, s]) => [s.label, 'sound:' + id])),
     { type: 'html', html: '<p class="note">The cockpit tests use the driver mix: what you hear in the helmet, earplugs in. The others are an outside microphone.</p>' },

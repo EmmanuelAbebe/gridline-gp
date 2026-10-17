@@ -99,6 +99,16 @@ async function smokeTest(win) {
   info.settings = await win.webContents.executeJavaScript(`(() => { const shown = !document.getElementById('setOv').hidden;
     const smoothing = document.querySelector('#setBody output').textContent; document.getElementById('setClose').click();
     return { shown, smoothing, backToPause: !document.getElementById('pauseOv').hidden }; })()`);
+  // Sound studio from Settings → Sound: the bench plays (no errors), screenshot, close
+  await win.webContents.executeJavaScript(`document.getElementById('pauseSettingsBtn').click();
+    [...document.querySelectorAll('#setTabs button')].find(b => b.textContent === 'Sound').click();
+    [...document.querySelectorAll('#setBody button')].find(b => b.textContent.startsWith('Sound studio')).click()`);
+  await new Promise(r => setTimeout(r, 1500));
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-studio.png'), (await win.webContents.capturePage()).toPNG());
+  info.studio = await win.webContents.executeJavaScript(`(() => { const shown = !document.getElementById('studio').hidden;
+    const sliders = document.querySelectorAll('#studio input[type=range]').length;
+    [...document.querySelectorAll('#studio button')].find(b => b.textContent === 'CLOSE').click();
+    return { shown, sliders, closed: document.getElementById('studio').hidden }; })()`);
   // exercise the bridge the way a player would: full-screen button, then the quit button (which must end the app)
   await win.webContents.executeJavaScript(`document.getElementById('fullStartBtn').click()`);
   await new Promise(r => setTimeout(r, 1500));
