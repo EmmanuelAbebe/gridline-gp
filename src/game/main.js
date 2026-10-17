@@ -30,6 +30,7 @@ import { AppShell } from './app-shell.js';
 import { InputMonitor } from './input-monitor.js';
 import { SettingsScreen } from './settings-screen.js';
 import { createSlipstreamFx } from './slipstream-fx.js';
+import { createRaceAudio } from './race-audio.js';
 
 const { EV } = SIM;
 // circuits are built on first use (~40 ms) and kept
@@ -40,6 +41,7 @@ const carModels = SIM.DRIVERS.map(d => CarModels.create(Display.scene, d, Design
 const modelOf = new Map(SIM.DRIVERS.map((d, i) => [d.code, carModels[i]]));   // car model by driver code
 carModels[SIM.DRIVERS.findIndex(d => d.player)].mountScreen(WheelScreen.mesh);
 const wakes = createSlipstreamFx(Display.scene, SIM.DRIVERS);
+const raceAudio = createRaceAudio();
 const timers = createTimers();
 const fpsMonitor = createFpsMonitor(CONFIG.fps.window);
 
@@ -84,7 +86,8 @@ const savePrefs = () => Settings.set(CONFIG.storageKeys.prefs, JSON.stringify(ga
 // Push the prefs into the modules that use them.
 function applyPrefs() {
   const p = game.prefs;
-  Input.setConfig(p); Sound.setVolume(p.volume / 100); Sound.setMuted(p.muted); Hud.setMuted(p.muted); Hud.showFps(p.showFps);
+  Input.setConfig(p); Sound.setMuted(p.muted);
+  Sound.setVolumes({ master: p.volume / 100, engine: p.engineVol / 100, fx: p.fxVol / 100, ambience: p.ambVol / 100 }); Hud.setMuted(p.muted); Hud.showFps(p.showFps);
 }
 // controller steering smoothing level → how fast the car's steering may follow (SIM drivePlayer steerRate)
 const steerRate = () => game.prefs.smoothing ? PREFS.smoothingRate / game.prefs.smoothing : Infinity;
@@ -133,7 +136,7 @@ function newRace() {
   Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, autoShiftHinted: false, queueHinted: false,
     resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
     lights: { t: 0, lit: 0, hold: L.holdMin + Math.random() * L.holdRand } });
-  setStartLights(0); Hud.showLights(true); Hud.setLapTimes(0, 0);
+  setStartLights(0); Hud.showLights(true); Hud.setLapTimes(0, 0); raceAudio.reset();
   Screens.show(null); Screens.hud(true);
   snapCamera();
 }
@@ -314,6 +317,7 @@ SettingsScreen.bind({
       for (const k of ['smoothing', 'calm', 'deadZone', 'range', 'curve', 'pedalDeadZone']) game.prefs[k] = PREFS.defaults[k];
       setPref('smoothing', PREFS.defaults.smoothing); SettingsScreen.redraw();
     } else if (name === 'inputs') InputMonitor.toggle(true);
+    else if (name.startsWith('sound:')) Sound.test(name.slice(6));
     else if (name === 'fullscreen') AppShell.toggleFullscreen();
     else if (name === 'tweak') { SettingsScreen.close(); TweakPanel.toggle(); }
     else if (name === 'layout') { SettingsScreen.close(); toggleLayout(); }
@@ -370,13 +374,13 @@ function saveSetup() {
 const renderSetup = Screens.bindSetup(game.setup, SIM.DRIVERS.length, Object.values(SIM.CIRCUITS), saveSetup);
 
 // ---- per-frame ----
-// Gear, rev lights (0..1, all lit at the shift point) and engine pitch (0..1, idle..limiter) from the car's drivetrain.
+// Gear and rev lights (0..1, all lit at the shift point) from the car's drivetrain.
 // On the grid the gearbox is in neutral and the revs follow the throttle.
 const V = SIM.VEHICLE, REV_FROM = CONFIG.revLights.from;
 function dashGear(p, onLights, thr) {
   const rpm = onLights ? V.idle + thr * (V.redline - V.idle) * (0.9 + Math.random() * 0.06) : p.rpm;
   return { gear: onLights ? 'N' : p.gear === -1 ? 'R' : String(p.gear), next: !onLights && p.downQueue > 0 ? p.gear - p.downQueue : null,
-    revs: SIM.clamp((rpm - REV_FROM) / (V.autoUp - REV_FROM), 0, 1), pitch: SIM.clamp((rpm - V.idle) / (V.limiter - V.idle), 0, 1) };
+    revs: SIM.clamp((rpm - REV_FROM) / (V.autoUp - REV_FROM), 0, 1) };
 }
 function renderFrame(dt) {
   const { race, player } = game, cam = CameraRig.mode;
@@ -395,8 +399,7 @@ function renderFrame(dt) {
     lapInvalid: !onLights && !player.finished && player.lapInvalid,
   });
   WheelScreen.update(dt, { gear: gi.gear, kmh: Math.round(Math.abs(player.v) * 3.6), revs: gi.revs });
-  Sound.engine(gi.pitch, player.finished ? 0 : drive.thr, isRunning());
-  Sound.tyres(onLights ? 0 : Math.max(player.slideF, player.slideR, player.lockF || player.spinR ? 1 : 0) * Math.min(1, Math.abs(player.v) / 15), isRunning());
+  raceAudio.frame(dt, { race, player, cam, running: isRunning(), onLights, thr: player.finished ? 0 : drive.thr, brk: player.finished ? 0 : drive.brk, prefs: game.prefs });
   if (onLights) wakes.hideAll(); else wakes.update(race, player);
   if ((game.towerT -= dt) <= 0) {
     game.towerT = CONFIG.towerInterval;
@@ -444,6 +447,7 @@ function setTrack(id) {
   world = buildWorld(Display.scene, track, SIM.DRIVERS);
   if (game.gfx) world.applyProfile(GFX_PROFILES[game.gfx]);
   minimap = createMinimap($('map'), track);
+  { const g = track.landmarks.grandstand ?? 0, lat = -(track.WALL + 10); Sound.setCrowd(track.PX[g] + track.NX[g] * lat, 6, track.PZ[g] + track.NZ[g] * lat); }
   const { PX, PZ, NX, NZ, TX, TZ, N } = track;
   Display.camera.position.set(PX[0] + NX[0]*30 - TX[0]*40, 14, PZ[0] + NZ[0]*30 - TZ[0]*40);
   Display.camera.lookAt(PX[N-40], 0, PZ[N-40]);

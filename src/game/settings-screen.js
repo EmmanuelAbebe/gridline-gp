@@ -1,4 +1,5 @@
 import { PREFS, RACE_SETUP } from './config.js';
+import { SCENARIOS } from './audio/scenarios.js';
 import { $, createEmitter } from './util.js';
 
 // Settings screen (start menu SETTINGS, pause menu, or O): tabs of controls built from the TABS table below.
@@ -64,6 +65,15 @@ const TABS = [
   { id: 'sound', label: 'Sound', items: [
     seg('sound', 'Sound', ON_OFF),
     slider('volume', 'Volume', pct),
+    slider('engineVol', 'Engines', pct, () => 'Your engine and the other cars.'),
+    slider('fxVol', 'Effects', pct, () => 'Tyres, kerbs, wind, shifts, crashes, cars rushing past.'),
+    slider('ambVol', 'Crowd', pct),
+    seg('doppler', 'Doppler', ON_OFF, v => v ? 'Cars rise in pitch coming at you and drop going away, by the real speed difference: strongest when you are slow or stopped.' : 'Other cars keep their own pitch.'),
+    slider('shake', 'Camera shake', v => v ? v + ' %' : 'OFF', () => 'A jolt when a car passes close, buffeting in dirty air.'),
+    seg('shiftBeep', 'Shift beep', ON_OFF, () => 'A beep in your ear at the shift point (semi-auto and manual), as some drivers use.'),
+    { type: 'html', html: '<p class="lbl" style="margin:4px 0 0">Test sounds</p>' },
+    buttons(...Object.entries(SCENARIOS).map(([id, s]) => [s.label, 'sound:' + id])),
+    { type: 'html', html: '<p class="note">The cockpit tests use the driver mix: what you hear in the helmet, earplugs in. The others are an outside microphone.</p>' },
   ] },
   { id: 'tools', label: 'Tools', items: [
     buttons(['Design tools', 'tweak'], ['HUD layout', 'layout'], ['Input monitor', 'inputs']),

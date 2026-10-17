@@ -17,7 +17,7 @@ export function drivePlayer(race, c, inp, dt) {
   c.steerIn ??= c.steer;
   c.steerIn += clamp(clamp(inp.steer, -1, 1) - c.steerIn, -dt*rate, dt*rate);
   c.steer = inp.analog && inp.calm ? calmSteer(c.steerIn, c.v, inp.calm) : c.steerIn;
-  c.brake = inp.brk;
+  c.brake = inp.brk; c.thr = inp.thr;
   slipstream(race, c, progress);
   stepChassis(race, c, inp, dt);
   afterMove(race, c);
@@ -117,7 +117,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
     c.mistakeEnd = (c.idx + Math.round(AI.mistakes.length / ds)) % N;
     brk = 0;
   }
-  c.brake = brk;
+  c.brake = brk; c.thr = thr;
   slipstream(race, c, progress);
   stepChassis(race, c, { thr, brk, steer: c.steer, shift: 0 }, dt);
   afterMove(race, c);

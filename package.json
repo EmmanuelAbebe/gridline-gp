@@ -15,7 +15,8 @@
     "check": "eslint . && node --test \"tests/**/*.test.js\" && vite build",
     "sim-test": "node tools/sim-test.mjs",
     "sim-trace": "node tools/sim-trace.mjs",
-    "car-shot": "electron tools/car-shot.cjs"
+    "car-shot": "electron tools/car-shot.cjs",
+    "sound-check": "electron tools/sound-check.cjs"
   },
   "devDependencies": {
     "electron": "^44.5.1",

@@ -82,9 +82,13 @@ export const PREFS = Object.freeze({
     calm: 100,           // % calm steering at speed (SIM drivePlayer calm): small tilts as gentle as the original game
     pedalDeadZone: 0,    // % of trigger travel ignored at rest
     volume: 80, muted: false, showFps: true,
+    engineVol: 100, fxVol: 100, ambVol: 100,   // % per sound bus
+    doppler: true, shiftBeep: false,
+    shake: 70,           // % camera shake (close passes, dirty air)
   },
   smoothingRate: 40,     // smoothing level n: the steering moves at most 40/n of full lock per second
-  limits: { smoothing: [0, 10, 1], deadZone: [0, 20, 0.5], range: [40, 100, 5], curve: [1, 3, 0.1], calm: [0, 100, 10], pedalDeadZone: [0, 20, 1], volume: [0, 100, 5] },
+  limits: { smoothing: [0, 10, 1], deadZone: [0, 20, 0.5], range: [40, 100, 5], curve: [1, 3, 0.1], calm: [0, 100, 10], pedalDeadZone: [0, 20, 1], volume: [0, 100, 5],
+    engineVol: [0, 150, 5], fxVol: [0, 150, 5], ambVol: [0, 150, 5], shake: [0, 150, 10] },
 });
 
 export const PHASE = Object.freeze({ MENU: 'menu', LIGHTS: 'lights', RACE: 'race', DONE: 'done' });

@@ -1,67 +1,40 @@
-// WebAudio "engine" (saw + square through a low-pass) plus one-shot beeps. Starts on a user gesture.
+// Live sound: the AudioContext (started on the first user gesture, as browsers require) around the sound engine
+// (audio/sound-engine.js), plus mute, volumes and the test scenes. Without a context every call is a no-op.
+import { createSoundEngine } from './audio/sound-engine.js';
+import { playScenario } from './audio/scenarios.js';
+
 export const Sound = (() => {
-  let ctx = null, osc1, osc2, filter, gain, master, noiseBuf = null, muted = false, squeal = null, volume = 0.8;
+  let ctx = null, engine = null, muted = false, stopTest = null, crowdAt = null;
+  const vol = { master: 0.8, engine: 1, fx: 1, ambience: 1 };
+  const apply = () => engine && engine.setVolumes({ ...vol, master: muted ? 0 : vol.master });
   function init() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
     try {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
-      master = ctx.createGain(); master.gain.value = volume; master.connect(ctx.destination);
-      osc1 = ctx.createOscillator(); osc1.type = 'sawtooth';
-      osc2 = ctx.createOscillator(); osc2.type = 'square';
-      filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 1100; filter.Q.value = 3;
-      gain = ctx.createGain(); gain.gain.value = 0;
-      osc1.connect(filter); osc2.connect(filter); filter.connect(gain); gain.connect(master);
-      osc1.start(); osc2.start();
-    } catch (e) { ctx = null; }
+      ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+      engine = createSoundEngine(ctx); apply();
+      if (crowdAt) engine.setCrowd(...crowdAt);
+    } catch (e) { ctx = engine = null; }
   }
-  function beep(freq, dur) {
-    if (!ctx || muted) return;
-    const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = freq;
-    g.gain.setValueAtTime(0.12, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
-    o.connect(g); g.connect(master); o.start(); o.stop(ctx.currentTime + dur);
-  }
-  // Crash/contact: a burst of filtered noise plus a falling low thump, both scaled by strength (0..1).
-  function impact(strength, { cutoff, thump }) {
-    if (!ctx || muted) return;
-    if (!noiseBuf) {
-      noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.5), ctx.sampleRate);
-      const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    }
-    const t = ctx.currentTime, vol = 0.05 + 0.25 * strength, dur = 0.12 + 0.25 * strength;
-    const envelope = peak => { const g = ctx.createGain(); g.gain.setValueAtTime(peak, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur); g.connect(master); return g; };
-    const src = ctx.createBufferSource(), lp = ctx.createBiquadFilter();
-    src.buffer = noiseBuf; lp.type = 'lowpass'; lp.frequency.value = cutoff * (0.7 + 0.6 * strength);
-    src.connect(lp); lp.connect(envelope(vol)); src.start(t); src.stop(t + dur);
-    const o = ctx.createOscillator(); o.type = 'sine';
-    o.frequency.setValueAtTime(thump * 1.6, t); o.frequency.exponentialRampToValueAtTime(thump * 0.6, t + dur);
-    o.connect(envelope(vol * 1.2)); o.start(t); o.stop(t + dur);
-  }
-  // Tyre squeal: looped noise through a band-pass, loudness = how far past the grip limit the tyres are (0..1).
-  function tyres(amount, active) {
-    if (!ctx) return;
-    if (!squeal) {
-      const buf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate), d = buf.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-      const src = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), g = ctx.createGain();
-      src.buffer = buf; src.loop = true; bp.type = 'bandpass'; bp.frequency.value = 1300; bp.Q.value = 4; g.gain.value = 0;
-      src.connect(bp); bp.connect(g); g.connect(master); src.start();
-      squeal = { g, bp };
-    }
-    const t = ctx.currentTime, a = muted || !active ? 0 : Math.max(0, amount - 0.05);
-    squeal.g.gain.setTargetAtTime(a * 0.09, t, 0.05);
-    squeal.bp.frequency.setTargetAtTime(1100 + a * 600, t, 0.08);
-  }
-  function engine(rpm, thr, active) {
-    if (!ctx) return;
-    const t = ctx.currentTime, f = 55 + rpm * 230;
-    osc1.frequency.setTargetAtTime(f, t, 0.03); osc2.frequency.setTargetAtTime(f * 0.5, t, 0.03);
-    filter.frequency.setTargetAtTime(600 + thr * 1400 + rpm * 600, t, 0.05);
-    gain.gain.setTargetAtTime(muted || !active ? 0 : 0.018 + thr * 0.03, t, 0.06);
-  }
-  return { init, beep, impact, engine, tyres,
-    toggleMute() { muted = !muted; return muted; },
-    setMuted(m) { muted = !!m; },
+  return {
+    init,
+    get ready() { return !!engine; },
+    beep(freq, dur) { if (engine && !muted) engine.beep(freq, dur); },
+    impact(strength, kind) { if (engine && !muted) engine.impact(strength, kind); },
+    whoosh(side, strength) { if (engine && !muted) engine.whoosh(side, strength); },
+    frame(state) { if (engine && !stopTest) engine.frame(state); },
+    setCrowd(x, y, z) { crowdAt = [x, y, z]; if (engine) engine.setCrowd(x, y, z); },
+    // volumes 0..1: master, engine, fx, ambience
+    setVolumes(v) { Object.assign(vol, v); apply(); },
+    setMuted(m) { muted = !!m; apply(); },
     get muted() { return muted; },
-    setVolume(v) { volume = v; if (master) master.gain.setTargetAtTime(v, ctx.currentTime, 0.02); },   // 0..1
+    // test scenes (audio/scenarios.js); the game's own sound pauses while one plays
+    test(name, onEnd) {
+      init(); if (!engine) return;
+      stopTest?.();
+      const done = () => { stopTest = null; onEnd?.(); };
+      const end = playScenario(engine, name, ctx.currentTime, true, done);
+      stopTest = () => { end(); done(); };
+    },
+    stopTest() { stopTest?.(); },
   };
 })();

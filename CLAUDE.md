@@ -147,7 +147,20 @@ Tunables live in data tables (config modules), not inline in the logic.
      binds get/set/note/action. Prefs (`PREFS` in config.js: defaults + limits) saved in localStorage `gridline.prefs`;
      gearbox/assists stay in `game.setup` and apply to the player at once, mid-race too. Opening it mid-race pauses;
      closing returns to the menu it came from. The start menu shows a one-line summary of these choices.
-   - `Sound` (WebAudio saw+square engine + beeps; pitch from real rpm). Dash (`dashGear` in main.js): gear and rpm
+   - Sound (2026-10-16, modern V6 hybrid, all synthesised, no files): `audio/audio-config.js` `SOUND` (every tunable),
+     `audio/synth.js` (noise, filters, engine PeriodicWaves, one-shots, HRTF panners; everything takes a time `t`, so
+     it renders offline too), `audio/engine-voice.js` (full voice: load/coast waves at rpm/60 × 1.5 (even harmonics =
+     firing orders 3, 6…, odd = the 90° V6's uneven half orders) cross-faded by throttle, pitch wander, firing-rate
+     combustion noise, tanh rasp, exhaust low-pass, limiter cut, airbox / turbo (spool + lift chirp) / ERS outputs,
+     overrun pops; light voice for rivals), `audio/sound-engine.js` (buses engine/fx/ambience → compressor; `cabin` EQ
+     = the mix: driver (cockpit camera: helmet + earplugs, lows up, highs −9 dB, airbox on, wind down) or tv; 4 rival
+     voices on the nearest cars with HRTF, air absorption and Doppler f' = f(c + v_listener·n)/(c + v_source·n) from
+     real velocities; tyres, kerb/grass/gravel, wind + dirty-air buffet, crowd at the grandstand, shift crack/blip/
+     clunk, shift beep, impacts with metal ring + debris, pass-by whoosh), `audio/scenarios.js` (test scenes:
+     Settings → Sound → Test sounds; `npm run sound-check -- dir` renders them offline in Electron to WAVs and checks
+     levels + Doppler against the formula). `sound.js` = the live AudioContext + mute/volumes; `race-audio.js` builds
+     the per-frame state (listener = camera, its velocity from motion; grid revs before the lights) and turns
+     `proximity.js` close passes into whoosh + `CameraRig.shake`; dirty air → `CameraRig.buffet`. Dash (`dashGear` in main.js): gear and rpm
      from the car; rev lights from `CONFIG.revLights.from` (8500) to the auto upshift point (all lit = shift).
    - Assists OFF/LOW/MEDIUM/HIGH/CUSTOM (Settings → Driving, `game.setup.assists` → `assistsOf()` → `player.assists`; CUSTOM =
      steering help / stability / traction control / ABS each OFF/LOW/ON, ON = medium's strength, `game.setup.custom`;
