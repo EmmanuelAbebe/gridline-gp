@@ -185,7 +185,7 @@ function onPlayerEvent(c, e) {
     case EV.CONTACT: {
       // a tyre wall or TecPro soaks a hit up (softer sound, less shake) than Armco or concrete (SIM BARRIERS)
       const sfx = e === EV.WALL ? SFX.wall : SFX.contact, hard = e === EV.WALL ? c.impactHard ?? 1 : 1;
-      if (c.impact >= sfx.min) { const k = Math.min(1, c.impact / sfx.fullAt) * hard; Sound.impact(k, sfx); CameraRig.shake(k * 0.6); }
+      if (c.impact >= sfx.min) { const k = Math.min(1, c.impact / sfx.fullAt) * hard; Sound.impact(k, sfx); CameraRig.shake(k * (e === EV.WALL ? 0.6 : 0.35)); }
       break;
     }
     case EV.SAUSAGE:          // a raised kerb: a bang and a jolt

@@ -84,6 +84,16 @@ test('contact: a nose-to-tail hit pushes apart, trades speed and reports the imp
   assert.deepEqual(a.events, [], 'still touching: no second event');
 });
 
+test('contact: an off-centre tap turns the cars only as much as their inertia allows, momentum kept', () => {
+  const race = S.createRace(1, { drivers: S.DRIVERS.slice(0, 2) }), [a, b] = race.cars, C = S.CONTACT;
+  a.h = b.h = 0; b.x = a.x + C.front + C.rear + 2 * C.radius - 0.6; b.z = a.z + 1.4; a.v = 60; b.v = 45;   // 15 m/s, corner to corner
+  for (const c of [a, b]) { c.vy = 0; c.yawRate = 0; }
+  S.collide(race);
+  assert.ok(Math.abs(a.v + b.v - 105) < 1e-6 && Math.abs(a.vy + b.vy) < 1e-6, 'momentum kept');
+  assert.ok(Math.abs(a.yawRate) < 1.5 && Math.abs(b.yawRate) < 1.5, `yaw ${a.yawRate.toFixed(2)} / ${b.yawRate.toFixed(2)} rad/s`);
+  assert.ok(b.v - 45 < 0.6 * 15, `shove ${(b.v - 45).toFixed(1)} m/s`);
+});
+
 test('contact: cars fit side by side a car width apart; a side swipe pushes sideways', () => {
   const race = S.createRace(1, { drivers: S.DRIVERS.slice(0, 2) }), [a, b] = race.cars;
   a.h = b.h = 0; a.v = b.v = 50; b.x = a.x; b.z = a.z + 2 * S.CONTACT.radius + 0.2;   // +z is to the right at h = 0

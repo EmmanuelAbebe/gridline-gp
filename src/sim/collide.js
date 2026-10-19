@@ -1,7 +1,7 @@
 // Car-to-car contact. Each car is a capsule along its heading (CONTACT: a segment from `rear` to `front` metres from
 // the car's origin, swept by `radius`), about the size of the bodywork, so cars can run side by side a car's width
 // apart. Overlapping cars are pushed apart, and closing speed along the contact normal is exchanged as an impulse
-// (equal masses, a little bounce): nose-to-tail the rear car slows and the front one is shoved, a side swipe pushes
+// (equal masses, rigid-body impulse at the contact point, a little bounce): nose-to-tail the rear car slows and the front one is shoved, a side swipe pushes
 // both sideways, and an off-centre hit turns the car (`spin`). EV.CONTACT fires once per touch with `impact` =
 // closing speed (m/s).
 import { CONTACT, EV, CHASSIS } from './tuning.js';
@@ -33,6 +33,8 @@ export function carGap(a, b) {
 }
 
 const velocity = c => [Math.cos(c.h) * c.v - Math.sin(c.h) * c.vy, Math.sin(c.h) * c.v + Math.cos(c.h) * c.vy];
+// velocity of the point (px, pz) of car c: the centre's plus the yaw rate's (ω × r)
+const pointVelocity = (c, px, pz) => { const [vx, vz] = velocity(c); return [vx - c.yawRate * (pz - c.z), vz + c.yawRate * (px - c.x)]; };
 // add a world-space velocity change (jx, jz) applied at (px, pz) to car c
 function kick(c, jx, jz, px, pz) {
   const fx = Math.cos(c.h), fz = Math.sin(c.h);
@@ -51,13 +53,18 @@ export function collide(race) {
     let nx = qx - px, nz = qz - pz; const d = Math.hypot(nx, nz);
     if (d >= 2 * RADIUS) continue;
     if (d > 1e-6) { nx /= d; nz /= d; } else { nx = -Math.sin(a.h); nz = Math.cos(a.h); }   // centred on top: push sideways
-    const [vax, vaz] = velocity(a), [vbx, vbz] = velocity(b);
+    const mx = (px + qx) / 2, mz = (pz + qz) / 2;
+    const [vax, vaz] = pointVelocity(a, mx, mz), [vbx, vbz] = pointVelocity(b, mx, mz);
     const closing = Math.max(0, (vax - vbx) * nx + (vaz - vbz) * nz);
     for (const c of [a, b]) { if (!c.wasTouching && !c.touching) { c.impact = closing; c.events.push(EV.CONTACT); } c.touching = true; }
     const push = (2 * RADIUS - d) / 2;
     a.x -= nx*push; a.z -= nz*push; b.x += nx*push; b.z += nz*push;
     if (closing > 0) {
-      const jn = (1 + E) * closing / 2, mx = (px + qx) / 2, mz = (pz + qz) / 2;
+      // rigid-body impulse (per unit mass, equal masses): an off-centre hit spends part of itself turning the cars,
+      // so it shoves less and the turn it gives is what the inertia allows (before 2026-10-18 the impulse ignored
+      // rotation: a 15 m/s tap at the corner of a gearbox yawed the car at 3.6 rad/s; user: "too violent")
+      const ca = (mx - a.x) * nz - (mz - a.z) * nx, cb = (mx - b.x) * nz - (mz - b.z) * nx;
+      const jn = (1 + E) * closing / (2 + SPIN * (ca * ca + cb * cb) / K2);
       kick(a, -nx*jn, -nz*jn, mx, mz); kick(b, nx*jn, nz*jn, mx, mz);
     }
     afterMove(race, a); afterMove(race, b);

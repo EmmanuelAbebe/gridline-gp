@@ -10,7 +10,7 @@ export const TUNING = Object.freeze({
 // Car contact (collide.js): each car is a capsule from `rear` to `front` m along its heading (from the car's origin,
 // between the axles), `radius` wide each side: about the bodywork. restitution = bounce of the closing speed, spin =
 // how much an off-centre hit turns the car (0..1 of the free-body rotation).
-export const CONTACT = Object.freeze({ rear: 1.5, front: 2.3, radius: 1.05, restitution: 0.2, spin: 0.5 });
+export const CONTACT = Object.freeze({ rear: 1.5, front: 2.3, radius: 1.05, restitution: 0.1, spin: 0.3 });
 
 // The AI drivers (driving.js): they drive the same car as the player, through steering, throttle and brake.
 export const AI = Object.freeze({

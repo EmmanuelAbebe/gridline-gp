@@ -115,7 +115,7 @@ Tunables live in data tables (config modules), not inline in the logic.
      and `trailLat`/`trailT` per track sample = its wake), `race.js` (formats, createRace, progress, lap +
      flag rules, checkpoints, order, gapTo), `motion.js` (afterMove), `driving.js` (drivePlayer, driveAI),
      `collide.js` (cars are capsules `CONTACT` rear 1.5 / front 2.3 m, radius 1.05: side by side fits at 2.1 m;
-     impulses along the contact normal with restitution 0.2 change v, vy and yaw (`spin`); `carGap(a, b)`).
+     rigid-body impulse at the contact point (point velocities incl. yaw, effective mass incl. rotation scaled by `spin` 0.3), restitution 0.1, changes v, vy and yaw; `carGap(a, b)`. 2026-10-18 user: crashes "too violent": the old impulse ignored rotation, a 15 m/s corner-to-corner tap yawed a car at 3.6 rad/s, now 1.5; contact camera shake lighter than walls).
    - Car state: `x, z, h`, `v`, `idx` (nearest sample), `lat`, `lap`. `progress(race, c)` = `lap * N + idx`.
      After every move: `updateLap` (wrap >0.8N → <0.2N), `updateCheckpoints`, `resolveWalls`, `updateSurface`.
    - `drivePlayer(race, car, {steer, thr, brk, analog, steerRate, shift}, dt)`: steering ramp (keyboard 5/s; analog
