@@ -10,7 +10,7 @@ Turning the prototype into a production-grade game. Agreed order: (1) foundation
 (2) sim-cade physics in 4 parts: [done] engine/gearbox/downforce/slipstream; [done] tyre + chassis model;
 [done] AI on the same chassis (racing line, racecraft, mistakes, difficulty); [done 2026-10-19] tuning screen = the garage (setup + open mods + livery), (3) merge the Phone-wheel project into this one ([done 2026-10-19] server inside Electron,
 pairing from the settings menu; still to do: vibration + rev lights on the phone, BOX button on the phone, per-device mapping for wheels/joysticks), (4) car/world visuals: [done 2026-10-14] brake lights, cockpit view (user's seat: eye 0.33 m back / 0.77 m high, wheel 0.675 m high; wheel at x 0.18 so the arms reach it, halo visible, driver's arms/legs),
-F1-style curved car with textures; still to do: crash physics, scenery, (5) HUD, menus, presentation.
+F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing section, teardrop from above, legs behind the shoulders) + a curved centre pillar (design v8, 2026-10-19); still to do: crash physics, scenery, (5) HUD, menus, presentation.
 
 ## Files
 - `index.html`: markup only; loads `src/game/main.js` as a module.
@@ -341,10 +341,10 @@ Tunables live in data tables (config modules), not inline in the logic.
      `car.screen` are positioned relative to the wheel centre; `car.steering` = { pivot (centre in car space),
      rot [x,y,z]°, scale [x,y,z], lock° }. Model: root → mount (pivot/rot/scale) → steering mesh (turns with
      input) → screen (always fixed to the wheel). Panel shows wheel width/height in metres via
-     `CarModels.measure` (natural size × scale). Design format v7; `migrate()` converts v1 (car-space steer
+     `CarModels.measure` (natural size × scale). Design format v8; `migrate()` converts v1 (car-space steer
      parts), v2 (tilt/uniform scale/screen.steer) and v3/v4 (body parts and wheels replaced by the new defaults, the
      player's steering-wheel parts and settings kept; an untouched wheel x 0.45 moves to 0.18). Parts named "… R" get a mirrored "… L" twin (`withMirrors`).
-     Shapes: box, rounded (extruded rounded rectangle, `radius`), sphere, cylinder, torus, loft, wing, rod, decal, body; optional `finish`.
+     Shapes: box, rounded (extruded rounded rectangle, `radius`), sphere, cylinder, torus, loft, wing, rod, decal, body, tube (oval section along `path` [x, y, z, halfW?, halfH?], `section`, `up`); optional `finish`.
    - `WheelScreen`: canvas texture on the player's steering wheel (top rev lights, middle speed, bottom gear),
      placed by `car.screen` (pos/rot relative to the wheel, size in metres, show), redrawn ≤ 30 Hz only when visible and values change.
      Key handling ignores keystrokes while a tool input has focus.

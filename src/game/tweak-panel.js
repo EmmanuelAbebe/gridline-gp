@@ -72,7 +72,7 @@ export const TweakPanel = (() => {
 
   // ---- car body ----
   const SIZE_LABELS = { box: ['Length', 'Height', 'Width'], rounded: ['Thickness', 'Height', 'Width'], sphere: ['Radius'], cylinder: ['Radius', 'Length'], torus: ['Radius', 'Tube', 'Arc °'],
-    loft: ['Scale x', 'Scale y', 'Scale z'], body: ['Scale x', 'Scale y', 'Scale z'], wing: ['Chord', 'Thickness', 'Span'], rod: ['To x', 'To y', 'To z'], decal: ['Width', 'Height'] };
+    loft: ['Scale x', 'Scale y', 'Scale z'], body: ['Scale x', 'Scale y', 'Scale z'], tube: ['Scale x', 'Scale y', 'Scale z'], wing: ['Chord', 'Thickness', 'Span'], rod: ['To x', 'To y', 'To z'], decal: ['Width', 'Height'] };
   const COLOR_ROLES = [['body', 'Team colour'], ['accent', 'Team accent'], ['dark', 'Carbon (dark)'], ['tyre', 'Rubber'], ['custom', 'Custom…']];
   function renderParts(body) {
     const parts = Design.data.car.parts, ch = () => Design.changed('car'), redo = () => { ch(); rerender('parts'); };
@@ -91,7 +91,7 @@ export const TweakPanel = (() => {
       const picker = h('input', { type: 'color', value: custom ? p.color : '#ffffff', oninput: e => { p.color = e.target.value; ch(); } });
       list.push(
         textRow('Name', p, 'name', redo),
-        choose('Shape', p.shape, [['box', 'Box'], ['rounded', 'Rounded box'], ['sphere', 'Sphere'], ['cylinder', 'Cylinder'], ['torus', 'Torus / ring'], ['loft', 'Curved body (sections)'], ['body', 'One-piece body'], ['wing', 'Wing'], ['rod', 'Rod'], ['decal', 'Race number']], v => { p.shape = v; redo(); }),
+        choose('Shape', p.shape, [['box', 'Box'], ['rounded', 'Rounded box'], ['sphere', 'Sphere'], ['cylinder', 'Cylinder'], ['torus', 'Torus / ring'], ['loft', 'Curved body (sections)'], ['body', 'One-piece body'], ['tube', 'Tube (path)'], ['wing', 'Wing'], ['rod', 'Rod'], ['decal', 'Race number']], v => { p.shape = v; redo(); }),
         sub('Size (m)'),
         ...SIZE_LABELS[p.shape].map((l, i) => num(l, p, 'size', p.shape === 'torus' && i === 2 ? [1, 360, 1] : p.shape === 'rod' ? [-3, 3, 0.001] : [0.001, 4, 0.001], ch, i)),
         p.shape === 'rounded' && num('Corner radius', p, 'radius', [0, 0.5, 0.001], ch),

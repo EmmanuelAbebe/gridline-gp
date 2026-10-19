@@ -61,6 +61,13 @@ export const Design = (() => {
       const mine = s.car.parts.filter(p => isObj(p) && (p.steer || !known.has(p.name)));
       s.car.parts = clone(DESIGN_DEFAULTS.car.parts.filter(p => !p.steer)).concat(mine.some(p => p.steer) ? [] : clone(DESIGN_DEFAULTS.car.parts.filter(p => p.steer)), mine);
     }
+    if (v < 8 && isObj(s.car) && Array.isArray(s.car.parts)) {
+      // v8: the halo is one swept hoop + pillar (shape 'tube'); the old torus, rod pillar and mount rods go
+      const old = /^(halo|halo pillar|halo mount [RL])$/, at = s.car.parts.findIndex(p => isObj(p) && old.test(p.name));
+      const halo = clone(DESIGN_DEFAULTS.car.parts.filter(p => /^halo/.test(p.name)));
+      s.car.parts = s.car.parts.filter(p => !(isObj(p) && old.test(p.name)));
+      s.car.parts.splice(at < 0 ? s.car.parts.length : Math.min(at, s.car.parts.length), 0, ...halo);
+    }
     s.version = DESIGN_DEFAULTS.version;
     return s;
   }

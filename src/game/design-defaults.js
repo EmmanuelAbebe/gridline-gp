@@ -10,7 +10,7 @@ const mirrorZ = p => ({ ...p, name: p.name.replace(/R(\d?)$/, 'L$1'), pos: [p.po
 const withMirrors = parts => parts.flatMap(p => /R\d?$/.test(p.name) && !p.steer ? [p, mirrorZ(p)] : [p]);
 
 export const DESIGN_DEFAULTS = {
-  version: 7,
+  version: 8,
   // Camera modes, cycled with C / Y. back/side/height/ahead/lookY are metres relative to the car.
   // k = follow stiffness, rigid = no smoothing, cockpitBody = player car shows its cockpit-view parts.
   cameras: [
@@ -94,9 +94,14 @@ export const DESIGN_DEFAULTS = {
       // driver, halo, mirrors
       { name: 'helmet', shape: 'sphere', size: [0.135], pos: [-0.28, 0.8, 0], color: 'accent', show: 'outside' },
       { name: 'visor', shape: 'torus', size: [0.125, 0.026, 130], pos: [-0.28, 0.825, 0], rot: [90, 0, -65], color: '#101215', finish: 'metal', show: 'outside' },
-      { name: 'halo', shape: 'torus', size: [0.4, 0.028, 260], pos: [0.04, 0.96, 0], rot: [90, 0, -130], color: 'dark' },
-      { name: 'halo pillar', shape: 'rod', size: [-0.07, 0.24, 0], radius: 0.03, pos: [0.51, 0.72, 0], color: 'dark' },
-      { name: 'halo mount R', shape: 'rod', size: [0.02, 0.28, 0.0], radius: 0.022, pos: [-0.24, 0.68, 0.31], color: 'dark', show: 'outside' },
+      // halo: one titanium hoop with an aero fairing (oval, slim on top), its legs on the cockpit sides behind the
+      // driver's shoulders, narrowing to the front, where the central pillar curves down to the chassis
+      { name: 'halo', shape: 'tube', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', section: [0.03, 0.017], path: [
+        [-0.34, 0.66, -0.3, 0.05, 0.035], [-0.3, 0.8, -0.3, 0.036, 0.024], [-0.22, 0.915, -0.285], [-0.08, 0.955, -0.255],
+        [0.1, 0.965, -0.2], [0.25, 0.962, -0.13], [0.345, 0.96, -0.06], [0.375, 0.958, 0], [0.345, 0.96, 0.06], [0.25, 0.962, 0.13], [0.1, 0.965, 0.2],
+        [-0.08, 0.955, 0.255], [-0.22, 0.915, 0.285], [-0.3, 0.8, 0.3, 0.036, 0.024], [-0.34, 0.66, 0.3, 0.05, 0.035]] },
+      { name: 'halo pillar', shape: 'tube', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', section: [0.022, 0.026], up: [1, 0, 0], path: [
+        [0.375, 0.96, 0, 0.026, 0.024], [0.43, 0.9, 0], [0.49, 0.8, 0, 0.026, 0.03], [0.535, 0.71, 0, 0.04, 0.05]] },
       { name: 'mirror R', shape: 'rounded', size: [0.07, 0.06, 0.16], radius: 0.02, pos: [0.62, 0.8, 0.5], color: 'body' },
       { name: 'mirror glass R', shape: 'box', size: [0.004, 0.045, 0.14], pos: [0.584, 0.8, 0.5], color: '#9fb0c0', finish: 'metal' },
       { name: 'mirror stalk R', shape: 'rod', size: [0.06, 0.13, 0.12], radius: 0.012, pos: [0.56, 0.66, 0.37], color: 'dark' },

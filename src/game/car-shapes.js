@@ -4,7 +4,7 @@ import { bodyShell } from './car-body.js';
 // Geometry for one car part (Design.data.car.parts), before it is moved to `pos` / turned by `rot`.
 // box, rounded, sphere, cylinder, torus: plain primitives. loft: a smooth body through cross-sections. wing: an
 // airfoil. rod: a tube from `pos` to `pos + size`. decal: a flat face-up square for a texture (the race number).
-// body: the whole body as one surface (car-body.js).
+// body: the whole body as one surface (car-body.js). tube: an oval section swept along a path (the halo).
 const DEG = Math.PI / 180;
 
 // Box with rounded corners on its y-z face (the face you see from the cockpit): an extruded rounded rectangle.
@@ -85,18 +85,71 @@ function rod(size, p) {
   return g;
 }
 
+// Tube: an oval section swept along a smooth path (Catmull-Rom through p.path [[x, y, z, halfW?, halfH?], ...], open
+// ends capped). halfW / halfH per point (default p.section [halfW, halfH], else p.radius) taper it: wide feet, a
+// slim top. The section's height follows p.up (default straight up; sideways where the path runs vertical).
+// size = [x, y, z] scale, like a loft.
+function tube(size, p) {
+  const P = (Array.isArray(p.path) ? p.path : []).filter(q => Array.isArray(q) && q.length >= 3).map(q => q.map(Number));
+  if (P.length < 2) return new THREE.SphereGeometry(0.02, 6, 4);
+  const sec = Array.isArray(p.section) ? p.section : [p.radius || 0.02, p.radius || 0.02];
+  const pts = P.map(q => [q[0], q[1], q[2], q[3] ?? sec[0], q[4] ?? sec[1]]);
+  const SUB = p.smooth || 8, AROUND = p.around || 14, rows = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i - 1] || pts[i], b = pts[i], c = pts[i + 1], d = pts[i + 2] || pts[i + 1];
+    for (let k = 0; k < SUB; k++) rows.push(b.map((_, j) => catmull(a[j], b[j], c[j], d[j], k / SUB)));
+  }
+  rows.push(pts[pts.length - 1]);
+  const up0 = new THREE.Vector3(...(Array.isArray(p.up) ? p.up : [0, 1, 0])).normalize();
+  const pos = [], idx = [], at = rows.map(r => new THREE.Vector3(r[0] * size[0], r[1] * size[1], r[2] * size[2]));
+  const t = new THREE.Vector3(), side = new THREE.Vector3(), up = new THREE.Vector3();
+  rows.forEach((r, j) => {
+    t.subVectors(at[Math.min(j + 1, at.length - 1)], at[Math.max(j - 1, 0)]).normalize();
+    side.crossVectors(t, up0);
+    if (side.lengthSq() < 1e-6) side.crossVectors(t, new THREE.Vector3(1, 0, 0));
+    side.normalize(); up.crossVectors(side, t).normalize();
+    for (let i = 0; i < AROUND; i++) {
+      const a = i / AROUND * Math.PI * 2, c = Math.cos(a) * r[3], s = Math.sin(a) * r[4];
+      pos.push(at[j].x + side.x * c + up.x * s, at[j].y + side.y * c + up.y * s, at[j].z + side.z * c + up.z * s);
+    }
+  });
+  for (let j = 0; j < rows.length - 1; j++) for (let i = 0; i < AROUND; i++) {
+    const a = j * AROUND + i, b = j * AROUND + (i + 1) % AROUND, c = a + AROUND, d = b + AROUND;
+    idx.push(a, b, c, b, d, c);
+  }
+  for (const [j, flip] of [[0, true], [rows.length - 1, false]]) {        // caps
+    const ctr = pos.length / 3; pos.push(at[j].x, at[j].y, at[j].z);
+    for (let i = 0; i < AROUND; i++) { const a = j * AROUND + i, b = j * AROUND + (i + 1) % AROUND; flip ? idx.push(ctr, b, a) : idx.push(ctr, a, b); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  const flat = g.toNonIndexed(); g.dispose();
+  flat.computeVertexNormals();                      // flat caps; the sides are smoothed below
+  smoothSides(flat, AROUND, rows.length);
+  return flat;
+}
+// Smooth normals on a tube's sides (non-indexed: per-face normals from computeVertexNormals): average every
+// corner that shares a position, except the caps (the last 2 × AROUND triangles), which stay flat.
+function smoothSides(g, around, rows) {
+  const P = g.attributes.position.array, N = g.attributes.normal.array, sideVerts = (rows - 1) * around * 6;
+  const key = i => `${P[i].toFixed(5)},${P[i + 1].toFixed(5)},${P[i + 2].toFixed(5)}`, sum = new Map();
+  for (let i = 0; i < sideVerts * 3; i += 3) { const k = key(i), v = sum.get(k) || [0, 0, 0]; v[0] += N[i]; v[1] += N[i + 1]; v[2] += N[i + 2]; sum.set(k, v); }
+  for (let i = 0; i < sideVerts * 3; i += 3) { const v = sum.get(key(i)), l = Math.hypot(...v) || 1; N[i] = v[0] / l; N[i + 1] = v[1] / l; N[i + 2] = v[2] / l; }
+}
+
 export const SHAPES = {
   box:      (s)    => new THREE.BoxGeometry(s[0], s[1], s[2]),
   sphere:   (s)    => new THREE.SphereGeometry(s[0], 20, 14),
   cylinder: (s, p) => new THREE.CylinderGeometry(s[0], s[0], s[1], p.segments || 16),
   rounded:  (s, p) => roundedBox(s[0], s[1], s[2], p.radius),
   torus:    (s)    => { const arc = Math.min(360, Math.max(1, s[2])); return new THREE.TorusGeometry(s[0], s[1], 8, Math.max(8, Math.round(arc / 8)), arc * DEG); },
-  loft, wing, rod,
+  loft, wing, rod, tube,
   body: bodyShell,
   decal:    (s)    => new THREE.PlaneGeometry(s[0], s[1]).rotateX(-Math.PI / 2),
 };
 // Shapes whose size may be negative (rod: a direction) or is a scale (loft); the rest are clamped to > 0.
-export const SIGNED_SIZE = new Set(['rod', 'loft', 'body']);
+export const SIGNED_SIZE = new Set(['rod', 'loft', 'body', 'tube']);
 // Shapes that bring their own texture coordinates (the rest get a projected carbon-weave mapping).
 export const OWN_UV = new Set(['decal']);
 

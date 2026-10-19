@@ -50,6 +50,15 @@ test('design v5 saves: the separate body shapes become the one-piece body, other
   Design.reset();
 });
 
+test('design v7 saves: the old halo (torus, rod pillar, mount rods) becomes the swept hoop + pillar', () => {
+  Design.replace({ version: 7, car: { parts: [{ name: 'halo', shape: 'torus' }, { name: 'halo pillar', shape: 'rod' },
+    { name: 'halo mount R', shape: 'rod' }, { name: 'halo mount L', shape: 'rod' }, { name: 'my part', shape: 'box' }] } });
+  const halo = Design.data.car.parts.filter(p => p.name.startsWith('halo'));
+  assert.deepEqual(halo.map(p => [p.name, p.shape]), [['halo', 'tube'], ['halo pillar', 'tube']]);
+  assert.ok(Design.data.car.parts.some(p => p.name === 'my part'));
+  Design.reset();
+});
+
 test('design v6 saves: the new rear and moving wings replace the default parts, own parts and the steering wheel stay', () => {
   const v6 = [{ name: 'diffuser', shape: 'box' }, { name: 'wing pylon', shape: 'rounded' }, { name: 'rear wing flap', shape: 'wing', rot: [0, 0, -40] },
     { name: 'my camera', shape: 'box', size: [0.1, 0.1, 0.1], pos: [0, 1.2, 0] }, { name: 'wheel body', shape: 'rounded', steer: true, size: [0.05, 0.2, 0.3] }];
