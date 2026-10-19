@@ -206,6 +206,17 @@ def run_cmd(cmd, timeout=10):
         return -1, "", str(err)
 
 
+def is_bt_iface(name):
+    """Linux: a Bluetooth network interface. Named bnep0 by the kernel, but udev often renames it after the
+    adapter's MAC (enx...), so ask the kernel what kind of device it is."""
+    if name.startswith(("bnep", "bt-pan")):
+        return True
+    try:
+        return "DEVTYPE=bluetooth" in Path(f"/sys/class/net/{name}/uevent").read_text()
+    except OSError:
+        return False
+
+
 def bt_link():
     """(interface, IPv4 address) of this PC on a Bluetooth tethering link, or None."""
     if sys.platform.startswith("linux"):
@@ -215,7 +226,7 @@ def bt_link():
         except ValueError:
             links = []
         for link in links:
-            if link.get("ifname", "").startswith(("bnep", "bt-pan")):
+            if is_bt_iface(link.get("ifname", "")):
                 for a in link.get("addr_info", []):
                     if a.get("family") == "inet":
                         return link["ifname"], a["local"]
@@ -299,7 +310,7 @@ def bt_default_route():
     """True when this PC's internet goes out through the Bluetooth link (Linux)."""
     code, out, _ = run_cmd(["ip", "-j", "route", "show", "default"])
     try:
-        return any(r.get("dev", "").startswith(("bnep", "bt-pan")) for r in json.loads(out or "[]"))
+        return any(is_bt_iface(r.get("dev", "")) for r in json.loads(out or "[]"))
     except ValueError:
         return False
 
