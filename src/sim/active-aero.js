@@ -76,7 +76,10 @@ export function updateActiveAero(race, c, inp, dt) {
     if (c.boostOn !== was) emit(c, EV.BOOST, { on: c.boostOn, left: c.boostLeft });
   } else c.boostOn = false;
   // straight mode / corner mode
-  const open = zoneHere && inp.thr >= AA.thr && inp.brk < 0.05 && Math.abs(c.steer) < AA.steer && c.v > AA.minSpeed
+  // opening needs (nearly) full throttle; once open they stay open through the zone on a part throttle (a car held
+  // up behind another), and close on the brakes, a lift below holdThr, steering or a slide
+  const thrOk = inp.thr >= (c.aeroOpen > 0 ? AA.holdThr : AA.thr);
+  const open = zoneHere && thrOk && inp.brk < 0.05 && Math.abs(c.steer) < AA.steer && c.v > AA.minSpeed
     && c.slideR < 0.5 && !c.beached;
   c.aeroOpen = open ? Math.min(1, c.aeroOpen + dt / AA.openTime) : Math.max(0, c.aeroOpen - dt / AA.closeTime);
 }

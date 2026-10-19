@@ -244,5 +244,14 @@ export const CarModels = (() => {
     const b = g.boundingBox, size = parts.length ? [b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z] : [0, 0, 0];
     g.dispose(); return size;
   }
-  return { create, measure, applyProfile(models, p) { const set = p.lambertCars ? MATS.fast : MATS.quality; for (const m of models) m.setMaterials(set); } };
+  // see-through materials for a ghost car (time trial: ghost.js); one shared set
+  let ghostSet = null;
+  function ghostMaterials() {
+    if (!ghostSet) {
+      const m = o => new THREE.MeshLambertMaterial({ transparent: true, opacity: 0.32, depthWrite: false, ...o });
+      ghostSet = { paint: m({ vertexColors: true }), carbon: m({ vertexColors: true }), rubber: m({ vertexColors: true }), metal: m({ vertexColors: true }), tyre: m({ color: 0x2a2c30 }) };
+    }
+    return ghostSet;
+  }
+  return { create, measure, ghostMaterials, applyProfile(models, p) { const set = p.lambertCars ? MATS.fast : MATS.quality; for (const m of models) m.setMaterials(set); } };
 })();

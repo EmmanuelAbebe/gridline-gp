@@ -47,21 +47,25 @@ export function loadPrefs(json) {
 // controller steering smoothing level → how fast the car's steering may follow (SIM drivePlayer steerRate)
 export const steerRate = prefs => prefs.smoothing ? PREFS.smoothingRate / prefs.smoothing : Infinity;
 
+// (time trial: alone on track, laps until you stop, chasing a ghost: ghost.js)
 export const raceFormat = s => s.type === 'timed' ? { type: 'timed', minutes: s.minutes }
-  : s.type === 'unlimited' ? { type: 'unlimited' } : { type: 'laps', laps: s.laps };
+  : s.type === 'unlimited' || s.type === 'trial' ? { type: 'unlimited' } : { type: 'laps', laps: s.laps };
 
 // fuel / tyre / damage choices → createRace's wear option
-export const raceWear = s => ({ fuel: s.fuel, tyres: s.tyres, damage: s.damage === 'on' });
+// (time trial: none, so every lap is comparable)
+export const raceWear = s => s.type === 'trial' ? {} : { fuel: s.fuel, tyres: s.tyres, damage: s.damage === 'on' };
 // active aero / overtake mode choices → createRace's options
 export const raceAero = s => ({ activeAero: s.aero === 'on', overtake: s.aero === 'on' && s.overtake !== 'off' });
 
 // The grid: the fastest `cars - 1` rivals in skill order, with you about three-quarters of the way back.
-export function buildField(cars) {
+// time trial: you alone
+export function buildField(cars, trial = false) {
+  if (trial) return SIM.DRIVERS.filter(d => d.player);
   const you = SIM.DRIVERS.find(d => d.player), rivals = SIM.DRIVERS.filter(d => !d.player).slice(0, cars - 1);
   rivals.splice(Math.round((cars - 1) * 0.78), 0, you);
   return rivals;
 }
-export const playerSlotOf = cars => buildField(cars).findIndex(d => d.player);
+export const playerSlotOf = (cars, trial = false) => buildField(cars, trial).findIndex(d => d.player);
 
 // The player's assists: a preset, or CUSTOM = each assist off / low / on (on = the medium preset's strength).
 export function assistsOf(s) {

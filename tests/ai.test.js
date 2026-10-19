@@ -22,7 +22,7 @@ function race(r, seconds, skills = {}) {
 test('racing line: inside the road, and straighter than the centre line', () => {
   let sumK = 0, sumLK = 0;
   for (let i = 0; i < N; i++) {
-    assert.ok(Math.abs(RO[i]) <= HW - S.AI.lineMargin + 1e-6);
+    assert.ok(Math.abs(RO[i]) <= HW - S.AI.lineEdge + 1e-6);
     sumK += K[i] * K[i]; sumLK += LK[i] * LK[i];
   }
   assert.ok(sumLK < sumK * 0.9, `line curvature² ${sumLK.toFixed(4)} vs centre ${sumK.toFixed(4)}`);

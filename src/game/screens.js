@@ -33,8 +33,10 @@ export const Screens = (() => {
         markSeg($('typeSeg'), 't', setup.type);
         markSeg($('aiSeg'), 'l', setup.ai);
         $('aiNote').textContent = RACE_SETUP.aiLevels[setup.ai].note;
-        $('aiSeg').closest('.row').hidden = $('aiNote').hidden = setup.cars === 1;
-        $('amountRow').hidden = setup.type === 'unlimited';
+        const trial = setup.type === 'trial';
+        $('aiSeg').closest('.row').hidden = $('aiNote').hidden = setup.cars === 1 || trial;
+        $('carsStep').closest('.row').hidden = trial; $('ghostRow').hidden = !trial;
+        $('amountRow').hidden = setup.type === 'unlimited' || trial;
         $('amountLbl').textContent = setup.type === 'timed' ? 'Race time' : 'Laps';
         $('amountVal').textContent = setup.type === 'timed' ? setup.minutes + ' min' : setup.laps + (setup.laps === 1 ? ' lap' : ' laps');
         const [cDown, cUp] = $('carsStep').querySelectorAll('button'), [aDown, aUp] = $('amountStep').querySelectorAll('button');

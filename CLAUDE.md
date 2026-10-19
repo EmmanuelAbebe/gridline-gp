@@ -468,8 +468,45 @@ active aero, 1:02.275 before it): model 1:01.07 (no aero 1:02.54); bot uniform 0
 (no aero 0:58.83). Fastest AI (LEGEND) 66.0 s: the AI profile (minimum-curvature line, steady corner speeds × skill)
 leaves ~8 s on the table, relevant to the parked smarter-AI plan.
 
+## LEGEND AI and racecraft (2026-10-19; user: "making them interesting enough to battle with the player is the key")
+- Line: `racing-lines.js` = time-optimal lines per circuit (made by `npm run lap-optimum -- <id> --margin=2.2
+  --write-line`; regenerate after changing a circuit or the car; a circuit whose N changed falls back). track.js
+  `buildAiProfile`: RO = min-curvature line blended with it (`AI.lineBlend` 0.5: as fast as the full optimal line for
+  the AI, but its edge-to-edge sweeps made side-by-side racing messy), clamped to `lineEdge`; + `APEX` / `BRK` per
+  sample (next corner's apex, samples to its braking zone). VP from the blended line as before.
+- Measured with full-field AI races (40 races: 5 circuits × 4 seeds × 2, 9 cars, 5 laps; pass = order flip held 3 s;
+  hard contact > 3 m/s): following the line *exactly* turned the field into a train (~1/5 of the passes) and the
+  fast line made traffic contact-prone; the old rate-limited follow (lineRate/lineSlope: every car a slightly
+  different, smoothed line) is what makes passing possible, so it stays. Tried and dropped (each worse: more contacts
+  or fewer passes): slipstream tuck-and-pull-out, inside dives with later braking, clean-air lines when following,
+  yielding in a squeeze, braking-point traits (they never changed anything: braking comes from VP a few metres ahead).
+- Kept (`AI.craft`, driving.js): defending (a real threat: within defendRange 14 m, in our slipstream, ≥ our speed,
+  decided once per corner between 160 and 40 m before the braking point, never with a car alongside; one move to the
+  inside held to the apex; chance × `traits.defend`), mistakes × (1 + 2.5 × `traits.nerves` × pressure) with a car close
+  behind, side-by-side room from where an AI car is *heading* too, alongside window 8 m, line bias ±0.5 m (±0.8 ran
+  wide on the new line's exits). Result at PRO pace: passes 410 vs old 394, hard 29 vs 27, cuts 5 vs 15, ~7 defensive
+  moves per race; at LEGEND pace on par with the old LEGEND (≈ 470 passes, ~115 hard contacts / 40 races: contact
+  rate rises with pace for both). Drivers have `traits { defend, nerves }`.
+- Active aero hold fix: wings open at ≥ 0.85 throttle, then stay open down to `holdThr` 0.3 (a car held up behind
+  another used to keep them shut on the straights).
+- Levels (config AI_LEVELS): ROOKIE 0.79, CLUB 0.86, PRO 0.93, LEGEND 1.0 (old lap times kept within ~±0.6 s per
+  circuit), ALIEN pace 1.0 + `follow: 6` → createRace `aiFollow`: the line followed 6× more tightly in clean air only
+  (Elkmoor ~30.6, Northfold ~62.2 s vs the user's 61.675). ALIEN-only fields are rough (~130 hard contacts / 40 races).
+- Tests: ai/pit/limits updated (pit: an extra stop for a broken wing is allowed). sim-trace hashes changed (new AI).
+
+## Time trial and ghosts (2026-10-19)
+`ghost.js` (pure, tests/ghost.test.js): `createRecorder` (pose x/z/h at 20 Hz + lap time every 20 samples = splits;
+started at lights out and at every crossing), `ghostPose`, `ghostDelta`, store per circuit × stock/modified
+(`keepGhost` = your best valid lap, localStorage `gridline.ghosts`; files loaded = `gridline.ghosts-loaded`),
+`ghostFile` / `readGhostFile` (`gridlineGhost: 1` JSON). Race type TIME TRIAL (`setup.type 'trial'`): you alone,
+unlimited laps, no wear; start menu ghost row (shown ghost, EXPORT your best as a file, LOAD a friend's, MINE = back to
+yours); in the race a see-through car (CarModels.ghostMaterials) at the same time into its lap and the HUD "Ghost" delta
+(from the first crossing). Every race records your laps (a new best becomes your ghost). Smoke test: TIME TRIAL row and a
+solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-ghost.png`.
+
 ## Ideas not done yet
-- Smarter AI (parked 2026-10-19 by the user "for later once better game mechanics are made"). User beat Northfold in
+- Smarter AI: started 2026-10-19 (see "LEGEND AI and racecraft"); still open: rivals that learn the player's lines.
+  (Earlier notes:) parked 2026-10-19 by the user "for later once better game mechanics are made". User beat Northfold in
   1:02.275 (fastest AI solo 67.6 s) with other lines through turns 2–3 and 5–6; LEGEND "feels fair: rewards good tries,
   punishes mistakes", so keep its feel. Cause: `RO` is minimum-curvature and `VP` has no acceleration pass, so the AI
   can't trade entry speed for exit speed (corner pairs, exits onto straights). Plan: (1) minimum-time line (forward

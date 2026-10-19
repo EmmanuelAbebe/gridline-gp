@@ -21,9 +21,10 @@ function normalizeFormat(f) {
 }
 // aiPace scales every AI driver's skill (difficulty, 1 = their own). wear = { fuel, tyres, damage } (pit.js setupWear).
 // seed: the race's random numbers (AI line biases and mistakes: race.rng); the same seed and inputs = the same race.
-export function createRace(format, { track = DEFAULT_TRACK, drivers = DRIVERS, aiPace = 1, wear = {}, seed = randomSeed(), activeAero = false, overtake = activeAero } = {}) {
+export function createRace(format, { track = DEFAULT_TRACK, drivers = DRIVERS, aiPace = 1, wear = {}, seed = randomSeed(), activeAero = false, overtake = activeAero, aiFollow = 1 } = {}) {
   const fmt = normalizeFormat(format), rng = mulberry32(seed);
-  const race = { track, format: fmt, aiPace, seed, rng, activeAero, overtake,   // active-aero.js
+  // aiFollow: how tightly the AI follows its line (× lineSlope / lineSpeed, driving.js): ALIEN drives it closer
+  const race = { track, format: fmt, aiPace, aiFollow, seed, rng, activeAero, overtake,   // active-aero.js
     laps: fmt.type === 'laps' ? fmt.laps : Infinity,               // distance; Infinity for timed / unlimited
     duration: fmt.type === 'timed' ? fmt.minutes * 60 : Infinity,  // seconds; the clock starts at lights out
     chequered: false, t: 0, fastest: Infinity, fastestBy: /** @type {Car} */ (null), wear: /** @type {Wear} */ (null), cars: drivers.map((d, slot) => createCar(track, d, slot, rng)) };

@@ -118,3 +118,8 @@ table.res i{display:inline-block;width:4px;height:14px;vertical-align:-2px;margi
 .gar-warn{border:1px solid rgba(255,194,26,.45);background:rgba(255,194,26,.07);border-radius:4px;padding:10px 12px;display:grid;gap:4px}
 .gar-warn b{font-family:var(--display);letter-spacing:.08em;color:var(--amber);text-transform:uppercase}
 .res td .mod{margin-left:8px;font-family:var(--display);font-size:11px;letter-spacing:.1em;color:var(--amber);border:1px solid rgba(255,194,26,.5);border-radius:2px;padding:0 4px}
+
+/* time trial: the ghost row on the start menu */
+.ghost-ctl{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.ghost-ctl output{font-size:13px;color:var(--muted);margin-right:4px}
+.ghost-ctl .iconbtn[disabled]{opacity:.4;cursor:default}

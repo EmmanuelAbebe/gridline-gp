@@ -90,10 +90,13 @@ test('tyres wear out over the laps (and sliding wears them faster); worn tyres g
 });
 
 test('AI strategy: on a long race with thirsty cars every AI car stops once and nobody runs dry', () => seeded(() => {
-  const race = S.createRace(6, { aiPace: 0.95, wear: { fuel: 'high', tyres: 'normal', damage: true } }), seen = run(S, race, 700, aiDriver(S));
+  // (a car that comes in with a broken front wing, e.g. from a lap-1 incident, may stop once more for it)
+  const race = S.createRace(6, { aiPace: 0.95, wear: { fuel: 'high', tyres: 'normal', damage: true } }), wingStops = new Map();
+  const seen = run(S, race, 700, (r, c) => { aiDriver(S)(r, c); if (c.events.some(e => e.type === S.EV.PIT_IN) && c.damage.wing > S.PIT.ai.wing) wingStops.set(c, (wingStops.get(c) || 0) + 1); });
   assert.ok(race.cars.every(c => c.finished), 'all finished');
   for (const c of race.cars) {
-    assert.equal(c.pitStops, 1, `${c.code}: ${c.pitStops} stops`);
+    const wing = wingStops.get(c) || 0, other = c.pitStops - wing;     // a wing stop refuels too, so it may be the only one
+    assert.ok(other === 1 || (other === 0 && wing >= 1), `${c.code}: ${c.pitStops} stops (${wing} for the wing)`);
     assert.ok(!seen.get(c)[S.EV.FUEL_OUT], `${c.code} ran dry`);
   }
   const walls = race.cars.reduce((n, c) => n + (seen.get(c)[S.EV.WALL] || 0), 0);

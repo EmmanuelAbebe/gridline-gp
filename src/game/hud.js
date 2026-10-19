@@ -70,6 +70,12 @@ export const Hud = (() => {
       setText('tCur', lapTime);
       setOnce('lapInvalid', lapInvalid, on => $('tCur').classList.toggle('invalid', on));
     },
+    // time trial: your lap time minus the ghost's at the same point (+ = slower; null = no ghost / before the first split)
+    setDelta(d, on) {
+      setOnce('deltaOn', on, v => { $('tDelta').hidden = $('deltaLbl').hidden = !v; });
+      const t = d === null || d === undefined ? '–' : (d > 0 ? '+' : d < 0 ? '−' : '±') + Math.abs(d).toFixed(2);
+      setOnce('deltaTxt', t, v => { $('tDelta').textContent = v; $('tDelta').className = 'num ' + (d > 0.005 ? 'slower' : d < -0.005 ? 'faster' : ''); });
+    },
     // car condition rows (only what the race uses) and the pit status line
     updateCar(race, c) {
       const W = race.wear, on = !!(W && (W.fuelLaps || W.tyreLaps || W.damage));

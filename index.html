@@ -23,6 +23,7 @@
     </div>
     <div class="times num">
       <span class="lbl">Time</span><span id="tCur">0:00.000</span>
+      <span class="lbl" id="deltaLbl" hidden>Ghost</span><span id="tDelta" class="num" hidden>–</span>
       <span class="lbl">Last</span><span id="tLast">–</span>
       <span class="lbl">Best</span><span id="tBest" class="best">–</span>
     </div>
@@ -97,6 +98,10 @@
     <div class="row">
       <span class="lbl">Race type</span>
       <div class="seg" id="typeSeg"></div>
+    </div>
+    <div class="row" id="ghostRow" hidden>
+      <span class="lbl">Ghost</span>
+      <div class="ghost-ctl"><output id="ghostVal">–</output><button class="iconbtn" id="ghostExport" type="button" title="Save your best lap here to a file, to send to a friend">EXPORT</button><button class="iconbtn" id="ghostLoad" type="button" title="Race a lap from a file (a friend's)">LOAD</button><button class="iconbtn" id="ghostClear" type="button" title="Back to your own best">MINE</button><input type="file" id="ghostFile" accept=".json,application/json" hidden></div>
     </div>
     <div class="row" id="amountRow">
       <span class="lbl" id="amountLbl">Laps</span>

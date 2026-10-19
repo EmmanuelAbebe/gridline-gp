@@ -4,9 +4,13 @@
 //     on lateral offsets, the car's centre kept on the tarmac: no track-limit cuts, full grip).
 //  2. The real physics: a bot drives that line in the full sim (chassis.js, medium assists) and pushes its speed
 //     profile as far as it goes without walls, cuts or spins.
-// Usage: node tools/lap-optimum.mjs [circuit=northfold] [--no-aero] [--margin=0.3]
+// Usage: node tools/lap-optimum.mjs [circuit=northfold] [--no-aero] [--margin=0.3] [--tune] [--push=a,b,...]
+//   --write-line: store the optimised line (control offsets) in src/sim/racing-lines.js for the AI (track.js uses it;
+//   run it with --margin=<AI.lineMargin> for every circuit after changing a circuit or the car), then stop.
 import { SIM } from '../src/sim/index.js';
 import { CAR, CHASSIS, ACTIVE_AERO as AA, TUNING, ASSISTS } from '../src/sim/tuning.js';
+import { RACING_LINES } from '../src/sim/racing-lines.js';
+import fs from 'node:fs';
 
 const args = process.argv.slice(2), id = args.find(a => !a.startsWith('--')) || 'northfold';
 const aero = !args.includes('--no-aero'), margin = +(args.find(a => a.startsWith('--margin=')) || '=0.3').split('=')[1];
@@ -102,6 +106,22 @@ lapTime(expand());
 const line = Float64Array.from(off), prof = Float64Array.from(env);
 let openShare = 0, top = 0; for (let i = 0; i < N; i++) { openShare += open[i] * DS[i]; top = Math.max(top, v[i]); }
 console.log(`QSS on the optimised line: ${fmt(best)}  (${evals} evaluations, top speed ${(top * 3.6).toFixed(0)} km/h, wings open ${(openShare / T.L * 100).toFixed(0)}% of the lap)`);
+if (args.includes('--write-line')) {
+  const lines = { ...RACING_LINES, [id]: { N, step: STEP, margin, lap: +best.toFixed(3), offsets: [...ctrl].map(v => +v.toFixed(3)) } };
+  const body = Object.entries(lines).sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, l]) => `  ${k}: { N: ${l.N}, step: ${l.step}, margin: ${l.margin}, lap: ${l.lap},\n    offsets: [${l.offsets.join(', ')}] },`).join('\n');
+  fs.writeFileSync(new URL('../src/sim/racing-lines.js', import.meta.url), `// Time-optimal racing lines for the AI, one per circuit (generated: npm run lap-optimum -- <circuit> --margin=<m>
+// --write-line). Lateral offsets of the line (m, + = right of the centre line) at every \`step\`-th track sample,
+// joined by a periodic Catmull-Rom spline (track.js aiLine). \`N\` = the circuit's sample count it was made for (a
+// changed circuit falls back to the minimum-curvature line); \`margin\` = metres kept inside the road edge; \`lap\` =
+// the lap model's time on it (s).
+export const RACING_LINES = {
+${body}
+};
+`);
+  console.log(`wrote the ${id} line to src/sim/racing-lines.js`);
+  process.exit(0);
+}
 
 // ---------- 2. the real physics: a bot on that line ----------
 // pure pursuit on the line + the AI's speed logic on the braking envelope × `push`

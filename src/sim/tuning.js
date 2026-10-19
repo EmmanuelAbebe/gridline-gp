@@ -18,7 +18,9 @@ export const AI = Object.freeze({
   grip: 1.0,           // share of the cornering grip the speed profile plans with, on the racing line
   brake: 0.85,          // share of the braking limit the profile plans with
   dirtyTime: 0.8,      // s: how fast the AI adapts its corner speeds to the dirty air it is in
-  lineMargin: 2.2,      // m: the racing line keeps the car's centre this far inside the road edge
+  lineMargin: 2.2,      // m: the fallback (minimum-curvature) line keeps the car's centre this far inside the road edge
+  lineBlend: 0.5,       // the AI's line: this share of the time-optimal line, the rest minimum curvature (track.js)
+  lineEdge: 1.4,        // m: the stored time-optimal line (racing-lines.js, made with a 2.2 m margin) never closer than this
   lineStrides: [24, 12, 6, 3], lineIterations: 300,   // racing-line smoothing passes, coarse to fine (track.js)
   look: 8, lookTime: 0.3,   // steering aims at a point this far ahead: metres + seconds × speed
   yawGain: 0.6,         // steering correction toward the turn rate the path needs
@@ -32,12 +34,22 @@ export const AI = Object.freeze({
   // racecraft (m): bodies touch at 2 × CONTACT.radius sideways. A car within followRange ahead and closer than sideGap
   // sideways is in our lane: move to pass it; closer than followLat we can't get by yet, so close only to followGap
   // (followGain m/s per metre). A car within ±alongside along the track: keep sideGap from it.
-  sideGap: 3.4, followLat: 2.3, followRange: 40, followGap: 8, followGain: 0.6, alongside: 6,
+  sideGap: 3.4, followLat: 2.3, followRange: 40, followGap: 8, followGain: 0.6, alongside: 8,
   cutRange: 10,         // m: a car this close ahead counts where it is heading as well as where it is
   recoverSpeed: 8,      // m/s: pointing the wrong way (after a spin), turn back at this speed
   // late braking: per braking zone (speed to lose > minDrop m/s), chance × (1 − driver skill) × 10; the next `length`
   // metres are then driven `over` too fast
   mistakes: Object.freeze({ chance: 0.12, over: [0.06, 0.14], length: 140, minDrop: 8 }),
+  // racecraft (driving.js; m unless noted). Drivers' traits 0..1 (drivers.js `traits`, 0.5 when missing) scale them.
+  // racecraft (driving.js; m unless noted). Drivers' traits 0..1 (drivers.js `traits`, 0.5 when missing) scale them.
+  craft: Object.freeze({
+    behindRange: 30,    // a car this close behind puts the driver under pressure (0 at 30 m .. 1 alongside)
+    pressureMistakes: 2.5,   // mistake chance × (1 + this × nerves × pressure)
+    defendRange: 14, defendFrom: 160, defendLate: 40,   // defend against a car within defendRange, decided between
+                        // defendFrom and defendLate m before the braking point (not later: no blocking in the braking zone)
+    defendChance: 1.2,  // chance × defend trait of covering the inside (once per corner)
+    defendMargin: 2.2,  // the defensive line keeps this far inside the road edge
+  }),
   assists: 'medium',    // the AI drives with the same assists the game defaults to
 });
 
@@ -222,6 +234,7 @@ export const ACTIVE_AERO = Object.freeze({
   downforceCut: 0.36,   // share of the downforce gone (the floor keeps the rest)
   openTime: 0.35, closeTime: 0.18,   // s for the flaps to open / close fully
   thr: 0.85, steer: 0.3, minSpeed: 30,   // open only above this throttle, below this steering, above this speed (m/s)
+  holdThr: 0.3,         // once open, they stay open down to this throttle
   zone: Object.freeze({ minLength: 180, closeAhead: 45, look: 90 }),   // m: shortest zone; close this far before
                         // braking; corners checked this far ahead
 });

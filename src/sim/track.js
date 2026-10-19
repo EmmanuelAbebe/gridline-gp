@@ -1,10 +1,11 @@
 // Track construction: a circuit's control points → closed centripetal Catmull-Rom → N equal-length samples with
 // tangents, right-hand normals, signed curvature, bounds, and the AI's speed profile and racing line.
-import { AI, TRACK_DEFAULTS, GRID, LIMITS } from './tuning.js';
+import { AI, TRACK_DEFAULTS, GRID, LIMITS, TUNING } from './tuning.js';
 import { cornerSpeed, brakeLimit } from './vehicle.js';
 import { buildRunoff } from './runoff.js';
 import { buildPitLane } from './pit.js';
 import { buildAeroZones } from './active-aero.js';
+import { RACING_LINES } from './racing-lines.js';
 import { CIRCUITS } from './circuits.js';
 import { clamp, wrapA, wrapIdx } from './math.js';
 /** @typedef {import('./types.js').Track} Track */
@@ -43,14 +44,28 @@ function resampleClosed(dense, N) {
   return { PX, PZ, L, ds };
 }
 
-// AI reference: RO = racing-line offset toward corner insides; VP = speed profile along that line (corner limit with
+// AI reference: RO = racing-line offset: the stored time-optimal line (racing-lines.js), else a minimum-curvature one; VP = speed profile along that line (corner limit with
 // downforce from the line's own curvature, then braking look-back). Straights are V_CAP: the engine and drag decide.
-function buildAiProfile({ N, HW, ds, K, PX, PZ, NX, NZ }) {
+// The time-optimal line stored for this circuit (racing-lines.js, made by tools/lap-optimum.mjs), as offsets per
+// sample, or null when there is none or the circuit changed since (other sample count).
+function storedLine(id, N, HW) {
+  const L = RACING_LINES[id];
+  if (!L || L.N !== N) return null;
+  const C = L.offsets, M = C.length, RO = new Float64Array(N), lim = HW - AI.lineEdge;
+  const cat = (a, b, c, d, t) => 0.5 * (2*b + (c - a)*t + (2*a - 5*b + 4*c - d)*t*t + (3*b - a - 3*c + d)*t*t*t);
+  for (let i = 0; i < N; i++) {
+    const s = i / L.step, m = Math.floor(s), at = k => C[((m + k) % M + M) % M];
+    RO[i] = clamp(cat(at(-1), at(0), at(1), at(2), s - m), -lim, lim);
+  }
+  return RO;
+}
+
+function buildAiProfile({ id, N, HW, ds, K, PX, PZ, NX, NZ }) {
   const { grip, brake } = AI;
   // the line: a minimum-curvature path within the road (outside → apex → outside). Each point moves to where it best
   // straightens the line with its neighbours `s` and 2·s samples away (least squared second difference), first on a
   // coarse set of points, then finer, filling in between.
-  const RO = new Float64Array(N), lim = HW - AI.lineMargin;
+  const stored = storedLine(id, N, HW), RO = new Float64Array(N), lim = HW - AI.lineMargin;
   const at = (j, o) => { j = wrapIdx(j, N); return [PX[j] + NX[j]*RO[j], PZ[j] + NZ[j]*RO[j]][o]; };
   for (const s of AI.lineStrides) {
     for (let it = 0; it < AI.lineIterations; it++) for (let i = 0; i < N; i += s) {
@@ -60,6 +75,9 @@ function buildAiProfile({ N, HW, ds, K, PX, PZ, NX, NZ }) {
     }
     for (let i = 0; i < N; i++) if (i % s) { const i0 = i - i % s, f = (i % s) / s; RO[i] = RO[i0]*(1-f) + RO[(i0+s)%N]*f; }
   }
+  // blend with the stored time-optimal line: AI.lineBlend 0 = minimum curvature (gentle, leaves room in traffic),
+  // 1 = the time-optimal line (fastest alone, but its edge-to-edge sweeps make side-by-side racing messy)
+  if (stored) for (let i = 0; i < N; i++) RO[i] += (stored[i] - RO[i]) * AI.lineBlend;
   // the line: segment lengths and headings, curvature over ±W samples (same window as K)
   const LS = new Float32Array(N), LH = new Float32Array(N), LK = new Float32Array(N), W = 5;
   for (let i = 0; i < N; i++) {
@@ -76,7 +94,21 @@ function buildAiProfile({ N, HW, ds, K, PX, PZ, NX, NZ }) {
   for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) {
     const j = (i+1)%N; VP[i] = Math.min(VP[i], Math.sqrt(VP[j]*VP[j] + 2*brakeLimit(VP[j])*brake*LS[i]));
   }
-  return { VP, RO, LK };
+  // per sample: the next corner's apex (lowest point of the profile in a braking zone) and how many samples away its
+  // braking zone starts (0 inside it), for the AI's racecraft
+  const APEX = new Int32Array(N), BRK = new Int32Array(N), full = TUNING.V_CAP * 0.97, apexes = [];
+  for (let i = 0; i < N; i++) if (VP[i] < full && VP[i] <= VP[wrapIdx(i-1, N)] && VP[i] < VP[wrapIdx(i+1, N)]) apexes.push(i);
+  if (!apexes.length) apexes.push(0);
+  const starts = apexes.map(a => { let j = a; for (let k = 0; k < N && VP[wrapIdx(j-1, N)] > VP[j] && VP[j] < full; k++) j = wrapIdx(j-1, N); return j; });
+  for (let i = 0; i < N; i++) {
+    // the first apex at or after i (wrapping)
+    let best = 0, bd = Infinity;
+    for (let n = 0; n < apexes.length; n++) { const d = wrapIdx(apexes[n] - i, N); if (d < bd) { bd = d; best = n; } }
+    APEX[i] = apexes[best];
+    const s = starts[best], toStart = wrapIdx(s - i, N);
+    BRK[i] = toStart <= bd ? toStart : 0;                    // past the braking point already: 0
+  }
+  return { VP, RO, LK, APEX, BRK };
 }
 
 export function buildTrack(circuit, opts = {}) {

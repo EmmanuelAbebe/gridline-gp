@@ -192,6 +192,25 @@ async function smokeTest(win) {
     const sliders = document.querySelectorAll('#studio input[type=range]').length;
     [...document.querySelectorAll('#studio button')].find(b => b.textContent === 'CLOSE').click();
     return { shown, sliders, closed: document.getElementById('studio').hidden }; })()`);
+  // time trial: back to the menu, pick TIME TRIAL (ghost row shows, cars / rivals hidden), start: you alone, ghost delta row
+  await win.webContents.executeJavaScript(`document.getElementById('setClose')?.click(); gridlineDebug.toMenu();
+    document.querySelector('#typeSeg [data-t="trial"]').click()`);
+  // (GRIDLINE_SMOKE_GHOST=file: race that ghost lap, loaded the way the LOAD button does)
+  if (process.env.GRIDLINE_SMOKE_GHOST) await win.webContents.executeJavaScript(`gridlineDebug.loadGhost(${JSON.stringify(fs.readFileSync(process.env.GRIDLINE_SMOKE_GHOST, 'utf8'))})`);
+  await new Promise(r => setTimeout(r, 300));
+  info.trial = await win.webContents.executeJavaScript(`({ ghostRow: !document.getElementById('ghostRow').hidden, ghost: document.getElementById('ghostVal').textContent,
+    carsHidden: document.getElementById('carsStep').closest('.row').hidden })`);
+  await win.webContents.executeJavaScript(`document.getElementById('startBtn').click()`);
+  if (process.env.GRIDLINE_SMOKE_GHOST) {      // high camera, just after the start: the ghost pulling away
+    await win.webContents.executeJavaScript(`document.getElementById('camBtn').click()`);
+    await new Promise(r => setTimeout(r, 7600));
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-ghost.png'), (await win.webContents.capturePage()).toPNG());
+  }
+  await new Promise(r => setTimeout(r, 9000));
+  Object.assign(info.trial, await win.webContents.executeJavaScript(`({ cars: document.querySelectorAll('#towerList > *').length,
+    delta: !document.getElementById('tDelta').hidden, lapTime: document.getElementById('tCur').textContent })`));
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-trial.png'), (await win.webContents.capturePage()).toPNG());
+  await win.webContents.executeJavaScript(`gridlineDebug.toMenu()`);
   // exercise the bridge the way a player would: full-screen button, then the quit button (which must end the app)
   await win.webContents.executeJavaScript(`document.getElementById('fullStartBtn').click()`);
   await new Promise(r => setTimeout(r, 1500));

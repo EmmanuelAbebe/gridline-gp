@@ -24,6 +24,7 @@ import { Hud } from './hud.js';
 import { Screens } from './screens.js';
 import { WheelScreen } from './wheel-screen.js';
 import { createMirrors } from './mirrors.js';
+import { createRecorder, ghostPose, ghostDelta, loadGhosts, keepGhost, ghostOf, dropGhost, ghostFile, readGhostFile } from './ghost.js';
 import { HudStyle } from './hud-style.js';
 import { LayoutEditor } from './layout-editor.js';
 import { TweakPanel } from './tweak-panel.js';
@@ -65,11 +66,52 @@ const game = {
   prefs: loadPrefs(Settings.get(CONFIG.storageKeys.prefs)),  // Settings screen: controller, sound, FPS counter
   garage: loadGarage(Settings.get(CONFIG.storageKeys.garage)),    // your car: livery, setup, open mods (garage.js)
   records: loadRecords(Settings.get(CONFIG.storageKeys.records)), // best valid lap per circuit, stock and modified apart
+  // ghost laps (ghost.js): your best per circuit and class, and ones loaded from a file; game.ghost = the one shown
+  ghosts: loadGhosts(Settings.get(CONFIG.storageKeys.ghosts), SIM.CIRCUITS), loadedGhosts: loadGhosts(Settings.get(CONFIG.storageKeys.ghostsLoaded), SIM.CIRCUITS),
+  ghost: null, trial: false,
   lights: { t: 0, lit: 0, hold: 0 }, resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
   towerT: 0, mapT: 0, slowWindows: 0, acc: 0, carsDirty: false,
   pendingShift: 0, autoShiftHinted: false, queueHinted: false, steerRate: Infinity,   // paddle press waiting for the next sim step
 };
 const isRunning = () => !!game.race && game.phase !== PHASE.MENU && !game.paused && !game.frozen;
+
+// ---- ghost laps and time trial (ghost.js) ----
+const recorder = createRecorder();
+const ghostModel = CarModels.create(Display.scene, playerDriver(game.garage), Design.data.car);   // the see-through car
+ghostModel.setMaterials(CarModels.ghostMaterials()); ghostModel.setVisible(false);
+const saveGhosts = () => Settings.set(CONFIG.storageKeys.ghosts, JSON.stringify(game.ghosts));
+const saveLoadedGhosts = () => Settings.set(CONFIG.storageKeys.ghostsLoaded, JSON.stringify(game.loadedGhosts));
+const carModified = () => SIM.isModified(game.garage.mods);
+// the ghost to race on this circuit in this car class: one loaded from a file, else your best
+const activeGhost = (modified = carModified()) => ghostOf(game.loadedGhosts, track.id, modified) || ghostOf(game.ghosts, track.id, modified);
+function renderGhostRow() {
+  const mod = carModified(), mine = ghostOf(game.ghosts, track.id, mod), loaded = ghostOf(game.loadedGhosts, track.id, mod);
+  const g = loaded || mine;
+  $('ghostVal').textContent = g ? `${loaded ? (loaded.driver && loaded.driver !== 'You' ? loaded.driver + "'s lap" : 'Loaded lap') : 'Your best'} ${fmtTime(g.time)}${mod ? ' (modified car)' : ''}`
+    : 'No lap here yet: your first clean lap becomes the ghost';
+  $('ghostExport').disabled = !mine; $('ghostClear').hidden = !loaded;
+}
+$('ghostExport').onclick = () => {
+  const g = ghostOf(game.ghosts, track.id, carModified()); if (!g) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([ghostFile(g)], { type: 'application/json' }));
+  a.download = `gridline-ghost-${track.id}-${fmtTime(g.time).replace(/[:.]/g, '-')}.json`;
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+$('ghostLoad').onclick = () => $('ghostFile').click();
+$('ghostFile').onchange = e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (f) f.text().then(loadGhostText);
+};
+// a ghost file's text (LOAD button): kept as the loaded ghost for its circuit and class, and that circuit picked
+function loadGhostText(text) {
+  const g = readGhostFile(text, SIM.CIRCUITS);
+  if (!g) { Hud.toast('That file is not a Gridline ghost lap'); return; }
+  (game.loadedGhosts[g.circuit] ||= {})[g.modified ? 'modified' : 'stock'] = g; saveLoadedGhosts();
+  if (g.circuit !== track.id) { game.setup.track = g.circuit; setTrack(g.circuit); renderSetup(); saveSetup(); }
+  renderGhostRow(); Hud.toast(`Ghost loaded: ${fmtTime(g.time)} on ${SIM.CIRCUITS[g.circuit].name}`);
+}
+$('ghostClear').onclick = () => { dropGhost(game.loadedGhosts, track.id, carModified()); saveLoadedGhosts(); renderGhostRow(); };
 
 // ---- race setup and prefs (setup-store.js: loading, validation, what they mean for a race) ----
 const savePrefs = () => Settings.set(CONFIG.storageKeys.prefs, JSON.stringify(game.prefs));
@@ -100,8 +142,8 @@ function setStartLights(n) { Hud.setStartLamps(n); world.setStartLights(n); }
 
 function newRace() {
   timers.clear();
-  const s = game.setup, field = buildField(s.cars).map(d => d.player ? playerDriver(game.garage) : d);   // your livery in the tower, map, results
-  const race = SIM.createRace(raceFormat(s), { track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, wear: raceWear(s), ...raceAero(s) });
+  const s = game.setup, field = buildField(s.cars, s.type === 'trial').map(d => d.player ? playerDriver(game.garage) : d);   // your livery in the tower, map, results
+  const race = SIM.createRace(raceFormat(s), { track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, aiFollow: RACE_SETUP.aiLevels[s.ai].follow || 1, wear: raceWear(s), ...raceAero(s) });
   for (const [code, m] of modelOf) m.setVisible(field.some(d => d.code === code));
   const L = CONFIG.lights;
   const player = race.cars.find(c => c.player);
@@ -109,6 +151,9 @@ function newRace() {
   player.assists = assistsOf(game.setup);
   player.spec = playerSpec(game.garage);             // the garage's setup + open mods (the rivals race SIM.STOCK)
   player.boostAuto = s.overtake === 'auto';
+  game.trial = s.type === 'trial'; game.ghost = game.trial ? activeGhost(player.spec.modified) : null; recorder.stop();
+  Hud.setDelta(null, game.trial); ghostModel.setVisible(false);
+  if (game.ghost) ghostModel.setLivery({ ...game.garage.livery, ...(game.ghost.livery || {}) });
   Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, pendingBoost: false, autoShiftHinted: false, queueHinted: false,
     resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
     lights: { t: 0, lit: 0, hold: L.holdMin + Math.random() * L.holdRand } });
@@ -127,6 +172,7 @@ function stepStartLights(dt) {
 
 function lightsOut() {
   game.phase = PHASE.RACE; game.race.t = 0;
+  recorder.start(0);                         // the first lap runs from lights out (lapStart 0)
   setStartLights(0); Hud.flash('GO', 0.8); Sound.beep(...SFX.go);
   timers.after(CONFIG.lights.hideAfterGo, () => Hud.showLights(false));
 }
@@ -137,14 +183,23 @@ function onPlayerEvent(c, e) {
   const race = game.race;
   showMessage(messageFor(e, c, race));
   switch (e.type) {
-    case EV.LAP:
+    case EV.LAP: {
       Hud.setLapTimes(e.time, c.bestLap, e.invalid);
+      // the ghost: keep the lap when it is your best valid one here (in this car class); in a time trial race it next
+      const g = recorder.lap(e.time, { circuit: race.track.id, modified: c.spec.modified, driver: 'You', date: Date.now(),
+        livery: { color: game.garage.livery.color, accent: game.garage.livery.accent } });
+      recorder.start(c.lapStart);
+      if (!e.invalid && g && keepGhost(game.ghosts, g)) {
+        saveGhosts();
+        if (game.trial && !ghostOf(game.loadedGhosts, race.track.id, c.spec.modified)) { game.ghost = g; ghostModel.setLivery({ ...game.garage.livery, ...g.livery }); }
+      }
       if (!e.invalid && recordLap(game.records, race.track.id, c.spec.modified, e.time)) {
         Settings.set(CONFIG.storageKeys.records, JSON.stringify(game.records)); describeRecord();
         showMessage({ toast: `New lap record${c.spec.modified ? ' (modified car)' : ''}  ${fmtTime(e.time)}`, kind: 'purple' });
       }
       if (c.lap === race.laps && !c.finished) announceFinalLap();
       break;
+    }
     case EV.CUT: Sound.beep(...SFX.cut); break;
     case EV.SHIFT_DENIED:     // manual: a downshift waiting for the revs to drop (shown in the gear label)
       if (!game.queueHinted) { game.queueHinted = true; showMessage(SAY.downQueued); }
@@ -205,6 +260,7 @@ function simStep(dt) {
     else SIM.driveAI(race, c, dt, c.finished ? CONFIG.finishedAiSkill : 0);
   }
   SIM.collide(race);
+  if (!game.player.finished) recorder.sample(game.player, race.t); else recorder.stop();
   for (const c of race.cars) drainEvents(c);
   watchRace(race);
   if (game.resultsAt > 0 && race.t >= game.resultsAt && !game.resultsShown) showResults();
@@ -271,11 +327,14 @@ const describeSetup = () => {
   Screens.summary(setupSummary(game.setup, game.prefs, game.gfx) + (g.mods && SIM.isModified(g.mods) ? ' · car MODIFIED' : custom ? ' · custom car setup' : ''));
 };
 // the start menu's circuit line: your records here
+// the start menu's intro line (a time trial is you alone)
+const describeEvent = () => { const trial = game.setup.type === 'trial'; Screens.describeEvent(track, trial ? 1 : game.setup.cars, playerSlotOf(game.setup.cars, trial)); };
 function describeRecord() {
   const r = game.records[track.id] || {}, parts = [];
   if (r.stock) parts.push('record ' + fmtTime(r.stock));
   if (r.modified) parts.push('modified ' + fmtTime(r.modified));
   Screens.trackInfo(track, SIM.CIRCUITS[track.id].blurb, parts.join(' · '));
+  renderGhostRow();
 }
 
 // ---- garage (garage.js): looks go on your race car at once, setup and mods from the next race ----
@@ -344,7 +403,7 @@ $('garageBtn').onclick = openGarage;
 function saveSetup() {
   setTrack(game.setup.track);
   Settings.set(CONFIG.storageKeys.race, JSON.stringify(game.setup));
-  Screens.describeEvent(track, game.setup.cars, playerSlotOf(game.setup.cars));
+  describeEvent();
   describeSetup();
 }
 const renderSetup = Screens.bindSetup(game.setup, SIM.DRIVERS.length, Object.values(SIM.CIRCUITS), saveSetup);
@@ -364,6 +423,12 @@ function renderFrame(dt) {
   modelOf.get(player.code).setPedals(player.finished ? 0 : Input.drive.thr, player.finished ? 0 : Input.drive.brk);
   for (const c of race.cars) modelOf.get(c.code).sync(c, poseOf(c), dt);
   CameraRig.update(dt, player, !isRunning());
+  // the ghost car (time trial) at the same time into its lap as you are into yours, and the live delta
+  const g = game.ghost, lapT = race.t - player.lapStart, gp = g && game.phase === PHASE.RACE && !player.finished ? ghostPose(g, lapT) : null;
+  ghostModel.setVisible(!!gp);
+  if (gp) ghostModel.sync({ roll: lapT * 60, steer: 0, brake: 0, aeroOpen: 0 }, gp, dt);
+  // (the delta from the first crossing of the line on: from the grid, behind the line, the split would be the lap's last)
+  if (game.trial) Hud.setDelta(gp && player.lap >= 1 ? ghostDelta(g, player.idx, lapT) : null, true);
   const eye = Design.data.cameras.find(c => c.id === 'cockpit') || cam;
   mirrors.update([-eye.back, eye.height, eye.side || 0], cam.cockpitBody ? 'cockpit' : 'outside', Display.camera.position);
   Display.render();
@@ -407,7 +472,7 @@ function frame(now) {
   Input.poll();
   InputMonitor.sample(dt, Input.drive, Input.pad);
   SettingsScreen.tick(Input.pad, Input.shapeSteer(Input.pad.steerRaw));
-  if (game.carsDirty) { game.carsDirty = false; for (const m of carModels) m.rebuild(Design.data.car); mirrors.build(playerModel0.object, Design.data.car.parts); }
+  if (game.carsDirty) { game.carsDirty = false; for (const m of carModels) m.rebuild(Design.data.car); ghostModel.rebuild(Design.data.car); mirrors.build(playerModel0.object, Design.data.car.parts); }
   const running = isRunning();
   if (running) { game.acc += dt; while (game.acc >= STEP) { simStep(STEP); game.acc -= STEP; } }
   else game.acc = 0;
@@ -432,12 +497,12 @@ function setTrack(id) {
   Display.camera.position.set(PX[0] + NX[0]*30 - TX[0]*40, 14, PZ[0] + NZ[0]*30 - TZ[0]*40);
   Display.camera.lookAt(PX[N-40], 0, PZ[N-40]);
   SIM.createRace(1, { track }).cars.forEach((c, i) => { carModels[i].setVisible(true); carModels[i].place(c.x, c.z, c.h); });
-  Screens.describeEvent(track, game.setup.cars, playerSlotOf(game.setup.cars));
+  describeEvent();
   return track;
 }
 
 // ---- boot ----
-installDebug(setTrack, () => track, () => game.player);
+installDebug(setTrack, () => track, () => game.player, () => { game.paused = false; toMenu(); }, loadGhostText);
 setTrack(game.setup.track);
 { const saved = Settings.get(CONFIG.storageKeys.gfx);
   setGfx(Object.hasOwn(GFX_PROFILES, saved || '') ? saved : (Display.gpu.weak ? 'perf' : 'quality'), false); }
@@ -446,7 +511,7 @@ playerModel().setLivery(game.garage.livery);
 if (PhoneWheel.available && game.prefs.phoneAuto) PhoneWheel.start({ link: game.prefs.phoneLink });   // Settings → Controller
 Hud.setPad(false, Input.gamepadAllowed);
 HudStyle.apply(CameraRig.mode.id);
-Screens.describeEvent(track, game.setup.cars, playerSlotOf(game.setup.cars));
+describeEvent();
 describeSetup();
 $('loading').hidden = true;
 Screens.show('start', 'startBtn');

@@ -40,15 +40,27 @@ export function calmSteer(s, v, calm, spec = STOCK) {
 }
 
 // The AI drives the same car as the player (chassis.js), only through steering, throttle and brake.
-// Steering: aim at a point on the racing line ahead (pure pursuit: the arc through it gives the curvature), plus a
-// correction toward the turn rate that arc needs, turned into a wheel position for the car's steering lock.
+// Line: track.RO, a blend of the stored time-optimal line and a minimum-curvature one (track.js), + the driver's own
+// bias; the car moves toward it at a limited rate (lineSlope / lineSpeed), so every car drives a slightly different,
+// smoothed version of it: that variety is what makes passing possible (2026-10-19: following the line exactly turned
+// the field into a train, ~1/5 of the passes).
+// Steering: aim at a point on that path ahead (pure pursuit: the arc through it gives the curvature), plus a correction
+// toward the turn rate that arc needs, turned into a wheel position for the car's steering lock.
 // Speed: the profile VP × skill; brake as hard as reaching the profile a few metres ahead needs, else throttle.
-// Skill = the driver's own × the race's AI pace (difficulty). Now and then a driver brakes too late for a corner
-// (less often the better they are) and runs wide. Simple car-ahead avoidance moves the target line.
+// Skill = the driver's own × the race's AI pace (difficulty). Racecraft (AI.craft, the driver's traits):
+//  - passing: a car ahead in our lane → go round it on the side our line is heading (kept once chosen), holding back
+//    until there is room; side by side, keep a car's width from where it is and where it is heading
+//  - defending: a real threat (close behind, in our slipstream, at least as fast) before a braking zone → one move to
+//    cover the inside, held to the apex; decided once per corner, never with a car alongside or in the braking zone
+//  - mistakes: now and then a late brake; weaker drivers more often, nervy ones more with a car right behind
 // skillOverride (0 = the car's own skill) slows finished cars and lets tests drive the player car; no mistakes then.
+// (Tried and measured worse in AI races, so left out: slipstream tuck-and-pull-out, inside dives with later braking,
+// clean-air lines when following, the car behind yielding in a squeeze: more contacts or fewer passes.)
+const TRAITS = Object.freeze({ defend: 0.5, nerves: 0.5 });
+const traitOf = (c, k) => c.traits?.[k] ?? TRAITS[k];
 /** @param {Race} race @param {Car} c */
 export function driveAI(race, c, dt, skillOverride = 0) {
-  const T = race.track, { N, HW, ds, PX, PZ, NX, NZ, VP, RO, LK } = T;
+  const T = race.track, { N, HW, ds, PX, PZ, NX, NZ, VP, RO, LK, BRK, APEX } = T, C = AI.craft;
   c.assists = c.assists || ASSISTS[AI.assists];
   c.aiT = race.t;
   // pit stops: decided once a lap before the entry road (fuel, tyres, damage: pit.js), then the lane drives the car
@@ -58,8 +70,11 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   const sp = Math.max(c.v, 0);
   // mistakes: a late brake, decided when a braking zone starts, lasting through the corner
   if (c.mistakeEnd >= 0 && wrapIdx(c.idx - c.mistakeEnd, N) < N / 2) { c.mistake = 0; c.mistakeEnd = -1; }
+  if (c.defendTo >= 0 && wrapIdx(c.idx - c.defendTo, N) < N / 2) c.defendTo = -1;           // past the apex: defence over
   const skill = (skillOverride || c.skill * (race.aiPace || 1)) * (1 + c.mistake);
   const ti = (c.idx + Math.round((AI.look + sp * AI.lookTime) / ds)) % N;
+  // the next corner: samples to its braking zone, its apex and which side its inside is (+1 = right)
+  const toBrake = BRK[c.idx], apex = APEX[c.idx], inside = Math.sign(LK[apex]) || 1;
   let off = RO[ti] + c.bias;
   // in another car's dirty air the downforce drops (chassis.js): take the corners that much slower (not the straights)
   // (smoothed over AI.dirtyTime s: the wake comes and goes, the speed shouldn't)
@@ -68,23 +83,27 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   const dirty = c.dirtyK;
   const vp = j => VP[j] < TUNING.V_CAP * 0.97 ? VP[j] * dirty : VP[j];
   let targetV = Math.min(vp((c.idx+2)%N), vp((c.idx+6)%N)) * skill;
-  // racecraft: a car ahead in our lane → go round it on the side with room (keeping that side once chosen) and hold
-  // back until there is space; a car alongside → keep a car's width from it, whatever else we wanted
+  // the cars around: ahead in our lane (follow / pass), alongside (keep room), close behind (pressure, defending)
   const myP = progress(race, c), edge = HW - 1.5;
-  let lane = null, lo = -edge, hi = edge;
+  let lane = null, lo = -edge, hi = edge, behind = null;
   for (const o of race.cars) {
-    if (o === c) continue;
+    if (o === c || o.pit) continue;
     const gap = (progress(race, o) - myP) * ds, dlat = o.lat - c.lat;
+    if (gap < 0 && gap > -C.behindRange && Math.abs(dlat) < AI.sideGap * 1.5 && (!behind || gap > behind.gap)) behind = { o, gap };
     // close ahead, also where it is heading: an AI car's target line (it may be about to cut across)
-    const toward = gap < AI.cutRange && race.t - o.aiT < 0.05 ? o.offset - c.offset : dlat;
+    const heading = race.t - o.aiT < 0.05, toward = gap < AI.cutRange && heading ? o.offset - c.offset : dlat;
     const near = Math.min(Math.abs(dlat), Math.abs(toward));
     if (gap < -AI.alongside || gap > AI.followRange || near >= AI.sideGap) continue;
     if (gap > 0 && near < AI.followLat) targetV = Math.min(targetV, o.v + (gap - AI.followGap) * AI.followGain);
     if (gap > AI.alongside) { if (!lane || gap < lane.gap) lane = { o, gap }; }
     else if (Math.abs(dlat) >= AI.sideGap) continue;
-    else if (dlat > 0) hi = Math.min(hi, o.lat - AI.sideGap);
-    else lo = Math.max(lo, o.lat + AI.sideGap);
+    // side by side: keep room from where it is and, for an AI car, where it is heading
+    else if (dlat > 0) hi = Math.min(hi, o.lat - AI.sideGap, heading ? o.offset - AI.sideGap : Infinity);
+    else lo = Math.max(lo, o.lat + AI.sideGap, heading ? o.offset + AI.sideGap : -Infinity);
   }
+  // pressure 0..1: a car close behind (more mistakes)
+  const press = behind ? clamp(1 - (-behind.gap) / C.behindRange, 0, 1) : 0;
+  c.pressure += (press - c.pressure) * Math.min(1, dt * 2);
   if (lane) {
     const { o } = lane;
     if (c.passBy !== o) {
@@ -94,10 +113,20 @@ export function driveAI(race, c, dt, skillOverride = 0) {
     }
     off = o.lat + c.passSide * AI.sideGap;
   } else c.passBy = null;
+  // defend: one move to the inside before the braking zone, held to the apex (only against a real threat: close,
+  // in our slipstream and at least as fast; not with a car already alongside)
+  if (behind && c.defendTo < 0 && !skillOverride && toBrake * ds < C.defendFrom && toBrake * ds > C.defendLate
+      && -behind.gap < C.defendRange && behind.o.slipBy === c && behind.o.v > c.v - 1 && lo === -edge && hi === edge && c.defendZone !== apex) {
+    c.defendZone = apex;                                     // decided once per corner
+    if (race.rng() < traitOf(c, 'defend') * C.defendChance) { c.defendTo = apex; c.defendSide = inside; }
+  }
+  if (c.defendTo >= 0 && !lane) off = c.defendSide * (HW - C.defendMargin);
   off = lo <= hi ? clamp(off, lo, hi) : (lo + hi) / 2;
   off = clamp(off, -edge, edge);
-  const slope = Math.min(AI.lineSlope * sp + 0.3, AI.lineSpeed) * dt;   // never cut across faster than this
-  c.offset += clamp((off - c.offset) * Math.min(1, dt * AI.lineRate), -slope, slope);
+  // (race.aiFollow > 1, ALIEN: the line followed that much more tightly, in clean air only: in traffic like the others)
+  const f = !lane && lo === -edge && hi === edge ? race.aiFollow || 1 : 1;
+  const slope = Math.min(AI.lineSlope * f * sp + 0.3, AI.lineSpeed * f) * dt;   // never cut across faster than this
+  c.offset += clamp((off - c.offset) * Math.min(1, dt * AI.lineRate * f), -slope, slope);
   if (lo <= hi) c.offset = clamp(c.offset, lo, hi);          // the room left by cars alongside, at once
   // steering (target behind, e.g. after a spin: full lock toward it, slowly)
   const tx = PX[ti] + NX[ti]*c.offset - c.x, tz = PZ[ti] + NZ[ti]*c.offset - c.z;
@@ -131,10 +160,11 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   else if (need <= 0) thr = clamp(0.5 - over * AI.thrGain, 0, 1);
   // no throttle while asking the front tyres for more than they have (it would only push the car wide)
   if (!lost && sp > AI.recoverSpeed && (Math.abs(want) > 0.95 || c.slideF > 0.3)) thr = Math.min(thr, AI.lockThrottle);
-  if (brk > 0 && c.brake === 0 && !skillOverride && !c.mistake && sp - vmin > AI.mistakes.minDrop
-      && race.rng() < AI.mistakes.chance * (1 - c.skill) * 10) {
-    const [lo, hi] = AI.mistakes.over;
-    c.mistake = lo + race.rng() * (hi - lo);
+  // mistakes: weaker drivers more often; nervy ones more with a car right behind
+  const chance = AI.mistakes.chance * (1 - c.skill) * 10 * (1 + C.pressureMistakes * traitOf(c, 'nerves') * c.pressure);
+  if (brk > 0 && c.brake === 0 && !skillOverride && !c.mistake && sp - vmin > AI.mistakes.minDrop && race.rng() < chance) {
+    const [lo2, hi2] = AI.mistakes.over;
+    c.mistake = lo2 + race.rng() * (hi2 - lo2);
     c.mistakeEnd = (c.idx + Math.round(AI.mistakes.length / ds)) % N;
     brk = 0;
   }

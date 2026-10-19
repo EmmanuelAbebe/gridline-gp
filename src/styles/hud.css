@@ -75,6 +75,7 @@
 #pitState{margin-top:6px;padding:3px 8px;border-radius:var(--radius);font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.12em;text-align:center;background:rgba(255,194,26,.16);color:#ffc21a}
 #pitState.limiter{background:rgba(41,211,255,.16);color:#7fe3ff}
 #boxBtn.on{background:#ffc21a;color:#111}
+#tDelta.faster{color:var(--green)} #tDelta.slower{color:var(--red)}
 #boostBtn.on{background:#a46bff;color:#120a1c}
 #radio{position:fixed;top:calc(58px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);max-width:min(560px,calc(100vw - 32px));padding:7px 14px 8px;border-left:3px solid #ffc21a;opacity:0;transition:opacity .3s;pointer-events:none}
 #radio.show{opacity:1}

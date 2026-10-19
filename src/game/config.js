@@ -5,7 +5,8 @@ export const CONFIG = Object.freeze({
   physicsStep: 1 / 120,
   maxFrameDt: 0.1,
   sky: 0xa8cbe6,
-  storageKeys: { gfx: 'gridline.gfx', design: 'gridline.design', race: 'gridline.race', prefs: 'gridline.prefs', garage: 'gridline.garage', records: 'gridline.records' },
+  storageKeys: { gfx: 'gridline.gfx', design: 'gridline.design', race: 'gridline.race', prefs: 'gridline.prefs', garage: 'gridline.garage', records: 'gridline.records',
+    ghosts: 'gridline.ghosts', ghostsLoaded: 'gridline.ghosts-loaded' },
   lights: { count: 5, interval: 0.9, holdMin: 0.4, holdRand: 1.8, hideAfterGo: 0.7 },
   resultsDelay: 2.2,           // seconds of race time after the chequered flag
   finalLapFlashDelay: 0.9,
@@ -73,10 +74,14 @@ const levels = keys => keys.map(k => [k, k.toUpperCase()]);
 // rival pace: scales every AI driver's skill (SIM createRace aiPace). Lap times: the fastest rival alone, measured
 // with tools/sim-test.mjs-style solo laps on Elkmoor (traffic and dirty air make race laps a little slower)
 const AI_LEVELS = {
-  rookie: { pace: 0.8,  note: 'Rivals take it easy (Elkmoor: fastest laps about 36 s).' },
-  club:   { pace: 0.88, note: 'Quick club drivers (Elkmoor: about 34 s).' },
-  pro:    { pace: 0.95, note: 'Racing drivers (Elkmoor: about 33 s).' },
-  legend: { pace: 1.03, note: 'On the limit everywhere (Elkmoor: about 32 s).' },
+  // 2026-10-19: rivals drive a blend of the time-optimal and minimum-curvature lines (track.js) with racecraft
+  // (defending, pressure mistakes); ROOKIE..LEGEND rescaled to keep their old lap times. ALIEN: the same pace as
+  // LEGEND but the line followed 6× more tightly in clean air (race aiFollow), about the user's best (Northfold 1:01.7)
+  rookie: { pace: 0.79, note: 'Rivals take it easy (Elkmoor: fastest laps about 35.1 s).' },
+  club:   { pace: 0.86, note: 'Quick club drivers (Elkmoor: about 33.1 s).' },
+  pro:    { pace: 0.93, note: 'Racing drivers (Elkmoor: about 32.0 s).' },
+  legend: { pace: 1.0,  note: 'On the limit everywhere, and they defend (Elkmoor: about 31.1 s).' },
+  alien:  { pace: 1.0, follow: 6, note: 'The fastest line, every lap (Elkmoor: about 30.6 s, Northfold 1:02.2).' },
 };
 export const RACE_SETUP = Object.freeze({
   defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10, gearbox: 'auto', assists: 'medium', ai: 'pro', fuel: 'normal', tyres: 'normal', damage: 'on', aero: 'on', overtake: 'auto' },
@@ -85,7 +90,7 @@ export const RACE_SETUP = Object.freeze({
   // unknown value falls back to the default), the Settings screen and the start menu draw their buttons from them,
   // and assists / fuel / tyres follow the SIM tables, so a new level there shows up here by itself.
   choices: {
-    type: [['laps', 'LAPS'], ['timed', 'TIMED'], ['unlimited', 'UNLIMITED']],
+    type: [['laps', 'LAPS'], ['timed', 'TIMED'], ['unlimited', 'UNLIMITED'], ['trial', 'TIME TRIAL']],
     ai: levels(Object.keys(AI_LEVELS)),
     gearbox: [['auto', 'AUTO'], ['semi', 'SEMI-AUTO'], ['manual', 'MANUAL']],
     assists: levels([...Object.keys(SIM.ASSISTS), 'custom']),
