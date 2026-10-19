@@ -42,3 +42,12 @@ trace('ai-3laps', () => S.createRace(3), 600, driveAll);
 trace('scripted', () => S.createRace(2), 120, drivePlayerScript);
 trace('timed', () => S.createRace({ type: 'timed', minutes: 1.5 }, { drivers: S.DRIVERS.slice(0, 4) }), 400, driveAll);
 trace('unlimited', () => S.createRace({ type: 'unlimited' }, { drivers: S.DRIVERS.slice(5) }), 150, driveAll);
+// the other circuits (run-off, walls, surfaces) and the pit lane with fuel, tyre wear and damage on
+if (S.CIRCUITS && S.WEAR) {
+  const wear = { fuel: 'high', tyres: 'high', damage: true };
+  for (const id of Object.keys(S.CIRCUITS).filter(id => id !== S.track.id)) {
+    const track = S.buildTrack(S.CIRCUITS[id]);
+    trace(id.slice(0, 10), () => S.createRace(2, { track, drivers: S.DRIVERS.slice(0, 6) }), 300, drivePlayerScript);
+  }
+  trace('pits', () => S.createRace(6, { track: S.buildTrack(S.CIRCUITS.marrow ?? Object.values(S.CIRCUITS)[1]), wear }), 400, driveAll);
+}
