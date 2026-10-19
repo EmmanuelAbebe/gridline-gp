@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gridline GP Refactoring Review</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --paper: #ffffff; --ink: #1d1d1b; --muted: #5f5d57; --line: #e2dfd6;
+    --accent: #c8321e; --high: #c8321e; --med: #b7791f; --low: #4a6fa5; --good: #2f7d4f; --code: #f0eee8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #141413; --paper: #1d1d1b; --ink: #ecebe6; --muted: #a4a198; --line: #34332f;
+      --accent: #f0624d; --high: #f0624d; --med: #e0a43c; --low: #7fa2d6; --good: #5fbf86; --code: #2a2926; color-scheme: dark; }
+  }
+  :root[data-theme="dark"] { --bg: #141413; --paper: #1d1d1b; --ink: #ecebe6; --muted: #a4a198; --line: #34332f;
+    --accent: #f0624d; --high: #f0624d; --med: #e0a43c; --low: #7fa2d6; --good: #5fbf86; --code: #2a2926; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 0 16px; }
+  main { max-width: 860px; margin: 0 auto; padding-block: 48px 64px; }
+  header { border-bottom: 3px solid var(--accent); padding-bottom: 20px; margin-bottom: 28px; }
+  .kicker { text-transform: uppercase; letter-spacing: .14em; font-size: 12px; color: var(--accent); font-weight: 700; }
+  h1 { font-size: 2.1rem; line-height: 1.15; margin: 6px 0 10px; }
+  .meta { color: var(--muted); font-size: 13px; }
+  h2 { font-size: 1.25rem; margin: 40px 0 12px; padding-top: 4px; }
+  .verdict { background: var(--paper); border: 1px solid var(--line); border-left: 4px solid var(--good); padding: 16px 20px; border-radius: 6px; }
+  .finding { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 16px 20px; margin: 14px 0; break-inside: avoid; }
+  .finding h3 { margin: 0 0 6px; font-size: 1.05rem; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .n { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .tag { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; border: 1px solid currentColor; border-radius: 99px; padding: 1px 8px; }
+  .high { color: var(--high); } .med { color: var(--med); } .low { color: var(--low); }
+  .finding p { margin: 6px 0; }
+  .label { font-weight: 700; }
+  code { background: var(--code); border-radius: 3px; padding: 0 4px; font: 0.88em/1.4 ui-monospace, "SF Mono", Menlo, monospace; }
+  ul { padding-left: 20px; margin: 6px 0; }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  tr:last-child td { border-bottom: none; }
+  ol.plan li { margin: 6px 0; }
+  footer { margin-top: 48px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 14px; }
+  @media print {
+    body { background: #fff; color: #1d1d1b; font-size: 11pt; padding: 0; }
+    main { padding-block: 0; max-width: none; }
+    .finding, .verdict, table { background: #fff; }
+    h2 { break-after: avoid; }
+    @page { margin: 16mm 15mm; }
+  }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="kicker">Code review</div>
+  <h1>Gridline GP: refactoring review</h1>
+  <div class="meta">19 October 2026 · branch <code>foundation</code> at <code>e8df37f</code> · game (<code>src/</code>, ~387 KB), desktop shell, tools, and <code>phone-wheel/</code></div>
+</header>
+
+<h2>Verdict</h2>
+<div class="verdict">
+  <p>The codebase is in good shape for its size. The simulation is pure (no DOM, runs in Node) and covered by 68 tests, tunables mostly live in data tables, and there are no import cycles. Lint is clean, and <code>tools/sim-trace.mjs</code> can prove that a refactor left the physics bit-identical.</p>
+  <p>The refactoring below makes the next features (car setup screen, phone-wheel merge, smarter AI, replays) cheaper and safer. None of it fixes a current bug, and none of it should change gameplay.</p>
+</div>
+
+<h2>Findings</h2>
+
+<div class="finding">
+  <h3><span class="n">1</span> The car object has no defined shape</h3>
+  <div class="tags"><span class="tag high">High value</span><span class="tag med">Medium effort</span></div>
+  <p><span class="label">Evidence.</span> <code>createCar</code> declares about 60 fields, but 17 more are added later from other modules:</p>
+  <ul>
+    <li><code>pit.js</code>: fuel, tyreWear, damage, pit, pitStops, warned, pullSide, pitLimiter</li>
+    <li><code>car.js</code>, <code>race.js</code>, <code>driving.js</code>: newWallHit, wallFront, cutWide, steerIn, dirtyK, beachClock</li>
+  </ul>
+  <p>The game also writes 6 render fields (<code>px/pz/ph/rx/rz/rh</code>) into simulation objects from <code>main.js</code>.</p>
+  <p><span class="label">Risk.</span> A misspelt field silently creates a new one, and nothing documents what a car contains.</p>
+  <p><span class="label">Fix.</span></p>
+  <ul>
+    <li>Declare every field in <code>createCar</code>, grouped by owner; each module supplies its own initial block, e.g. <code>pitState()</code>.</li>
+    <li>Keep render state in a game-side <code>Map</code>.</li>
+    <li>Add <code>// @ts-check</code> with JSDoc types to <code>src/sim</code>, checked by <code>tsc --noEmit</code> in <code>npm run check</code>. This catches field typos without converting to TypeScript.</li>
+  </ul>
+</div>
+
+<div class="finding">
+  <h3><span class="n">2</span> Events carry their details on the car, not in the event</h3>
+  <div class="tags"><span class="tag high">High value</span><span class="tag med">Small–medium effort</span></div>
+  <p><span class="label">Evidence.</span> Events are bare strings, and their details are read from car fields:</p>
+  <ul>
+    <li><code>EV.WALL</code> uses <code>c.impact</code> and <code>c.impactHard</code></li>
+    <li><code>EV.DAMAGE</code> uses <code>c.damageNote</code></li>
+    <li><code>EV.CUT</code> uses <code>c.cutWide</code></li>
+    <li><code>EV.PIT_STOP</code> uses <code>c.pit.service</code></li>
+  </ul>
+  <p>This only works because the game reads events in the same step they are created.</p>
+  <p><span class="label">Fix.</span> Push <code>{ type, ...details }</code> objects. The side-channel fields go away, each event explains itself, and logging and replays become possible.</p>
+</div>
+
+<div class="finding">
+  <h3><span class="n">3</span> <code>main.js</code> does too many jobs</h3>
+  <div class="tags"><span class="tag med">Medium value</span><span class="tag med">Medium effort</span></div>
+  <p><span class="label">Evidence.</span> 29 KB, 25 imports. It holds:</p>
+  <ul>
+    <li>loading, validating and saving settings</li>
+    <li>assist presets and grid building</li>
+    <li>about 25 hard-coded radio and toast messages</li>
+    <li>the settings-screen wiring and all button wiring</li>
+    <li>the frame loop, track switching and the debug API</li>
+  </ul>
+  <p><span class="label">Fix.</span> Split it into:</p>
+  <ul>
+    <li><code>setup-store.js</code>: pure functions (load, validate, save, <code>assistsOf</code>, <code>raceFormat</code>, <code>buildField</code>) that can be unit-tested</li>
+    <li><code>race-messages.js</code>: an event-to-message table</li>
+    <li><code>settings-binding.js</code></li>
+    <li><code>debug.js</code></li>
+  </ul>
+  <p><code>main.js</code> keeps the state machine and the loop.</p>
+</div>
+
+<div class="finding">
+  <h3><span class="n">4</span> Option lists are written out in several places</h3>
+  <div class="tags"><span class="tag med">Medium value</span><span class="tag low">Small effort</span></div>
+  <p><span class="label">Evidence.</span> <code>'off'/'normal'/'high'</code>, <code>'auto'/'semi'/'manual'</code> and the race types appear separately in <code>loadSetup</code> validation, the Settings screen, <code>describeSetup</code> and <code>pit.js</code>.</p>
+  <p><span class="label">Risk.</span> A new option missed in one place resets the player's saved choice on load, with no error.</p>
+  <p><span class="label">Fix.</span> One <code>OPTIONS</code> table in <code>config.js</code>, read by the validation, the settings segments and the descriptions.</p>
+</div>
+
+<div class="finding">
+  <h3><span class="n">5</span> Tunable numbers are hard-coded in <code>pit.js</code>, against the project's "tunables in tables" rule</h3>
+  <div class="tags"><span class="tag med">Medium value</span><span class="tag low">Small effort</span></div>
+  <p><span class="label">Evidence.</span> In <code>pit.js</code>:</p>
+  <ul>
+    <li>a 62 s lap-time guess</li>
+    <li>a 0.75 tyre warning, duplicating <code>PIT.ai.tyres</code></li>
+    <li>fuel warnings at 1.1 and 1.6 laps</li>
+    <li>the entry check <code>HW + 2.5</code></li>
+    <li>box braking 6 and accelerations 8/18</li>
+    <li>garage spacing <code>-67.5 + 15k</code></li>
+    <li>lane edge 1.5</li>
+  </ul>
+  <p>Smaller cases elsewhere: <code>car.js</code> (wall clearance 1.3, damping 0.3) and <code>collide.js</code> (1.2 m nose).</p>
+  <p><span class="label">Fix.</span> Move them into <code>PIT</code>, <code>WEAR</code>, <code>BARRIER</code> and <code>CONTACT</code>.</p>
+</div>
+
+<div class="finding">
+  <h3><span class="n">6</span> Small helpers are copied around</h3>
+  <div class="tags"><span class="tag med">Medium value</span><span class="tag low">Small effort</span></div>
+  <p><span class="label">Evidence.</span></p>
+  <ul>
+    <li>The track-index wrap <code>(i % N + N) % N</code> is written 22 times across 11 files, with three local <code>at</code> helpers.</li>
+    <li>Car speed <code>Math.hypot(v, vy)</code> is computed 8 times in 5 files.</li>
+    <li>A smoothstep is defined inline in <code>pit.js</code>.</li>
+  </ul>
+  <p><span class="label">Fix.</span> <code>wrapIdx(N, i)</code>, <code>smoothstep</code> and <code>speedOf(c)</code> in <code>math.js</code>.</p>
+</div>
+
+<div class="finding">
+  <h3><span class="n">7</span> Randomness is not seedable</h3>
+  <div class="tags"><span class="tag med">Medium value</span><span class="tag low">Small effort</span></div>
+  <p><span class="label">Evidence.</span> The simulation calls <code>Math.random</code> directly (line bias in <code>createCar</code>, AI mistakes in <code>driving.js</code>). Tests make it repeatable by swapping the global.</p>
+  <p><span class="label">Fix.</span> Give each race its own random generator (<code>race.rng</code>, seeded in <code>createRace</code>). Races become repeatable, which replays, ghost laps and the parked "rivals learn from you" plan all need.</p>
+</div>
+
+<div class="finding">
+  <h3><span class="n">8</span> Phone wheel: <code>server.py</code> is one 944-line file</h3>
+  <div class="tags"><span class="tag med">Medium value</span><span class="tag med">Medium effort</span></div>
+  <p><span class="label">Evidence.</span> One file holds three output backends, certificates, pairing, three connection links (USB, Bluetooth, Wi-Fi), two web apps and the command line. There are no Python tests.</p>
+  <p><span class="label">Fix.</span></p>
+  <ul>
+    <li>Split it into a package: <code>outputs</code>, <code>links</code>, <code>certs</code>, <code>web</code>, <code>main</code>.</li>
+    <li>Add pytest for the pure parts.</li>
+  </ul>
+  <p>Decide this together with the planned merge into the app: that merge probably means rewriting the server in Node inside Electron, which would replace this file.</p>
+</div>
+
+<div class="finding">
+  <h3><span class="n">9</span> Two copies of the phone wheel</h3>
+  <div class="tags"><span class="tag low">Housekeeping</span></div>
+  <p><code>~/Downloads/Phone-wheel-main</code> still runs the Wi-Fi server, and its GitHub workflow does not run from the <code>phone-wheel/</code> subfolder. Once <code>phone-wheel/</code> is the one in use, retire the old checkout so that changes don't land in the wrong copy.</p>
+</div>
+
+<h2>Lower priority</h2>
+<div class="table-wrap"><table>
+  <tr><th>Item</th><th>Note</th></tr>
+  <tr><td>Test tooling inside the shipping app</td><td>The smoke test and track shots live in <code>desktop/main.cjs</code>, the app's real entry point. Move them to <code>tools/</code>, like <code>car-shot.cjs</code>.</td></tr>
+  <tr><td>Game modules do work on import</td><td>They create the renderer and look up DOM elements as soon as they load, so game code can't be unit-tested. Items 3 and 4 move the logic most worth testing out of them.</td></tr>
+  <tr><td>Dense code style</td><td>Many lines hold several statements, some past 200 characters. Don't reformat everything (history noise); an ESLint <code>max-len</code> of about 160 for new code is enough.</td></tr>
+  <tr><td>Three.js r128 (2021)</td><td>It works, and upgrading is large for little immediate gain. Revisit before the visual polish stage.</td></tr>
+  <tr><td><code>CLAUDE.md</code>, 330 dense lines</td><td>It mixes architecture with history. Split it into <code>docs/architecture.md</code> and a changelog.</td></tr>
+</table></div>
+
+<h2>Keep as is</h2>
+<ul>
+  <li>The pure simulation driven by tables</li>
+  <li>The fixed 120 Hz step with render interpolation</li>
+  <li>The single-file build</li>
+  <li>The design and HUD tools</li>
+  <li><code>sim-trace</code>, which makes the refactors above provably safe</li>
+</ul>
+
+<h2>Plan</h2>
+<ol class="plan">
+  <li><b>Step 1:</b> items 6, 5 and 4 (small and mechanical; each checked with <code>sim-trace</code> and the tests)</li>
+  <li><b>Step 2:</b> items 1 and 2 (car shape and events, with <code>@ts-check</code>)</li>
+  <li><b>Step 3:</b> items 3 and 7</li>
+  <li><b>Step 4:</b> item 8, decided with the phone-wheel merge</li>
+</ol>
+<p>About two to three focused sessions in total. There should be no gameplay change; every step is checked by the tests and <code>sim-trace</code>.</p>
+
+<footer>Gridline GP · refactoring review · generated with Claude Code</footer>
+</main>
+</body>
+</html>
