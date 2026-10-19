@@ -49,7 +49,9 @@ export const Display = (() => {
   function stepDown() { if (scaleIdx >= scales.length - 1) return false; setScale(scaleIdx + 1); return true; }
 
   addEventListener('resize', resize); resize();
-  return { scene, camera, gpu, applyProfile, stepDown, render: () => renderer.render(scene, camera), get scale() { return scales[scaleIdx]; } };
+  return { scene, camera, gpu, applyProfile, stepDown, render: () => renderer.render(scene, camera), get scale() { return scales[scaleIdx]; },
+    // another scene through another camera on the same canvas (the garage)
+    renderWith: (sc, cam) => renderer.render(sc, cam) };
 })();
 
 export function createFpsMonitor(windowSec) {

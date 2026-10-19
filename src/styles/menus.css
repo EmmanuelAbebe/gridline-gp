@@ -82,3 +82,39 @@ table.res i{display:inline-block;width:4px;height:14px;vertical-align:-2px;margi
 .trackinfo{display:flex;align-items:center;gap:12px;margin-top:-6px}
 .trackinfo canvas{flex:none;width:112px;height:64px;background:#0d1015;border:1px solid var(--rule);border-radius:3px}
 .card .trackinfo p.gpu{margin:0}
+
+/* Garage (garage.js): the studio canvas behind, a top bar, the panel on the right (below on narrow screens) */
+.garage{position:fixed;inset:0;z-index:40;pointer-events:none}
+.garage > *{pointer-events:auto}
+.gar-stage{position:absolute;inset:0;cursor:grab;touch-action:none;outline:none}
+.gar-stage:active{cursor:grabbing}
+.gar-top{position:absolute;left:16px;right:16px;top:calc(12px + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:12px;flex-wrap:wrap;pointer-events:none}
+.gar-top > *{pointer-events:auto}
+.gar-top .verdict{margin:0}
+.gar-car{font-family:var(--display);font-weight:600;letter-spacing:.08em;color:var(--muted)}
+.gar-car.mod{color:var(--amber)}
+.gar-views{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.gar-panel{position:absolute;top:calc(64px + env(safe-area-inset-top,0px));right:16px;bottom:16px;width:min(400px,calc(100vw - 32px));padding:14px;gap:12px;grid-template-rows:auto minmax(0,1fr);align-content:start}
+.gar-body{min-height:0}
+.gar-hint{position:absolute;left:16px;bottom:calc(12px + env(safe-area-inset-bottom,0px));margin:0;font-size:12px;color:var(--muted);pointer-events:none}
+@media (max-width:860px){
+  .gar-panel{top:auto;left:16px;right:16px;width:auto;height:min(52vh,460px)}
+  .gar-hint{display:none}
+}
+.gar-swatches{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.gar-swatch{width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.18);cursor:pointer;padding:0}
+.gar-swatch[aria-pressed="true"]{border-color:var(--amber);box-shadow:0 0 0 2px rgba(255,194,26,.35)}
+.gar-swatches input[type=color]{width:34px;height:28px;border:1px solid var(--rule);border-radius:4px;background:transparent;padding:0 2px;cursor:pointer}
+.gar-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;padding:10px;border:1px solid var(--rule);border-radius:4px;background:rgba(255,255,255,.02)}
+.gar-stat{display:grid;gap:2px}
+.gar-stat b{font-family:var(--display);font-weight:600;font-size:18px;letter-spacing:.02em}
+.gar-stat i{font-style:normal;font-size:12px;font-family:var(--display);letter-spacing:.04em}
+.gar-stat i.up{color:var(--green)} .gar-stat i.down{color:var(--red)}
+.gar-bal{grid-column:1/-1;display:grid;grid-template-columns:100px 1fr 118px;gap:10px;align-items:center}
+.gar-bar{position:relative;height:8px;border-radius:4px;background:linear-gradient(90deg,#3d7fff,#2a3038 45%,#2a3038 55%,#ff5a3d)}
+.gar-bar u{position:absolute;top:-4px;width:4px;height:16px;margin-left:-2px;background:var(--amber);border-radius:2px}
+.gar-bar b{position:absolute;top:-2px;width:2px;height:12px;margin-left:-1px;background:var(--muted)}
+.gar-balword{font-family:var(--display);font-size:12px;letter-spacing:.08em;color:var(--muted);text-align:right}
+.gar-warn{border:1px solid rgba(255,194,26,.45);background:rgba(255,194,26,.07);border-radius:4px;padding:10px 12px;display:grid;gap:4px}
+.gar-warn b{font-family:var(--display);letter-spacing:.08em;color:var(--amber);text-transform:uppercase}
+.res td .mod{margin-left:8px;font-family:var(--display);font-size:11px;letter-spacing:.1em;color:var(--amber);border:1px solid rgba(255,194,26,.5);border-radius:2px;padding:0 4px}

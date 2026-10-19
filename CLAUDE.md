@@ -8,7 +8,7 @@ which shows up in the browser as a virtual Xbox 360 controller.
 ## Goal and roadmap (Oct 2026)
 Turning the prototype into a production-grade game. Agreed order: (1) foundation [done: modules, Vite, tests],
 (2) sim-cade physics in 4 parts: [done] engine/gearbox/downforce/slipstream; [done] tyre + chassis model;
-[done] AI on the same chassis (racing line, racecraft, mistakes, difficulty); tuning screen (downforce, grip, power, brake balance), (3) merge the Phone-wheel project into this one ([done 2026-10-19] server inside Electron,
+[done] AI on the same chassis (racing line, racecraft, mistakes, difficulty); [done 2026-10-19] tuning screen = the garage (setup + open mods + livery), (3) merge the Phone-wheel project into this one ([done 2026-10-19] server inside Electron,
 pairing from the settings menu; still to do: vibration + rev lights on the phone, BOX button on the phone, per-device mapping for wheels/joysticks), (4) car/world visuals: [done 2026-10-14] brake lights, cockpit view (user's seat: eye 0.33 m back / 0.77 m high, wheel 0.675 m high; wheel at x 0.18 so the arms reach it, halo visible, driver's arms/legs),
 F1-style curved car with textures; still to do: crash physics, scenery, (5) HUD, menus, presentation.
 
@@ -315,6 +315,33 @@ Tunables live in data tables (config modules), not inline in the logic.
      and shows results (`game.ended`). `watchRace` announces time-up and the final lap.
    - Game: `game` state object, phases menu → lights → race → done; `newRace`, `simStep` (fixed 120 Hz),
      `renderFrame` (interpolated `rx/rz/rh`), `monitorFps` (two slow 0.5 s windows < 52 fps → step down).
+
+## Garage: car setup, open mods, livery (2026-10-19; user asked for a car setup screen plus a garage with a free 360°
+## camera and open modification of looks and physics; chose "setup + open mods (flagged)" and "your car only")
+- SIM: `spec.js` `carSpec(setup, mods)` → per-car numbers (grip, dfK, dragK, aeroFront, frontGrip, rearGrip,
+  brakeBias, brakeSystem, power, mass, top/ratio per gear, modified); `STOCK` = the shared car, every AI car's
+  `c.spec` (createCar); vehicle.js / chassis.js / driving.js read `c.spec` (functions take a spec, default STOCK).
+  `SETUP` (tuning.js) = race setup, trade-offs only: wing 1–11 (lift +7 % / drag +4.5 % per step), aero balance
+  40–50 % front, brake balance 51–63 % front, gearing 310–380 km/h top gear, mechanical balance ±5 (front × (1 +
+  1.2 %·n), rear × (1 − 1.2 %·n)). `MODS` = open mods, no fairness: power, mass, grip, downforce, drag, brakes; any
+  off default → `spec.modified`. Defaults compute every value with the same float operations (× 1 / + 0), so the
+  stock car is bit-identical (sim-trace). `spec-stats.js` `specStats(spec)`: top speed, 0–100/200, steady corner speed
+  at 30/80/200 m, braking 300→100, balance slow/fast (front grip per load / rear; the garage shows it relative to
+  stock). Gearing has no clean acceleration effect in this engine model (uniform ratio scale): its job is matching
+  the wing (low wing / slipstream hit the limiter on short gears). Tests: tests/spec.test.js.
+- Game: `garage-store.js` (pure: `loadGarage` → { livery { color, accent, rims, number, finish gloss/metallic/satin/
+  matte }, setup, mods }, `playerDriver(g)` (the player's DRIVERS entry in the livery: used for the race field, so
+  tower / minimap / results show it), `playerSpec(g)`, lap records `loadRecords` / `recordLap` per circuit, stock and
+  modified apart), localStorage `gridline.garage` / `gridline.records`. `garage.js` (`Garage`: own Three.js studio scene
+  rendered with `Display.renderWith` instead of the race scene while open; a separate car model; tabs Look / Setup /
+  Open mods with live stats vs stock, presets, double-click a slider = stock; view buttons 3/4 FRONT SIDE REAR TOP,
+  auto-turn after 4 s idle), `orbit-camera.js` (pure state + `attachOrbit`: drag = turn (yaw unlimited, pitch to just
+  above the floor .. top), wheel / pinch = zoom 2.2–16 m, right / shift drag or two fingers = pan, arrow keys).
+  CarModels: `setLivery(l)` (colours, number decal, finish material per car in Quality mode, rim colour role 'rim'),
+  `object` = root. Start menu GARAGE button (menu only); setup + mods apply at newRace (`player.spec`), looks at once.
+  Results show MODIFIED, the start menu summary "car MODIFIED" / "custom car setup", the circuit line your records,
+  a new valid-lap record toasts. The design tools (button in Look) still edit every car's shape. Smoke test: garage
+  screenshots `out-garage*.png` (mouse drag, paint, Setup stats, a mod → MODIFIED → reset).
 
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)

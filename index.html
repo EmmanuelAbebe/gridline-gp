@@ -105,7 +105,7 @@
       <div class="seg" id="aiSeg"></div>
     </div>
     <p class="gpu" id="aiNote"></p>
-    <div class="summary"><p class="gpu" id="setupSummary"></p><button class="iconbtn" id="settingsBtn" type="button" title="Settings (O)">SETTINGS</button></div>
+    <div class="summary"><p class="gpu" id="setupSummary"></p><button class="iconbtn" id="garageBtn" type="button" title="Your car: looks, setup, mods">GARAGE</button><button class="iconbtn" id="settingsBtn" type="button" title="Settings (O)">SETTINGS</button></div>
     <div class="btns"><button class="btn" id="startBtn" type="button">To the grid</button><button class="btn ghost" id="fullStartBtn" type="button">Full screen</button><button class="btn ghost" type="button" data-quit hidden>Quit</button></div>
   </div>
 </div>
@@ -115,6 +115,13 @@
     <p class="verdict">Paused</p>
     <div class="btns"><button class="btn" id="resumeBtn" type="button">Resume</button><button class="btn ghost" id="restartBtn" type="button">Restart race</button><button class="btn ghost" id="endBtn" type="button">End race</button><button class="btn ghost" id="pauseSettingsBtn" type="button">Settings</button><button class="btn ghost" id="pauseInputsBtn" type="button">Input monitor</button><button class="btn ghost" type="button" data-quit hidden>Quit game</button></div>
   </div>
+</div>
+
+<div id="garageOv" class="garage" hidden>
+  <div class="gar-stage" id="garStage" aria-label="Car view: drag to turn, scroll to zoom, right-drag to move"></div>
+  <div class="gar-top"><p class="verdict">Garage</p><span class="gar-car" id="garCar"></span><div class="gar-views" id="garViews"></div><button class="btn small" id="garClose" type="button">Done</button></div>
+  <aside class="card gar-panel"><div class="seg set-tabs" id="garTabs"></div><div class="set-body gar-body" id="garBody"></div></aside>
+  <p class="gar-hint">Drag to turn · scroll or pinch to zoom · right-drag or two fingers to move · arrow keys</p>
 </div>
 
 <div id="setOv" class="overlay" hidden>

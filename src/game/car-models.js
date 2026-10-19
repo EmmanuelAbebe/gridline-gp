@@ -30,6 +30,12 @@ export const CarModels = (() => {
       tyre:   new THREE.MeshLambertMaterial({ map: tyre }),
     },
   };
+  // body paint per livery finish (garage): gloss = the shared paint; the others get a per-car material (quality only)
+  const FINISH_LOOKS = {
+    metallic: { roughness: 0.22, metalness: 0.65, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 0.85 },
+    satin: { roughness: 0.5, metalness: 0.15, clearcoat: 0.35, clearcoatRoughness: 0.4, envMapIntensity: 0.3 },
+    matte: { roughness: 0.85, metalness: 0, clearcoat: 0, clearcoatRoughness: 1, envMapIntensity: 0.12 },
+  };
   const LIGHT_OFF = new THREE.Color(0x3a0806), LIGHT_ON = new THREE.Color(0xff2a18);
   const GLOW_GEO = new THREE.PlaneGeometry(1, 1).rotateY(-Math.PI / 2);   // faces -x (backwards)
   const SHADOW_GEO = new THREE.PlaneGeometry(5.8, 2.4).rotateX(-Math.PI/2);
@@ -39,6 +45,7 @@ export const CarModels = (() => {
   const DEG = Math.PI / 180;
   const resolveColor = (c, driver) =>
     c === 'body' ? driver.color : c === 'accent' ? driver.accent : c === 'dark' ? COLORS.carDark : c === 'tyre' ? COLORS.tyre
+    : c === 'rim' ? driver.rims ?? 0x3a3d42
     : (parseInt(String(c).replace('#', ''), 16) || 0);
 
   // Design parts → one non-indexed BufferGeometry (vertex colours, a group per finish), relative to `origin`.
@@ -88,20 +95,22 @@ export const CarModels = (() => {
   }
   // Wheel: textured tyre (its own mesh) + rim, wheel cover, accent ring and centre nut (merged parts).
   const wheelParts = (r, w) => [
-    { shape: 'cylinder', size: [r * 0.63, w * 0.96], pos: [0, 0, 0], rot: [90, 0, 0], color: '#3a3d42', finish: 'metal', segments: 24 },
+    { shape: 'cylinder', size: [r * 0.63, w * 0.96], pos: [0, 0, 0], rot: [90, 0, 0], color: 'rim', finish: 'metal', segments: 24 },
     { shape: 'cylinder', size: [r * 0.6, w + 0.012], pos: [0, 0, 0], rot: [90, 0, 0], color: 'dark', finish: 'paint', segments: 24 },
     { shape: 'torus', size: [r * 0.47, 0.012, 360], pos: [0, 0, w / 2 + 0.006], rot: [0, 0, 0], color: 'accent' },
     { shape: 'torus', size: [r * 0.47, 0.012, 360], pos: [0, 0, -w / 2 - 0.006], rot: [0, 0, 0], color: 'accent' },
     { shape: 'cylinder', size: [r * 0.12, w + 0.04], pos: [0, 0, 0], rot: [90, 0, 0], color: 'accent', finish: 'metal', segments: 6 },
   ];
 
-  function create(scene, driver, design) {
+  // driver = colours (color, accent, optional rims) and number; the garage changes them with setLivery
+  function create(scene, driverIn, design) {
+    let driver = driverIn, lastDesign = design, ownPaint = null;
     // per-car materials: the brake lights (brightness follows the brake) and the race number
     const light = new THREE.MeshBasicMaterial({ color: LIGHT_OFF.clone() });
     const decal = new THREE.MeshBasicMaterial({ map: numberTexture(driver.number ?? ''), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     const glowMat = new THREE.MeshBasicMaterial({ map: glow, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0, fog: true });
     let mats = MATS.quality;
-    const matList = () => [mats.paint, mats.carbon, mats.rubber, mats.metal, light, decal];
+    const matList = () => [ownPaint && mats === MATS.quality ? ownPaint : mats.paint, mats.carbon, mats.rubber, mats.metal, light, decal];
     const root = new THREE.Group();
     const body = new THREE.Mesh(new THREE.BufferGeometry(), matList());
     // steering wheel assembly: mount (position/tilt/scale from car.steering) → steering mesh (turns with input)
@@ -132,8 +141,9 @@ export const CarModels = (() => {
       screen.scale.set(Math.max(0.001, sp.size[0]), Math.max(0.001, sp.size[1]), 1);
     }
     // (Re)build every mesh from a design; called at start and whenever the car design changes.
-    function rebuild({ parts, wheels: wheelSpecs, steering: st, screen: sc }) {
-      screenSpec = sc;
+    function rebuild(d) {
+      const { parts, wheels: wheelSpecs, steering: st, screen: sc } = d;
+      lastDesign = d; screenSpec = sc;
       if (geo) for (const g of Object.values(geo)) g.dispose();
       for (const g of wheelGeos) g.dispose();
       for (const p of pivots) root.remove(p);
@@ -172,6 +182,14 @@ export const CarModels = (() => {
 
     return {
       rebuild,
+      // the garage's livery: { color, accent, number, finish (gloss / metallic / satin / matte), rims }
+      setLivery(l) {
+        driver = { ...driver, color: l.color, accent: l.accent, number: l.number, rims: l.rims };
+        decal.map.dispose(); decal.map = numberTexture(l.number); decal.needsUpdate = true;
+        ownPaint?.dispose();
+        ownPaint = FINISH_LOOKS[l.finish] ? new THREE.MeshPhysicalMaterial({ vertexColors: true, envMap: env, ...FINISH_LOOKS[l.finish] }) : null;
+        rebuild(lastDesign); this.setMaterials(mats);
+      },
       setMaterials(set) {
         mats = set; body.material = matList(); steering.material = matList();
         for (const w of wheels) for (const m of w.children) m.material = m.userData.tyre ? set.tyre : matList();
@@ -181,6 +199,7 @@ export const CarModels = (() => {
       mountScreen(mesh) { screen = mesh; placeScreen(); showView(); },
       place(x, z, h) { root.position.set(x, 0, z); root.rotation.y = -h; },
       setVisible(on) { root.visible = on; },
+      get object() { return root; },        // the car's root group (the garage measures and frames it)
       // copy the car state onto the mesh at `pose` (pose.js: interpolated x/z/h); brake lights fade in and out over ~0.1 s
       sync(car, pose, dt = 1 / 60) {
         this.place(pose.x, pose.z, pose.h);

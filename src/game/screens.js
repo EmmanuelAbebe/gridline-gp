@@ -68,7 +68,7 @@ export const Screens = (() => {
       render();
       return render;
     },
-    trackInfo(track, blurb) { $('trackNote').textContent = `${(track.L / 1000).toFixed(2)} km · ${blurb}`; },
+    trackInfo(track, blurb, record = '') { $('trackNote').textContent = `${(track.L / 1000).toFixed(2)} km · ${blurb}${record ? '  ·  Your ' + record : ''}`; },
     // one line under the race setup: the Settings-screen choices that change how the race drives
     summary(text) { $('setupSummary').textContent = text; },
   };

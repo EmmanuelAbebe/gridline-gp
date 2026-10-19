@@ -114,7 +114,7 @@ export const Hud = (() => {
       $('verdict').innerHTML = pos === 1 ? 'Race <em>winner</em>' : `Finished <em>${ordinal(pos)}</em>`;
       $('verdict').title = gained > 0 ? `Gained ${gained} places` : '';
       $('resBody').innerHTML = ord.map((c, i) =>
-        `<tr class="${c.player ? 'me' : ''}"><td class="num">${i+1}</td><td><i style="background:${hexCss(c.color)}"></i>${c.name}</td><td class="team">${c.team}</td><td class="r num">${resultTime(race, leader, c, i)}${c.penalty ? `<span class="pen">+${c.penalty} s pen</span>` : ''}${c.pitStops ? `<span class="stops">${c.pitStops} stop${c.pitStops > 1 ? 's' : ''}</span>` : ''}</td><td class="r num${race.fastestBy === c ? ' best' : ''}">${fmtTime(c.bestLap)}</td></tr>`).join('');
+        `<tr class="${c.player ? 'me' : ''}"><td class="num">${i+1}</td><td><i style="background:${hexCss(c.color)}"></i>${c.name}${c.player && c.spec.modified ? '<span class="mod" title="Open mods in the garage">MODIFIED</span>' : ''}</td><td class="team">${c.team}</td><td class="r num">${resultTime(race, leader, c, i)}${c.penalty ? `<span class="pen">+${c.penalty} s pen</span>` : ''}${c.pitStops ? `<span class="stops">${c.pitStops} stop${c.pitStops > 1 ? 's' : ''}</span>` : ''}</td><td class="r num${race.fastestBy === c ? ' best' : ''}">${fmtTime(c.bestLap)}</td></tr>`).join('');
     },
     setFps(fps, title) {
       setText('fpsNum', Math.round(fps));

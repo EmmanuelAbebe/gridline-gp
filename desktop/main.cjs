@@ -83,6 +83,39 @@ async function smokeTest(win) {
     setup: document.getElementById('setupSummary').textContent, startScreen: !document.getElementById('startOv').hidden,
     quitButtons: [...document.querySelectorAll('[data-quit]')].filter(b => !b.hidden).length })`);
   fs.writeFileSync(smokeOut, (await win.webContents.capturePage()).toPNG());
+  // the garage: open, drag the view round (a real mouse drag), paint it red, Setup tab with its numbers, an open mod
+  // (MODIFIED), mods reset, Done back to the start menu
+  const shot = name => win.webContents.capturePage().then(img => fs.writeFileSync(smokeOut.replace(/(\.png)?$/, `-${name}.png`), img.toPNG()));
+  await win.webContents.executeJavaScript(`document.getElementById('garageBtn').click()`);
+  await new Promise(r => setTimeout(r, 1200));
+  await shot('garage');
+  for (const [type, x] of [['mouseDown', 300], ['mouseMove', 380], ['mouseMove', 460], ['mouseUp', 460]]) {
+    win.webContents.sendInputEvent({ type, x, y: 360, button: 'left', clickCount: 1 }); await new Promise(r => setTimeout(r, 60));
+  }
+  await win.webContents.executeJavaScript(`document.querySelector('.gar-swatch[data-c="${0xd7261e}"]').click()`);
+  await new Promise(r => setTimeout(r, 500));
+  await shot('garage-turned');
+  info.garage = await win.webContents.executeJavaScript(`(async () => {
+    const tab = name => [...document.querySelectorAll('#garTabs button')].find(b => b.textContent === name).click();
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const shown = !document.getElementById('garageOv').hidden;
+    tab('Setup'); await wait(300);
+    const wing = document.querySelector('#garBody input[type=range]'); wing.value = 10; wing.dispatchEvent(new Event('input'));
+    await wait(300);
+    const stats = [...document.querySelectorAll('.gar-stat')].map(t => t.textContent);
+    return { shown, stats, sliders: document.querySelectorAll('#garBody input[type=range]').length };
+  })()`);
+  await shot('garage-setup');
+  Object.assign(info.garage, await win.webContents.executeJavaScript(`(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    [...document.querySelectorAll('#garTabs button')].find(b => b.textContent === 'Open mods').click(); await wait(200);
+    const power = document.querySelector('#garBody input[type=range]'); power.value = 150; power.dispatchEvent(new Event('input')); await wait(100);
+    const modified = document.getElementById('garCar').textContent;
+    [...document.querySelectorAll('#garBody button')].find(b => b.textContent === 'Reset all mods').click(); await wait(100);
+    const after = document.getElementById('garCar').textContent;
+    document.getElementById('garClose').click(); await wait(200);
+    return { modified, after, backToMenu: !document.getElementById('startOv').hidden, summary: document.getElementById('setupSummary').textContent };
+  })()`));
   // pick the next circuit (the race below runs there): the menu shows its name, outline and 3D scene
   await win.webContents.executeJavaScript(`document.querySelector('#trackStep [data-d="1"]').click()`);
   await new Promise(r => setTimeout(r, 1500));
