@@ -52,7 +52,7 @@ export const BRANDS = Object.freeze([
 ]);
 
 // Everything Quality vs Performance changes, in one place.
-const DPR = window.devicePixelRatio || 1;
+const DPR = globalThis.devicePixelRatio || 1;   // globalThis: also loads in Node (tests)
 export const GFX_PROFILES = Object.freeze({
   quality: {
     label: 'Quality mode', antialias: true,

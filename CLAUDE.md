@@ -199,6 +199,14 @@ Tunables live in data tables (config modules), not inline in the logic.
      buttons (screens.js `fillSeg`) are built from it, `choiceWord` gives the summary words. Add a choice there, not in
      three places. The pit/wall/contact tunables live in tuning.js (`PIT` incl. `garages` shared with world.js, `WEAR`,
      `WALLS`, `CONTACT`, `OFFTRACK`); keep new numbers there too. `util.js`: `$`, formatters.
+   - Split out of main.js (2026-10-19): `setup-store.js` (pure: `loadSetup(json)` / `loadPrefs(json)` validation,
+     `steerRate`, `raceFormat`, `raceWear`, `buildField`, `playerSlotOf`, `assistsOf`, `setupSummary`),
+     `race-messages.js` (pure: `EVENT_MESSAGES` player event → `{ toast, kind, secs }` | `{ radio, secs }` built from
+     the event's details, `SAY` = the other race messages; main.js `showMessage` displays one; sounds/shake/flow
+     stay in main.js `onPlayerEvent`), `settings-binding.js` (`bindSettings(game, act)`: SettingsScreen get/set/
+     note/actions + open over the start/pause menu), `debug.js` (`window.gridlineDebug`). Both pure modules are tested
+     in tests/setup-store.test.js (config.js loads in Node: `globalThis.devicePixelRatio`). Add a race message to
+     race-messages.js, not inline. main.js keeps state, race flow, commands/buttons, frame loop, circuit switching.
    - `Settings` (try/catch localStorage, key `gridline.gfx`), `createTimers` (race-time delayed callbacks,
      cleared on restart), `createEmitter`.
    - `Display`: renderer (recreated on canvas swap when MSAA changes), scene, camera, GPU detection

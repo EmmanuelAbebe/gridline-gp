@@ -1,0 +1,22 @@
+// window.gridlineDebug: hooks for the desktop smoke test and `--track-shots` (desktop/main.cjs): put the camera
+// anywhere on any circuit, find the current circuit's pits and corners. `setTrack(id)` switches circuit and returns
+// the track; `current()` is the circuit shown now.
+import { SIM } from '../sim/index.js';
+import { Display } from './display.js';
+import { Sound } from './sound.js';
+
+export function installDebug(setTrack, current) {
+  window.gridlineDebug = { soundReady: () => Sound.ready,
+    view(id, at, lat, height, ahead, side = 0) {
+      const track = setTrack(id);
+      const { N, PX, PZ, NX, NZ } = track, i = Math.round(at * N) % N, j = SIM.wrapIdx(i + ahead, N);
+      Display.camera.position.set(PX[i] + NX[i] * lat, height, PZ[i] + NZ[i] * lat);
+      Display.camera.lookAt(PX[j] + NX[j] * side, 0, PZ[j] + NZ[j] * side);
+      return track.name;
+    },
+    pit() { const track = current(), P = track.pit, N = track.N; return P && [P.entry, P.from, P.to].map(p => SIM.wrapIdx(p, N) / N); },
+    corners() { const track = current(), { N, VP } = track, out = [];   // where the speed profile bottoms out (apexes)
+      for (let i = 0; i < N; i++) if (VP[i] < VP[(i + N - 1) % N] && VP[i] <= VP[(i + 1) % N] && VP[i] < 60) out.push(i / N);
+      return out; },
+  };
+}
