@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0e1116">
+<title>Phone Wheel</title>
+<style>
+  :root {
+    --bg: #0e1116; --panel: #171b22; --line: #2a303b; --text: #e8ecf2; --muted: #8a93a3;
+    --gas: #3ddc84; --brake: #ff5c5c; --accent: #ffb347;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  #app { position: fixed; inset: 0; display: grid; grid-template-columns: 1fr 1.1fr 1fr; }
+
+  .pedal {
+    position: relative; margin: 14px; border-radius: 22px; overflow: hidden;
+    background: var(--panel); border: 2px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pedal .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0%; opacity: .35; transition: height .04s linear; }
+  .pedal .label { position: relative; font-weight: 800; font-size: 26px; letter-spacing: .12em; }
+  .pedal .hint { position: absolute; bottom: 14px; font-size: 12px; color: var(--muted); }
+  .pedal.active { border-color: currentColor; }
+  #brake { color: var(--brake); } #brake .fill { background: var(--brake); }
+  #gas   { color: var(--gas); }   #gas .fill   { background: var(--gas); }
+
+  #center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 8px 0; }
+  #wheel { width: min(42vh, 30vw); height: min(42vh, 30vw); transition: transform .03s linear; }
+  #readout { font-variant-numeric: tabular-nums; font-size: 14px; color: var(--muted); }
+  #status { font-size: 13px; display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  #status i { width: 9px; height: 9px; border-radius: 50%; background: var(--brake); display: inline-block; }
+  #status.ok i { background: var(--gas); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  button {
+    font: inherit; font-size: 14px; color: var(--text); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 12px; padding: 9px 14px;
+  }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  .aux { display: flex; gap: 10px; }
+  .aux button {
+    width: 64px; height: 52px; font-size: 20px; font-weight: 800; border-radius: 14px;
+    color: var(--accent); border-color: var(--line);
+  }
+  .aux button.down { background: var(--accent); color: #1a1205; border-color: var(--accent); }
+  label.sens { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  input[type=range] { width: 120px; accent-color: var(--accent); }
+
+  #overlay {
+    position: fixed; inset: 0; background: rgba(14,17,22,.97); z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+    text-align: center; padding: 24px;
+  }
+  #overlay h1 { margin: 0; font-size: 28px; }
+  #overlay p { margin: 0; color: var(--muted); max-width: 440px; line-height: 1.45; }
+  #startBtn { font-size: 20px; padding: 14px 34px; background: var(--accent); color: #1a1205; border: 0; font-weight: 800; }
+  #warn { color: var(--brake); font-size: 14px; max-width: 460px; display: none; }
+  #rotate { display: none; }
+  @media (orientation: portrait) { #rotate { display: block; color: var(--accent); } }
+</style>
+</head>
+<body>
+<div id="overlay">
+  <h1>Phone Wheel</h1>
+  <p>Hold your phone sideways like a steering wheel. Tilt to steer. Left thumb brakes, right thumb accelerates. The longer you hold a pedal, the harder it presses. Buttons 1–3 are spare controls you can assign in the game.</p>
+  <p id="rotate">Turn your phone sideways first.</p>
+  <button id="startBtn">START DRIVING</button>
+  <div id="warn"></div>
+</div>
+
+<div id="app">
+  <div class="pedal" id="brake"><div class="fill"></div><div class="label">BRAKE</div><div class="hint">hold longer = harder</div></div>
+
+  <div id="center">
+    <div id="status"><i></i><span>connecting…</span></div>
+    <svg id="wheel" viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="44" fill="none" stroke="#e8ecf2" stroke-width="7"/>
+      <circle cx="50" cy="50" r="9" fill="#e8ecf2"/>
+      <path d="M8 52 L41 52 M59 52 L92 52 M50 59 L50 93" stroke="#e8ecf2" stroke-width="7" stroke-linecap="round"/>
+      <rect x="47" y="3" width="6" height="10" rx="2" fill="#ffb347"/>
+    </svg>
+    <div id="readout">steer +0.00</div>
+    <div class="aux">
+      <button data-bit="0">1</button>
+      <button data-bit="1">2</button>
+      <button data-bit="2">3</button>
+    </div>
+    <div class="row">
+      <button id="centerBtn">Center</button>
+      <button id="invertBtn">Invert</button>
+    </div>
+    <label class="sens">Sensitivity <input id="sens" type="range" min="15" max="70" value="40"></label>
+    <label class="sens">Smoothing <input id="smooth" type="range" min="0" max="90" value="20"></label>
+  </div>
+
+  <div class="pedal" id="gas"><div class="fill"></div><div class="label">GAS</div><div class="hint">hold longer = harder</div></div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const statusEl = $("status"), readout = $("readout"), wheel = $("wheel");
+
+  let ws = null;
+  let rawDeg = 0, smoothDeg = 0, offsetDeg = 0;
+  // Sliders remember their position on this phone.
+  for (const id of ["sens", "smooth"]) {
+    try { const v = localStorage.getItem("pw-" + id); if (v !== null) $(id).value = v; } catch (_) {}
+  }
+  const save = (id) => { try { localStorage.setItem("pw-" + id, $(id).value); } catch (_) {} };
+  let invert = false, fullLockDeg = 70 - Number($("sens").value) + 15; // higher slider = less tilt needed
+  let follow = 1 - Number($("smooth").value) / 100; // 0 on the slider = raw, higher = smoother but laggier
+  let steer = 0, gas = 0, brake = 0, keys = 0;
+  let gotMotion = false;
+
+  // ---------- connection
+  function connect() {
+    let t = new URLSearchParams(location.search).get("t") || "";
+    try { if (t) localStorage.setItem("pw-token", t); else t = localStorage.getItem("pw-token") || ""; } catch (_) {}
+    ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?t=${encodeURIComponent(t)}`);
+    ws.onopen = () => { statusEl.classList.add("ok"); statusEl.lastChild.textContent = "connected to PC"; };
+    ws.onclose = () => {
+      statusEl.classList.remove("ok"); statusEl.lastChild.textContent = "reconnecting…";
+      setTimeout(connect, 1000);
+    };
+    ws.onerror = () => ws.close();
+  }
+
+  // ---------- tilt -> steering angle
+  function screenAngle() {
+    if (screen.orientation && typeof screen.orientation.angle === "number") return screen.orientation.angle;
+    return typeof window.orientation === "number" ? window.orientation : 90;
+  }
+  // Wrap an angle to -180..180 so math across the +/-180 seam stays continuous.
+  let flipped = false;
+  const wrap = (d) => ((d + 540) % 360) - 180;
+  function tiltDegrees(ax, ay) {
+    const a = ((screenAngle() % 360) + 360) % 360;
+    const D = 180 / Math.PI;
+    // "Up" direction for a level wheel in this orientation, in phone sensor axes.
+    let ux = 0, uy = 1;                       // portrait fallback
+    if (a === 90)  { ux = 1;  uy = 0; }       // landscape, top of phone on the left
+    if (a === 270) { ux = -1; uy = 0; }       // landscape, top of phone on the right
+    // Some Android builds report gravity with the opposite sign, which puts "straight"
+    // right on the +/-180 seam and breaks one steering direction. Follow whichever way it points.
+    // Only re-decide while the phone is near level, so a big tilt past 90 degrees can't flip it.
+    const dot = ax * ux + ay * uy;
+    if (Math.abs(dot) > 0.7 * Math.hypot(ax, ay)) flipped = dot < 0;
+    if (flipped) { ux = -ux; uy = -uy; }
+    return Math.atan2(ux * ay - uy * ax, ux * ax + uy * ay) * D;
+  }
+  // Chrome's deviceorientation is fused from gyro + accelerometer by Android, so it
+  // reacts much faster than raw accelerometer data and barely needs smoothing.
+  // Raw accelerometer (devicemotion) is only the fallback when it isn't available.
+  let lastOrientation = 0;
+  function updateSteer(ux, uy, smoothing) {
+    gotMotion = true;
+    rawDeg = tiltDegrees(ux, uy);
+    smoothDeg = wrap(smoothDeg + wrap(rawDeg - smoothDeg) * smoothing);
+    let v = wrap(smoothDeg - offsetDeg) / fullLockDeg;
+    v = Math.max(-1, Math.min(1, v));
+    steer = invert ? -v : v;
+  }
+  function onOrientation(e) {
+    if (e.beta == null || e.gamma == null) return;
+    lastOrientation = performance.now();
+    // "Up" (opposite of gravity) in phone axes, from the beta/gamma Euler angles.
+    const R = Math.PI / 180, b = e.beta * R, c = e.gamma * R;
+    updateSteer(-Math.cos(b) * Math.sin(c), Math.sin(b), follow);
+  }
+  function onMotion(e) {
+    if (performance.now() - lastOrientation < 250) return; // fused data is flowing, use that
+    const g = e.accelerationIncludingGravity;
+    if (!g || g.x == null) return;
+    updateSteer(g.x, g.y, 0.35);               // accelerometer is noisy, smooth it more
+  }
+
+  // ---------- pedals (pressure builds the longer you hold)
+  const PEDAL_MIN = 0.2;   // value the moment you touch
+  const PEDAL_RAMP = 1.5;  // seconds from touch to full press
+  function setupPedal(el, set) {
+    const fill = el.querySelector(".fill");
+    let pid = null, t0 = 0;
+    const tick = () => {
+      if (pid === null) return;
+      const held = (performance.now() - t0) / 1000;
+      const v = Math.min(1, PEDAL_MIN + (1 - PEDAL_MIN) * held / PEDAL_RAMP);
+      set(v); fill.style.height = (v * 100) + "%";
+      requestAnimationFrame(tick);
+    };
+    el.addEventListener("pointerdown", (e) => {
+      if (pid !== null) return;
+      pid = e.pointerId; el.setPointerCapture(pid); el.classList.add("active");
+      if (navigator.vibrate) navigator.vibrate(12);
+      t0 = performance.now(); tick();
+    });
+    const release = (e) => {
+      if (e.pointerId !== pid) return;
+      pid = null; set(0); fill.style.height = "0%"; el.classList.remove("active");
+    };
+    el.addEventListener("pointerup", release);
+    el.addEventListener("pointercancel", release);
+  }
+  setupPedal($("gas"), (v) => gas = v);
+  setupPedal($("brake"), (v) => brake = v);
+
+  // ---------- spare buttons 1-3 (held = pressed), assign them in the game's settings
+  document.querySelectorAll(".aux button").forEach((btn) => {
+    const bit = 1 << Number(btn.dataset.bit);
+    let pid = null;
+    btn.addEventListener("pointerdown", (e) => {
+      pid = e.pointerId; btn.setPointerCapture(pid);
+      keys |= bit; btn.classList.add("down");
+      if (navigator.vibrate) navigator.vibrate(15);
+    });
+    const up = (e) => {
+      if (e.pointerId !== pid) return;
+      pid = null; keys &= ~bit; btn.classList.remove("down");
+    };
+    btn.addEventListener("pointerup", up);
+    btn.addEventListener("pointercancel", up);
+  });
+
+  // ---------- buttons
+  $("centerBtn").onclick = () => { offsetDeg = smoothDeg; if (navigator.vibrate) navigator.vibrate(30); };
+  $("invertBtn").onclick = (e) => { invert = !invert; e.currentTarget.classList.toggle("on", invert); };
+  $("sens").oninput = (e) => { fullLockDeg = 70 - Number(e.target.value) + 15; save("sens"); };
+  $("smooth").oninput = (e) => { follow = 1 - Number(e.target.value) / 100; save("smooth"); };
+  document.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  // ---------- send loop + UI
+  setInterval(() => {
+    if (ws && ws.readyState === 1) {
+      ws.send(JSON.stringify({ s: +steer.toFixed(3), g: +gas.toFixed(3), b: +brake.toFixed(3), k: keys }));
+    }
+  }, 16);
+  function draw() {
+    wheel.style.transform = `rotate(${steer * 90}deg)`;
+    readout.textContent = `steer ${steer >= 0 ? "+" : ""}${steer.toFixed(2)}`;
+    requestAnimationFrame(draw);
+  }
+
+  // ---------- start
+  let wakeLock = null;
+  async function keepAwake() {
+    try { if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen"); } catch (_) {}
+  }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") keepAwake(); });
+
+  $("startBtn").onclick = async () => {
+    const warn = $("warn");
+    if (!window.isSecureContext) {
+      warn.style.display = "block";
+      warn.textContent = "Open the exact link the PC printed (https:// over Wi-Fi, http://localhost over USB), otherwise the phone won't share tilt data.";
+      return;
+    }
+    if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+      try { await DeviceMotionEvent.requestPermission(); } catch (_) {}
+    }
+    try {
+      await document.documentElement.requestFullscreen({ navigationUI: "hide" });
+      await screen.orientation.lock("landscape");
+    } catch (_) { /* not fatal */ }
+    keepAwake();
+    window.addEventListener("deviceorientation", onOrientation);
+    window.addEventListener("devicemotion", onMotion);
+    connect();
+    requestAnimationFrame(draw);
+    $("overlay").style.display = "none";
+    setTimeout(() => { offsetDeg = smoothDeg; }, 400); // treat the starting position as center
+
+    setTimeout(() => {
+      if (!gotMotion) {
+        $("overlay").style.display = "flex";
+        warn.style.display = "block";
+        warn.textContent = "No tilt data from the phone's sensors. Check that motion sensors are allowed for Chrome (Settings → Site settings → Motion sensors).";
+      }
+    }, 1500);
+  };
+})();
+</script>
+</body>
+</html>

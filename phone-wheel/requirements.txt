@@ -1,0 +1,5 @@
+aiohttp>=3.9
+cryptography>=41
+qrcode>=7.4
+pynput>=1.7
+vgamepad>=0.1.0; sys_platform == "win32"

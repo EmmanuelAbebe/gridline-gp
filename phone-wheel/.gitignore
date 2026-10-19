@@ -1,0 +1,15 @@
+# secrets and per-machine files
+cert.pem
+key.pem
+.cert_ip
+pairing_token
+
+# build output and environments
+dist/
+build/
+.venv/
+__pycache__/
+node_modules/
+
+# local Python virtualenv
+venv/

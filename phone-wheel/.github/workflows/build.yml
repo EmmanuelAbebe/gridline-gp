@@ -1,0 +1,36 @@
+# Builds a single-file Phone Wheel executable for each OS on GitHub's machines.
+# Run it from the Actions tab (or push a v* tag); download the results under "Artifacts".
+name: build
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            extra: vgamepad
+          - os: macos-latest
+            extra: ""
+          - os: ubuntu-22.04   # older glibc, so the binary also runs on older distros
+            extra: evdev python-xlib
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install pyinstaller aiohttp cryptography qrcode pynput ${{ matrix.extra }}
+      - name: Build
+        run: pyinstaller --noconfirm phone-wheel.spec
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PhoneWheel-${{ runner.os }}
+          path: dist/*

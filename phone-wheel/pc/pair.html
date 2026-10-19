@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phone Wheel</title>
+<style>
+  :root {
+    --bg: #0e1116; --panel: #171b22; --line: #2a303b; --text: #e8ecf2; --muted: #8a93a3;
+    --gas: #3ddc84; --brake: #ff5c5c; --accent: #ffb347;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; align-items: center; justify-content: center; padding: 24px 16px;
+  }
+  main { display: grid; grid-template-columns: auto minmax(0, 380px); gap: 32px; align-items: center; max-width: 820px; width: 100%; }
+  @media (max-width: 720px) { main { grid-template-columns: 1fr; justify-items: center; } }
+  .qr { background: #fff; border-radius: 18px; padding: 14px; width: min(340px, 86vw); aspect-ratio: 1; }
+  .qr svg { width: 100%; height: 100%; display: block; }
+  h1 { margin: 0 0 6px; font-size: 26px; }
+  p { margin: 0 0 14px; color: var(--muted); line-height: 1.45; }
+  ol { margin: 0 0 16px; padding-left: 20px; color: var(--muted); line-height: 1.6; }
+  ol b { color: var(--text); font-weight: 600; }
+  .link { display: flex; gap: 8px; margin-bottom: 18px; }
+  .link code {
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; font-size: 13px;
+  }
+  button {
+    font: inherit; font-size: 14px; color: var(--text); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; cursor: pointer;
+  }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .status { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-bottom: 12px; }
+  .status i { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+  .status.on i { background: var(--gas); }
+  .status.off i { background: var(--brake); }
+  .meter { display: grid; grid-template-columns: 56px 1fr 52px; gap: 10px; align-items: center; font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .bar { position: relative; height: 10px; border-radius: 5px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
+  .bar span { position: absolute; top: 0; bottom: 0; left: 0; width: 0; }
+  .bar.steer span { background: var(--accent); }
+  .bar.steer::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--muted); }
+  .bar.gas span { background: var(--gas); }
+  .bar.brake span { background: var(--brake); }
+  .meter output { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+  .mode { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="qr" id="qr" aria-label="QR code with the phone link"></div>
+  <div>
+    <h1>Phone Wheel</h1>
+    <ol>
+      <li>Connect the phone to the <b>same Wi-Fi</b> as this PC.</li>
+      <li><b>Scan the QR code</b> with the phone camera.</li>
+      <li id="certStep">If the phone warns about the connection, tap <b>Advanced → Proceed</b>. That's this PC's own certificate.</li>
+      <li>Tap <b>START DRIVING</b> and hold the phone sideways.</li>
+    </ol>
+    <div class="link"><code id="url">…</code><button id="copy">Copy</button></div>
+    <div class="card">
+      <div class="status" id="status"><i></i><span>Starting…</span></div>
+      <div class="meter">Steer <div class="bar steer"><span id="bs"></span></div><output id="vs">—</output></div>
+      <div class="meter">Gas <div class="bar gas"><span id="bg"></span></div><output id="vg">—</output></div>
+      <div class="meter">Brake <div class="bar brake"><span id="bb"></span></div><output id="vb">—</output></div>
+      <div class="mode" id="linkq">Link: —</div>
+      <div class="mode" id="mode"></div>
+    </div>
+  </div>
+</main>
+<script>
+(async () => {
+  const $ = (id) => document.getElementById(id);
+  const info = await (await fetch("/api/info")).json();
+  $("qr").innerHTML = info.qr;
+  $("url").textContent = info.url;
+  $("mode").textContent = "Output: " + info.mode;
+  if (info.usb) $("certStep").textContent = "Over USB there's no certificate warning.";
+  $("copy").onclick = async () => {
+    try { await navigator.clipboard.writeText(info.url); $("copy").textContent = "Copied"; }
+    catch (_) { $("copy").textContent = "Select it"; }
+    setTimeout(() => ($("copy").textContent = "Copy"), 1500);
+  };
+
+  const setBar = (id, v, signed) => {
+    const el = $(id);
+    if (signed) { el.style.left = (v < 0 ? 50 + v * 50 : 50) + "%"; el.style.width = Math.abs(v) * 50 + "%"; }
+    else { el.style.left = "0"; el.style.width = v * 100 + "%"; }
+  };
+  async function poll() {
+    let st = null;
+    try { st = await (await fetch("/api/status")).json(); } catch (_) {}
+    const s = $("status");
+    if (!st) {
+      s.className = "status off"; s.lastChild.textContent = "Phone Wheel isn't running";
+    } else if (st.phones > 0) {
+      s.className = "status on";
+      s.lastChild.textContent = st.phones === 1 ? "Phone connected" : `${st.phones} phones connected`;
+    } else {
+      s.className = "status"; s.lastChild.textContent = "Waiting for the phone…";
+    }
+    const lk = st && st.link;
+    $("linkq").textContent = lk ? `Link: ${lk.rtt ?? "–"} ms round trip · ${lk.hz} messages/s · longest pause ${lk.gap} ms`
+      + (lk.gap > 150 || (lk.rtt ?? 0) > 60 ? "  (laggy: try --usb, or keep the phone close to the router)" : "") : "Link: —";
+    const inp = st && st.input;
+    setBar("bs", inp ? inp.s : 0, true); setBar("bg", inp ? inp.g : 0); setBar("bb", inp ? inp.b : 0);
+    $("vs").textContent = inp ? (inp.s >= 0 ? "+" : "") + inp.s.toFixed(2) : "—";
+    $("vg").textContent = inp ? Math.round(inp.g * 100) + "%" : "—";
+    $("vb").textContent = inp ? Math.round(inp.b * 100) + "%" : "—";
+    setTimeout(poll, st ? 120 : 1000);
+  }
+  poll();
+})();
+</script>
+</body>
+</html>
