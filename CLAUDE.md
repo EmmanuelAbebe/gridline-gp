@@ -456,6 +456,18 @@ them on. Before Performance mode existed the game ran at ~30 fps; target is 60.
   (`tools/sim-trace.mjs` hashes match the last single-file version, commit 80b8966). Three.js and fonts bundled.
 - Published as a claude.ai artifact ("Gridline GP"); that copy is a snapshot of the old single file.
 
+## Fastest possible lap (`npm run lap-optimum -- [circuit] [--no-aero] [--tune] [--push=a,b,...]`, 2026-10-19)
+`tools/lap-optimum.mjs`: (1) a quasi-steady-state lap model (the sim's grip, downforce, drag, engine/gearbox, brakes,
+friction circle, active aero zones) on a line optimised for lap time (coordinate descent on a smooth periodic spline of
+offsets, controls within HW − 0.3: centre on the tarmac, so no cuts); (2) a bot drives that line in the real physics
+(drivePlayer, medium assists) on the model's corner/braking profile × push; `--tune` raises the push per corner while
+the flying lap stays clean (no walls, cuts or spins). The steady skidpad grip of the chassis matches `lateralGrip`
+within ~5%, yet the bot is clean up to ~1.16 × the steady profile everywhere and 1.15–1.4 per corner: it brakes
+later and carries speed in, sliding wide over the full width incl. kerbs. Northfold (user's best 1:01.675 with
+active aero, 1:02.275 before it): model 1:01.07 (no aero 1:02.54); bot uniform 0:58.83, per-corner **0:57.37**
+(no aero 0:58.83). Fastest AI (LEGEND) 66.0 s: the AI profile (minimum-curvature line, steady corner speeds × skill)
+leaves ~8 s on the table, relevant to the parked smarter-AI plan.
+
 ## Ideas not done yet
 - Smarter AI (parked 2026-10-19 by the user "for later once better game mechanics are made"). User beat Northfold in
   1:02.275 (fastest AI solo 67.6 s) with other lines through turns 2–3 and 5–6; LEGEND "feels fair: rewards good tries,
