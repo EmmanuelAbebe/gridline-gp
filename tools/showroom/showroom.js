@@ -27,7 +27,7 @@ const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60).rotateX(-Math.PI /
 scene.add(ground);
 const model = CarModels.create(scene, driver, design);
 const brake = q.get('brake') === '0' ? 0 : 1, steer = q.get('steer') ? +q.get('steer') : 0.25;
-const pose = () => { model.setPedals(1 - brake, brake); for (let i = 0; i < 30; i++) model.sync({ rx: 0, rz: 0, rh: 0, roll: 0.6, steer, brake }, 1 / 30); };
+const pose = () => { model.setPedals(1 - brake, brake); for (let i = 0; i < 30; i++) model.sync({ roll: 0.6, steer, brake }, { x: 0, z: 0, h: 0 }, 1 / 30); };
 pose();
 
 // car space: +x forward, +z right; the car sits at the origin facing +x

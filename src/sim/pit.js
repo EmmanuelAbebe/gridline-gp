@@ -12,10 +12,24 @@ import { DRIVERS } from './drivers.js';
 import { rpmAt, GEARS } from './vehicle.js';
 import { emit } from './events.js';
 import { clamp, wrapA, wrapIdx, smoothstep } from './math.js';
+/** @typedef {import('./types.js').Car} Car */
+/** @typedef {import('./types.js').Race} Race */
+/** @typedef {import('./types.js').Track} Track */
 
+
+/** @typedef {{ entry: number, from: number, to: number, exit: number, wallLat: number, lane: number, boxLat: number,
+ *   garageLat: number, boxes: number[] }} PitLane */
+/** @typedef {{ fuelLaps: number, tyreLaps: number, damage: boolean, burnLap: number }} Wear */
+/** @typedef {{ wing: number, floor: number, susp: number }} Damage */   // each 0..1
+/** @typedef {{ fuel: number, fuelTo: number, wing: boolean, repair: boolean, tyres: boolean, time: number }} Service */
+/** In the pit lane: p = unwrapped sample position (from p0, lateral lat0 at the entry), the car's box, phase, service
+ * done at the stop (until race time `until`).
+ * @typedef {{ p: number, p0: number, lat0: number, box: number, phase: 'in' | 'stop' | 'out', until: number,
+ *   service: Service }} PitStop */
 
 // The lane on a track (null without pits): sample ranges + lateral offsets; boxes = one per DRIVERS entry, in front
 // of the garage doors world.js draws (PIT.garages: first + step·k m along from the `pits` landmark).
+/** @param {Track} track @returns {PitLane} */
 export function buildPitLane(track) {
   const r = pitRange(track); if (!r) return null;
   const wallLat = track.HW + RUNOFF.pitWall;
@@ -23,19 +37,27 @@ export function buildPitLane(track) {
     boxes: DRIVERS.map((d, k) => track.landmarks.pits + (PIT.garages.first + PIT.garages.step * k) / track.ds) };
 }
 
+// A car's fuel, tyres, damage and pit-stop state (part of createCar; setupWear fills the tank for the race).
+export const pitState = slot => ({
+  fuel: Infinity, tyreWear: 0, damage: /** @type {Damage} */ ({ wing: 0, floor: 0, susp: 0 }), pullSide: slot % 2 ? 1 : -1,   // pullSide: where damaged suspension pulls
+  pit: /** @type {PitStop} */ (null), pitRequest: false, pitLimiter: false, pitStops: 0,
+  warned: /** @type {{ low?: boolean, box?: boolean, out?: boolean, tyres?: boolean }} */ ({}),   // pit = { p, phase, ... } while in the lane
+});
+
 // ---------- race options ----------
 // opts.wear = { fuel: 'off'|'normal'|'high', tyres: …, damage: bool } (createRace); everything off by default
+/** @param {Race} race */
 export function setupWear(race, opts = {}) {
   const fuelLaps = WEAR.fuel[opts.fuel] ?? 0, tyreLaps = WEAR.tyres[opts.tyres] ?? 0;
   race.wear = { fuelLaps, tyreLaps, damage: !!opts.damage, burnLap: fuelLaps ? WEAR.tank / fuelLaps : 0 };
   for (const c of race.cars) {
+    Object.assign(c, pitState(c.slot));
     c.fuel = fuelLaps ? Math.min(WEAR.tank, (lapsToGo(race, c) + WEAR.reserve) * race.wear.burnLap) : Infinity;
-    c.tyreWear = 0; c.damage = { wing: 0, floor: 0, susp: 0 }; c.pullSide = c.slot % 2 ? 1 : -1;
-    c.pit = null; c.pitRequest = false; c.pitStops = 0; c.warned = {};
   }
 }
 
 // laps still to drive (including the rest of this one); timed races estimate from the last lap (or WEAR.lapSpeed)
+/** @param {Race} race @param {Car} c */
 export function lapsToGo(race, c) {
   const done = Math.max(0, c.lap - 1) + (c.lap >= 1 ? c.idx / race.track.N : 0);
   if (race.laps < Infinity) return Math.max(0, race.laps - done);
@@ -46,9 +68,11 @@ export function lapsToGo(race, c) {
   return Infinity;
 }
 // laps the fuel in the tank still lasts
+/** @param {Race} race @param {Car} c */
 export const fuelLaps = (race, c) => race.wear?.burnLap ? c.fuel / race.wear.burnLap : Infinity;
 
 // ---------- fuel and tyres, every step ----------
+/** @param {Race} race @param {Car} c */
 export function updateWear(race, c, thr, dt) {
   const W = race.wear; if (!W || c.pit || c.finished) return;
   const dist = Math.abs(c.v) * dt, L = race.track.L;
@@ -70,6 +94,7 @@ export function updateWear(race, c, thr, dt) {
 
 // ---------- damage (car.js walls, collide.js contacts) ----------
 // impact = closing speed (m/s), front = 0..1 how much of it hit the nose, hard = how unforgiving the thing hit was
+/** @param {Race} race @param {Car} c */
 export function addDamage(race, c, impact, front, hard = 1) {
   if (!race.wear?.damage || impact * hard < WEAR.damage.min) return;
   const D = WEAR.damage, d = c.damage, e = impact * hard, before = { ...d };
@@ -81,6 +106,7 @@ export function addDamage(race, c, impact, front, hard = 1) {
   if (worst) emit(c, EV.DAMAGE, { part: worst });
 }
 // what the damage and tyres do to the car (chassis.js): grip, front / total downforce, drag, steering pull
+/** @param {Car} c */
 export function carCondition(c) {
   const d = c.damage, D = WEAR.damage, w = c.tyreWear || 0;
   if (!d) return { grip: 1, front: 1, aero: 1, drag: 1, pull: 0, power: 1 };
@@ -89,6 +115,7 @@ export function carCondition(c) {
 }
 
 // ---------- the AI's decision (made each lap before the entry) ----------
+/** @param {Race} race @param {Car} c */
 export function aiWantsPit(race, c) {
   const togo = lapsToGo(race, c), A = PIT.ai;
   if (togo < A.late) return false;                                    // too late to be worth it
@@ -98,10 +125,13 @@ export function aiWantsPit(race, c) {
 }
 
 // ---------- the pit lane ----------
+/** @param {Track} track */
 const at = (track, p) => wrapIdx(Math.floor(p), track.N);
+/** @param {Car} c */
 const boxOf = (lane, c) => lane.boxes[Math.max(0, DRIVERS.findIndex(d => d.code === c.code))];
 
 // Called before a car's normal step: starts its pit stop at the entry road. Returns true when it is in the pit lane.
+/** @param {Race} race @param {Car} c */
 export function checkPitEntry(race, c) {
   const lane = race.track.pit; if (!lane || c.finished || c.pit) return !!c.pit;
   const { N } = race.track, d = wrapIdx(c.idx - lane.entry, N);
@@ -115,6 +145,7 @@ export function checkPitEntry(race, c) {
 }
 
 // the pit road's centre line at p for drawing (world.js): from the road edge onto the fast lane, along it, back out
+/** @param {Track} track */
 export function laneCentre(track, p) {
   const L = track.pit, edge = track.HW - PIT.edge;
   if (p < L.from) return edge + (L.lane - edge) * smoothstep((p - L.entry) / (L.from - L.entry));
@@ -122,6 +153,7 @@ export function laneCentre(track, p) {
   return L.lane + (edge - L.lane) * smoothstep((p - L.to) / (L.exit - L.to));
 }
 // lateral offset of the pit path at p (unwrapped samples)
+/** @param {Race} race @param {Car} c */
 function pathLat(race, c, p) {
   const lane = race.track.pit, P = c.pit;
   if (p < lane.from) return P.lat0 + (lane.lane - P.lat0) * smoothstep((p - P.p0) / (lane.from - P.p0));
@@ -133,6 +165,7 @@ function pathLat(race, c, p) {
 }
 
 // One step of a car in the pit lane (instead of the driving model). Moves it along the path; the caller runs afterMove.
+/** @param {Race} race @param {Car} c */
 export function stepPit(race, c, dt) {
   const T = race.track, lane = T.pit, P = c.pit, ds = T.ds;
   c.pitRequest = false;                                               // already in
@@ -174,6 +207,7 @@ export function stepPit(race, c, dt) {
 
 // what the crew does: always tyres; fuel for the rest of the race (+ reserve, at most a full tank); a new front
 // wing if it is damaged; floor and suspension repaired
+/** @param {Race} race @param {Car} c @returns {Service} */
 function service(race, c) {
   const W = race.wear, d = c.damage || { wing: 0, floor: 0, susp: 0 };
   const fuelTo = W?.fuelLaps ? Math.min(WEAR.tank, (lapsToGo(race, c) + WEAR.reserve) * W.burnLap) : c.fuel;
@@ -181,6 +215,7 @@ function service(race, c) {
   const time = PIT.base + (Number.isFinite(fuel) ? fuel / PIT.refuel : 0) + (wing ? PIT.wing : 0) + PIT.repair * Math.min(1, repair);
   return { fuel, fuelTo, wing, repair: repair > PIT.repairFrom, tyres: true, time };
 }
+/** @param {Race} race @param {Car} c */
 function applyService(race, c, s) {
   if (Number.isFinite(s.fuelTo)) c.fuel = s.fuelTo;
   c.tyreWear = 0; if (c.damage) c.damage = { wing: 0, floor: 0, susp: 0 };

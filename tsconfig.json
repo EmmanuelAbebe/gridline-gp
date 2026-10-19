@@ -1,0 +1,16 @@
+{
+  // Type check of the simulation (npm run typecheck): plain JS + JSDoc types, no build step. Catches misspelt car /
+  // race / track fields: the Car, Race and Track types come from createCar, createRace and buildTrack (types.js).
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "target": "es2023",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["es2023"],
+    "types": [],
+    "strict": false
+  },
+  "include": ["src/sim/**/*.js"]
+}

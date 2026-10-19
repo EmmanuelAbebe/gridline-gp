@@ -33,6 +33,7 @@ import { SoundStudio } from './sound-studio.js';
 import { SOUND } from './audio/audio-config.js';
 import { createSlipstreamFx } from './slipstream-fx.js';
 import { createRaceAudio } from './race-audio.js';
+import { poseOf, savePoses, interpolatePoses } from './pose.js';
 
 const { EV } = SIM;
 // circuits are built on first use (~40 ms) and kept
@@ -117,15 +118,8 @@ function setGfx(id, announce) {
 }
 const toggleGfx = () => setGfx(game.gfx === 'perf' ? 'quality' : 'perf', true);
 
-// ---- render interpolation: sim state (x, z, h) → render state (rx, rz, rh) ----
-function savePrev(race) { for (const c of race.cars) { c.px = c.x; c.pz = c.z; c.ph = c.h; } }
-function interpolate(race, a) {
-  for (const c of race.cars) {
-    if (c.px === undefined) { c.px = c.x; c.pz = c.z; c.ph = c.h; }
-    c.rx = c.px + (c.x - c.px) * a; c.rz = c.pz + (c.z - c.pz) * a; c.rh = c.ph + SIM.wrapA(c.h - c.ph) * a;
-  }
-}
-function snapCamera() { interpolate(game.race, 1); CameraRig.snap(game.player); }
+// ---- render interpolation: sim state (x, z, h) → the pose drawn (pose.js) ----
+function snapCamera() { interpolatePoses(game.race.cars, 1); CameraRig.snap(game.player); }
 
 // ---- race flow: menu → lights → race → done (results) ----
 function setStartLights(n) { Hud.setStartLamps(n); world.setStartLights(n); }
@@ -254,7 +248,7 @@ function showResults() {
 function simStep(dt) {
   const race = game.race;
   if (game.ended) return;                     // ended from the pause menu: the field stays where it stopped
-  savePrev(race);
+  savePoses(race.cars);
   timers.tick(dt);
   if (game.phase === PHASE.LIGHTS) { stepStartLights(dt); return; }
   race.t += dt;
@@ -432,7 +426,7 @@ function renderFrame(dt) {
   const { race, player } = game, cam = CameraRig.mode;
   modelOf.get(player.code).useCockpitView(!!cam.cockpitBody);
   modelOf.get(player.code).setPedals(player.finished ? 0 : Input.drive.thr, player.finished ? 0 : Input.drive.brk);
-  for (const c of race.cars) modelOf.get(c.code).sync(c, dt);
+  for (const c of race.cars) modelOf.get(c.code).sync(c, poseOf(c), dt);
   CameraRig.update(dt, player, !isRunning());
   Display.render();
 
@@ -479,7 +473,7 @@ function frame(now) {
   const running = isRunning();
   if (running) { game.acc += dt; while (game.acc >= STEP) { simStep(STEP); game.acc -= STEP; } }
   else game.acc = 0;
-  if (game.race) { interpolate(game.race, running ? game.acc / STEP : 1); renderFrame(dt); }
+  if (game.race) { interpolatePoses(game.race.cars, running ? game.acc / STEP : 1); renderFrame(dt); }
   else Display.render();
   monitorFps(dt);
 }

@@ -181,9 +181,9 @@ export const CarModels = (() => {
       mountScreen(mesh) { screen = mesh; placeScreen(); showView(); },
       place(x, z, h) { root.position.set(x, 0, z); root.rotation.y = -h; },
       setVisible(on) { root.visible = on; },
-      // copy interpolated sim state (rx/rz/rh) onto the mesh; brake lights fade in and out over ~0.1 s
-      sync(car, dt = 1 / 60) {
-        this.place(car.rx, car.rz, car.rh);
+      // copy the car state onto the mesh at `pose` (pose.js: interpolated x/z/h); brake lights fade in and out over ~0.1 s
+      sync(car, pose, dt = 1 / 60) {
+        this.place(pose.x, pose.z, pose.h);
         for (const w of wheels) w.rotation.z = -car.roll;
         for (const p of fronts) p.rotation.y = -car.steer * FRONT_STEER;
         steering.rotation.x = car.steer * lock;          // + steer (right) turns the wheel clockwise from the driver's seat

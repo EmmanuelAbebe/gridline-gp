@@ -9,9 +9,11 @@
 // the track, and kept from reaching into the run-off of another part of the track or folding over inside a corner.
 import { RUNOFF, BARRIER, ZONE, OFFTRACK, PIT } from './tuning.js';
 import { wrapIdx } from './math.js';
+/** @typedef {import('./types.js').Track} Track */
 
 // The pit lane's span in samples (unwrapped: may run past N), from the `pits` landmark: entry road from `entry`, pit
 // wall from `from` to `to`, exit road until `exit`. null without pits.
+/** @param {Track} track */
 export function pitRange(track) {
   const p = track.landmarks.pits; if (p === undefined) return null;
   const from = p - RUNOFF.landmarkSpan, to = p + RUNOFF.landmarkSpan;
@@ -20,8 +22,14 @@ export function pitRange(track) {
 // pit roads: entry and exit, on the right; the outer barrier beyond the road (m from the centre line)
 const pitRoadWall = HW => HW + RUNOFF.pitWall + PIT.fast + 4;
 
+/** One side's run-off, per track sample (see the top of this file); zone / barrier are ZONE / BARRIER codes, cls the class
+ * index (253 pit road, 254 grandstand wall, 255 pit wall).
+ * @typedef {{ kerb: Float32Array, sausage: Uint8Array, turf: Float32Array, zone: Uint8Array, gravel: Float32Array,
+ *   wall: Float32Array, barrier: Uint8Array, cls: Uint8Array }} Runoff */
+
 const CLASSES = ['straight', 'inside', 'fast', 'medium', 'slow'];
 
+/** @param {Track} track */
 export function buildRunoff(track, style = 'permanent') {
   const { N, ds, HW, KERB, K, CK, KERB_K, VP, landmarks } = track, S = RUNOFF[style] || RUNOFF.permanent;
   const at = i => wrapIdx(i, N);
@@ -104,6 +112,7 @@ export function buildRunoff(track, style = 'permanent') {
 
 // For each sample of one side: how far out from the centre line the barrier may go before it is closer to another
 // part of the track (more than `win` metres along it) than to this one. Uses a grid of the samples.
+/** @param {Track} track */
 function freeDistance(track, side, wanted) {
   const { N, ds, PX, PZ, NX, NZ, HW } = track, s = side ? 1 : -1, CELL = 32, grid = new Map();
   const key = (x, z) => Math.floor(x / CELL) + ',' + Math.floor(z / CELL);
@@ -131,6 +140,7 @@ function freeDistance(track, side, wanted) {
 }
 
 // The run-off at one point: side and lateral distance → surface name and, in gravel, how deep the car is in it.
+/** @param {Track} track */
 export function surfaceAt(track, i, lat) {
   const R = track.runoff[lat < 0 ? 0 : 1], a = Math.abs(lat);
   if (a <= track.HW) return { surface: 'track', depth: 0 };

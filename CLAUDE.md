@@ -21,7 +21,8 @@ F1-style curved car with textures; still to do: crash physics, scenery, (5) HUD,
   `public/` (manifest, icons, sw.js) is copied into dist as is.
 - npm scripts: `dev` (Vite dev server, browser), `dev:app` (dev server inside Electron, `tools/dev-app.mjs`),
   `build`, `start` (build + Electron), `test` (node:test, `tests/*.test.js`), `lint` (ESLint 10, `eslint.config.js`:
-  undefined/unused names; `src/sim` gets no browser globals), `check` (lint + test + build), `sim-test`, `sim-trace`.
+  undefined/unused names; `src/sim` gets no browser globals), `typecheck` (`tsc -p .`, TypeScript 6 on plain JS + JSDoc,
+  `src/sim` only, see Car state below), `check` (lint + typecheck + test + build), `sim-test`, `sim-trace`.
 - Desktop app (Electron, `desktop/main.cjs` + `desktop/preload.cjs`; package is `"type": "module"`, hence .cjs):
   loads `dist/index.html` (or `GRIDLINE_DEV_URL`) in a frameless full-screen window, single instance,
   F5/Ctrl+R reload, Ctrl+Shift+I devtools. GPU: Chromium default; `GRIDLINE_GPU=vulkan` adds the old laptop's
@@ -142,6 +143,13 @@ Tunables live in data tables (config modules), not inline in the logic.
      `collide.js` (cars are capsules `CONTACT` rear 1.5 / front 2.3 m, radius 1.05: side by side fits at 2.1 m;
      rigid-body impulse at the contact point (point velocities incl. yaw, effective mass incl. rotation scaled by `spin` 0.3), restitution 0.1, changes v, vy and yaw; `carGap(a, b)`. 2026-10-18 user: crashes "too violent": the old impulse ignored rotation, a 15 m/s corner-to-corner tap yawed a car at 3.6 rad/s, now 1.5; contact camera shake lighter than walls).
    - Car state: `x, z, h`, `v`, `idx` (nearest sample), `lat`, `lap`. `progress(race, c)` = `lap * N + idx`.
+     Since 2026-10-19 `createCar` declares every field, grouped by owning module (pit.js supplies `pitState(slot)`);
+     `types.js` defines `Car` / `Race` / `Track` as the factories' return types, sim functions take them via JSDoc
+     `@param`, and `npm run typecheck` fails on a field that is misspelt or written without being declared there
+     (null-initialised fields use a cast, e.g. `pit: /** @type {PitStop} */ (null)`; Runoff, PitLane, PitStop,
+     Service, Wear, Damage, Driver are explicit typedefs). The game never writes into car objects: the interpolated
+     render position is `pose.js` `poseOf(c)` {x, z, h} (a WeakMap; `savePoses` before each step, `interpolatePoses`
+     per frame; `CarModels.sync(car, pose, dt)`).
      After every move: `updateLap` (wrap >0.8N → <0.2N), `updateCheckpoints`, `resolveWalls`, `updateSurface`.
    - `drivePlayer(race, car, {steer, thr, brk, analog, steerRate, shift}, dt)`: steering ramp (keyboard 5/s; analog
      `steerRate`, default 14, the game sends Infinity = no smoothing unless Settings → Controller sets it), `calm` 0..1 (analog only; game default 1, Settings → Controller "Steering at speed"): `calmSteer` s' = k·s + (1−k)·s³

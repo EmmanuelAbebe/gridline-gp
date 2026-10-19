@@ -6,6 +6,7 @@ import { Display } from './display.js';
 import { Sound } from './sound.js';
 import { CameraRig } from './camera-rig.js';
 import { createProximity } from './proximity.js';
+import { poseOf } from './pose.js';
 
 const V = SIM.VEHICLE;
 export function createRaceAudio() {
@@ -31,8 +32,8 @@ export function createRaceAudio() {
       const rivals = [];
       for (const c of race.cars) {
         if (c === P) continue;
-        const ch = Math.cos(c.rh), sh = Math.sin(c.rh), g = o.onLights ? gridRpm(c, dt) : null;
-        rivals.push({ id: c.code, x: c.rx, y: 0.6, z: c.rz, vx: ch * c.v - sh * (c.vy || 0), vz: sh * c.v + ch * (c.vy || 0),
+        const p = poseOf(c), ch = Math.cos(p.h), sh = Math.sin(p.h), g = o.onLights ? gridRpm(c, dt) : null;
+        rivals.push({ id: c.code, x: p.x, y: 0.6, z: p.z, vx: ch * c.v - sh * (c.vy || 0), vz: sh * c.v + ch * (c.vy || 0),
           rpm: g ? g.rpm : c.rpm, thr: g ? (g.target > g.rpm ? 0.8 : 0.1) : c.thr || 0, gear: o.onLights ? 0 : c.gear });
       }
       Sound.frame({

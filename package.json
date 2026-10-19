@@ -12,7 +12,8 @@
     "start": "vite build && electron .",
     "test": "node --test \"tests/**/*.test.js\"",
     "lint": "eslint .",
-    "check": "eslint . && node --test \"tests/**/*.test.js\" && vite build",
+    "typecheck": "tsc -p .",
+    "check": "eslint . && tsc -p . && node --test \"tests/**/*.test.js\" && vite build",
     "sim-test": "node tools/sim-test.mjs",
     "sim-trace": "node tools/sim-trace.mjs",
     "car-shot": "electron tools/car-shot.cjs",
@@ -22,6 +23,7 @@
     "electron": "^44.5.1",
     "eslint": "10.11.0",
     "globals": "17.12.0",
+    "typescript": "6.0.3",
     "vite": "8.3.1",
     "vite-plugin-singlefile": "2.3.3"
   },

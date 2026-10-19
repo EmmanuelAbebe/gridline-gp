@@ -1,4 +1,5 @@
 import { hexCss } from './util.js';
+import { poseOf } from './pose.js';
 
 // A small static outline of a circuit (start menu preview), start line in amber.
 export function drawOutline(canvas, track, color = '#e9ebe6') {
@@ -30,7 +31,7 @@ export function createMinimap(canvas, track) {
       ctx.clearRect(0, 0, SIZE, SIZE);
       ctx.drawImage(base, 0, 0);
       for (const c of cars.slice().sort((a, b) => (a.player ? 1 : 0) - (b.player ? 1 : 0))) {   // player on top
-        ctx.beginPath(); ctx.arc(mx(c.rx), mz(c.rz), c.player ? 9 : 6.5, 0, Math.PI*2);
+        ctx.beginPath(); const p = poseOf(c); ctx.arc(mx(p.x), mz(p.z), c.player ? 9 : 6.5, 0, Math.PI*2);
         ctx.fillStyle = hexCss(c.color); ctx.fill();
         ctx.lineWidth = c.player ? 3.5 : 2; ctx.strokeStyle = c.player ? '#ffffff' : 'rgba(0,0,0,.7)'; ctx.stroke();
       }

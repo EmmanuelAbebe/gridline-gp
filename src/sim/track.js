@@ -6,6 +6,7 @@ import { buildRunoff } from './runoff.js';
 import { buildPitLane } from './pit.js';
 import { CIRCUITS } from './circuits.js';
 import { clamp, wrapA, wrapIdx } from './math.js';
+/** @typedef {import('./types.js').Track} Track */
 
 // Closed centripetal Catmull-Rom through the control points, `steps` points per segment.
 function catmullRomClosed(ctrl, steps) {
@@ -105,20 +106,22 @@ export function buildTrack(circuit, opts = {}) {
   for (let i = 0; i < N; i++) for (let o = -LIMITS.cornerSpan; o <= LIMITS.cornerSpan; o++) { const k = K[wrapIdx(i+o, N)]; if (Math.abs(k) > Math.abs(CK[i])) CK[i] = k; }
   // landmarks: sample index, or negative = metres before the line
   const landmarks = Object.fromEntries(Object.entries(circuit.landmarks || {}).map(([k, v]) => [k, v < 0 ? N - Math.round(-v / ds) : v]));
-  const track = { id: circuit.id, name: circuit.name, landmarks, N, HW, KERB, WALL: HW + runoff, KERB_K, L, ds,
+  const shape = { id: circuit.id, name: circuit.name, landmarks, N, HW, KERB, WALL: HW + runoff, KERB_K, L, ds,
     PX, PZ, TX, TZ, NX, NZ, K, CK, bounds };
-  Object.assign(track, buildAiProfile(track));
-  // what lies beside the road (runoff.js); WALL = the furthest barrier
-  track.style = circuit.style || o.style; track.theme = circuit.theme || 'forest';
+  // + the AI's line and speeds; what lies beside the road (runoff.js; WALL = the furthest barrier); the pit lane
+  const track = { ...shape, ...buildAiProfile(shape), style: circuit.style || o.style, theme: circuit.theme || 'forest',
+    runoff: /** @type {import('./runoff.js').Runoff[]} */ (null), pit: /** @type {import('./pit.js').PitLane} */ (null) };
   track.runoff = buildRunoff(track, track.style);
   track.WALL = Math.max(...track.runoff.map(r => Math.max(...r.wall)));
   track.pit = buildPitLane(track);   // pit.js; null without a `pits` landmark
   return track;
 }
 
+/** @param {Track} track */
 export const headingAt = (track, i) => Math.atan2(track.TZ[i], track.TX[i]);
 
 // Grid slot `slot` (0 = pole). `ahead` shifts the point forward, e.g. for the painted box line.
+/** @param {Track} track */
 export function gridSlot(track, slot, ahead = 0) {
   const back = GRID.front + slot * GRID.spacing - ahead;
   return { idx: wrapIdx(-Math.round(back / track.ds), track.N), lat: slot % 2 === 0 ? -GRID.lat : GRID.lat };

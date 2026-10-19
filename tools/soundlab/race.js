@@ -5,6 +5,7 @@ import { SIM } from '../../src/sim/index.js';
 import { createSoundEngine } from '../../src/game/audio/sound-engine.js';
 import { SOUND, SOUND_DEFAULTS } from '../../src/game/audio/audio-config.js';
 import { createProximity } from '../../src/game/proximity.js';
+import { interpolatePoses } from '../../src/game/pose.js';
 import { loadEngineWorklet } from '../../src/game/audio/engine-worklet.js';
 
 const SR = 44100, DT = 1 / 120, SECONDS = 14;
@@ -20,7 +21,7 @@ export async function renderRace(layersOff = []) {
     race.t += DT;
     for (const c of race.cars) SIM.driveAI(race, c, DT, c.player ? 0.9 : 0);
     SIM.collide(race);
-    for (const c of race.cars) { c.events.length = 0; c.rx = c.x; c.rz = c.z; c.rh = c.h; }
+    for (const c of race.cars) { c.events.length = 0; } interpolatePoses(race.cars, 1);
     if (step % 2) continue;
     const t = frame++ / 60, P = player, fx = Math.cos(P.h), fz = Math.sin(P.h);
     const rivals = race.cars.filter(c => c !== P).map(c => ({ id: c.code, x: c.x, y: 0.6, z: c.z,

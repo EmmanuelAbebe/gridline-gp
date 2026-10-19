@@ -66,4 +66,4 @@ export const CIRCUITS = Object.freeze({
   },
 });
 // every circuit carries its key as `id`
-for (const [id, c] of Object.entries(CIRCUITS)) c.id = id;
+for (const [id, c] of Object.entries(CIRCUITS)) /** @type {{ id: string }} */ (/** @type {unknown} */ (c)).id = id;

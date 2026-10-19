@@ -10,6 +10,8 @@ import { TUNING, CAR, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT } 
 import { clamp, speedOf } from './math.js';
 import { DOWNFORCE_K, lateralGrip, brakeMax, drivetrain } from './vehicle.js';
 import { carCondition } from './pit.js';
+/** @typedef {import('./types.js').Car} Car */
+/** @typedef {import('./types.js').Race} Race */
 
 const G = 9.81, L = CH.wheelbase;
 const A_FRONT = L * (1 - CH.frontWeight), B_REAR = L * CH.frontWeight;   // CG to front / rear axle
@@ -56,6 +58,7 @@ function axle(D, alpha, peak, long, limit) {
 }
 
 // One player step: steering, drivetrain, tyres, assists, integration. Moves c.x/c.z/c.h; the caller runs afterMove.
+/** @param {Race} race @param {Car} c */
 export function stepChassis(race, c, inp, dt) {
   const A = c.assists || ASSISTS.medium, surf = SURFACES[c.surface] || SURFACES.track;
   const d = drivetrain(c, inp, dt);
@@ -152,4 +155,5 @@ export function stepChassis(race, c, inp, dt) {
 }
 
 // Angle between where the car points and where it is going (rad, + = sliding to the right).
+/** @param {Car} c */
 export const driftAngle = c => Math.atan2(c.vy, Math.max(Math.abs(c.v), 1));

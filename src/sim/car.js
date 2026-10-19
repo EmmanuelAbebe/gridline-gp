@@ -4,8 +4,13 @@ import { surfaceAt } from './runoff.js';
 import { wrapA, wrapIdx, speedOf } from './math.js';
 import { gridSlot, headingAt } from './track.js';
 import { emit } from './events.js';
+import { pitState } from './pit.js';
+/** @typedef {import('./types.js').Car} Car */
+/** @typedef {import('./types.js').Race} Race */
+/** @typedef {import('./types.js').Track} Track */
 
 // Nearest-sample search (full scan, or a window around the last index). Returns the previous index.
+/** @param {Track} track @param {Car} c @returns {number} */
 export function locate(track, c, full) {
   const { N, PX, PZ, NX, NZ } = track;
   let best = 1e18, bi = c.idx;
@@ -16,27 +21,38 @@ export function locate(track, c, full) {
   return old;
 }
 
+// Every field a car has, grouped by the module that owns it (a field added anywhere else is a bug: tsc checks it).
+/** @param {Track} track @param {import('./drivers.js').Driver} driver @param {number} slot */
 export function createCar(track, driver, slot) {
   const { PX, PZ, NX, NZ } = track, { idx, lat } = gridSlot(track, slot);
-  const c = { ...driver, slot,
-    // physics
+  const c = { player: false, ...driver, slot,
+    // physics: position, heading, speed, nearest sample / lateral offset (locate), steering (-1..1 after shaping)
     idx, x: PX[idx] + NX[idx]*lat, z: PZ[idx] + NZ[idx]*lat, h: headingAt(track, idx), v: 0, lat, steer: 0, roll: 0,
-    wallHit: false, touching: false, wasTouching: false, onKerb: false, offTrack: false,
-    // off track: tyre dirt 0..1, depth in a gravel trap, beached (stuck in gravel, waiting for the marshals)
-    dirt: 0, gravelDepth: 0, beached: false, beachedAt: 0, stuckT: 0,
+    // pedals as applied this step (driving.js / pit.js: brake lights, HUD, sound)
+    thr: 0, brake: 0,
+    // walls and contact (car.js resolveWalls, collide.js); surface under the car (updateSurface)
+    wallHit: false, touching: false, wasTouching: false, onKerb: false, offTrack: false, surface: 'track',
+    // off track: tyre dirt 0..1, depth in a gravel trap, beached (stuck in gravel, waiting for the marshals);
+    // beachClock = race time of the last updateBeached (null before the first)
+    dirt: 0, gravelDepth: 0, beached: false, beachedAt: 0, stuckT: 0, beachClock: null,
     // drivetrain (vehicle.js): gear 1..8, -1 = reverse; autoShift = automatic gearbox; downQueue = manual downshifts waiting for the revs; slip = slipstream 0..1
-    gear: 1, rpm: 0, thr: 0, shiftT: 0, autoShift: true, autoDown: false, downQueue: 0, drive: 0, slip: 0, slipBy: null,
-    // chassis (chassis.js, player): lateral speed (m/s, + = right), yaw rate (rad/s), last longitudinal accel,
-    // how saturated each axle is (0..1), lock-up / wheel spin flags; surface under the car
-    vy: 0, yawRate: 0, ax: 0, slideF: 0, slideR: 0, lockF: false, spinR: false, surface: 'track', assists: null,
+    gear: 1, rpm: 0, shiftT: 0, autoShift: true, autoDown: false, downQueue: 0, drive: 0, slip: 0, slipBy: null,
+    // chassis (chassis.js): lateral speed (m/s, + = right), yaw rate (rad/s), last longitudinal accel,
+    // how saturated each axle is (0..1), lock-up / wheel spin flags; assists (ASSISTS levels, set by createRace / the game)
+    vy: 0, yawRate: 0, ax: 0, slideF: 0, slideR: 0, lockF: false, spinR: false, assists: null,
     // trail: lateral offset and time when this car last passed each track sample (its wake, for slipstream)
     trailLat: new Float32Array(track.N), trailT: new Float32Array(track.N).fill(-1),
-    // AI
-    offset: lat, bias: (Math.random()-0.5)*1.6, mistake: 0, mistakeEnd: -1, passBy: null, passSide: 1, aiT: -1,   // mistake: share too fast, until mistakeEnd
-    // timing
+    // player driving (driving.js drivePlayer): smoothed steering input (null until the first player step)
+    steerIn: null,
+    // AI (driving.js driveAI): line offset, own line bias, mistake = share too fast until mistakeEnd, passing,
+    // dirtyK = corner-speed factor in dirty air (smoothed)
+    offset: lat, bias: (Math.random()-0.5)*1.6, mistake: 0, mistakeEnd: -1, passBy: null, passSide: 1, aiT: -1, dirtyK: 1,
     // track limits (race.js): metres of the current cut, cuts so far, penalty seconds, current / last lap invalid
     cutRun: 0, cuts: 0, penalty: 0, lapInvalid: false, lastLapInvalid: false,
+    // timing (race.js)
     lap: 0, finished: false, finishTime: 0, finishLap: 0, lapStart: 0, lastLap: 0, bestLap: Infinity, cpT: [], lastCp: -1,
+    // fuel, tyres, damage, pit stops (pit.js)
+    ...pitState(slot),
     // things that happened this step ({ type: EV.*, ...details }, events.js); the game drains this queue
     events: [] };
   locate(track, c, true);
@@ -46,6 +62,7 @@ export function createCar(track, driver, slot) {
 // The barrier on the car's side at its sample (runoff.js). A hit keeps BARRIERS[type].keep of the speed (a tyre wall
 // soaks up more than concrete, which the car glances off). Returns the new hit's EV.WALL event (impact speed, `hard` =
 // how hard it felt for sound and shake, `front` = nose-on share for damage), else null.
+/** @param {Track} track @param {Car} c */
 export function resolveWalls(track, c) {
   const { NX, NZ } = track, R = track.runoff[c.lat < 0 ? 0 : 1], lim = R.wall[c.idx] - WALLS.clearance;
   if (Math.abs(c.lat) <= lim) { c.wallHit = false; return null; }
@@ -66,6 +83,7 @@ export function resolveWalls(track, c) {
 
 // Surface under the car (runoff.js surfaceAt: the same layout the renderer draws). Running onto a sausage kerb
 // upsets the car once: a yaw kick and a little speed lost (EV.SAUSAGE).
+/** @param {Track} track @param {Car} c */
 export function updateSurface(track, c) {
   const { surface, depth } = surfaceAt(track, c.idx, c.lat), was = c.surface;
   c.surface = surface; c.gravelDepth = depth;
@@ -80,6 +98,7 @@ export function updateSurface(track, c) {
 
 // Beached in a gravel trap: stopped deep in it for stuckTime s. The car can't move until the marshals have lifted it
 // back to the edge of the track (recoverTime s later, EV.RECOVERED); dirty tyres afterwards.
+/** @param {Race} race @param {Car} c */
 export function updateBeached(race, c) {
   const O = OFFTRACK, track = race.track;
   if (c.beached) {

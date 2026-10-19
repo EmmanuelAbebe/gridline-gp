@@ -1,5 +1,8 @@
 // Entrants (fictional teams and drivers). `skill` scales the AI's target speed; the player car has player: true.
 // number = race number painted on the car.
+/** @typedef {{ name: string, code: string, number: number, team: string, color: number, accent: number, skill: number,
+ *   player?: boolean }} Driver */
+/** @type {readonly Driver[]} */
 export const DRIVERS = [
   { name:'Arno Voss',      code:'VOS', number:4, team:'Halcyon',  color:0x2e6bff, accent:0xffffff, skill:0.975 },
   { name:'Lena Marchetti', code:'MAR', number:16, team:'Kestrel',  color:0xd7261e, accent:0xfff3e0, skill:0.968 },

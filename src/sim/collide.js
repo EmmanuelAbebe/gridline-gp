@@ -8,11 +8,14 @@ import { CONTACT, EV, CHASSIS } from './tuning.js';
 import { afterMove } from './motion.js';
 import { addDamage } from './pit.js';
 import { emit } from './events.js';
+/** @typedef {import('./types.js').Car} Car */
+/** @typedef {import('./types.js').Race} Race */
 
 const { rear: REAR, front: FRONT, radius: RADIUS, restitution: E, spin: SPIN } = CONTACT;
 const K2 = CHASSIS.gyration * CHASSIS.gyration;
 
 // the car's capsule segment in world space
+/** @param {Car} c @returns {[number, number, number, number]} */
 function segment(c) {
   const cx = Math.cos(c.h), sz = Math.sin(c.h);
   return [c.x - cx * REAR, c.z - sz * REAR, c.x + cx * FRONT, c.z + sz * FRONT];
@@ -29,15 +32,19 @@ function closest([ax, az, bx, bz], [cx, cz, dx, dz]) {
   return [ax + ux*s, az + uz*s, cx + vx*t, cz + vz*t];
 }
 // clearance between two cars' bodies (m); < 0 = overlapping
+/** @param {Car} a @param {Car} b */
 export function carGap(a, b) {
   const [px, pz, qx, qz] = closest(segment(a), segment(b));
   return Math.hypot(qx - px, qz - pz) - 2 * RADIUS;
 }
 
+/** @param {Car} c */
 const velocity = c => [Math.cos(c.h) * c.v - Math.sin(c.h) * c.vy, Math.sin(c.h) * c.v + Math.cos(c.h) * c.vy];
 // velocity of the point (px, pz) of car c: the centre's plus the yaw rate's (ω × r)
+/** @param {Car} c */
 const pointVelocity = (c, px, pz) => { const [vx, vz] = velocity(c); return [vx - c.yawRate * (pz - c.z), vz + c.yawRate * (px - c.x)]; };
 // add a world-space velocity change (jx, jz) applied at (px, pz) to car c
+/** @param {Car} c */
 function kick(c, jx, jz, px, pz) {
   const fx = Math.cos(c.h), fz = Math.sin(c.h);
   c.v += jx * fx + jz * fz;
@@ -45,6 +52,7 @@ function kick(c, jx, jz, px, pz) {
   c.yawRate += SPIN * ((px - c.x) * jz - (pz - c.z) * jx) / K2;
 }
 
+/** @param {Race} race */
 export function collide(race) {
   const cars = race.cars, reach = Math.max(REAR, FRONT) * 2 + 2 * RADIUS;
   for (const c of cars) { c.wasTouching = c.touching; c.touching = false; }

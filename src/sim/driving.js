@@ -7,12 +7,15 @@ import { afterMove } from './motion.js';
 import { stepChassis, steerLock, driftAngle } from './chassis.js';
 import { slipstream, cornerSpeed, brakeLimit, brakeMax, lateralGrip } from './vehicle.js';
 import { checkPitEntry, stepPit, updateWear, aiWantsPit } from './pit.js';
+/** @typedef {import('./types.js').Car} Car */
+/** @typedef {import('./types.js').Race} Race */
 
 // inp: steer -1..1 (+ = right), thr 0..1, brk 0..1, analog = from a wheel/pad (faster steering response),
 // steerRate = how fast analog steering may move (full lock per second; Infinity = no smoothing, the game's default
 // for controllers), shift = -1/0/+1 (paddles; used with the manual gearbox). The car itself is the tyre model in chassis.js.
 // calm = 0..1 (analog only): at speed, small tilts turn the car about as gently as the original game (CHASSIS
 // calmLateral), full tilt still reaches the grip limit; 0 = steering in proportion to the grip (the default here).
+/** @param {Race} race @param {Car} c */
 export function drivePlayer(race, c, inp, dt) {
   if (checkPitEntry(race, c)) { stepPit(race, c, dt); afterMove(race, c); return; }   // the car drives itself in the pit lane
   const rate = inp.analog ? inp.steerRate ?? 14 : 5;
@@ -39,6 +42,7 @@ export function calmSteer(s, v, calm) {
 // Skill = the driver's own × the race's AI pace (difficulty). Now and then a driver brakes too late for a corner
 // (less often the better they are) and runs wide. Simple car-ahead avoidance moves the target line.
 // skillOverride (0 = the car's own skill) slows finished cars and lets tests drive the player car; no mistakes then.
+/** @param {Race} race @param {Car} c */
 export function driveAI(race, c, dt, skillOverride = 0) {
   const T = race.track, { N, HW, ds, PX, PZ, NX, NZ, VP, RO, LK } = T;
   c.assists = c.assists || ASSISTS[AI.assists];
@@ -56,7 +60,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   // in another car's dirty air the downforce drops (chassis.js): take the corners that much slower (not the straights)
   // (smoothed over AI.dirtyTime s: the wake comes and goes, the speed shouldn't)
   const wantDirty = Math.sqrt(1 - CHASSIS.dirtyAir * (c.slip || 0) * (1 - CAR.grip * 9.81 / lateralGrip(Math.max(sp, 1))));
-  c.dirtyK = (c.dirtyK ?? 1) + (wantDirty - (c.dirtyK ?? 1)) * Math.min(1, dt / AI.dirtyTime);
+  c.dirtyK += (wantDirty - c.dirtyK) * Math.min(1, dt / AI.dirtyTime);
   const dirty = c.dirtyK;
   const vp = j => VP[j] < TUNING.V_CAP * 0.97 ? VP[j] * dirty : VP[j];
   let targetV = Math.min(vp((c.idx+2)%N), vp((c.idx+6)%N)) * skill;

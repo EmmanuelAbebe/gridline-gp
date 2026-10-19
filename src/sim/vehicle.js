@@ -4,6 +4,8 @@
 import { TUNING, CAR, CHASSIS, SLIP, EV } from './tuning.js';
 import { clamp } from './math.js';
 import { emit } from './events.js';
+/** @typedef {import('./types.js').Car} Car */
+/** @typedef {import('./types.js').Race} Race */
 
 const G = 9.81, TAU = 2 * Math.PI;
 const { aero, engine, gearbox } = CAR;
@@ -63,12 +65,14 @@ function driveAccel(rpm, gear) {
 // corner), on it only when the revs have fallen below autoDown and the lower gear has room.
 // Without full traction control a part-throttle kick-down (e.g. into 1st at 90 km/h) would spin the rears, so then
 // the box only kicks down on (nearly) full throttle or when the revs are really low (autoLug).
+/** @param {Car} c */
 const autoDown = (c, v, thr) => c.gear > 1 && (thr < 0.05
   ? rpmAt(v, c.gear - 1) < gearbox.autoBrakeDown
   : rpmAt(v, c.gear) < ((c.assists?.tc ?? 1) >= 1 || thr > 0.9 ? gearbox.autoDown : gearbox.autoLug) && rpmAt(v, c.gear - 1) < gearbox.autoUp - 400);
 
 // c.autoShift: automatic gearbox. Otherwise paddles (shift -1/+1); c.autoDown = semi-automatic: the player shifts up,
 // the car also shifts down by itself (the player can still click down earlier).
+/** @param {Car} c */
 function updateGear(c, thr, brk, shift, dt) {
   if (c.shiftT > 0) c.shiftT -= dt;
   const v = c.v, before = c.gear;
@@ -103,6 +107,7 @@ export const wakeHalfWidth = gap => SLIP.width + SLIP.spread * gap;
 
 // Strength 0..1 of the strongest wake this car sits in. Uses each car's trail (its lateral offset when it last
 // passed each track sample), so the wake bends with the line the car ahead drove.
+/** @param {Race} race @param {Car} c */
 export function slipstream(race, c, progressOf) {
   const { N, ds } = race.track, mine = progressOf(race, c);
   let best = 0, by = null;
@@ -124,6 +129,7 @@ export function slipstream(race, c, progressOf) {
 // Engine side: gear and rpm, the engine's drive at the rear wheels (per mass, before any tyre limit) and the
 // resistances (drag with slipstream, rolling, engine braking), signed so that `-resist` opposes the motion.
 // inp: thr 0..1, brk 0..1, shift -1/0/+1.
+/** @param {Car} c */
 export function drivetrain(c, { thr, brk, shift = 0 }, dt) {
   updateGear(c, thr, brk, shift, dt);
   const v = c.v, dragK = DRAG_K * (1 - SLIP.drag * (c.slip || 0));

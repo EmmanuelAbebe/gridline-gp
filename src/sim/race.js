@@ -6,6 +6,9 @@ import { createCar } from './car.js';
 import { setupWear } from './pit.js';
 import { wrapIdx, speedOf } from './math.js';
 import { emit } from './events.js';
+/** @typedef {import('./types.js').Car} Car */
+/** @typedef {import('./pit.js').Wear} Wear */
+/** @typedef {import('./types.js').Race} Race */
 
 // Race format: { type: 'laps', laps } | { type: 'timed', minutes } | { type: 'unlimited' }; a plain number means laps.
 // `drivers` is the grid in order (slot 0 = pole).
@@ -21,20 +24,24 @@ export function createRace(format, { track = DEFAULT_TRACK, drivers = DRIVERS, a
   const race = { track, format: fmt, aiPace,
     laps: fmt.type === 'laps' ? fmt.laps : Infinity,               // distance; Infinity for timed / unlimited
     duration: fmt.type === 'timed' ? fmt.minutes * 60 : Infinity,  // seconds; the clock starts at lights out
-    chequered: false, t: 0, fastest: Infinity, fastestBy: null, cars: drivers.map((d, slot) => createCar(track, d, slot)) };
+    chequered: false, t: 0, fastest: Infinity, fastestBy: /** @type {Car} */ (null), wear: /** @type {Wear} */ (null), cars: drivers.map((d, slot) => createCar(track, d, slot)) };
   setupWear(race, wear);
   return race;
 }
 
+/** @param {Race} race @param {Car} c */
 export const progress = (race, c) => c.lap * race.track.N + c.idx;
 
 // ---------- race rules (run after every position change) ----------
 // Chequered flag: shown to the first car to complete the distance (laps), or to the leader when it crosses the line
 // after time has run out (timed). After that every car finishes the next time it crosses the line, lapped cars
 // included. Unlimited races never show it.
+/** @param {Race} race @param {Car} c */
 const isLeader = (race, c) => race.cars.every(o => o === c || progress(race, o) <= progress(race, c));
+/** @param {Race} race @param {Car} c */
 const flagFor = (race, c) => race.chequered || c.lap > race.laps || (race.t >= race.duration && isLeader(race, c));
 
+/** @param {Race} race @param {Car} c */
 export function updateLap(race, c, oldIdx) {
   const N = race.track.N;
   if (oldIdx > N*(1-LAP_ZONE) && c.idx < N*LAP_ZONE) {
@@ -57,6 +64,7 @@ export function updateLap(race, c, oldIdx) {
 // Track limits (LIMITS): count track metres covered with the whole car past the edge (the kerb where one is painted)
 // of a corner: on the inside (a cut), or on the outside faster than wideSpeed (running wide). Reaching cutDist is one
 // offence (EV.CUT, lap invalid, its `wide` says which), and past the warnings each adds a time penalty (EV.PENALTY).
+/** @param {Race} race @param {Car} c */
 export function updateLimits(race, c, oldIdx) {
   const { N, ds, CK, KERB_K, runoff } = race.track, i = c.idx;
   const edge = runoff[c.lat < 0 ? 0 : 1].kerb[i], past = Math.abs(c.lat) - LIMITS.halfWidth > edge && Math.abs(CK[i]) > KERB_K;
@@ -71,6 +79,7 @@ export function updateLimits(race, c, oldIdx) {
   }
 }
 
+/** @param {Race} race @param {Car} c */
 export function updateCheckpoints(race, c) {
   const cp = Math.floor(progress(race, c) / CP);
   if (cp > c.lastCp) { for (let k = c.lastCp + 1; k <= cp; k++) if (k >= 0) c.cpT[k] = race.t; c.lastCp = cp; }
@@ -78,8 +87,10 @@ export function updateCheckpoints(race, c) {
 
 // ---------- classification ----------
 // race time including track-limit penalties
+/** @param {Car} c */
 export const raceTime = c => c.finishTime + c.penalty;
 
+/** @param {Race} race */
 export function order(race) {
   return race.cars.slice().sort((a, b) => {
     if (a.finished && b.finished) return (b.finishLap - a.finishLap) || (raceTime(a) - raceTime(b));   // laps done, then time
@@ -89,6 +100,7 @@ export function order(race) {
 }
 
 // Gap to the leader: { laps } when lapped, else { t } = now − when the leader passed my current checkpoint.
+/** @param {Race} race @param {Car} leader @param {Car} c */
 export function gapTo(race, leader, c) {
   if (c === leader) return null;
   if (leader.finished && c.finished) {

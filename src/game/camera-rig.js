@@ -3,6 +3,7 @@ import { SIM } from '../sim/index.js';
 import { Display } from './display.js';
 import { Design } from './design.js';
 import { SOUND } from './audio/audio-config.js';
+import { poseOf } from './pose.js';
 
 const { TUNING } = SIM;
 
@@ -13,9 +14,9 @@ export const CameraRig = (() => {
   const cams = () => Design.data.cameras;
   let idx = 0, shakeAmp = 0, buffetAmp = 0, shakeScale = 1, jolt = 0;
   function aim(car) {
-    const m = cams()[idx], dx = Math.cos(car.rh), dz = Math.sin(car.rh), sx = -dz * m.side, sz = dx * m.side;   // side: + = right
-    tPos.set(car.rx - dx*m.back + sx, m.height, car.rz - dz*m.back + sz);
-    tLook.set(car.rx + dx*m.ahead + sx, m.lookY, car.rz + dz*m.ahead + sz);
+    const m = cams()[idx], p = poseOf(car), dx = Math.cos(p.h), dz = Math.sin(p.h), sx = -dz * m.side, sz = dx * m.side;   // side: + = right
+    tPos.set(p.x - dx*m.back + sx, m.height, p.z - dz*m.back + sz);
+    tLook.set(p.x + dx*m.ahead + sx, m.lookY, p.z + dz*m.ahead + sz);
   }
   return {
     get mode() { return cams()[idx]; },
