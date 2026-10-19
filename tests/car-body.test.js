@@ -70,3 +70,15 @@ test('design v6 saves: the new rear and moving wings replace the default parts, 
   assert.deepEqual(parts.filter(p => p.steer).map(p => p.name), ['wheel body'], 'the player\'s steering wheel kept');
   Design.reset();
 });
+
+test('design v8 saves: the old front wing becomes the curved 2026 wing, own parts stay', () => {
+  Design.replace({ version: 8, car: { parts: [{ name: 'front wing main', shape: 'wing', size: [0.34, 0.03, 1.94] }, { name: 'front wing flap 1', shape: 'wing' },
+    { name: 'front endplate R', shape: 'rounded' }, { name: 'front wing pillar L', shape: 'box' }, { name: 'my canard', shape: 'wing' }] } });
+  const parts = Design.data.car.parts, fw = parts.filter(p => /^front /.test(p.name));
+  assert.ok(fw.every(p => p.shape !== 'rounded' && p.shape !== 'box'), 'no old endplates or pillars');
+  assert.ok(Array.isArray(parts.find(p => p.name === 'front wing main').stations), 'curved main plane');
+  assert.equal(parts.find(p => p.name === 'front wing flap 2').open, 20, 'flaps still move');
+  assert.ok(parts.some(p => p.name === 'front footplate L'), 'mirrored footplates');
+  assert.ok(parts.some(p => p.name === 'my canard'));
+  Design.reset();
+});

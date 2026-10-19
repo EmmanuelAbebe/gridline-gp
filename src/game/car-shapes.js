@@ -66,15 +66,53 @@ function loft(size, p) {
 }
 
 // Wing: an inverted cambered airfoil (leading edge at +x), size [chord, thickness, span] (span along z).
-function wing(size, p) {
-  const [chord, th, span] = size, camber = (p.camber ?? 0.05) * chord, sh = new THREE.Shape(), M = 14;
+// Optional p.stations [[z, dy, chord×, pitch°, dx?], ...] (z in metres from the centre, ascending): the section is
+// lofted through them (smoothly), so the element can rise, taper, twist and sweep along its span (a modern front wing:
+// flat under the nose, curling up toward the endplates). Without stations it is a straight extrusion.
+function airfoil(chord, th, camber, M = 14) {
   const at = t => {
     const yt = th / 2 * (0.2969*Math.sqrt(t) - 0.126*t - 0.3516*t*t + 0.2843*t**3 - 0.1036*t**4) / 0.1;   // NACA 00xx
     return [chord / 2 - t * chord, -camber * 4 * t * (1 - t), yt];
   };
-  for (let i = 0; i <= M; i++) { const t = (1 - Math.cos(i / M * Math.PI)) / 2, [x, yc, yt] = at(t); i ? sh.lineTo(x, yc + yt) : sh.moveTo(x, yc + yt); }
-  for (let i = M - 1; i > 0; i--) { const t = (1 - Math.cos(i / M * Math.PI)) / 2, [x, yc, yt] = at(t); sh.lineTo(x, yc - yt); }
+  const out = [];
+  for (let i = 0; i <= M; i++) { const t = (1 - Math.cos(i / M * Math.PI)) / 2, [x, yc, yt] = at(t); out.push([x, yc + yt]); }
+  for (let i = M - 1; i > 0; i--) { const t = (1 - Math.cos(i / M * Math.PI)) / 2, [x, yc, yt] = at(t); out.push([x, yc - yt]); }
+  return out;
+}
+function wing(size, p) {
+  const [chord, th, span] = size, camber = (p.camber ?? 0.05) * chord;
+  if (Array.isArray(p.stations) && p.stations.length >= 2) return sweptWing(airfoil(chord, th, camber), p.stations);
+  const sh = new THREE.Shape(), pts = airfoil(chord, th, camber);
+  pts.forEach(([x, y], i) => i ? sh.lineTo(x, y) : sh.moveTo(x, y));
   return new THREE.ExtrudeGeometry(sh, { depth: span, bevelEnabled: false }).translate(0, 0, -span / 2);
+}
+function sweptWing(section, stationsIn, SUB = 6) {
+  const S = stationsIn.filter(q => Array.isArray(q) && q.length >= 2).map(q => [+q[0], +q[1] || 0, q[2] ?? 1, q[3] ?? 0, q[4] ?? 0]).sort((a, b) => a[0] - b[0]);
+  const rows = [];
+  for (let i = 0; i < S.length - 1; i++) {
+    const a = S[i - 1] || S[i], b = S[i], c = S[i + 1], d = S[i + 2] || S[i + 1];
+    for (let k = 0; k < SUB; k++) rows.push(b.map((_, j) => catmull(a[j], b[j], c[j], d[j], k / SUB)));
+  }
+  rows.push(S[S.length - 1]);
+  const K = section.length, pos = [], idx = [], DEG = Math.PI / 180;
+  for (const [z, dy, k, pitch, dx] of rows) {
+    const c = Math.cos(-pitch * DEG), s = Math.sin(-pitch * DEG);     // + pitch = leading edge down (more angle)
+    for (const [x, y] of section) { const X = x * k, Y = y * k; pos.push(X * c - Y * s + dx, X * s + Y * c + dy, z); }
+  }
+  for (let j = 0; j < rows.length - 1; j++) for (let i = 0; i < K; i++) {
+    const a = j * K + i, b = j * K + (i + 1) % K, c = a + K, d = b + K;
+    idx.push(a, b, c, b, d, c);
+  }
+  for (const [j, flip] of [[0, false], [rows.length - 1, true]]) {     // end caps (fans from the section's middle)
+    const ctr = pos.length / 3, r0 = j * K;
+    let cx = 0, cy = 0; for (let i = 0; i < K; i++) { cx += pos[(r0 + i) * 3]; cy += pos[(r0 + i) * 3 + 1]; }
+    pos.push(cx / K, cy / K, rows[j][0]);
+    for (let i = 0; i < K; i++) { const a = r0 + i, b = r0 + (i + 1) % K; flip ? idx.push(ctr, a, b) : idx.push(ctr, b, a); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  return g;
 }
 
 // Rod: a round tube from the part's position to position + size (car-space metres), radius = p.radius.

@@ -68,6 +68,13 @@ export const Design = (() => {
       s.car.parts = s.car.parts.filter(p => !(isObj(p) && old.test(p.name)));
       s.car.parts.splice(at < 0 ? s.car.parts.length : Math.min(at, s.car.parts.length), 0, ...halo);
     }
+    if (v < 9 && isObj(s.car) && Array.isArray(s.car.parts)) {
+      // v9: the new front wing (curved elements, endplates with footplates, slim pylons) replaces the old one
+      const old = /^front (wing main|wing flap [12]|endplate [RL]|wing pillar [RL])$/, at = s.car.parts.findIndex(p => isObj(p) && old.test(p.name));
+      const fw = clone(DESIGN_DEFAULTS.car.parts.filter(p => /^front (wing|endplate|footplate)/.test(p.name)));
+      s.car.parts = s.car.parts.filter(p => !(isObj(p) && (old.test(p.name) || /^front (footplate|endplate winglet) [RL]$/.test(p.name))));
+      s.car.parts.splice(at < 0 ? s.car.parts.length : Math.min(at, s.car.parts.length), 0, ...fw);
+    }
     s.version = DESIGN_DEFAULTS.version;
     return s;
   }

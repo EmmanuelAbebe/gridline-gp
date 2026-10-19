@@ -10,7 +10,7 @@ const mirrorZ = p => ({ ...p, name: p.name.replace(/R(\d?)$/, 'L$1'), pos: [p.po
 const withMirrors = parts => parts.flatMap(p => /R\d?$/.test(p.name) && !p.steer ? [p, mirrorZ(p)] : [p]);
 
 export const DESIGN_DEFAULTS = {
-  version: 8,
+  version: 9,
   // Camera modes, cycled with C / Y. back/side/height/ahead/lookY are metres relative to the car.
   // k = follow stiffness, rigid = no smoothing, cockpitBody = player car shows its cockpit-view parts.
   cameras: [
@@ -68,13 +68,27 @@ export const DESIGN_DEFAULTS = {
         [-1.85, 0.085, 0.006, 0.012, 6, 0.34], [-2.15, 0.12, 0.006, 0.05, 6, 0.34], [-2.4, 0.18, 0.006, 0.075, 6, 0.34]] },
       { name: 'diffuser wall R', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', sections: [
         [-1.8, 0.09, 0.008, 0.02, 6, 0.49], [-2.15, 0.14, 0.008, 0.07, 6, 0.48], [-2.4, 0.2, 0.008, 0.1, 6, 0.47]] },
-      // front wing: main plane, two flaps, endplates; pillars hold it under the nose
-      { name: 'front wing main', shape: 'wing', size: [0.34, 0.03, 1.94], camber: 0.06, pos: [3.12, 0.1, 0], rot: [0, 0, -3], color: 'body' },
-      // open: degrees the part turns (about its own position) in straight mode (active aero): the flaps flatten
-      { name: 'front wing flap 1', shape: 'wing', size: [0.2, 0.022, 1.86], camber: 0.07, pos: [2.92, 0.155, 0], rot: [0, 0, -18], open: 11, color: 'accent' },
-      { name: 'front wing flap 2', shape: 'wing', size: [0.16, 0.018, 1.78], camber: 0.08, pos: [2.79, 0.215, 0], rot: [0, 0, -32], open: 20, color: 'accent' },
-      { name: 'front endplate R', shape: 'rounded', size: [0.016, 0.21, 0.56], radius: 0.07, pos: [3.0, 0.17, 0.97], rot: [0, 90, 0], color: 'body' },
-      { name: 'front wing pillar R', shape: 'box', size: [0.16, 0.1, 0.014], pos: [3.06, 0.16, 0.055], color: 'dark' },
+      // front wing (2026 style, 1.8 m): every element flat across the neutral middle under the nose and curling up and
+      // back toward the endplates; the two flaps flatten in straight mode (active aero, `open`). stations: [z, rise,
+      // chord ×, pitch°, sweep back]
+      { name: 'front wing main', shape: 'wing', size: [0.36, 0.028, 1.8], camber: 0.07, pos: [3.14, 0.085, 0], rot: [0, 0, -2], color: 'body', stations: [
+        [-0.885, 0.07, 0.62, 6, -0.07], [-0.78, 0.035, 0.86, 3, -0.03], [-0.6, 0.012, 1, 0], [-0.3, 0, 1, -1], [0, 0, 1, -1],
+        [0.3, 0, 1, -1], [0.6, 0.012, 1, 0], [0.78, 0.035, 0.86, 3, -0.03], [0.885, 0.07, 0.62, 6, -0.07]] },
+      { name: 'front wing flap 1', shape: 'wing', size: [0.2, 0.02, 1.76], camber: 0.08, pos: [2.95, 0.14, 0], rot: [0, 0, -16], open: 11, color: 'accent', stations: [
+        [-0.875, 0.09, 0.7, 10, -0.06], [-0.75, 0.045, 0.9, 5, -0.025], [-0.55, 0.012, 1, 0], [-0.25, 0, 0.92, -3], [0, 0, 0.9, -4],
+        [0.25, 0, 0.92, -3], [0.55, 0.012, 1, 0], [0.75, 0.045, 0.9, 5, -0.025], [0.875, 0.09, 0.7, 10, -0.06]] },
+      { name: 'front wing flap 2', shape: 'wing', size: [0.15, 0.016, 1.72], camber: 0.09, pos: [2.83, 0.2, 0], rot: [0, 0, -28], open: 20, color: 'accent', stations: [
+        [-0.865, 0.1, 0.75, 12, -0.05], [-0.72, 0.05, 0.92, 6, -0.02], [-0.5, 0.012, 1, 0], [-0.22, 0, 0.9, -4], [0, 0, 0.85, -6],
+        [0.22, 0, 0.9, -4], [0.5, 0.012, 1, 0], [0.72, 0.05, 0.92, 6, -0.02], [0.865, 0.1, 0.75, 12, -0.05]] },
+      // endplate: a curved plate, low at the front and rising behind the flaps, toed out a little at the back, with a footplate
+      // along its foot
+      { name: 'front endplate R', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'body', sections: [
+        [3.33, 0.13, 0.008, 0.035, 4, 0.9], [3.24, 0.15, 0.008, 0.075, 8, 0.9], [3.08, 0.19, 0.008, 0.12, 10, 0.902],
+        [2.9, 0.23, 0.008, 0.15, 10, 0.906], [2.74, 0.25, 0.008, 0.14, 8, 0.912], [2.68, 0.25, 0.008, 0.1, 5, 0.915]] },
+      { name: 'front footplate R', shape: 'wing', size: [0.6, 0.012, 0.07], camber: 0.04, pos: [3.0, 0.085, 0.865], rot: [0, 4, 0], color: 'dark' },
+      // nose pylons: two slim fins from under the nose down to the main plane
+      { name: 'front wing pillar R', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', sections: [
+        [3.2, 0.17, 0.006, 0.05, 4, 0.06], [3.1, 0.165, 0.007, 0.065, 5, 0.06], [2.98, 0.17, 0.007, 0.065, 5, 0.06], [2.9, 0.175, 0.006, 0.05, 4, 0.06]] },
       // rear wing: main plane + flap (both flatten in straight mode) between curved endplates with LED strips, two
       // swan-neck pylons from the crash structure, a two-element beam wing
       { name: 'rear wing main', shape: 'wing', size: [0.34, 0.045, 1.0], camber: 0.08, pos: [-2.12, 0.94, 0], rot: [0, 0, -7], open: 4, color: 'body' },
