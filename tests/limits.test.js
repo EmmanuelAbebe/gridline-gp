@@ -39,9 +39,10 @@ test('limits: inside the kerb is fine, and the AI field races clean', () => seed
   assert.ok(past > -1 && past <= 0, `inner side got to ${past.toFixed(2)} m from the limit`);
   assert.equal(c.cuts, 0);
   assert.ok(c.bestLap < Infinity);
-  const race = S.createRace(3);
-  run(S, race, 400, aiDriver(S));
-  assert.ok(race.cars.reduce((n, c) => n + c.cuts, 0) <= 1, 'at most one AI cut (pushed wide in traffic)');
+  // AI cuts come from being pushed wide in traffic: ~0.3 per 3-lap race (40 seeds, 2026-10-19), so judge the average
+  let cuts = 0;
+  for (let seed = 1; seed <= 5; seed++) { const race = S.createRace(3, { seed }); run(S, race, 400, aiDriver(S)); cuts += race.cars.reduce((n, c) => n + c.cuts, 0); }
+  assert.ok(cuts <= 5, `${cuts} AI cuts in 5 races: at most one per race on average`);
 }));
 
 test('limits: a penalty can cost a place at the finish', () => {

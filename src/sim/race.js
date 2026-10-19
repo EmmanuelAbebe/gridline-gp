@@ -4,7 +4,8 @@ import { DRIVERS } from './drivers.js';
 import { DEFAULT_TRACK } from './track.js';
 import { createCar } from './car.js';
 import { setupWear } from './pit.js';
-import { wrapIdx, speedOf } from './math.js';
+import { wrapIdx, speedOf, mulberry32 } from './math.js';
+const randomSeed = () => Math.floor(Math.random() * 2 ** 32);   // the only Math.random in the sim
 import { emit } from './events.js';
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./pit.js').Wear} Wear */
@@ -19,12 +20,13 @@ function normalizeFormat(f) {
   return { type: 'laps', laps: Math.max(1, Math.round(+(f && f.laps) || 3)) };
 }
 // aiPace scales every AI driver's skill (difficulty, 1 = their own). wear = { fuel, tyres, damage } (pit.js setupWear).
-export function createRace(format, { track = DEFAULT_TRACK, drivers = DRIVERS, aiPace = 1, wear = {} } = {}) {
-  const fmt = normalizeFormat(format);
-  const race = { track, format: fmt, aiPace,
+// seed: the race's random numbers (AI line biases and mistakes: race.rng); the same seed and inputs = the same race.
+export function createRace(format, { track = DEFAULT_TRACK, drivers = DRIVERS, aiPace = 1, wear = {}, seed = randomSeed() } = {}) {
+  const fmt = normalizeFormat(format), rng = mulberry32(seed);
+  const race = { track, format: fmt, aiPace, seed, rng,
     laps: fmt.type === 'laps' ? fmt.laps : Infinity,               // distance; Infinity for timed / unlimited
     duration: fmt.type === 'timed' ? fmt.minutes * 60 : Infinity,  // seconds; the clock starts at lights out
-    chequered: false, t: 0, fastest: Infinity, fastestBy: /** @type {Car} */ (null), wear: /** @type {Wear} */ (null), cars: drivers.map((d, slot) => createCar(track, d, slot)) };
+    chequered: false, t: 0, fastest: Infinity, fastestBy: /** @type {Car} */ (null), wear: /** @type {Wear} */ (null), cars: drivers.map((d, slot) => createCar(track, d, slot, rng)) };
   setupWear(race, wear);
   return race;
 }

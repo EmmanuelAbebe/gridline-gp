@@ -1,6 +1,7 @@
 // Seeded fingerprint of the simulation: runs fixed races with Math.random replaced by a seeded generator and
 // hashes every car's state after every step. Two sources that print the same hashes behave identically, so use it
-// to check that a refactor did not change the physics.
+// to check that a refactor did not change the physics. Races take their default seed from the seeded Math.random
+// (since 2026-10-19 each race has its own race.rng; older builds used Math.random directly, which this also covers).
 // Usage: node tools/sim-trace.mjs [old.html | path/to/sim/index.js]
 import { createHash } from 'node:crypto';
 import { loadSim } from './load-sim.mjs';

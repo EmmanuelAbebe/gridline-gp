@@ -106,3 +106,12 @@ test('contact: cars fit side by side a car width apart; a side swipe pushes side
   assert.ok(b.vy > 0 && a.vy < 3, `b pushed right (${b.vy.toFixed(2)}), a slowed sideways (${a.vy.toFixed(2)})`);
   assert.ok(Math.abs(a.v - 50) < 0.01 && Math.abs(b.v - 50) < 0.01, 'forward speeds untouched');
 });
+
+test('seed: the same seed gives the same race, another seed a different one (race.rng)', () => {
+  const finish = seed => { const race = S.createRace(2, { seed }); run(S, race, 300, aiDriver(S));
+    return race.cars.map(c => `${c.code} ${c.finishTime.toFixed(4)} ${c.bias.toFixed(4)}`).join(' | '); };
+  const a = finish(42);
+  assert.equal(finish(42), a);
+  assert.notEqual(finish(43), a);
+  assert.equal(S.createRace(1, { seed: 7 }).seed, 7);
+});

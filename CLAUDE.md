@@ -175,7 +175,12 @@ Tunables live in data tables (config modules), not inline in the logic.
      Running wide counts too since 2026-10-18 (see Run-off layout). Classification and finished gaps use `raceTime(c)` = finishTime +
      penalty. Game: warning/penalty toasts, current/last lap time struck through red when invalid, results show
      "+N s pen". Tests: tests/limits.test.js.
-   - Race formats: `createRace(format, { track, drivers, aiPace = 1 })`, format = number (laps) or { type: 'laps', laps } |
+   - Randomness (2026-10-19): each race has its own seeded generator `race.rng` (math.js `mulberry32`, `createRace(…,
+     { seed })`, default seed drawn from Math.random, kept as `race.seed`): AI line biases and mistakes use it, nothing
+     else in the sim calls Math.random, so the same seed + inputs = the same race (replays, ghosts, learning rivals).
+     Switching to it changed the sim-trace baseline once (different draws, same physics; verified first with a
+     pass-through rng that the hashes were identical).
+   - Race formats: `createRace(format, { track, drivers, aiPace = 1, wear, seed })`, format = number (laps) or { type: 'laps', laps } |
      { type: 'timed', minutes } | { type: 'unlimited' }; `race.laps` / `race.duration` are Infinity when unused.
      Chequered flag (`race.chequered`): first car past the distance, or the leader crossing after time is up;
      then every car finishes at its next crossing (lapped cars too). Finished cars sort by `finishLap`, then time.

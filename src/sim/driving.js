@@ -128,9 +128,9 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   // no throttle while asking the front tyres for more than they have (it would only push the car wide)
   if (!lost && sp > AI.recoverSpeed && (Math.abs(want) > 0.95 || c.slideF > 0.3)) thr = Math.min(thr, AI.lockThrottle);
   if (brk > 0 && c.brake === 0 && !skillOverride && !c.mistake && sp - vmin > AI.mistakes.minDrop
-      && Math.random() < AI.mistakes.chance * (1 - c.skill) * 10) {
+      && race.rng() < AI.mistakes.chance * (1 - c.skill) * 10) {
     const [lo, hi] = AI.mistakes.over;
-    c.mistake = lo + Math.random() * (hi - lo);
+    c.mistake = lo + race.rng() * (hi - lo);
     c.mistakeEnd = (c.idx + Math.round(AI.mistakes.length / ds)) % N;
     brk = 0;
   }

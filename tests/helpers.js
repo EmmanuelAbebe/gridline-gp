@@ -6,7 +6,8 @@ export function mulberry32(seed) {
     t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 }
 
-// Runs fn with Math.random seeded, so AI line biases (set in createCar) are the same every run.
+// Runs fn with Math.random seeded, so races created without a `seed` (createRace draws one from Math.random) are the
+// same every run.
 export function seeded(fn, seed = 1) {
   const real = Math.random;
   Math.random = mulberry32(seed);

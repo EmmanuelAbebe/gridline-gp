@@ -22,8 +22,8 @@ export function locate(track, c, full) {
 }
 
 // Every field a car has, grouped by the module that owns it (a field added anywhere else is a bug: tsc checks it).
-/** @param {Track} track @param {import('./drivers.js').Driver} driver @param {number} slot */
-export function createCar(track, driver, slot) {
+/** @param {Track} track @param {import('./drivers.js').Driver} driver @param {number} slot @param {() => number} rng */
+export function createCar(track, driver, slot, rng) {
   const { PX, PZ, NX, NZ } = track, { idx, lat } = gridSlot(track, slot);
   const c = { player: false, ...driver, slot,
     // physics: position, heading, speed, nearest sample / lateral offset (locate), steering (-1..1 after shaping)
@@ -46,7 +46,7 @@ export function createCar(track, driver, slot) {
     steerIn: null,
     // AI (driving.js driveAI): line offset, own line bias, mistake = share too fast until mistakeEnd, passing,
     // dirtyK = corner-speed factor in dirty air (smoothed)
-    offset: lat, bias: (Math.random()-0.5)*1.6, mistake: 0, mistakeEnd: -1, passBy: null, passSide: 1, aiT: -1, dirtyK: 1,
+    offset: lat, bias: (rng()-0.5)*1.6, mistake: 0, mistakeEnd: -1, passBy: null, passSide: 1, aiT: -1, dirtyK: 1,
     // track limits (race.js): metres of the current cut, cuts so far, penalty seconds, current / last lap invalid
     cutRun: 0, cuts: 0, penalty: 0, lapInvalid: false, lastLapInvalid: false,
     // timing (race.js)
