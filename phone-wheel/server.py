@@ -289,7 +289,10 @@ def bt_connect(mac):
     elif out.strip().replace("\\", "").lower() != mac.lower():
         run_cmd(["nmcli", "connection", "modify", BT_CON, "bluetooth.bdaddr", mac])
     code, _, err = run_cmd(["nmcli", "connection", "up", BT_CON], timeout=40)
-    return None if code == 0 else (err.splitlines() or ["no answer"])[-1]
+    if code == 0:
+        return None
+    lines = [l for l in err.splitlines() if l.strip() and not l.startswith("Hint:")]  # skip nmcli's journalctl hint
+    return (lines or ["the phone didn't answer"])[-1]
 
 
 def bt_default_route():
@@ -340,8 +343,7 @@ class BluetoothLink:
         err = bt_connect(self.mac)
         if err and err != self.last_err:
             print(f"  Bluetooth: {err}")
-            if "NAP" in err or "not available" in err.lower() or "timeout" in err.lower() or "refused" in err.lower():
-                print("  -> is Bluetooth tethering turned on on the phone?")
+            print("  -> is the phone near the PC with Bluetooth on, and Bluetooth tethering turned on?")
         self.last_err = err
         link = bt_link()
         return link[1] if link else None
