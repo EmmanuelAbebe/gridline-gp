@@ -283,9 +283,13 @@ Tunables live in data tables (config modules), not inline in the logic.
    - Game: `game` state object, phases menu → lights → race → done; `newRace`, `simStep` (fixed 120 Hz),
      `renderFrame` (interpolated `rx/rz/rh`), `monitorFps` (two slow 0.5 s windows < 52 fps → step down).
 
-## Phone wheel notes (until it is merged in, roadmap step 3)
-- Project: ~/Downloads/Phone-wheel-main (github.com/EmmanuelAbebe/Phone-wheel). aiohttp `server.py` serves the
-  phone page over HTTPS :8443; phone sends `{s, g, b, k}` over a WebSocket at ~60 Hz.
+## Phone wheel notes (roadmap step 3: merging it in)
+- Project: `phone-wheel/` in this repo since 2026-10-19 (imported with `git subtree` from ~/Downloads/Phone-wheel-main,
+  github.com/EmmanuelAbebe/Phone-wheel, history kept; its own `phone-wheel/CLAUDE.md` has the details; its GitHub
+  workflow in `phone-wheel/.github` doesn't run from a subfolder). aiohttp `server.py` serves the
+  phone page over HTTPS :8443; phone sends `{s, g, b, k}` over a WebSocket at ~60 Hz. Links: Wi-Fi, `--usb` (adb),
+  `--bluetooth` (phone's Bluetooth tethering; see phone-wheel/README.md). Python deps: the old checkout's venv
+  (~/Downloads/Phone-wheel-main/venv) works for `phone-wheel/server.py`.
 - Gamepad mode in the wheel's server.py (`LinuxGamepadOut`, uinput, VID 045E PID 028E) → Chrome sees a
   standard-mapped Xbox pad. Press gas once with the game focused so the browser exposes it.
 - Keyboard mode: server.py only sends keys when the active window title matches `--window` (default

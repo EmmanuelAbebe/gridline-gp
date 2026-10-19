@@ -106,6 +106,26 @@ Over a cable there is no certificate warning and no Wi-Fi lag.
 
 Unplugging and replugging is fine — the server re-links automatically.
 
+## Bluetooth tethering mode
+
+No router in between: the phone shares a small network over Bluetooth and the PC joins it, so
+a busy or distant Wi-Fi can't stall the wheel. It still uses https (same certificate warning, once).
+
+1. Pair the phone with the PC once (Bluetooth settings on both).
+2. Phone: Settings → Connections → Mobile Hotspot and Tethering → **Bluetooth tethering** on.
+3. Run `python server.py --bluetooth` (or `--bluetooth "S23"` / `--bluetooth F0:05:1B:...` to pick the
+   phone when several are paired). On Linux the server joins the phone's network itself with
+   NetworkManager, through its own connection `phone-wheel-bt`, which never becomes the PC's default
+   route (so your internet stays on Wi-Fi/Ethernet, not the phone's mobile data). On Windows connect
+   first: Control Panel → Devices and Printers → right-click the phone → Connect using → Access point.
+4. Scan the QR code it prints.
+
+If the link drops the server reconnects it and the phone page reconnects by itself. If the phone
+hands the PC a new address, the server prints a new QR code. The PC's QR page shows the round trip,
+messages/s and the longest pause, so you can compare it with Wi-Fi and USB. Bluetooth shares the
+2.4 GHz radio with Wi-Fi: if the phone is on a 2.4 GHz Wi-Fi network, turn its Wi-Fi off while driving.
+USB stays the steadiest link of the three.
+
 ## Linux (Mint / Ubuntu) notes
 
 - Install into a virtual environment: `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`,

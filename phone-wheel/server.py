@@ -11,8 +11,9 @@ Output modes:
   dry run   (--dry-run)          - just prints values, for testing the phone side
 
 Connection:
-  Wi-Fi (default) - https on the LAN with a self-signed certificate
-  USB   (--usb)   - plain http on localhost, tunnelled to the phone with `adb reverse`
+  Wi-Fi     (default)     - https on the LAN with a self-signed certificate
+  Bluetooth (--bluetooth) - https over the phone's Bluetooth tethering link (no router in between)
+  USB       (--usb)       - plain http on localhost, tunnelled to the phone with `adb reverse`
 """
 import argparse
 import asyncio
@@ -102,8 +103,17 @@ def ensure_cert(ip):
     """Phones only give tilt sensor data to https pages, so we make a
     self-signed certificate for this PC's IP (regenerated if the IP changes)."""
     cert_p, key_p, tag_p = DATA / "cert.pem", DATA / "key.pem", DATA / ".cert_ip"
-    if cert_p.exists() and key_p.exists() and tag_p.exists() and tag_p.read_text().strip() == ip:
+    # The certificate covers every address it was needed for (Wi-Fi and Bluetooth), so switching between them
+    # doesn't make the phone accept a new one each time.
+    known = []
+    for k in (tag_p.read_text().split() if tag_p.exists() else []):
+        try:
+            known.append(str(ipaddress.ip_address(k)))
+        except ValueError:
+            pass
+    if cert_p.exists() and key_p.exists() and ip in known:
         return cert_p, key_p
+    ips = [ip] + [k for k in known if k != ip][:7]
 
     from cryptography import x509
     from cryptography.hazmat.primitives import hashes, serialization
@@ -123,7 +133,7 @@ def ensure_cert(ip):
         .not_valid_after(now + datetime.timedelta(days=825))
         .add_extension(
             x509.SubjectAlternativeName(
-                [x509.IPAddress(ipaddress.ip_address(ip)), x509.DNSName("localhost")]
+                [x509.IPAddress(ipaddress.ip_address(a)) for a in ips] + [x509.DNSName("localhost")]
             ),
             critical=False,
         )
@@ -137,7 +147,7 @@ def ensure_cert(ip):
         )
     )
     cert_p.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
-    tag_p.write_text(ip)
+    tag_p.write_text("\n".join(ips))
     return cert_p, key_p
 
 
@@ -178,6 +188,176 @@ def keep_adb_reverse(port):
             else:
                 print("\n  Waiting for phone over USB (plug in, enable USB debugging, accept the prompt)...")
         time.sleep(3)
+
+
+# ----------------------------------------------------------------- bluetooth
+# Bluetooth tethering: the phone shares a small network over Bluetooth (PAN) and this PC joins it, so the phone's
+# messages come straight over the air without a router in between. The phone page is the same https page; only the
+# address changes (the PC's address on that link).
+BT_CON = "phone-wheel-bt"  # NetworkManager connection made by --bluetooth (Linux); never the PC's default route
+NAP_UUID = "00001116"      # Bluetooth "network access point" = a phone that can tether
+
+
+def run_cmd(cmd, timeout=10):
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return r.returncode, r.stdout, r.stderr.strip()
+    except (OSError, subprocess.TimeoutExpired) as err:
+        return -1, "", str(err)
+
+
+def bt_link():
+    """(interface, IPv4 address) of this PC on a Bluetooth tethering link, or None."""
+    if sys.platform.startswith("linux"):
+        code, out, _ = run_cmd(["ip", "-j", "-4", "addr", "show"])
+        try:
+            links = json.loads(out) if code == 0 else []
+        except ValueError:
+            links = []
+        for link in links:
+            if link.get("ifname", "").startswith(("bnep", "bt-pan")):
+                for a in link.get("addr_info", []):
+                    if a.get("family") == "inet":
+                        return link["ifname"], a["local"]
+    elif sys.platform == "win32":
+        code, out, _ = run_cmd(["powershell", "-NoProfile", "-Command",
+                                "Get-NetAdapter | Where-Object InterfaceDescription -match 'Bluetooth' | "
+                                "Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | "
+                                "ForEach-Object { $_.InterfaceAlias + '|' + $_.IPAddress }"], timeout=15)
+        for line in out.splitlines():
+            name, _, ip = line.strip().rpartition("|")
+            if ip and not ip.startswith("169.254."):  # 169.254 = Windows' "no network" address
+                return name, ip
+    elif sys.platform == "darwin":
+        code, out, _ = run_cmd(["networksetup", "-getinfo", "Bluetooth PAN"])
+        for line in out.splitlines():
+            if line.startswith("IP address:") and line.split(":", 1)[1].strip() not in ("", "none"):
+                return "Bluetooth PAN", line.split(":", 1)[1].strip()
+    return None
+
+
+def bt_phones():
+    """Paired Bluetooth devices as [(mac, name, can_tether)] (Linux, BlueZ)."""
+    code, out, _ = run_cmd(["bluetoothctl", "devices", "Paired"])
+    if code != 0 or not out.strip():
+        code, out, _ = run_cmd(["bluetoothctl", "paired-devices"])  # older BlueZ
+    found = []
+    for line in out.splitlines():
+        parts = line.split(" ", 2)
+        if len(parts) >= 2 and parts[0] == "Device":
+            _, info, _ = run_cmd(["bluetoothctl", "info", parts[1]])
+            found.append((parts[1], parts[2] if len(parts) > 2 else parts[1], NAP_UUID in info))
+    return found
+
+
+def pick_bt_phone(want):
+    """The phone to tether to: `want` is a MAC address or part of the name, or "auto" (the one paired device that
+    can tether). Returns its MAC or None (and says why)."""
+    phones = bt_phones()
+    if want != "auto":
+        hits = [p for p in phones if p[0].lower() == want.lower() or want.lower() in p[1].lower()]
+    else:
+        hits = [p for p in phones if p[2]]
+    if len(hits) == 1:
+        return hits[0][0]
+    if not phones:
+        print("  No paired Bluetooth devices. Pair the phone with this PC first (Bluetooth settings on both).")
+    elif hits:
+        print("  Several phones match; pick one with --bluetooth \"<name or MAC>\":")
+    else:
+        print("  No paired phone matches. Paired devices:" if want != "auto" else
+              "  None of the paired devices offers tethering. Paired devices:")
+    for mac, name, nap in (hits or phones):
+        print(f"    {mac}  {name}" + ("  (can tether)" if nap else ""))
+    return None
+
+
+def bt_connect(mac):
+    """Linux: bring up the tethering link to the phone with NetworkManager, through our own connection profile,
+    which never becomes the default route (so the PC's internet doesn't move to the phone's mobile data).
+    Returns None when it worked, else the reason."""
+    if not shutil.which("nmcli"):
+        return "nmcli (NetworkManager) not found: connect to the phone's Bluetooth network from the system settings"
+    code, out, _ = run_cmd(["nmcli", "-g", "bluetooth.bdaddr", "connection", "show", BT_CON])
+    if code != 0:
+        code, _, err = run_cmd(["nmcli", "connection", "add", "type", "bluetooth", "con-name", BT_CON,
+                                "bluetooth.bdaddr", mac, "bluetooth.type", "panu",
+                                "ipv4.never-default", "yes", "ipv6.method", "ignore",
+                                "connection.autoconnect", "no"])
+        if code != 0:
+            return err or "nmcli couldn't create the connection"
+    elif out.strip().replace("\\", "").lower() != mac.lower():
+        run_cmd(["nmcli", "connection", "modify", BT_CON, "bluetooth.bdaddr", mac])
+    code, _, err = run_cmd(["nmcli", "connection", "up", BT_CON], timeout=40)
+    return None if code == 0 else (err.splitlines() or ["no answer"])[-1]
+
+
+def bt_default_route():
+    """True when this PC's internet goes out through the Bluetooth link (Linux)."""
+    code, out, _ = run_cmd(["ip", "-j", "route", "show", "default"])
+    try:
+        return any(r.get("dev", "").startswith(("bnep", "bt-pan")) for r in json.loads(out or "[]"))
+    except ValueError:
+        return False
+
+
+BT_HELP = """  Bluetooth tethering:
+    1. Pair the phone with this PC once (Bluetooth settings on both).
+    2. On the phone turn on Bluetooth tethering: Settings -> Connections -> Mobile Hotspot and
+       Tethering -> Bluetooth tethering (Samsung; on other Androids: Network -> Hotspot & tethering).
+    3. This PC joins the phone's Bluetooth network by itself (Linux, NetworkManager). On Windows:
+       Control Panel -> Devices and Printers -> right-click the phone -> Connect using -> Access point.
+       On a Mac: System Settings -> Network -> Bluetooth PAN -> Connect.
+"""
+
+
+class BluetoothLink:
+    """Finds the tethering link and keeps it up: reconnects after a drop (Linux), reports address changes."""
+
+    RETRY = 10  # s between connection attempts
+
+    def __init__(self, want):
+        self.want, self.mac, self.last_try, self.last_err = want, None, 0.0, None
+        self.warned_route = False
+
+    def poll(self):
+        """One check: the PC's address on the link, or None after (maybe) trying to bring it up."""
+        link = bt_link()
+        if link:
+            if not self.warned_route and sys.platform.startswith("linux") and bt_default_route():
+                self.warned_route = True
+                print("\n  Note: this PC's internet now goes through the phone's mobile data (the Bluetooth link")
+                print("  became the default route). Connect with --bluetooth and no other Bluetooth network to avoid it.")
+            return link[1]
+        if not sys.platform.startswith("linux") or time.monotonic() - self.last_try < self.RETRY:
+            return None
+        self.last_try = time.monotonic()
+        if self.mac is None:
+            self.mac = pick_bt_phone(self.want)
+            if self.mac is None:
+                self.last_try += 20  # nothing to connect to yet; look again a little later
+                return None
+        err = bt_connect(self.mac)
+        if err and err != self.last_err:
+            print(f"  Bluetooth: {err}")
+            if "NAP" in err or "not available" in err.lower() or "timeout" in err.lower() or "refused" in err.lower():
+                print("  -> is Bluetooth tethering turned on on the phone?")
+        self.last_err = err
+        link = bt_link()
+        return link[1] if link else None
+
+    def wait(self):
+        """Block until the link is up; returns the PC's address on it."""
+        ip = self.poll()
+        if ip:
+            return ip
+        print(BT_HELP)
+        print("  Waiting for the Bluetooth link... (Ctrl+C to stop)")
+        while not ip:
+            time.sleep(2)
+            ip = self.poll()
+        print(f"  Bluetooth link up: this PC is {ip} on the phone's network\n")
+        return ip
 
 
 # ----------------------------------------------------------------- outputs
@@ -624,11 +804,53 @@ async def serve_https(app, port, ctx):
         await runner.cleanup()
 
 
+def print_qr(url):
+    """The QR code in the terminal; True if it was shown there."""
+    try:
+        import qrcode
+
+        qr = qrcode.QRCode(border=1)
+        qr.add_data(url)
+        qr.print_ascii(invert=True)
+        return sys.stdout.isatty()
+    except Exception:
+        return False
+
+
+async def watch_bluetooth(bt, ip, ctx, info, token, port):
+    """Bluetooth mode: keep the tethering link up, and if the phone hands this PC a new address, serve a certificate
+    for it and show the new link (the phone page reconnects by itself after a short drop on the same address)."""
+    down = False
+    while True:
+        await asyncio.sleep(3)
+        now = await asyncio.to_thread(bt.poll)
+        if now is None:
+            if not down:
+                down = True
+                print("\n  Bluetooth link lost - reconnecting (check that tethering is still on)...")
+            continue
+        if down:
+            down = False
+            print(f"\n  Bluetooth link back ({now})")
+        if now != ip:
+            ip = now
+            cert, key = ensure_cert(ip)
+            ctx.load_cert_chain(cert, key)
+            url = f"https://{ip}:{port}/?t={token}"
+            info.update(url=url, base=f"https://{ip}:{port}", qr=qr_svg(url))
+            print(f"\n  The phone gave this PC a new address. New phone link: {url}")
+            print_qr(url)
+            print("  Scan it again (the old link points at the old address).")
+
+
 def main():
     ap = argparse.ArgumentParser(description="Use your phone as a steering wheel")
     ap.add_argument("--keyboard", action="store_true", help="send arrow keys instead of a virtual controller")
     ap.add_argument("--dry-run", action="store_true", help="only print the values coming from the phone")
     ap.add_argument("--usb", action="store_true", help="connect over a USB cable with adb instead of Wi-Fi")
+    ap.add_argument("--bluetooth", nargs="?", const="auto", metavar="PHONE",
+                    help="connect over the phone's Bluetooth tethering instead of Wi-Fi; PHONE = part of its name or its "
+                         "MAC address (default: the paired phone that can tether)")
     ap.add_argument("--port", type=int, default=8443)
     ap.add_argument("--pair-port", type=int, default=0, help="port for the QR code page on this PC (default: port + 1)")
     ap.add_argument("--no-browser", action="store_true", help="don't open the QR code page on this PC")
@@ -641,6 +863,8 @@ def main():
     print("\n  PHONE WHEEL\n")
     if args.usb and not shutil.which("adb"):
         sys.exit("  --usb needs adb. Install it with: sudo apt install adb")
+    if args.usb and args.bluetooth:
+        sys.exit("  Pick one: --usb or --bluetooth")
     out = pick_output(args)
     token = pairing_token(renew=args.new_code)
     status = {"phones": 0, "input": {}}
@@ -651,31 +875,25 @@ def main():
         base, ctx = f"http://localhost:{args.port}", None
         threading.Thread(target=keep_adb_reverse, args=(args.port,), daemon=True).start()
     else:
-        ip = local_ip()
+        bt = BluetoothLink(args.bluetooth) if args.bluetooth else None
+        ip = bt.wait() if bt else local_ip()
         cert, key = ensure_cert(ip)
         ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ctx.load_cert_chain(cert, key)
         base = f"https://{ip}:{args.port}"
     url = f"{base}/?t={token}"
     pair_url = f"http://127.0.0.1:{pair_port}/"
-    info = {"url": url, "base": base, "qr": qr_svg(url), "mode": out.name, "usb": args.usb}
+    info = {"url": url, "base": base, "qr": qr_svg(url), "mode": out.name, "usb": args.usb,
+            "bluetooth": bool(args.bluetooth)}
 
     print(f"  Output mode : {out.name}")
     print(f"  Phone link  : {url}")
     print(f"  QR code page: {pair_url}\n")
-    qr_shown = False
-    try:
-        import qrcode
-
-        qr = qrcode.QRCode(border=1)
-        qr.add_data(url)
-        qr.print_ascii(invert=True)
-        qr_shown = sys.stdout.isatty()
-    except Exception:
-        pass
+    qr_shown = print_qr(url)
     # The QR code page is only needed when the terminal couldn't show the code.
     open_page = args.browser or not (qr_shown or args.no_browser)
-    print("  Scan the QR code with your phone camera (same Wi-Fi as this PC).")
+    print("  Scan the QR code with your phone camera" + (" (keep Bluetooth tethering on)." if args.bluetooth else
+          "" if args.usb else " (same Wi-Fi as this PC)."))
     if not args.usb:
         print("  Your phone will warn about the certificate: tap Advanced -> Proceed.")
     print("  Press Ctrl+C to stop.\n")
@@ -690,6 +908,8 @@ def main():
         except OSError as err:
             print(f"  (QR code page unavailable on port {pair_port}: {err.strerror})")
         app = build_app(out, token, status)
+        if args.bluetooth:
+            watch = asyncio.create_task(watch_bluetooth(bt, ip, ctx, info, token, args.port))  # held so the task lives
         try:
             if args.usb:
                 runner = web.AppRunner(app, access_log=None)

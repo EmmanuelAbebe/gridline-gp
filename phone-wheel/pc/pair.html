@@ -54,7 +54,7 @@
   <div>
     <h1>Phone Wheel</h1>
     <ol>
-      <li>Connect the phone to the <b>same Wi-Fi</b> as this PC.</li>
+      <li id="netStep">Connect the phone to the <b>same Wi-Fi</b> as this PC.</li>
       <li><b>Scan the QR code</b> with the phone camera.</li>
       <li id="certStep">If the phone warns about the connection, tap <b>Advanced → Proceed</b>. That's this PC's own certificate.</li>
       <li>Tap <b>START DRIVING</b> and hold the phone sideways.</li>
@@ -73,11 +73,16 @@
 <script>
 (async () => {
   const $ = (id) => document.getElementById(id);
-  const info = await (await fetch("/api/info")).json();
-  $("qr").innerHTML = info.qr;
-  $("url").textContent = info.url;
+  let info = await (await fetch("/api/info")).json();
+  const showLink = () => { $("qr").innerHTML = info.qr; $("url").textContent = info.url; };
+  showLink();
   $("mode").textContent = "Output: " + info.mode;
-  if (info.usb) $("certStep").textContent = "Over USB there's no certificate warning.";
+  if (info.usb) { $("netStep").textContent = "Plug the phone in with USB debugging on."; $("certStep").textContent = "Over USB there's no certificate warning."; }
+  if (info.bluetooth) $("netStep").innerHTML = "Keep <b>Bluetooth tethering</b> on on the phone (it is this PC's link to it).";
+  // Bluetooth: the phone may give this PC a new address after a reconnect; the server then has a new link
+  if (info.bluetooth) setInterval(async () => {
+    try { const n = await (await fetch("/api/info")).json(); if (n.url !== info.url) { info = n; showLink(); } } catch (_) {}
+  }, 3000);
   $("copy").onclick = async () => {
     try { await navigator.clipboard.writeText(info.url); $("copy").textContent = "Copied"; }
     catch (_) { $("copy").textContent = "Select it"; }
@@ -103,7 +108,8 @@
     }
     const lk = st && st.link;
     $("linkq").textContent = lk ? `Link: ${lk.rtt ?? "–"} ms round trip · ${lk.hz} messages/s · longest pause ${lk.gap} ms`
-      + (lk.gap > 150 || (lk.rtt ?? 0) > 60 ? "  (laggy: try --usb, or keep the phone close to the router)" : "") : "Link: —";
+      + (lk.gap > 150 || (lk.rtt ?? 0) > 60 ? (info.usb ? "  (laggy: check the cable)" : info.bluetooth ? "  (laggy: keep the phone near the PC, or try --usb)"
+        : "  (laggy: try --bluetooth or --usb, or keep the phone close to the router)") : "") : "Link: —";
     const inp = st && st.input;
     setBar("bs", inp ? inp.s : 0, true); setBar("bg", inp ? inp.g : 0); setBar("bb", inp ? inp.b : 0);
     $("vs").textContent = inp ? (inp.s >= 0 ? "+" : "") + inp.s.toFixed(2) : "—";

@@ -22,6 +22,13 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   - `KeyboardOut` (`--keyboard`): arrow keys through `pynput`, partial steering done by pulsing the key.
   - `DryRunOut` (`--dry-run`): prints values only.
 - Safety watchdog: everything is released if no message arrives for 0.4 s.
+- Links: Wi-Fi (default, https on the LAN IP), `--usb` (http://localhost via `adb reverse`), `--bluetooth [PHONE]`
+  (2026-10-19, https on the PC's address on the phone's Bluetooth tethering network: `bt_link()` = bnep*/bt-pan*
+  interface (Windows: adapter described "Bluetooth", macOS "Bluetooth PAN"); `BluetoothLink` waits for it and on
+  Linux brings it up with nmcli through its own profile `phone-wheel-bt` (panu, ipv4.never-default, ipv6 ignored,
+  so the PC's internet never moves to the phone); `watch_bluetooth` re-polls every 3 s, reconnects, and on a new
+  address reloads the TLS context and the QR page's link). The certificate covers every IP it was needed for
+  (`.cert_ip` = list, up to 8), so switching Wi-Fi ↔ Bluetooth doesn't make a new one each time.
 - Pairing: random token (`pairing_token` in the data dir) is in the QR link `?t=`; `/ws` and `/check`
   reject other tokens. PC page with QR + live status: `pc/pair.html` on http://127.0.0.1:<port+1>
   (localhost only, Host header checked). Opened in the browser at start only if the terminal
