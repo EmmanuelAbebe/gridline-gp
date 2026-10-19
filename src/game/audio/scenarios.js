@@ -46,7 +46,7 @@ export const SCENARIOS = {
     } },
   kerbs: { label: 'Kerbs, grass, gravel', seconds: 6, mix: 'driver',
     at(t) {
-      const surface = t < 2 ? 'track' : t < 4 ? 'grass' : 'sand';
+      const surface = t < 2 ? 'track' : t < 4 ? 'grass' : 'gravel';
       return { listener: listenerAt(0, 1, 0), player: car({ rpm: 9000, thr: 0.5, gear: 3, speed: 120 / 3.6, onKerb: t < 2 && t > 0.5, surface }), rivals: [] };
     } },
   overtake: { label: 'Overtaken at 280 km/h (cockpit)', seconds: 5, mix: 'driver',

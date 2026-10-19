@@ -68,7 +68,7 @@ Tunables live in data tables (config modules), not inline in the logic.
      (~770 m) is flat out at ~320 km/h; the hairpin ~107 km/h.
      `SIM.track` is the default (Elkmoor). A new circuit = a new `CIRCUITS` entry; tests/circuits.test.js checks every
      entry (no overlapping run-off, straight before the line for the grid, solo AI lap clean, full field finishes,
-     proportional test driver laps it). Fastest-AI solo laps: Elkmoor 32.9, Marrow 43, Harrow 54, Cobalt 59, Northfold 68 s.
+     proportional test driver laps it). Fastest-AI solo laps (3-lap best): Elkmoor 32.4, Marrow 42.5, Harrow 53.8, Cobalt 57.8, Northfold 67.6 s.
    - `chassis.js` (every car: player and AI): two-axle bicycle model, 4 sub-steps per 120 Hz step. Axle grip = grip × surface ×
      (weight + downforce·(1 − dirtyAir·slip) ± load transfer from last `c.ax`); tyre curve sin(1.3·atan(Bα)) peaking
      at 0.1 rad front / 0.075 rear (stiffer, 6% grippier rear = stable); friction circle per axle (`axle()`): too
@@ -86,12 +86,31 @@ Tunables live in data tables (config modules), not inline in the logic.
      `damping` (high only) = always-on yaw damping for on/off keys, `tc`, `abs`. Car state adds `vy`, `yawRate`,
      `slideF/slideR` (0..1 past the limit), `lockF`, `spinR`. Tuned against bots in tests/chassis.test.js:
      proportional (tilt) and key-tapping drivers lap clean on medium; full-lock keyboard needs high.
-   - Surfaces (`SURFACES`, `updateSurface`; grip, rolling drag, and above `cap` = 60 km/h a drag of 4/s per m/s,
-     at most maxDrag 22 (grass) / 30 (sand) m/s²: running wide slows firmly to ~60 km/h, never a dead stop, and the
-     car can drive ~65 km/h there; user asked 2026-10-14, the old linear drag left ~35 km/h on grass, ~9 on sand):
-     track, kerb (only where painted, |K| > KERB_K), sand (gravel trap,
-     outside of corners with |K| > SAND_K, `SAND` m wide), grass. Same rules as world.js draws them (the gravel was
-     drawn on the inside of corners before 2026-10-13; fixed).
+   - Off track (2026-10-18; user: "the grass is too punishing", then approved a researched plan, beaching included).
+     Before, grass/sand braked at up to 22/30 m/s² down to 60 km/h. Now (`SURFACES`, chassis.js `surfaceDrag` acts
+     against the whole motion, sideways slides too): grass grip 0.35 + 2.2 m/s² (keeps the speed, can't brake or turn:
+     braking distance > 2× the track's), gravel grip 0.3 + 1.5 m/s² + bite 6.5 from 15 m/s, fading above 22 m/s to
+     35% (≈ 0.6–1 g once slow, skims when fast, as tested/measured on real traps), artificial grass (`turf`) 0.6, tarmac
+     run-off 0.9, kerb 0.92, sausage kerb 0.55 + a yaw kick (EV.SAUSAGE). `OFFTRACK`: dirty tyres (grip −10% × c.dirt,
+     set by grass/gravel/turf (`ROUGH`), clean after 3 s on a hard surface; HUD chip "DIRTY TYRES"); downforce fades past
+     14° of slide to 10% at 69° (a spinning car loses its wings; first tried from 8.6°: the AI spun at 330 km/h);
+     gravel deeper than 2 m below 2 m/s digs in (drive × 0.2), stopped there 1.5 s = beached (EV.BEACHED), marshals put
+     it back beside the track after 4 s (EV.RECOVERED, car.js `updateBeached`, dirty tyres). Keep moving and a car
+     crawls out at ~18 km/h. Tests: tests/offtrack.test.js.
+   - Run-off layout (`runoff.js` `buildRunoff`, `RUNOFF` in tuning.js; `track.runoff[side]` 0 = left/−N, 1 = right:
+     per sample kerb / sausage / turf / gravel / wall distances + zone (ZONE grass|tarmac) + barrier (BARRIER armco|tyres|
+     tecpro|concrete)). Class per sample: straight, inside, or outside of a corner by its apex speed (fast > 50 m/s:
+     tarmac then gravel 9 m out, TecPro; medium: grass then gravel, tyre wall; slow: tarmac, tyres) + `heavy` m per m/s
+     scrubbed in the braking zone; ramps (exit ramps longer), pit wall / grandstand wall on the main straight, then cut
+     to the half-way line to any other part of the track (`freeDistance`, grid) and to 0.9/|K| inside tight corners;
+     gravel edge smoothed. Outside kerbs run on 15 samples past the exit; sausage kerbs at chicane apexes. Circuit
+     `style: 'street'` (Cobalt Bay): concrete walls 3 m from the road, TecPro + tarmac escape roads at corners.
+     `surfaceAt(track, i, lat)` = the surface rules; `resolveWalls` uses the side's wall; a hit keeps `BARRIERS[type]
+     .keep` of the speed (tyres 0.4 … concrete 0.6) and `impactHard` scales the impact sound/shake. `track.WALL` = the
+     furthest barrier. Track limits now also count running wide: whole car past the outside kerb faster than
+     `LIMITS.wideSpeed` 15 m/s (c.cutWide; toast "ran wide"). AI: corner speeds × sqrt(downforce lost in dirty air),
+     smoothed over `AI.dirtyTime` 0.8 s (halved the run-wides in traffic); ~14 run-wides per 120 car-laps remain at
+     Harrow's fast left before the hairpin (in traffic), solo laps unchanged.
    - `car.js` (locate, createCar, resolveWalls, updateSurface; car has `gear`, `rpm`, `autoShift`, `slip`, `brake`,
      and `trailLat`/`trailT` per track sample = its wake), `race.js` (formats, createRace, progress, lap +
      flag rules, checkpoints, order, gapTo), `motion.js` (afterMove), `driving.js` (drivePlayer, driveAI),
@@ -120,7 +139,7 @@ Tunables live in data tables (config modules), not inline in the logic.
      past the edge (HW + KERB where kerbed, else HW) on the inside of a corner (`track.CK` = strongest K within ±20
      samples, > KERB_K) for ≥ cutDist 5 m of track. Each cut: EV.CUT, `c.lapInvalid` (lap can't be best/fastest;
      `c.lastLapInvalid` after the line); after `warnings` 2, each cut adds `penalty` 2 s to `c.penalty` (EV.PENALTY).
-     Running wide (outside) is never a cut. Classification and finished gaps use `raceTime(c)` = finishTime +
+     Running wide counts too since 2026-10-18 (see Run-off layout). Classification and finished gaps use `raceTime(c)` = finishTime +
      penalty. Game: warning/penalty toasts, current/last lap time struck through red when invalid, results show
      "+N s pen". Tests: tests/limits.test.js.
    - Race formats: `createRace(format, { track, drivers, aiPace = 1 })`, format = number (laps) or { type: 'laps', laps } |
@@ -192,8 +211,17 @@ Tunables live in data tables (config modules), not inline in the logic.
    - Circuit switching (main.js `setTrack`, start-menu Circuit stepper + outline `drawOutline` + blurb; `game.setup.track`):
      tracks built on first use and cached; world disposed and rebuilt, minimap rebuilt, a finished race on the old
      circuit dropped. `createSlipstreamFx` reads the track from the race each frame.
-   - `buildWorld(scene, track, drivers)` (everything in one group; `dispose()`): ribbons (`strip`, `wall`, painted layers via polygonOffset `decal`),
-     gantry, grandstand/crowd, pits, InstancedMesh trees, hills; returns `applyProfile`, `setStartLights`.
+   - `buildWorld(scene, track, drivers)` (everything in one group; `dispose()`): ground (noise grass texture in the
+     theme's colours + mown stripes), road, rubbered racing line + skid marks in braking zones (transparent overlays),
+     then from `track.runoff`: kerbs, sausage kerbs, turf, tarmac run-off, gravel, barriers (Armco rails + posts, tyre
+     wall + red/white belt, TecPro red/blue blocks, concrete + debris fence (alpha texture)), gantry (posts at the
+     walls), grandstand, pit lane + garages; `scenery.js` `buildScenery`: braking boards 300/200/100 m before every
+     corner scrubbing > 20 m/s, marshal posts every 280 m, advert boards (`BRANDS`, invented), sponsor bridge on the
+     straightest stretch, TV towers + grandstands at the biggest stops, and the theme (`THEMES` in config.js by
+     `circuit.theme`: forest Elkmoor, downs Harrow, harbour Cobalt (sea + buildings), woods Marrow, moor Northfold
+     (lakes, rocks)). Returns `applyProfile`, `setStartLights`. `npx electron desktop/main.cjs --track-shots=dir`
+     renders every circuit from an aerial, the pits and braking into / beside the slowest corners
+     (`window.gridlineDebug.view/corners`).
    - `CarModels` (`car-models.js`; shapes in `car-shapes.js`, canvas textures in `car-textures.js`): F1-style body
      from design parts merged per car into one mesh with a geometry group per finish (paint = clearcoat + sky cube
      reflection, carbon = twill weave texture, rubber, metal, light, decal); shapes include `loft` (smooth body

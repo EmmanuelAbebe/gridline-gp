@@ -10,12 +10,12 @@ const fs = require('node:fs');
 
 const ROOT = path.join(__dirname, '..');
 const arg = name => { const a = process.argv.find(x => x === `--${name}` || x.startsWith(`--${name}=`)); return a && (a.split('=')[1] ?? true); };
-const smokeOut = arg('smoke-test');
+const smokeOut = arg('smoke-test'), shotsDir = arg('track-shots');
 const DEV_URL = process.env.GRIDLINE_DEV_URL || '';
 
 app.setName('Gridline GP');
 // the smoke test gets a fresh, throwaway profile: default race setup, and the player's saved settings stay untouched
-if (smokeOut) app.setPath('userData', fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'gridline-smoke-')));
+if (smokeOut || shotsDir) app.setPath('userData', fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'gridline-smoke-')));
 // GPU: Chromium's default path renders correctly on the current PC (Radeon RX 9060 XT, Mesa). The old Intel HD 520
 // laptop needed hardware WebGL through ANGLE on Vulkan, which corrupts the picture on the Radeon, so that setup is
 // opt-in: GRIDLINE_GPU=vulkan (./gridline.sh --vulkan).
@@ -28,13 +28,13 @@ if (process.env.GRIDLINE_GPU === 'vulkan') {
 function createWindow() {
   const win = new BrowserWindow({
     title: 'Gridline GP', icon: path.join(ROOT, 'public/icons/icon-512.png'),
-    frame: false, fullscreen: !arg('windowed') && !smokeOut, width: 1280, height: 720,
+    frame: false, fullscreen: !arg('windowed') && !smokeOut && !shotsDir, width: 1280, height: 720,
     backgroundColor: '#0b0e12', show: false, autoHideMenuBar: true,
-    webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: true, backgroundThrottling: false, offscreen: !!smokeOut },
+    webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: true, backgroundThrottling: false, offscreen: !!(smokeOut || shotsDir) },
   });
   win.removeMenu();
   if (arg('windowed')) win.maximize();
-  if (!smokeOut) win.once('ready-to-show', () => win.show());
+  if (!smokeOut && !shotsDir) win.once('ready-to-show', () => win.show());
 
   // The game never navigates away; links (none today) would open in the system browser, not in the game.
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
@@ -120,9 +120,34 @@ async function smokeTest(win) {
   setTimeout(() => { console.log('quit button did NOT close the app'); app.exit(1); }, 4000);
 }
 
+// --track-shots=dir: every circuit from a few places (aerial, braking into the slowest corners, beside the barrier)
+async function trackShots(win) {
+  await new Promise(r => win.webContents.once('did-finish-load', r));
+  await new Promise(r => setTimeout(r, 4000));
+  const js = c => win.webContents.executeJavaScript(c), wait = ms => new Promise(r => setTimeout(r, ms));
+  fs.mkdirSync(shotsDir, { recursive: true });
+  await js(`for (const o of document.querySelectorAll('.overlay, #startOv')) o.hidden = true`);
+  for (const id of ['elkmoor', 'harrow', 'cobalt', 'marrow', 'northfold']) {
+    await js(`gridlineDebug.view('${id}', 0, 0, 1, 1)`); await wait(800);
+    const corners = (await js(`gridlineDebug.corners()`)).slice(0, 3);
+    const views = [['aerial', `gridlineDebug.view('${id}', ${corners[0] ?? 0.3}, -60, 70, 40)`],
+      ['pits', `gridlineDebug.view('${id}', 0.975, -3, 5, 40, 12)`]];
+    corners.forEach((f, k) => {
+      views.push([`brake${k}`, `gridlineDebug.view('${id}', ${f} - 0.03, 0, 1.6, 60)`]);
+      views.push([`corner${k}`, `gridlineDebug.view('${id}', ${f} + 0.004, 4, 3, 40, -8)`]);
+    });
+    for (const [name, code] of views) {
+      await js(code); await wait(400);
+      fs.writeFileSync(path.join(shotsDir, `${id}-${name}.png`), (await win.webContents.capturePage()).toPNG());
+    }
+  }
+  console.log('track shots in ' + shotsDir);
+  app.exit(0);
+}
+
 if (!app.requestSingleInstanceLock()) app.quit();         // a second launch focuses the running game
 else {
   app.on('second-instance', () => { const w = BrowserWindow.getAllWindows()[0]; if (w) { if (w.isMinimized()) w.restore(); w.focus(); } });
-  app.whenReady().then(() => { const win = createWindow(); if (smokeOut) smokeTest(win); });
+  app.whenReady().then(() => { const win = createWindow(); if (smokeOut) smokeTest(win); else if (shotsDir) trackShots(win); });
   app.on('window-all-closed', () => app.quit());
 }

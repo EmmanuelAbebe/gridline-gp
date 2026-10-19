@@ -1,6 +1,7 @@
 // A circuit is a closed loop of control points (x, z in metres). Adding one only needs a new entry.
 // `landmarks` say where trackside buildings go (render-only): a sample index, or a negative number = metres before
-// the start line. `corners()` builds control points from a polygon whose vertices carry a corner radius.
+// the start line. `style`: 'permanent' (default) or 'street' (walls close to the road; tuning.js RUNOFF).
+// `theme` = the scenery (render-only, game config.js THEMES). `corners()` builds control points from a polygon whose vertices carry a corner radius.
 
 // Polygon [x, z, radius] → control points: each vertex with r > 0 becomes a circular arc of that radius tangent to
 // both straights (points every ~arcStep m), r = 0 passes through the vertex; long straights get midpoints so the
@@ -30,34 +31,34 @@ export function corners(poly, arcStep = 12, straightStep = 120) {
 
 export const CIRCUITS = Object.freeze({
   elkmoor: {
-    name: 'Elkmoor Park', samples: 1200,
+    name: 'Elkmoor Park', samples: 1200, theme: 'forest',
     ctrl: [[-200,0],[200,0],[450,0],[560,-40],[590,-140],[540,-230],[440,-250],[360,-200],[300,-260],[220,-330],[100,-340],[0,-280],[-60,-180],[-160,-160],[-280,-220],[-380,-200],[-430,-110],[-380,-20]],
     landmarks: { gantry: 2, grandstand: 1150, pits: 1160 },
     blurb: 'The original: a long left-hand turn 1, a tight hairpin and two fast lefts onto the straight.',
   },
   harrow: {
-    name: 'Harrow Downs',
+    name: 'Harrow Downs', theme: 'downs',
     ctrl: corners([[0, 0, 0], [800, 0, 200], [950, 500, 140], [700, 700, 25], [450, 560, 60], [250, 700, 60], [-350, 720, 18],
       [-450, 300, 30], [-300, 250, 25], [-500, 0, 90]]),
     landmarks: { gantry: 2, grandstand: -103, pits: -82 },
     blurb: 'Fast and open: flat-out sweepers, long straights for the slipstream, one hairpin and a chicane.',
   },
   cobalt: {
-    name: 'Cobalt Bay',
+    name: 'Cobalt Bay', style: 'street', theme: 'harbour',
     ctrl: corners([[100, 0, 0], [450, 0, 20], [450, 200, 22], [700, 200, 18], [700, 450, 25], [300, 450, 15], [300, 320, 20],
       [120, 320, 20], [120, 520, 30], [-200, 520, 18], [-200, 0, 25]]),
     landmarks: { gantry: 2, grandstand: -103, pits: -82 },
     blurb: 'Street circuit: eleven right angles between the blocks. Brake late, square the corners off.',
   },
   marrow: {
-    name: 'Marrow Hill',
+    name: 'Marrow Hill', theme: 'woods',
     ctrl: corners([[200, 0, 0], [380, 0, 30], [380, -110, 30], [120, -110, 35], [60, -200, 25], [200, -260, 40], [450, -230, 25],
       [520, -330, 20], [400, -420, 22], [100, -400, 60], [-150, -380, 40], [-250, -250, 35], [-200, -80, 50], [-120, 0, 40]]),
     landmarks: { gantry: 2, grandstand: -103, pits: -82 },
     blurb: 'Twisty: hairpins and esses one after another, short straights. All about traction out of slow corners.',
   },
   northfold: {
-    name: 'Northfold',
+    name: 'Northfold', theme: 'moor',
     ctrl: corners([[250, 0, 0], [900, 0, 35], [950, 200, 90], [800, 350, 70], [950, 500, 110], [1300, 600, 25], [1300, 900, 60],
       [600, 900, 150], [-300, 950, 20], [-200, 600, 45], [-350, 350, 40], [-250, 80, 60], [-100, 0, 0]]),
     landmarks: { gantry: 2, grandstand: -103, pits: -82 },

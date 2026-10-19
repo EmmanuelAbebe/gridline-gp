@@ -169,7 +169,7 @@ function onPlayerEvent(c, e) {
       break;
     // track limits: a cut invalidates the lap; past the warnings each cut is a time penalty (SIM.LIMITS)
     case EV.CUT:
-      if (c.cuts <= SIM.LIMITS.warnings) Hud.toast(`Track limits  warning ${c.cuts}/${SIM.LIMITS.warnings}  ·  lap invalid`, 'warn', 3);
+      if (c.cuts <= SIM.LIMITS.warnings) Hud.toast(`Track limits${c.cutWide ? ' (ran wide)' : ''}  warning ${c.cuts}/${SIM.LIMITS.warnings}  ·  lap invalid`, 'warn', 3);
       Sound.beep(...SFX.cut);
       break;
     case EV.SHIFT_DENIED:     // manual: a downshift waiting for the revs to drop (shown in the gear label)
@@ -183,10 +183,20 @@ function onPlayerEvent(c, e) {
       break;
     case EV.WALL:
     case EV.CONTACT: {
-      const sfx = e === EV.WALL ? SFX.wall : SFX.contact;
-      if (c.impact >= sfx.min) Sound.impact(Math.min(1, c.impact / sfx.fullAt), sfx);
+      // a tyre wall or TecPro soaks a hit up (softer sound, less shake) than Armco or concrete (SIM BARRIERS)
+      const sfx = e === EV.WALL ? SFX.wall : SFX.contact, hard = e === EV.WALL ? c.impactHard ?? 1 : 1;
+      if (c.impact >= sfx.min) { const k = Math.min(1, c.impact / sfx.fullAt) * hard; Sound.impact(k, sfx); CameraRig.shake(k * 0.6); }
       break;
     }
+    case EV.SAUSAGE:          // a raised kerb: a bang and a jolt
+      Sound.impact(Math.min(0.5, c.impact / 20), SFX.kerbStrike); CameraRig.shake(Math.min(0.5, c.impact / 15));
+      break;
+    case EV.BEACHED:
+      Hud.toast('Beached in the gravel  ·  the marshals are recovering the car', 'warn', SIM.OFFTRACK.recoverTime);
+      break;
+    case EV.RECOVERED:
+      Hud.toast('Back on track  ·  dirty tyres, take it easy');
+      break;
   }
 }
 function drainEvents(c) {
@@ -401,7 +411,7 @@ function renderFrame(dt) {
     kmh: Math.round(Math.hypot(player.v, player.vy || 0) * 3.6), gear: gi.gear, gearNext: gi.next, revs: gi.revs, slip: onLights ? 0 : player.slip,
     steer: player.finished ? 0 : player.steer, thr: drive.thr, brk: drive.brk,
     lapTime: onLights ? '0:00.000' : fmtTime(player.finished ? player.finishTime : race.t - player.lapStart),
-    lapInvalid: !onLights && !player.finished && player.lapInvalid,
+    lapInvalid: !onLights && !player.finished && player.lapInvalid, dirt: onLights ? 0 : player.dirt,
   });
   WheelScreen.update(dt, { gear: gi.gear, kmh: Math.round(Math.hypot(player.v, player.vy || 0) * 3.6), revs: gi.revs });
   raceAudio.frame(dt, { race, player, cam, running: isRunning(), onLights, thr: player.finished ? 0 : drive.thr, brk: player.finished ? 0 : drive.brk, prefs: game.prefs });
@@ -452,7 +462,7 @@ function setTrack(id) {
   world = buildWorld(Display.scene, track, SIM.DRIVERS);
   if (game.gfx) world.applyProfile(GFX_PROFILES[game.gfx]);
   minimap = createMinimap($('map'), track);
-  { const g = track.landmarks.grandstand ?? 0, lat = -(track.WALL + 10); Sound.setCrowd(track.PX[g] + track.NX[g] * lat, 6, track.PZ[g] + track.NZ[g] * lat); }
+  { const g = track.landmarks.grandstand ?? 0, lat = -(track.runoff[0].wall[g] + 10); Sound.setCrowd(track.PX[g] + track.NX[g] * lat, 6, track.PZ[g] + track.NZ[g] * lat); }
   const { PX, PZ, NX, NZ, TX, TZ, N } = track;
   Display.camera.position.set(PX[0] + NX[0]*30 - TX[0]*40, 14, PZ[0] + NZ[0]*30 - TZ[0]*40);
   Display.camera.lookAt(PX[N-40], 0, PZ[N-40]);
@@ -461,7 +471,19 @@ function setTrack(id) {
 }
 
 // ---- boot ----
-window.gridlineDebug = { soundReady: () => Sound.ready };   // for the desktop smoke test
+// for the desktop smoke test and `--track-shots` (desktop/main.cjs): put the camera anywhere on any circuit
+window.gridlineDebug = { soundReady: () => Sound.ready,
+  view(id, at, lat, height, ahead, side = 0) {
+    setTrack(id);
+    const { N, PX, PZ, NX, NZ } = track, i = Math.round(at * N) % N, j = (i + ahead + N) % N;
+    Display.camera.position.set(PX[i] + NX[i] * lat, height, PZ[i] + NZ[i] * lat);
+    Display.camera.lookAt(PX[j] + NX[j] * side, 0, PZ[j] + NZ[j] * side);
+    return track.name;
+  },
+  corners() { const { N, VP } = track, out = [];   // the samples where the speed profile bottoms out (corner apexes)
+    for (let i = 0; i < N; i++) if (VP[i] < VP[(i + N - 1) % N] && VP[i] <= VP[(i + 1) % N] && VP[i] < 60) out.push(i / N);
+    return out; },
+};
 setTrack(game.setup.track);
 { const saved = Settings.get(CONFIG.storageKeys.gfx);
   setGfx(Object.hasOwn(GFX_PROFILES, saved || '') ? saved : (Display.gpu.weak ? 'perf' : 'quality'), false); }

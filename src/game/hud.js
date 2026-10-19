@@ -50,14 +50,15 @@ export const Hud = (() => {
     setStartLamps(n) { lampEls.forEach((l, i) => l.classList.toggle('on', i < n)); },
     showLights(on) { $('lights').hidden = !on; },
     setLapTimes(last, best, lastInvalid = false) { $('tLast').textContent = fmtTime(last); $('tLast').classList.toggle('invalid', lastInvalid); $('tBest').textContent = fmtTime(best); },
-    // revs: rev-light fraction 0..1 (all lit = shift); slip: slipstream strength 0..1
+    // revs: rev-light fraction 0..1 (all lit = shift); slip: slipstream strength 0..1; dirt: tyre dirt 0..1
     // gearNext: the gear a waiting manual downshift will drop to (shown in the gear label), or null
-    updateDash({ kmh, gear, gearNext = null, revs, steer, thr, brk, lapTime, slip = 0, lapInvalid = false }) {
+    updateDash({ kmh, gear, gearNext = null, revs, steer, thr, brk, lapTime, slip = 0, lapInvalid = false, dirt = 0 }) {
       setText('spd', kmh);
       setText('gear', gear);
       setOnce('gearNext', gearNext, n => { $('gearLbl').textContent = n ? '▼ ' + n : 'Gear'; $('gearLbl').classList.toggle('queued', !!n); });
       setOnce('revs', Math.round(revs * REV_LEDS), n => revEls.forEach((s, i) => s.classList.toggle('on', i < n)));
       setOnce('slipOn', slip > 0.08, on => $('slipTag').classList.toggle('on', on));
+      setOnce('dirtOn', dirt > 0.05, on => $('dirtTag').classList.toggle('on', on));   // dirty tyres after an off
       setOnce('slip', Math.round(slip * 40), q => { fill.slip.style.transform = `scaleX(${q / 40})`; });
       setOnce('steer', Math.round(steer * 100), q => { fill.steer.style.transform = `translateX(${q < 0 ? q : 0}%) scaleX(${Math.abs(q) / 100})`; });
       setOnce('thr', Math.round(thr * 50), q => { fill.thr.style.transform = `scaleX(${q / 50})`; });

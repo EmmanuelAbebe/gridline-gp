@@ -1,4 +1,5 @@
-// Track limits: cutting the inside of corners invalidates laps and, after the warnings, adds time penalties.
+// Track limits: cutting the inside of corners (and running wide at speed: offtrack.test.js) invalidates laps and,
+// after the warnings, adds time penalties.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SIM as S } from '../src/sim/index.js';

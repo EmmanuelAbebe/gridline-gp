@@ -22,6 +22,8 @@
 
 #slipTag{position:absolute;right:0;bottom:calc(100% + 6px);display:flex;align-items:center;gap:8px;padding:4px 9px;border-radius:var(--radius);background:var(--panel);border:1px solid rgba(223,244,255,.45);font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.12em;color:#dff4ff;opacity:0;transition:opacity .25s;pointer-events:none}
 #slipTag.on{opacity:1}
+#dirtTag{position:absolute;left:0;bottom:calc(100% + 6px);padding:4px 9px;border-radius:var(--radius);background:var(--panel);border:1px solid rgba(214,170,96,.6);font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.12em;color:#e6c487;opacity:0;transition:opacity .4s;pointer-events:none}
+#dirtTag.on{opacity:1}
 #slipTag i{width:54px;height:5px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
 #slipTag u{display:block;height:100%;width:100%;background:#dff4ff;transform-origin:0 50%;transform:scaleX(0);will-change:transform}
 #speedo{padding:10px 14px 10px;display:grid;grid-template-columns:auto auto;gap:4px 18px;align-items:end;min-width:200px}

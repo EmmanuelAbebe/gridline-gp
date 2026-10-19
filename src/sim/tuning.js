@@ -16,6 +16,7 @@ export const CONTACT = Object.freeze({ rear: 1.5, front: 2.3, radius: 1.05, rest
 export const AI = Object.freeze({
   grip: 1.0,           // share of the cornering grip the speed profile plans with, on the racing line
   brake: 0.85,          // share of the braking limit the profile plans with
+  dirtyTime: 0.8,      // s: how fast the AI adapts its corner speeds to the dirty air it is in
   lineMargin: 2.2,      // m: the racing line keeps the car's centre this far inside the road edge
   lineStrides: [24, 12, 6, 3], lineIterations: 300,   // racing-line smoothing passes, coarse to fine (track.js)
   look: 8, lookTime: 0.3,   // steering aims at a point this far ahead: metres + seconds × speed
@@ -97,15 +98,72 @@ export const CHASSIS = Object.freeze({
   dampingGain: 6,       // 1/s: always-on yaw-rate correction of the damping assist
 });
 
-// Surfaces: grip multiplier; off the track a rolling drag (m/s²), and above `cap` (m/s) a drag of `drag` per m/s over
-// it, at most `maxDrag` m/s²: a car that runs wide is slowed firmly (not stopped dead) to about 60 km/h, and can
-// drive at that pace back to the track but not faster.
-const OFF_CAP = 60 / 3.6;
+// Surfaces (2026-10-18, after research into real run-off; the user found the old grass "too punishing": it braked at
+// up to 2.2 g down to 60 km/h). Real grass barely slows a car, it takes the grip away: tyres have about half their
+// asphalt friction on it, so the car keeps its speed but can hardly brake or turn. Gravel is made to stop cars: about
+// 0.6 g in tests, up to 1.1 g measured (Silverstone 1999), but only once the car is below ~80 km/h (faster it skims).
+//   grip: × the tyres' grip. rolling: m/s² at any speed. bite: extra m/s², full from biteFrom m/s, fading above
+//   biteTo m/s to `skim` of it at biteTo + biteFade (gravel). Artificial grass behind the kerbs costs time but keeps
+//   control; tarmac run-off has almost full grip (and lets cars rejoin); a sausage kerb upsets the car (car.js).
+const S = o => Object.freeze({ grip: 1, rolling: 0, bite: 0, biteFrom: 1, biteTo: Infinity, biteFade: 1, skim: 1, ...o });
 export const SURFACES = Object.freeze({
-  track: Object.freeze({ grip: 1, rolling: 0, drag: 0, maxDrag: 0, cap: Infinity }),
-  kerb:  Object.freeze({ grip: 0.92, rolling: 0, drag: 0, maxDrag: 0, cap: Infinity }),
-  grass: Object.freeze({ grip: 0.5, rolling: 0.5, drag: 4, maxDrag: 22, cap: OFF_CAP }),
-  sand:  Object.freeze({ grip: 0.45, rolling: 1, drag: 4, maxDrag: 30, cap: OFF_CAP }),
+  track:   S({}),
+  kerb:    S({ grip: 0.92 }),
+  sausage: S({ grip: 0.55, rolling: 3 }),
+  turf:    S({ grip: 0.6, rolling: 1.2 }),
+  tarmac:  S({ grip: 0.9, rolling: 0.3 }),
+  grass:   S({ grip: 0.35, rolling: 2.2 }),
+  gravel:  S({ grip: 0.3, rolling: 1.5, bite: 6.5, biteFrom: 15, biteTo: 22, biteFade: 28, skim: 0.35 }),
+});
+// Surfaces that leave dirt on the tyres (rough = camera shake, off-track sound)
+export const ROUGH = Object.freeze({ turf: 0.4, grass: 1, gravel: 1 });
+// After an off: grip × (1 − loss × dirt), dirt (0..1) wears off over `clean` s back on a hard surface.
+// Spinning: past spinFrom rad of slip angle the downforce fades (smoothly) to `spinFloor` of it at spinTo: a car
+// sideways or backwards loses its wings (normal cornering, a few degrees, is not affected).
+// Gravel: deeper than `deep` m and slower than `digSpeed` m/s the wheels dig in (drive × dig); stopped there
+// (< stuckSpeed for stuckTime s) the car is beached, and marshals put it back at the track edge after recoverTime s.
+export const OFFTRACK = Object.freeze({ loss: 0.1, clean: 3, spinFloor: 0.1, spinFrom: 0.35, spinTo: 1.5, deep: 2, digSpeed: 2, dig: 0.2,
+  stuckSpeed: 0.6, stuckTime: 1.5, recoverTime: 4, sausageWidth: 0.7, sausageYaw: 0.35, sausageLoss: 0.02 });
+
+// Run-off layout (runoff.js), metres from the centre line. Each side of each sample gets: kerb (where painted), an
+// artificial-grass strip behind it, then grass or tarmac, gravel from some distance, and a barrier. What goes where
+// depends on the corner: the outside of a fast corner (apex above `fast` m/s) gets wide tarmac and TecPro, a medium
+// corner a gravel trap and a tyre wall (heavy: extra m of run-off per m/s scrubbed in the braking zone), a slow one (hairpin) tarmac and tyres; heavy braking zones get more room.
+// Inside of corners and straights: grass and Armco. `street` circuits: concrete walls close to the road, tarmac
+// escape roads on the outside of corners. A fast corner: tarmac first, then gravel. Sausage kerbs at chicanes (opposite corners within `chicane` samples).
+export const BARRIER = Object.freeze({ armco: 0, tyres: 1, tecpro: 2, concrete: 3 });
+export const ZONE = Object.freeze({ grass: 0, tarmac: 1 });
+// barrier behaviour: speed kept along the wall after a hit, and how hard it feels (sound, shake)
+export const BARRIERS = Object.freeze([
+  Object.freeze({ name: 'armco',    keep: 0.55, hard: 0.85 }),
+  Object.freeze({ name: 'tyres',    keep: 0.4,  hard: 0.45 }),
+  Object.freeze({ name: 'tecpro',   keep: 0.45, hard: 0.55 }),
+  Object.freeze({ name: 'concrete', keep: 0.6,  hard: 1 }),
+]);
+const R = o => Object.freeze(o);
+export const RUNOFF = Object.freeze({
+  fast: 50, slow: 25,             // m/s at the apex
+  turf: 2,                        // artificial grass behind kerbs (m)
+  slope: 0.3, exitSlope: 0.12,    // m of barrier distance per m of track: ramp in before a corner, longer out after
+  chicane: 50,
+  gravelSmooth: 8,                // samples either side averaged into the gravel's edge
+  exitKerb: 15,                   // samples the outside kerb runs on after the corner
+  permanent: R({ heavy: 0.15,
+    straight: R({ wall: 9, zone: 'grass', barrier: 'armco' }),
+    inside:   R({ wall: 11, zone: 'grass', barrier: 'armco' }),
+    fast:     R({ wall: 26, zone: 'tarmac', gravel: 9, barrier: 'tecpro' }),
+    medium:   R({ wall: 21, zone: 'grass', gravel: 3, barrier: 'tyres' }),
+    slow:     R({ wall: 17, zone: 'tarmac', barrier: 'tyres' }),
+  }),
+  street: R({ heavy: 0.05,
+    straight: R({ wall: 3, zone: 'tarmac', barrier: 'concrete' }),
+    inside:   R({ wall: 3.5, zone: 'tarmac', barrier: 'concrete' }),
+    fast:     R({ wall: 12, zone: 'tarmac', barrier: 'tecpro' }),
+    medium:   R({ wall: 11, zone: 'tarmac', barrier: 'tecpro' }),
+    slow:     R({ wall: 10, zone: 'tarmac', barrier: 'tecpro' }),
+  }),
+  // main straight: pit wall on the pit side, a concrete wall with debris fence in front of the grandstand
+  pitWall: 3.5, standWall: 6, landmarkSpan: 45,   // samples either side of the landmark
 });
 
 // Driver assists, each 0..1. steer: speed-sensitive steering (full lock asks only for what the front tyres can give),
@@ -127,17 +185,19 @@ export const SLIP = Object.freeze({
   minSpeed: 40,       // full wake from this speed (m/s); weaker below
 });
 
-// kerbs where |curvature| > kerbK; gravel traps `sand` m wide past the kerb on the outside where |curvature| > sandK
+// kerbs where |curvature| > kerbK; runoff = the default barrier distance past the road edge (the layout varies it)
 // samples: fixed count, or (when absent) one sample every `ds` metres; Elkmoor fixes 1200 (≈ 2.06 m)
-export const TRACK_DEFAULTS = Object.freeze({ ds: 2.06, halfWidth: 7.5, kerb: 1.4, runoff: 14, sand: 5, sandK: 0.004, kerbK: 0.0025 });
+export const TRACK_DEFAULTS = Object.freeze({ ds: 2.06, halfWidth: 7.5, kerb: 1.4, runoff: 14, kerbK: 0.0025, style: 'permanent' });
 // Track limits (race.js): a cut = the whole car (centre ± halfWidth) past the edge (the kerb where one is painted, else
 // the white line) on the inside of a corner (curvature over ±cornerSpan samples above KERB_K), for at least cutDist
 // metres of track. Every cut invalidates the lap; after `warnings` cuts in a race each one adds `penalty` s.
-// Running wide on the outside is not a cut: the grass already costs time.
-export const LIMITS = Object.freeze({ halfWidth: 1.1, cutDist: 5, cornerSpan: 20, warnings: 2, penalty: 2 });
+// Since 2026-10-18 running wide counts too (whole car past the outside edge at more than wideSpeed m/s, as in F1:
+// the run-off no longer costs much time, so it would be quicker); a slow car that spun or was recovered doesn't.
+export const LIMITS = Object.freeze({ halfWidth: 1.1, cutDist: 5, cornerSpan: 20, warnings: 2, penalty: 2, wideSpeed: 15 });
 export const GRID = Object.freeze({ front: 6, spacing: 7.5, lat: 3.2 }); // metres behind the line, between slots, off centre
 export const CP = 20;          // checkpoint spacing in samples, for timing gaps
 export const LAP_ZONE = 0.2;   // fraction of the lap either side of the line used to detect a crossing
 // Things that happen to a car during a step; pushed into car.events, drained by the game.
 export const EV = Object.freeze({ LAP: 'lap', FASTEST: 'fastest', FINISH: 'finish', WALL: 'wall', CONTACT: 'contact',
-  SHIFT: 'shift', SHIFT_DENIED: 'shift-denied', CUT: 'cut', PENALTY: 'penalty' });
+  SHIFT: 'shift', SHIFT_DENIED: 'shift-denied', CUT: 'cut', PENALTY: 'penalty',
+  SAUSAGE: 'sausage', BEACHED: 'beached', RECOVERED: 'recovered' });

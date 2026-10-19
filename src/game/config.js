@@ -20,14 +20,34 @@ export const SFX = Object.freeze({
   // impacts: noise low-pass cutoff (Hz), thump pitch (Hz), impact speeds (m/s): silent below `min`, full volume at `fullAt`
   wall:    { cutoff: 700,  thump: 55,  min: 0,   fullAt: 25 },
   contact: { cutoff: 1800, thump: 110, min: 1.0, fullAt: 15 },
+  kerbStrike: { cutoff: 900, thump: 80, min: 0, fullAt: 20 },
 });
 
 export const COLORS = Object.freeze({
   grass: 0x4a7530, grassStripe: 0x527f36, sand: 0xcab98f, asphalt: [0x4e5157, 0x52555b], paint: 0xf4f4f0,
   kerb: [0xf4f4f0, 0xd92b2b], barrier: [0x2b62c9, 0xe8e8e4], steel: 0x23272e, lampOn: 0xff2020, lampOff: 0x330a0a,
   stand: 0x8f969e, roof: 0xe6e8ea, pits: 0xf0f1f2, glass: 0x1d2a38, trunk: 0x5b4330, hill: 0x7f9c78, carDark: 0x18191c, tyre: 0x121212,
+  turf: [0x2f7a3c, 0x2b7238], tarmacRunoff: [0x5d6066, 0x595c62], gravel: [0xa08b67, 0x9d8865], sausage: [0xf2c81a, 0x1c1c1c],
+  armco: 0xaeb4ba, armcoPost: 0x6d737a, tyreWall: 0x1b1b1d, tyreBelt: [0xd92b2b, 0xf4f4f0], tecpro: [0xd92b2b, 0x2b62c9],
+  concrete: 0xc3c5c8, fence: 0x9aa1a8, board: 0x1d4fa8, marshal: 0xff7a1a, water: 0x2f5f7f,
   crowd: [0xffc21a, 0xd7261e, 0x2e6bff, 0xf4f4f0, 0x0b8a3e, 0xff6a13, 0x7a3cff, 0x222222, 0x00a19c],
 });
+
+// Scenery per circuit (track.theme; render-only). ground: grass colours; trees: how many, which kinds (cone = pine,
+// ball = broadleaf), hills: how many and how big; water: lakes (count, radius) or a harbour (`sea`: the side of the
+// circuit's bounding box); buildings: city blocks around a street circuit; rocks: moorland boulders.
+export const THEMES = Object.freeze({
+  forest:  { ground: [0x4a7530, 0x527f36], trees: 520, kinds: ['cone'], hills: { count: 18, size: 1 }, stripes: true },
+  downs:   { ground: [0x5d8b3c, 0x679544], trees: 170, kinds: ['ball', 'ball', 'cone'], hills: { count: 26, size: 1.5, low: true }, stripes: true },
+  harbour: { ground: [0x5c6166, 0x62676c], trees: 60, kinds: ['ball'], hills: { count: 10, size: 1.8 }, buildings: 260, sea: 'south', stripes: false },
+  woods:   { ground: [0x47702f, 0x4f7a35], trees: 760, kinds: ['cone', 'ball'], hills: { count: 22, size: 1.2, near: true }, stripes: true },
+  moor:    { ground: [0x6d7a44, 0x75824a], trees: 90, kinds: ['cone'], hills: { count: 20, size: 1.3 }, lakes: [3, 70], rocks: 220, stripes: true },
+});
+// Advertising boards: invented brands only (the teams plus a few made-up sponsors)
+export const BRANDS = Object.freeze([
+  ['GRIDLINE', '#ffc21a', '#111'], ['HALCYON', '#2e6bff', '#fff'], ['KESTREL', '#d7261e', '#fff3e0'], ['MERIDIAN', '#00a19c', '#0d2b2a'],
+  ['VOLTA ENERGY', '#111', '#b9ff3b'], ['NORTHWIND', '#f4f4f0', '#1d4fa8'], ['ORYX', '#e9e9e6', '#c8102e'], ['STRATA', '#ff6a13', '#1a1a1a'],
+]);
 
 // Everything Quality vs Performance changes, in one place.
 const DPR = window.devicePixelRatio || 1;

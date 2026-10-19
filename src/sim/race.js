@@ -49,18 +49,19 @@ export function updateLap(race, c, oldIdx) {
   } else if (oldIdx < N*LAP_ZONE && c.idx > N*(1-LAP_ZONE)) c.lap--;
 }
 
-// Track limits (LIMITS): count track metres covered with the whole car past the inside edge of a corner; reaching
-// cutDist is one cut (EV.CUT, lap invalid), and past the warnings each cut adds a time penalty (EV.PENALTY).
+// Track limits (LIMITS): count track metres covered with the whole car past the edge (the kerb where one is painted)
+// of a corner: on the inside (a cut), or on the outside faster than wideSpeed (running wide). Reaching cutDist is one
+// offence (EV.CUT, lap invalid, c.cutWide says which), and past the warnings each adds a time penalty (EV.PENALTY).
 export function updateLimits(race, c, oldIdx) {
-  const { N, ds, HW, KERB, K, CK, KERB_K } = race.track, i = c.idx;
-  const edge = Math.abs(K[i]) > KERB_K ? HW + KERB : HW;
-  const cutting = Math.abs(c.lat) - LIMITS.halfWidth > edge && c.lat * CK[i] > 0 && Math.abs(CK[i]) > KERB_K;
-  if (!cutting) { c.cutRun = 0; return; }
+  const { N, ds, CK, KERB_K, runoff } = race.track, i = c.idx;
+  const edge = runoff[c.lat < 0 ? 0 : 1].kerb[i], past = Math.abs(c.lat) - LIMITS.halfWidth > edge && Math.abs(CK[i]) > KERB_K;
+  const inside = c.lat * CK[i] > 0, wide = past && !inside && Math.hypot(c.v, c.vy) > LIMITS.wideSpeed;
+  if (!(past && inside) && !wide) { c.cutRun = 0; return; }
   const d = (i - oldIdx + N) % N;
   if (d === 0 || d > N / 2 || c.finished) return;            // standing still or going backwards
   const before = c.cutRun; c.cutRun += d * ds;
   if (before < LIMITS.cutDist && c.cutRun >= LIMITS.cutDist) {
-    c.cuts++; c.lapInvalid = true; c.events.push(EV.CUT);
+    c.cuts++; c.lapInvalid = true; c.cutWide = !inside; c.events.push(EV.CUT);
     if (c.cuts > LIMITS.warnings) { c.penalty += LIMITS.penalty; c.events.push(EV.PENALTY); }
   }
 }

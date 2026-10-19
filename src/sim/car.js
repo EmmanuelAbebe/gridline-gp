@@ -1,5 +1,6 @@
 // Car state, where a car is on the track (nearest sample, lateral offset), walls and surface.
-import { EV } from './tuning.js';
+import { EV, BARRIERS, ROUGH, OFFTRACK } from './tuning.js';
+import { surfaceAt } from './runoff.js';
 import { wrapA } from './math.js';
 import { gridSlot, headingAt } from './track.js';
 
@@ -19,7 +20,9 @@ export function createCar(track, driver, slot) {
   const c = { ...driver, slot,
     // physics
     idx, x: PX[idx] + NX[idx]*lat, z: PZ[idx] + NZ[idx]*lat, h: headingAt(track, idx), v: 0, lat, steer: 0, roll: 0,
-    wallHit: false, touching: false, wasTouching: false, impact: 0, onKerb: false, offTrack: false,
+    wallHit: false, touching: false, wasTouching: false, impact: 0, impactHard: 1, barrier: null, onKerb: false, offTrack: false,
+    // off track: tyre dirt 0..1, depth in a gravel trap, beached (stuck in gravel, waiting for the marshals)
+    dirt: 0, gravelDepth: 0, beached: false, beachedAt: 0, stuckT: 0,
     // drivetrain (vehicle.js): gear 1..8, -1 = reverse; autoShift = automatic gearbox; downQueue = manual downshifts waiting for the revs; slip = slipstream 0..1
     gear: 1, rpm: 0, thr: 0, shiftT: 0, autoShift: true, autoDown: false, downQueue: 0, drive: 0, slip: 0, slipBy: null,
     // chassis (chassis.js, player): lateral speed (m/s, + = right), yaw rate (rad/s), last longitudinal accel,
@@ -39,24 +42,52 @@ export function createCar(track, driver, slot) {
   return c;
 }
 
+// The barrier on the car's side at its sample (runoff.js). A hit keeps BARRIERS[type].keep of the speed (a tyre wall
+// soaks up more than concrete, which the car glances off); c.impactHard = how hard it felt (sound, shake).
 export function resolveWalls(track, c) {
-  const { NX, NZ } = track, lim = track.WALL - 1.3;
+  const { NX, NZ } = track, R = track.runoff[c.lat < 0 ? 0 : 1], lim = R.wall[c.idx] - 1.3;
   if (Math.abs(c.lat) <= lim) { c.wallHit = false; return; }
   const s = Math.sign(c.lat), over = Math.abs(c.lat) - lim;
   c.x -= NX[c.idx]*s*over; c.z -= NZ[c.idx]*s*over; c.lat = s*lim;
   let th = headingAt(track, c.idx);           // nudge the heading back along the wall
-  if (!c.wallHit) { c.impact = Math.abs(c.v * Math.sin(c.h - th)); c.v *= 0.5; c.vy *= 0.3; c.yawRate *= 0.3; c.events.push(EV.WALL); }
+  if (!c.wallHit) {
+    const B = BARRIERS[R.barrier[c.idx]] || BARRIERS[0];
+    c.impact = Math.abs(c.v * Math.sin(c.h - th)); c.impactHard = B.hard; c.barrier = B.name;
+    c.v *= B.keep; c.vy *= 0.3; c.yawRate *= 0.3; c.events.push(EV.WALL);
+  }
   c.wallHit = true;
   if (Math.cos(c.h - th) < 0) th += Math.PI;
   c.h += wrapA(th - c.h) * 0.12;
 }
 
-// Surface under the car: track, kerb (only where kerbs are painted), sand (gravel trap on the outside of corners),
-// else grass. Uses the same rules as the renderer (track KERB_K / SAND_K / SAND).
+// Surface under the car (runoff.js surfaceAt: the same layout the renderer draws). Running onto a sausage kerb
+// upsets the car once: a yaw kick and a little speed lost (EV.SAUSAGE).
 export function updateSurface(track, c) {
-  const { HW, KERB, SAND, SAND_K, KERB_K } = track, k = track.K[c.idx], a = Math.abs(c.lat);
-  const kerbed = Math.abs(k) > KERB_K, outside = c.lat < 0 ? k > SAND_K : k < -SAND_K;
-  c.surface = a <= HW ? 'track' : a <= HW + KERB ? (kerbed ? 'kerb' : 'grass') : a <= HW + KERB + SAND && outside ? 'sand' : 'grass';
-  c.onKerb = kerbed && a > HW - 0.2 && a <= HW + KERB;
-  c.offTrack = c.surface === 'grass' || c.surface === 'sand';
+  const { surface, depth } = surfaceAt(track, c.idx, c.lat), was = c.surface;
+  c.surface = surface; c.gravelDepth = depth;
+  c.onKerb = surface === 'kerb' || surface === 'sausage';
+  c.offTrack = surface in ROUGH;
+  if (surface === 'sausage' && was !== 'sausage') {
+    const hit = Math.min(1, Math.abs(c.v) / 40);
+    c.yawRate += -Math.sign(c.lat) * OFFTRACK.sausageYaw * hit; c.v *= 1 - OFFTRACK.sausageLoss * hit;
+    c.impact = Math.abs(c.v) * 0.25; c.events.push(EV.SAUSAGE);
+  }
+}
+
+// Beached in a gravel trap: stopped deep in it for stuckTime s. The car can't move until the marshals have lifted it
+// back to the edge of the track (recoverTime s later, EV.RECOVERED); dirty tyres afterwards.
+export function updateBeached(race, c) {
+  const O = OFFTRACK, track = race.track;
+  if (c.beached) {
+    if (race.t - c.beachedAt < O.recoverTime) return;
+    const i = c.idx, s = c.lat < 0 ? -1 : 1, R = track.runoff[s < 0 ? 0 : 1];
+    const lat = s * Math.min(R.turf[i] + 1.5, R.wall[i] - 2);
+    c.x = track.PX[i] + track.NX[i] * lat; c.z = track.PZ[i] + track.NZ[i] * lat; c.lat = lat; c.h = headingAt(track, i);
+    c.v = c.vy = c.yawRate = 0; c.beached = false; c.stuckT = 0; c.dirt = 1; c.gear = 1; c.cutRun = 0;
+    updateSurface(track, c); c.events.push(EV.RECOVERED);
+    return;
+  }
+  const stuck = c.surface === 'gravel' && c.gravelDepth > O.deep && Math.hypot(c.v, c.vy) < O.stuckSpeed;
+  c.stuckT = stuck ? (c.stuckT || 0) + (race.t - (c.beachClock ?? race.t)) : 0; c.beachClock = race.t;
+  if (c.stuckT >= O.stuckTime) { c.beached = true; c.beachedAt = race.t; c.events.push(EV.BEACHED); }
 }

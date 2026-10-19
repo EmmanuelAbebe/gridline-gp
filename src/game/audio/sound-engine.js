@@ -143,10 +143,10 @@ export function createSoundEngine(ctx) {
       glide(spin.g.gain, ty * (p.spinR ? T.spin : 0) * moving, t, 0.03);
       // surfaces
       const U = SOUND.surface, v = p.speed, su = on * Y.surfaces;
-      glide(kerb.g.gain, su * (p.onKerb ? U.kerb * clamp01(v / 25) : 0), t, 0.03);
+      glide(kerb.g.gain, su * (p.onKerb ? U.kerb * clamp01(v / 25) * (p.surface === 'sausage' ? 1.8 : 1) : 0), t, 0.03);
       glide(kSq.frequency, Math.max(4, Math.min(90, v / U.ridge)), t, 0.03);
-      glide(grass.g.gain, su * (p.surface === 'grass' ? U.grass * clamp01(v / 20) : 0), t, 0.05);
-      glide(sand.g.gain, su * (p.surface === 'sand' ? U.sand * clamp01(v / 15) : 0), t, 0.05);
+      glide(grass.g.gain, su * (p.surface === 'grass' ? 1 : p.surface === 'turf' ? 0.5 : 0) * U.grass * clamp01(v / 20), t, 0.05);
+      glide(sand.g.gain, su * (p.surface === 'gravel' ? U.sand * clamp01(v / 15) : 0), t, 0.05);
       // wind (kept down in the helmet), dirty-air buffeting when close behind someone
       const Wd = SOUND.wind, w = clamp01(v / Wd.vmax);
       glide(wind.g.gain, on * Y.wind * Wd.gain * M.wind * w * w, t, 0.1); glide(wind.f.frequency, 250 + 900 * w, t, 0.1);

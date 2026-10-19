@@ -1,5 +1,5 @@
 // Tyre model tests (chassis.js): laps with different steering styles, wheel spin and traction control,
-// lock-ups and ABS, the stability assist, surfaces, dirty air.
+// lock-ups and ABS, the stability assist, dirty air (surfaces: offtrack.test.js).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SIM as S } from '../src/sim/index.js';
@@ -137,28 +137,3 @@ test('trail braking: on OFF and LOW, braking while turning in stays controllable
   assert.ok(trail('off', 120, 1, 0).lock, 'full pedal locks without ABS');
 });
 
-test('surfaces: off the track the car is slowed to about 60 km/h, firmly but not like a wall, and can drive at that', () => {
-  const drive = (surface, v0, thr, seconds) => {
-    const { race, c } = solo('medium'); c.v = v0; c.gear = v0 ? 7 : 1;
-    for (let i = 0; i < seconds * 120; i++) { race.t += DT; c.surface = surface; S.drivePlayer(race, c, { thr, brk: 0, steer: 0, analog: true }, DT); pin(c); }
-    return c.v * 3.6;
-  };
-  for (const surface of ['grass', 'sand']) {
-    const top = drive(surface, 0, 1, 6);
-    assert.ok(top > 55 && top < 72, `${surface}: full throttle settles at ${top.toFixed(0)} km/h`);
-    assert.ok(drive(surface, 300 / 3.6, 0, 1) > 120, `${surface}: one second after running wide at 300 km/h`);
-    assert.ok(drive(surface, 300 / 3.6, 1, 4) < 80, `${surface}: slowed to near 60 km/h even on the throttle`);
-  }
-  assert.ok(drive('sand', 300 / 3.6, 0, 1) < drive('grass', 300 / 3.6, 0, 1), 'gravel slows harder than grass');
-});
-
-test('surfaces: the car knows kerb, sand and grass where they are painted', () => {
-  const { c } = solo('medium');
-  // a corner sample: kerbs painted, gravel on the outside
-  const i = [...T.K].findIndex(k => Math.abs(k) > T.SAND_K), outside = T.K[i] > 0 ? -1 : 1;
-  const surface = lat => { c.idx = i; c.x = T.PX[i] + T.NX[i] * lat; c.z = T.PZ[i] + T.NZ[i] * lat; const r = S.createRace(1); r.cars = [c]; S.drivePlayer(r, c, { thr: 0, brk: 0, steer: 0, analog: true }, 0); return c.surface; };
-  assert.equal(surface(0), 'track');
-  assert.equal(surface(outside * (T.HW + 0.7)), 'kerb');
-  assert.equal(surface(outside * (T.HW + T.KERB + 2)), 'sand');
-  assert.equal(surface(-outside * (T.HW + T.KERB + 2)), 'grass', 'no gravel on the inside');
-});

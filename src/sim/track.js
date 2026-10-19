@@ -2,6 +2,7 @@
 // tangents, right-hand normals, signed curvature, bounds, and the AI's speed profile and racing line.
 import { AI, TRACK_DEFAULTS, GRID, LIMITS } from './tuning.js';
 import { cornerSpeed, brakeLimit } from './vehicle.js';
+import { buildRunoff } from './runoff.js';
 import { CIRCUITS } from './circuits.js';
 import { clamp, wrapA } from './math.js';
 
@@ -76,7 +77,7 @@ function buildAiProfile({ N, HW, ds, K, PX, PZ, NX, NZ }) {
 
 export function buildTrack(circuit, opts = {}) {
   const o = { ...TRACK_DEFAULTS, samples: circuit.samples, ...opts };
-  const { halfWidth: HW, kerb: KERB, runoff, sand: SAND, sandK: SAND_K, kerbK: KERB_K } = o;
+  const { halfWidth: HW, kerb: KERB, runoff, kerbK: KERB_K } = o;
   const dense = catmullRomClosed(circuit.ctrl, 200);
   let around = 0; for (let i = 0; i < dense.length; i++) { const a = dense[i], b = dense[(i+1) % dense.length]; around += Math.hypot(b[0]-a[0], b[1]-a[1]); }
   const N = o.samples || Math.round(around / o.ds);
@@ -102,9 +103,14 @@ export function buildTrack(circuit, opts = {}) {
   for (let i = 0; i < N; i++) for (let o = -LIMITS.cornerSpan; o <= LIMITS.cornerSpan; o++) { const k = K[(i+o+N)%N]; if (Math.abs(k) > Math.abs(CK[i])) CK[i] = k; }
   // landmarks: sample index, or negative = metres before the line
   const landmarks = Object.fromEntries(Object.entries(circuit.landmarks || {}).map(([k, v]) => [k, v < 0 ? N - Math.round(-v / ds) : v]));
-  const track = { id: circuit.id, name: circuit.name, landmarks, N, HW, KERB, WALL: HW + runoff, SAND, SAND_K, KERB_K, L, ds,
+  const track = { id: circuit.id, name: circuit.name, landmarks, N, HW, KERB, WALL: HW + runoff, KERB_K, L, ds,
     PX, PZ, TX, TZ, NX, NZ, K, CK, bounds };
-  return Object.assign(track, buildAiProfile(track));
+  Object.assign(track, buildAiProfile(track));
+  // what lies beside the road (runoff.js); WALL = the furthest barrier
+  track.style = circuit.style || o.style; track.theme = circuit.theme || 'forest';
+  track.runoff = buildRunoff(track, track.style);
+  track.WALL = Math.max(...track.runoff.map(r => Math.max(...r.wall)));
+  return track;
 }
 
 export const headingAt = (track, i) => Math.atan2(track.TZ[i], track.TX[i]);

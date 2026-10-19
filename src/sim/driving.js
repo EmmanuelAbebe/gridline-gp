@@ -1,6 +1,6 @@
 // The player's and the AI's driving. Every car is the same car (vehicle.js engine/gearbox/aero, chassis.js tyres);
 // the player and the AI only decide steering, throttle, brake and shifts.
-import { AI, ASSISTS, CHASSIS } from './tuning.js';
+import { AI, ASSISTS, CHASSIS, CAR, TUNING } from './tuning.js';
 import { clamp, wrapA } from './math.js';
 import { progress } from './race.js';
 import { afterMove } from './motion.js';
@@ -46,7 +46,13 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   const skill = (skillOverride || c.skill * (race.aiPace || 1)) * (1 + c.mistake);
   const ti = (c.idx + Math.round((AI.look + sp * AI.lookTime) / ds)) % N;
   let off = RO[ti] + c.bias;
-  let targetV = Math.min(VP[(c.idx+2)%N], VP[(c.idx+6)%N]) * skill;
+  // in another car's dirty air the downforce drops (chassis.js): take the corners that much slower (not the straights)
+  // (smoothed over AI.dirtyTime s: the wake comes and goes, the speed shouldn't)
+  const wantDirty = Math.sqrt(1 - CHASSIS.dirtyAir * (c.slip || 0) * (1 - CAR.grip * 9.81 / lateralGrip(Math.max(sp, 1))));
+  c.dirtyK = (c.dirtyK ?? 1) + (wantDirty - (c.dirtyK ?? 1)) * Math.min(1, dt / AI.dirtyTime);
+  const dirty = c.dirtyK;
+  const vp = j => VP[j] < TUNING.V_CAP * 0.97 ? VP[j] * dirty : VP[j];
+  let targetV = Math.min(vp((c.idx+2)%N), vp((c.idx+6)%N)) * skill;
   // racecraft: a car ahead in our lane → go round it on the side with room (keeping that side once chosen) and hold
   // back until there is space; a car alongside → keep a car's width from it, whatever else we wanted
   const myP = progress(race, c), edge = HW - 1.5;
@@ -98,7 +104,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   let need = 0, vmin = sp;
   const late = AI.brake * brakeLimit(sp) * 0.9;
   for (let k = 2; k <= AI.brakeLook; k += k < 12 ? 2 : 6) {
-    const j = (c.idx+k)%N, vt = Math.min(VP[j] * skill * offLine(j), targetV + k * 0.5);
+    const j = (c.idx+k)%N, vt = Math.min(vp(j) * skill * offLine(j), targetV + k * 0.5);
     if (k <= 6) targetV = Math.min(targetV, vt);
     vmin = Math.min(vmin, vt);
     const n = (sp*sp - vt*vt) / (2 * k * ds);

@@ -6,15 +6,20 @@
 //
 // State on the car: v (forward speed), vy (sideways speed, + = right), yawRate (rad/s, + = turning right), ax.
 // Everything is per unit mass, so forces read as accelerations (m/s²).
-import { TUNING, CAR, CHASSIS as CH, SURFACES, ASSISTS } from './tuning.js';
+import { TUNING, CAR, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT } from './tuning.js';
 import { clamp } from './math.js';
 import { DOWNFORCE_K, lateralGrip, brakeMax, drivetrain } from './vehicle.js';
 
 const G = 9.81, L = CH.wheelbase;
 const A_FRONT = L * (1 - CH.frontWeight), B_REAR = L * CH.frontWeight;   // CG to front / rear axle
 const K2 = CH.gyration * CH.gyration;
-// extra deceleration from the surface (signed to oppose the motion): rolling + drag on the speed above its cap
-const surfaceDrag = (surf, v) => Math.sign(v) * (surf.rolling + Math.min(surf.maxDrag, surf.drag * Math.max(0, Math.abs(v) - surf.cap)));
+// extra deceleration from the surface (signed to oppose the motion): rolling + the gravel's bite (full from biteFrom,
+// fading above biteTo to `skim` of it: a fast car skims over gravel, a slow one digs in)
+export function surfaceDrag(surf, v) {
+  const sp = Math.abs(v); if (!surf.rolling && !surf.bite) return 0;
+  const fade = sp <= surf.biteTo ? 1 : Math.max(surf.skim, 1 - (1 - surf.skim) * (sp - surf.biteTo) / surf.biteFade);
+  return Math.sign(v) * (surf.rolling + surf.bite * Math.min(1, sp / surf.biteFrom) * fade);
+}
 // tyre curve: sin(C·atan(B·α)), peaking at the axle's peak slip angle
 const C_SHAPE = CH.falloff, B_UNIT = Math.tan(Math.PI / (2 * C_SHAPE));
 export const tyreCurve = (alpha, peak = CH.peakSlip) => Math.sin(C_SHAPE * Math.atan(B_UNIT / peak * alpha));
@@ -54,6 +59,13 @@ export function stepChassis(race, c, inp, dt) {
   const A = c.assists || ASSISTS.medium, surf = SURFACES[c.surface] || SURFACES.track;
   const d = drivetrain(c, inp, dt);
   const n = CH.substeps, h = dt / n;
+  // dirty tyres after an off: picked up on grass / gravel / turf, worn off on a hard surface
+  if (c.surface in ROUGH) c.dirt = Math.max(c.dirt || 0, ROUGH[c.surface]);
+  else if (c.dirt) c.dirt = Math.max(0, c.dirt - dt / OT.clean);
+  const dirt = 1 - OT.loss * (c.dirt || 0);
+  if (c.beached) { c.v = c.vy = c.yawRate = 0; c.slideF = c.slideR = 0; return; }   // stuck: waiting for the marshals
+  // deep in gravel at walking pace the wheels dig in
+  const dug = c.surface === 'gravel' && c.gravelDepth > OT.deep && Math.hypot(c.v, c.vy) < OT.digSpeed ? OT.dig : 1;
   let slideF = 0, slideR = 0, lockF = false, spinR = false;
   for (let s = 0; s < n; s++) {
     // v: along the car's heading (negative = travelling backwards, e.g. past 90° in a spin), vy: sideways
@@ -63,7 +75,7 @@ export function stepChassis(race, c, inp, dt) {
     if (d.reverse || speed < CH.lowSpeed) {
       let a = -d.resist - surfaceDrag(surf, v);
       if (d.reverse) { a += v > 0 ? -CH.brakeSystem * 0.4 * inp.brk : -TUNING.REVERSE_ACC * inp.brk; if (inp.thr > 0 && v < 0) a += 20 * inp.thr; }
-      else { a += Math.min(d.drive, CAR.grip * G * (1 - CH.frontWeight) * CH.longGrip); if (v > 0) a -= 20 * inp.brk; }
+      else { a += Math.min(d.drive, CAR.grip * surf.grip * dirt * G * (1 - CH.frontWeight) * CH.longGrip) * dug; if (v > 0) a -= 20 * inp.brk * surf.grip; }
       const v0 = c.v; c.v = clamp(c.v + a * h, -TUNING.REVERSE_MAX, TUNING.V_CAP);
       if (!d.reverse && v0 >= 0 && c.v < 0) c.v = 0;
       // the rear axle rolls straight: sideways speed at the centre of mass is B_REAR × yaw rate (no tyre slip)
@@ -72,10 +84,12 @@ export function stepChassis(race, c, inp, dt) {
       c.x += (Math.cos(c.h) * c.v - Math.sin(c.h) * c.vy) * h; c.z += (Math.sin(c.h) * c.v + Math.cos(c.h) * c.vy) * h;
       continue;
     }
-    // axle loads (per mass): weight + downforce (less in dirty air) ± load transfer from the last acceleration
-    const df = DOWNFORCE_K * v * v * (1 - CH.dirtyAir * (c.slip || 0));
+    // axle loads (per mass): weight + downforce (less in dirty air, and sideways or backwards the wings stall)
+    // ± load transfer from the last acceleration
+    const beta = Math.atan2(Math.abs(vy), v), stall = clamp((beta - OT.spinFrom) / (OT.spinTo - OT.spinFrom), 0, 1);
+    const yawAero = 1 - (1 - OT.spinFloor) * stall * stall * (3 - 2 * stall);    const df = DOWNFORCE_K * v * v * (1 - CH.dirtyAir * (c.slip || 0)) * yawAero;
     const transfer = c.ax * CH.cgHeight / L;
-    const mu = CAR.grip * surf.grip;
+    const mu = CAR.grip * surf.grip * dirt;
     const Df = mu * Math.max(0.5, G * CH.frontWeight + df * CH.aeroFront - transfer);
     const Dr = mu * CH.rearGrip * Math.max(0.5, G * (1 - CH.frontWeight) + df * (1 - CH.aeroFront) + transfer);
     // slip angles (velocity at each axle vs where its wheels point)
@@ -101,8 +115,10 @@ export function stepChassis(race, c, inp, dt) {
     if (rear.over > 1 && !braking && d.drive > 0) spinR = true;
     // equations of motion in the car's frame
     const cosD = Math.cos(delta), sinD = Math.sin(delta);
-    const ax = rear.fx + front.fx * cosD - front.fy * sinD - d.resist - surfaceDrag(surf, v);
-    const ay = front.fy * cosD + front.fx * sinD + rear.fy;
+    // the surface drags against the car's whole motion (a car sliding sideways through gravel is slowed too)
+    const sd = surfaceDrag(surf, speed) / speed;
+    const ax = rear.fx + front.fx * cosD - front.fy * sinD - d.resist - sd * v;
+    const ay = front.fy * cosD + front.fx * sinD + rear.fy - sd * vy;
     let dw = (A_FRONT * (front.fy * cosD + front.fx * sinD) - B_REAR * rear.fy) / K2;
     // stability assist: when the rear slides, pull the yaw rate back toward what the steering asks for
     // damping assist: always, gently, toward that same yaw rate
