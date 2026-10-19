@@ -5,6 +5,11 @@ import { $, ordinal, NUMBER_WORDS, ORDINAL_WORDS } from './util.js';
 export const Screens = (() => {
   const overlays = { start: $('startOv'), pause: $('pauseOv'), results: $('resOv') };
   const markSeg = (seg, attr, value) => { for (const b of seg.children) b.setAttribute('aria-pressed', b.dataset[attr] === String(value) ? 'true' : 'false'); };
+  // a segmented control's buttons from a choices list ([value, label], config.js RACE_SETUP.choices)
+  const fillSeg = (seg, attr, list) => seg.replaceChildren(...list.map(([v, label]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.dataset[attr] = v; b.textContent = label;
+    b.setAttribute('aria-pressed', 'false'); return b;
+  }));
   const bindSeg = (seg, attr, fn) => seg.addEventListener('click', e => { const b = e.target.closest('button'); if (b) fn(b.dataset[attr]); });
   return {
     show(name, focusId) { for (const [k, el] of Object.entries(overlays)) el.hidden = k !== name; if (focusId) $(focusId).focus(); },
@@ -21,6 +26,7 @@ export const Screens = (() => {
     // circuits: [{ id, name, blurb }]; the length is filled in by trackInfo() once the circuit is built
     bindSetup(setup, maxCars, circuits, onChange) {
       const minIdx = () => Math.max(0, RACE_SETUP.minutes.indexOf(setup.minutes));
+      fillSeg($('typeSeg'), 't', RACE_SETUP.choices.type); fillSeg($('aiSeg'), 'l', RACE_SETUP.choices.ai);
       function render() {
         $('trackVal').textContent = circuits.find(c => c.id === setup.track)?.name ?? setup.track;
         $('carsVal').textContent = setup.cars === 1 ? '1 (solo)' : String(setup.cars);

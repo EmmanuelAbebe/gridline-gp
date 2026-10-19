@@ -1,4 +1,6 @@
 // Game tunables: timings, sounds, colours, graphics profiles, race setup limits, phases.
+import { SIM } from '../sim/index.js';
+
 export const CONFIG = Object.freeze({
   physicsStep: 1 / 120,
   maxFrameDt: 0.1,
@@ -67,15 +69,29 @@ export const GFX_PROFILES = Object.freeze({
 });
 
 // Start-screen race setup: limits and the default choice (the last choice is remembered).
+const levels = keys => keys.map(k => [k, k.toUpperCase()]);
+// rival pace: scales every AI driver's skill (SIM createRace aiPace). Lap times: the fastest rival alone, measured
+// with tools/sim-test.mjs-style solo laps on Elkmoor (traffic and dirty air make race laps a little slower)
+const AI_LEVELS = {
+  rookie: { pace: 0.8,  note: 'Rivals take it easy (Elkmoor: fastest laps about 36 s).' },
+  club:   { pace: 0.88, note: 'Quick club drivers (Elkmoor: about 34 s).' },
+  pro:    { pace: 0.95, note: 'Racing drivers (Elkmoor: about 33 s).' },
+  legend: { pace: 1.03, note: 'On the limit everywhere (Elkmoor: about 32 s).' },
+};
 export const RACE_SETUP = Object.freeze({
   defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10, gearbox: 'auto', assists: 'medium', ai: 'pro', fuel: 'normal', tyres: 'normal', damage: 'on' },
-  // rival pace: scales every AI driver's skill (SIM createRace aiPace). Lap times: the fastest rival alone, measured
-  // with tools/sim-test.mjs-style solo laps on Elkmoor (traffic and dirty air make race laps a little slower)
-  aiLevels: {
-    rookie: { pace: 0.8,  note: 'Rivals take it easy (Elkmoor: fastest laps about 36 s).' },
-    club:   { pace: 0.88, note: 'Quick club drivers (Elkmoor: about 34 s).' },
-    pro:    { pace: 0.95, note: 'Racing drivers (Elkmoor: about 33 s).' },
-    legend: { pace: 1.03, note: 'On the limit everywhere (Elkmoor: about 32 s).' },
+  aiLevels: AI_LEVELS,
+  // Every setup choice that is one of a list: [value, button label]. The saved setup is checked against these (an
+  // unknown value falls back to the default), the Settings screen and the start menu draw their buttons from them,
+  // and assists / fuel / tyres follow the SIM tables, so a new level there shows up here by itself.
+  choices: {
+    type: [['laps', 'LAPS'], ['timed', 'TIMED'], ['unlimited', 'UNLIMITED']],
+    ai: levels(Object.keys(AI_LEVELS)),
+    gearbox: [['auto', 'AUTO'], ['semi', 'SEMI-AUTO'], ['manual', 'MANUAL']],
+    assists: levels([...Object.keys(SIM.ASSISTS), 'custom']),
+    fuel: levels(Object.keys(SIM.WEAR.fuel)),
+    tyres: levels(Object.keys(SIM.WEAR.tyres)),
+    damage: levels(['off', 'on']),
   },
   assistNotes: {
     off: 'No help: the car can spin, lock its brakes and spin its wheels.',
@@ -90,6 +106,11 @@ export const RACE_SETUP = Object.freeze({
   maxLaps: 99,
   minutes: [1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120],   // stepper stops for timed races
 });
+// a choice's label as a word in a sentence: 'SEMI-AUTO' → 'Semi-auto'
+export const choiceWord = (key, value) => {
+  const label = RACE_SETUP.choices[key].find(([v]) => v === value)?.[1] ?? String(value);
+  return label[0] + label.slice(1).toLowerCase();
+};
 
 // Settings screen values (saved in localStorage `gridline.prefs`). Controller values only touch a wheel/pad's analog
 // steering and triggers; the keyboard keeps its own steering ramp (SIM drivePlayer).

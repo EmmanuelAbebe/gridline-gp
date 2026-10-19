@@ -1,3 +1,4 @@
+import { SIM } from '../sim/index.js';
 import { PREFS, RACE_SETUP } from './config.js';
 import { SCENARIOS } from './audio/scenarios.js';
 import { $, createEmitter } from './util.js';
@@ -11,6 +12,7 @@ const slider = (key, label, fmt, note) => ({ type: 'slider', key, label, fmt, no
 const buttons = (...list) => ({ type: 'buttons', list });
 const ON_OFF = [[true, 'ON'], [false, 'OFF']];
 const LEVELS = [['off', 'OFF'], ['low', 'LOW'], ['on', 'ON']];
+const C = RACE_SETUP.choices, WEAR = SIM.WEAR;
 
 const KEYS = `<div class="keys">
   <span><kbd>↑</kbd> <kbd>W</kbd></span><span>Throttle</span>
@@ -28,24 +30,24 @@ while racing, A confirms in menus, START pauses, Y changes camera.</p>`;
 
 const TABS = [
   { id: 'driving', label: 'Driving', items: [
-    seg('gearbox', 'Gearbox', [['auto', 'AUTO'], ['semi', 'SEMI-AUTO'], ['manual', 'MANUAL']], v => ({
+    seg('gearbox', 'Gearbox', C.gearbox, v => ({
       auto: 'The car shifts for you.',
       semi: 'You shift up, the car shifts down as you slow. You can still click down early.',
       manual: 'You shift every gear. Clicks down while too fast wait and go in as you slow.' })[v]
       + (v === 'auto' ? '' : ' Shift: Q / E, pad LB / RB, phone buttons 1 / 2 or flicks on the phone pedals.')),
-    seg('assists', 'Assists', [['off', 'OFF'], ['low', 'LOW'], ['medium', 'MEDIUM'], ['high', 'HIGH'], ['custom', 'CUSTOM']], v => RACE_SETUP.assistNotes[v]),
+    seg('assists', 'Assists', C.assists, v => RACE_SETUP.assistNotes[v]),
     ...[['steer', 'Steering help', 'Full tilt asks only for the grip there is: no running wide from too much lock.'],
       ['stability', 'Stability', 'Catches the rear when it starts to slide.'],
       ['tc', 'Traction control', 'Stops wheel spin on the throttle. Off: full gas in low gears spins the rears.'],
       ['abs', 'ABS', 'Stops the brakes locking. Off: too much brake locks the fronts and the car goes straight on.']]
       .map(([k, label, note]) => seg('a.' + k, label, LEVELS, () => note, b => b.get('assists') === 'custom')),
     // pit stops: what wears out (applies from the next race). Box: B, pad X / phone button 3, or the BOX button.
-    seg('fuel', 'Fuel use', [['off', 'OFF'], ['normal', 'NORMAL'], ['high', 'HIGH']], v => ({
-      off: 'No fuel use.', normal: 'A full tank lasts 8 laps: longer races need a stop. Cars start with what the race needs.',
-      high: 'A full tank lasts 4 laps.' })[v] + (v === 'off' ? '' : ' Box with B, pad X or the BOX button: the car drives itself through the pit lane.')),
-    seg('tyres', 'Tyre wear', [['off', 'OFF'], ['normal', 'NORMAL'], ['high', 'HIGH']], v => ({
-      off: 'Tyres never wear.', normal: 'Worn out after about 10 laps (sliding wears them faster): less grip.', high: 'Worn out after about 5 laps.' })[v]),
-    seg('damage', 'Damage', [['off', 'OFF'], ['on', 'ON']], v => v === 'on'
+    seg('fuel', 'Fuel use', C.fuel, v => !WEAR.fuel[v] ? 'No fuel use.'
+      : `A full tank lasts ${WEAR.fuel[v]} laps: longer races need a stop. Cars start with what the race needs.`
+        + ' Box with B, pad X or the BOX button: the car drives itself through the pit lane.'),
+    seg('tyres', 'Tyre wear', C.tyres, v => !WEAR.tyres[v] ? 'Tyres never wear.'
+      : `Worn out after about ${WEAR.tyres[v]} laps (sliding wears them faster): less grip.`),
+    seg('damage', 'Damage', C.damage, v => v === 'on'
       ? 'Hits break the front wing (understeer), the floor (less downforce) or the suspension (the car pulls). Repaired in the pits.'
       : 'Hits never damage the car.'),
   ] },

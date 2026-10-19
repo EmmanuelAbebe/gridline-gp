@@ -37,7 +37,9 @@ F1-style curved car with textures; still to do: crash physics, scenery, (5) HUD,
 - Tests and tools: `tests/sim.test.js` (track geometry, AI race, scripted player lap, formats, contact; seeded
   Math.random via `tests/helpers.js`). `tools/sim-test.mjs` prints a race report. `tools/sim-trace.mjs` prints
   seeded hashes of every car's state per step: identical hashes = identical physics (use it to prove a refactor
-  changed nothing). Both take an optional old single-file `.html` (`git show <rev>:gridline.html`) via
+  changed nothing). Since 2026-10-19 it also traces every other circuit and a 6-lap Marrow race with fuel/tyres/damage on
+  (pit stops), so run-off and pit code are covered. Note: reordering a float expression (e.g. replacing
+  `(1 − f)·s·s·(3 − 2s)` with `(1 − f)·smoothstep(s)`) changes the last bit and the hashes. Both take an optional old single-file `.html` (`git show <rev>:gridline.html`) via
   `tools/load-sim.mjs`.
 
 ## Architecture
@@ -56,7 +58,8 @@ Tunables live in data tables (config modules), not inline in the logic.
      brake at standstill = reverse). `slipstream(race, c)` sets `c.slip` 0..1 / `c.slipBy` from the leader's trail. `circuits.js`: `CIRCUITS` {name, ctrl, landmarks, blurb, samples?; `id` added}. New circuits use `corners(poly)`:
      polygon vertices [x, z, radius] → arcs of exactly that radius + straights (r 15–25 = hairpin / street corner;
      ≥ ~140 m is flat out with downforce). `landmarks` = sample index or negative = metres before the line.
-     `drivers.js`: `DRIVERS`. `math.js`: `wrapA`, `clamp`.
+     `drivers.js`: `DRIVERS`. `math.js`: `wrapA`, `clamp`, `wrapIdx(i, N)` (track-sample wrap, any integer; use it, not
+     hand-written `(i + N) % N`), `smoothstep`, `speedOf(c)` = hypot(v, vy) (all on SIM too).
    - `track.js`: `buildTrack(circuit)` → track object: closed centripetal Catmull-Rom → resampled to N equal steps
      of ~`TRACK_DEFAULTS.ds` 2.06 m (Elkmoor fixes samples 1200 so its physics stay bit-identical); AI and limits
      constants are in samples, so every circuit keeps ~2 m spacing. Per sample: `PX/PZ`, tangent `TX/TZ`, right-hand normal `NX/NZ`, signed curvature `K`
@@ -173,7 +176,12 @@ Tunables live in data tables (config modules), not inline in the logic.
 2. **Game** (`src/game/`, one module per item below, imported in dependency order by `main.js`); modules call down,
    `Input` talks up via events; no state in the DOM.
    - `config.js`: `CONFIG` (timings, intervals, fps thresholds), `SFX`, `COLORS`, `GFX_PROFILES`
-     (everything Quality vs Performance changes), `RACE_SETUP`, `PHASE`. `util.js`: `$`, formatters.
+     (everything Quality vs Performance changes), `RACE_SETUP`, `PHASE`.
+     `RACE_SETUP.choices` = every list-type setup choice ([value, label]; assists/fuel/tyres derived from SIM.ASSISTS /
+     SIM.WEAR): main.js `loadSetup` validates against it, the Settings screen and the start menu's race-type / rivals
+     buttons (screens.js `fillSeg`) are built from it, `choiceWord` gives the summary words. Add a choice there, not in
+     three places. The pit/wall/contact tunables live in tuning.js (`PIT` incl. `garages` shared with world.js, `WEAR`,
+     `WALLS`, `CONTACT`, `OFFTRACK`); keep new numbers there too. `util.js`: `$`, formatters.
    - `Settings` (try/catch localStorage, key `gridline.gfx`), `createTimers` (race-time delayed callbacks,
      cleared on restart), `createEmitter`.
    - `Display`: renderer (recreated on canvas swap when MSAA changes), scene, camera, GPU detection

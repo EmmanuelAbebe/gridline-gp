@@ -9,7 +9,7 @@ import '../styles/hud.css';
 import '../styles/menus.css';
 import '../styles/tools.css';
 import { SIM } from '../sim/index.js';
-import { CONFIG, SFX, GFX_PROFILES, RACE_SETUP, PREFS, PHASE } from './config.js';
+import { CONFIG, SFX, GFX_PROFILES, RACE_SETUP, PREFS, PHASE, choiceWord } from './config.js';
 import { $, fmtTime, createTimers } from './util.js';
 import { Settings } from './settings.js';
 import { Design } from './design.js';
@@ -61,19 +61,20 @@ const isRunning = () => !!game.race && game.phase !== PHASE.MENU && !game.paused
 function loadSetup() {
   let saved = null; try { saved = JSON.parse(Settings.get(CONFIG.storageKeys.race)); } catch (e) {}
   const d = RACE_SETUP.defaults, s = saved && typeof saved === 'object' ? saved : {};
+  const oneOf = key => RACE_SETUP.choices[key].some(([v]) => v === s[key]) ? s[key] : d[key];   // unknown → default
   return {
     cars: Math.min(SIM.DRIVERS.length, Math.max(1, Math.round(+s.cars) || d.cars)),
-    type: ['laps', 'timed', 'unlimited'].includes(s.type) ? s.type : d.type,
+    type: oneOf('type'),
     laps: Math.min(RACE_SETUP.maxLaps, Math.max(1, Math.round(+s.laps) || d.laps)),
     minutes: RACE_SETUP.minutes.includes(+s.minutes) ? +s.minutes : d.minutes,
-    gearbox: ['auto', 'semi', 'manual'].includes(s.gearbox) ? s.gearbox : d.gearbox,
-    assists: Object.hasOwn(SIM.ASSISTS, s.assists || '') || s.assists === 'custom' ? s.assists : d.assists,
+    gearbox: oneOf('gearbox'),
+    assists: oneOf('assists'),
     custom: Object.fromEntries(Object.entries(RACE_SETUP.customDefault).map(([k, v]) =>
       [k, Object.hasOwn(RACE_SETUP.customLevels, s.custom?.[k] || '') ? s.custom[k] : v])),
-    ai: Object.hasOwn(RACE_SETUP.aiLevels, s.ai || '') ? s.ai : d.ai,
-    fuel: ['off', 'normal', 'high'].includes(s.fuel) ? s.fuel : d.fuel,
-    tyres: ['off', 'normal', 'high'].includes(s.tyres) ? s.tyres : d.tyres,
-    damage: ['off', 'on'].includes(s.damage) ? s.damage : d.damage,
+    ai: oneOf('ai'),
+    fuel: oneOf('fuel'),
+    tyres: oneOf('tyres'),
+    damage: oneOf('damage'),
     track: Object.hasOwn(SIM.CIRCUITS, s.track || '') ? s.track : SIM.track.id,
   };
 }
@@ -362,9 +363,9 @@ SettingsScreen.bind({
 });
 // The start menu's line about the Settings-screen choices.
 function describeSetup() {
-  const s = game.setup, p = game.prefs, cap = w => w[0].toUpperCase() + w.slice(1);
+  const s = game.setup, p = game.prefs;
   const tc = assistsOf(s).tc, tcText = tc >= 1 ? '' : tc > 0 ? ' (traction control low)' : ' (no traction control)';
-  Screens.summary(`${s.gearbox === 'semi' ? 'Semi-auto' : cap(s.gearbox)} gearbox · ${cap(s.assists)} assists${tcText} · ${GFX_PROFILES[game.gfx]?.label.replace(' mode', '') ?? ''} graphics`
+  Screens.summary(`${choiceWord('gearbox', s.gearbox)} gearbox · ${choiceWord('assists', s.assists)} assists${tcText} · ${GFX_PROFILES[game.gfx]?.label.replace(' mode', '') ?? ''} graphics`
     + ` · fuel ${s.fuel} · tyre wear ${s.tyres} · damage ${s.damage} · controller smoothing ${p.smoothing ? p.smoothing : 'off'}`);
 }
 
