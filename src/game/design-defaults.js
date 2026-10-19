@@ -10,7 +10,7 @@ const mirrorZ = p => ({ ...p, name: p.name.replace(/R(\d?)$/, 'L$1'), pos: [p.po
 const withMirrors = parts => parts.flatMap(p => /R\d?$/.test(p.name) && !p.steer ? [p, mirrorZ(p)] : [p]);
 
 export const DESIGN_DEFAULTS = {
-  version: 9,
+  version: 10,
   // Camera modes, cycled with C / Y. back/side/height/ahead/lookY are metres relative to the car.
   // k = follow stiffness, rigid = no smoothing, cockpitBody = player car shows its cockpit-view parts.
   cameras: [
@@ -90,16 +90,25 @@ export const DESIGN_DEFAULTS = {
       { name: 'front wing pillar R', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', sections: [
         [3.2, 0.17, 0.006, 0.05, 4, 0.06], [3.1, 0.165, 0.007, 0.065, 5, 0.06], [2.98, 0.17, 0.007, 0.065, 5, 0.06], [2.9, 0.175, 0.006, 0.05, 4, 0.06]] },
       // rear wing: main plane + flap (both flatten in straight mode) between curved endplates with LED strips, two
-      // swan-neck pylons from the crash structure, a two-element beam wing
-      { name: 'rear wing main', shape: 'wing', size: [0.34, 0.045, 1.0], camber: 0.08, pos: [-2.12, 0.94, 0], rot: [0, 0, -7], open: 4, color: 'body' },
-      { name: 'rear wing flap', shape: 'wing', size: [0.22, 0.024, 1.0], camber: 0.07, pos: [-2.31, 1.06, 0], rot: [0, 0, -30], open: 24, color: 'accent' },
+      // swan-neck pylons from the crash structure, a two-element beam wing. Like the front wing the elements are lofted
+      // through spanwise stations [z, rise, chord ×, pitch°, sweep back]: a shallow spoon in the middle (less drag),
+      // tips curling down and growing into the endplates (no sharp corner for a tip vortex)
+      { name: 'rear wing main', shape: 'wing', size: [0.34, 0.045, 1.0], camber: 0.08, pos: [-2.12, 0.94, 0], rot: [0, 0, -7], open: 4, color: 'body', stations: [
+        [-0.51, -0.075, 1.18, 8, 0.02], [-0.47, -0.04, 1.08, 4, 0.01], [-0.38, -0.008, 1, 1], [-0.18, -0.014, 0.97, -1], [0, -0.016, 0.96, -1.5],
+        [0.18, -0.014, 0.97, -1], [0.38, -0.008, 1, 1], [0.47, -0.04, 1.08, 4, 0.01], [0.51, -0.075, 1.18, 8, 0.02]] },
+      { name: 'rear wing flap', shape: 'wing', size: [0.22, 0.024, 1.0], camber: 0.07, pos: [-2.31, 1.06, 0], rot: [0, 0, -30], open: 24, color: 'accent', stations: [
+        [-0.505, -0.05, 1.1, -6], [-0.46, -0.022, 1.04, -3], [-0.36, -0.004, 1, 0], [-0.16, -0.008, 0.98, 1], [0, -0.01, 0.97, 1.5],
+        [0.16, -0.008, 0.98, 1], [0.36, -0.004, 1, 0], [0.46, -0.022, 1.04, -3], [0.505, -0.05, 1.1, -6]] },
       { name: 'rear endplate R', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'body', sections: [
         [-1.93, 0.94, 0.01, 0.04, 6, 0.515], [-1.99, 0.93, 0.01, 0.1, 10, 0.515], [-2.12, 0.94, 0.01, 0.14, 12, 0.515],
         [-2.32, 0.96, 0.01, 0.16, 12, 0.515], [-2.44, 0.97, 0.01, 0.15, 10, 0.515]] },
       { name: 'wing pylon R', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', sections: [
         [-2.2, 0.42, 0.008, 0.05, 4, 0.06], [-2.17, 0.62, 0.008, 0.07, 4, 0.06], [-2.08, 0.86, 0.008, 0.06, 4, 0.06], [-2.02, 0.97, 0.008, 0.035, 4, 0.06]] },
-      { name: 'beam wing', shape: 'wing', size: [0.18, 0.022, 0.86], camber: 0.06, pos: [-2.24, 0.47, 0], rot: [0, 0, -8], color: 'dark' },
-      { name: 'beam wing flap', shape: 'wing', size: [0.13, 0.018, 0.86], camber: 0.07, pos: [-2.38, 0.53, 0], rot: [0, 0, -24], color: 'dark' },
+      // beam wing: bowed up in the middle over the crash structure, down at the tips onto its plates
+      { name: 'beam wing', shape: 'wing', size: [0.18, 0.022, 0.86], camber: 0.06, pos: [-2.24, 0.47, 0], rot: [0, 0, -8], color: 'dark', stations: [
+        [-0.43, -0.03, 1.05, 3], [-0.3, -0.008, 1, 0], [0, 0.022, 0.95, -2], [0.3, -0.008, 1, 0], [0.43, -0.03, 1.05, 3]] },
+      { name: 'beam wing flap', shape: 'wing', size: [0.13, 0.018, 0.86], camber: 0.07, pos: [-2.38, 0.53, 0], rot: [0, 0, -24], color: 'dark', stations: [
+        [-0.43, -0.025, 1.05, 3], [-0.3, -0.006, 1, 0], [0, 0.018, 0.95, -2], [0.3, -0.006, 1, 0], [0.43, -0.025, 1.05, 3]] },
       { name: 'beam wing plate R', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', sections: [
         [-2.14, 0.47, 0.006, 0.02, 5, 0.435], [-2.3, 0.5, 0.006, 0.05, 5, 0.435], [-2.45, 0.54, 0.006, 0.03, 5, 0.435]] },
       // brake lights: rain light on the crash structure, LED strips on the endplates' trailing edges

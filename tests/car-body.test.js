@@ -82,3 +82,12 @@ test('design v8 saves: the old front wing becomes the curved 2026 wing, own part
   assert.ok(parts.some(p => p.name === 'my canard'));
   Design.reset();
 });
+
+test('design v9 saves: the rear and beam wing elements become the curved ones, edits elsewhere stay', () => {
+  Design.replace({ version: 9, car: { parts: [{ name: 'rear wing main', shape: 'wing', size: [0.34, 0.045, 1.0] }, { name: 'beam wing', shape: 'wing' },
+    { name: 'rear endplate R', shape: 'loft', color: '#ff0000' }] } });
+  const P = n => Design.data.car.parts.find(p => p.name === n);
+  assert.ok(Array.isArray(P('rear wing main').stations) && Array.isArray(P('beam wing').stations));
+  assert.equal(P('rear endplate R').color, '#ff0000', 'other parts untouched');
+  Design.reset();
+});

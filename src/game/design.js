@@ -75,6 +75,11 @@ export const Design = (() => {
       s.car.parts = s.car.parts.filter(p => !(isObj(p) && (old.test(p.name) || /^front (footplate|endplate winglet) [RL]$/.test(p.name))));
       s.car.parts.splice(at < 0 ? s.car.parts.length : Math.min(at, s.car.parts.length), 0, ...fw);
     }
+    if (v < 10 && isObj(s.car) && Array.isArray(s.car.parts)) {
+      // v10: the rear wing and beam wing elements are curved (stations) like the front wing: take the new ones
+      const fresh = /^(rear wing main|rear wing flap|beam wing|beam wing flap)$/;
+      s.car.parts = s.car.parts.map(p => isObj(p) && fresh.test(p.name) ? clone(DESIGN_DEFAULTS.car.parts.find(d => d.name === p.name)) : p);
+    }
     s.version = DESIGN_DEFAULTS.version;
     return s;
   }

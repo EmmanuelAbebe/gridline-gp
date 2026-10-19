@@ -334,6 +334,8 @@ Tunables live in data tables (config modules), not inline in the logic.
      flat across the neutral middle under the nose and curl up / back / twist toward the endplates (1.8 m span, as the
      2026 rules); loft endplates rising behind the flaps and toed out, dark footplates, slim loft nose pylons. The flaps
      keep `open` (active aero). An endplate-top winglet was tried and dropped (it poked through the plate).
+     Rear wing (design v10): main plane + flap with stations too: a shallow spoon in the middle, tips curling down and
+     growing into the endplates; the beam wing elements bow up over the crash structure.
    - Working mirrors (2026-10-19, `mirrors.js`; user: "make the mirror actually work"): every design part named
      "mirror glass …" on the player's car gets a glass plane (facing the driver) showing a render target: a camera at the
      glass looks along the driver's eye→glass line reflected off the glass (eye = the cockpit camera's back/height, in
@@ -353,7 +355,7 @@ Tunables live in data tables (config modules), not inline in the logic.
      `car.screen` are positioned relative to the wheel centre; `car.steering` = { pivot (centre in car space),
      rot [x,y,z]°, scale [x,y,z], lock° }. Model: root → mount (pivot/rot/scale) → steering mesh (turns with
      input) → screen (always fixed to the wheel). Panel shows wheel width/height in metres via
-     `CarModels.measure` (natural size × scale). Design format v9; `migrate()` converts v1 (car-space steer
+     `CarModels.measure` (natural size × scale). Design format v10; `migrate()` converts v1 (car-space steer
      parts), v2 (tilt/uniform scale/screen.steer) and v3/v4 (body parts and wheels replaced by the new defaults, the
      player's steering-wheel parts and settings kept; an untouched wheel x 0.45 moves to 0.18). Parts named "… R" get a mirrored "… L" twin (`withMirrors`).
      Shapes: box, rounded (extruded rounded rectangle, `radius`), sphere, cylinder, torus, loft, wing, rod, decal, body, tube (oval section along `path` [x, y, z, halfW?, halfH?], `section`, `up`); optional `finish`.
