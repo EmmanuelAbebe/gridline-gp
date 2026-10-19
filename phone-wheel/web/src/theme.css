@@ -1,0 +1,43 @@
+/* The look, in one place: change a variable here and every screen follows. Components use only these (their own CSS
+   files sit next to them: ui/*.css). */
+:root {
+  /* colours */
+  --bg: #0e1116;            /* page background */
+  --panel: #171b22;         /* pedals, buttons, settings nav */
+  --panel2: #1e232c;        /* inputs, meters */
+  --line: #2a303b;          /* borders */
+  --text: #e8ecf2;
+  --muted: #8a93a3;
+  --accent: #ffb347;        /* highlights, active buttons, wheel marker */
+  --accent-ink: #1a1205;    /* text on an accent background */
+  --gas: #3ddc84;
+  --brake: #ff5c5c;
+  --good: #36d27f;          /* link quality */
+  --fair: #ffc21a;
+  --poor: #ff5b5b;
+
+  /* type */
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --text-s: 12px;
+  --text-m: 14px;
+  --text-l: 20px;
+  --pedal-label: 26px;
+
+  /* shapes */
+  --radius-s: 10px;
+  --radius-m: 12px;
+  --radius-l: 22px;         /* pedals */
+  --border: 1px;
+  --pedal-border: 2px;
+
+  /* spacing */
+  --gap: 8px;
+  --pedal-margin: 14px;
+
+  /* driving screen */
+  --wheel-size: min(36vh, 26vw);
+  --pedal-fill-opacity: .35;
+  --aux-size-s: 38px;       /* on-screen button height (width = 1.2×) per size setting */
+  --aux-size-m: 48px;
+  --aux-size-l: 60px;
+}

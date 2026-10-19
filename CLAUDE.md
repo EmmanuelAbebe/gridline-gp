@@ -420,6 +420,10 @@ Tunables live in data tables (config modules), not inline in the logic.
   ticked per frame). Prefs `controller`, `phoneLink`, `phoneAuto` (PREFS.options = allowed text values). Smoke test:
   Connect phone → a WebSocket "phone" steers the car (`gridlineDebug.input()`), screenshot `out-phone.png`.
 - In a plain browser there is no phone server: run phone-wheel/server.py as before (its uinput pad is a controller).
+- The phone page itself (2026-10-19): `phone-wheel/web/` (React + TypeScript + Vite; see phone-wheel/web/README.md and
+  phone-wheel/CLAUDE.md). `npm run build` also builds it (`phone:build`; `phone:dev` = PC preview with fake tilt,
+  `phone:watch`); phone-link.cjs serves `web/dist` at `/` + `/assets/`, the previous page at `/v1`. `npm run typecheck`
+  includes it (strict TS), `npm test` runs its tests (`node --experimental-strip-types`).
 
 ## Phone wheel notes (standalone project, now in phone-wheel/)
 - Project: `phone-wheel/` in this repo since 2026-10-19 (imported with `git subtree` from ~/Downloads/Phone-wheel-main,

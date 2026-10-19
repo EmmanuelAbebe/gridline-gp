@@ -1,0 +1,6 @@
+.aux { display: flex; gap: var(--gap); flex-wrap: wrap; justify-content: center; max-width: 100%; }
+.auxbtn { font-weight: 800; border-radius: 14px; color: var(--accent); padding: 0 4px; }
+.size-s .auxbtn { height: var(--aux-size-s); width: calc(var(--aux-size-s) * 1.2); font-size: 15px; }
+.size-m .auxbtn { height: var(--aux-size-m); width: calc(var(--aux-size-m) * 1.2); font-size: 18px; }
+.size-l .auxbtn { height: var(--aux-size-l); width: calc(var(--aux-size-l) * 1.2); font-size: 22px; }
+.auxbtn.down { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }

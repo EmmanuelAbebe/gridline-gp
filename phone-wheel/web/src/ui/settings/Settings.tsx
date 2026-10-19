@@ -1,0 +1,39 @@
+// Settings over the driving screen: tabs on the left, the open tab on the right. While open, pedals and buttons are
+// let go (App sets engine.state.paused); steering stays live so the Steering tab can show it.
+import { useState } from 'react';
+import type { Config, Store } from '../../settings/settings.ts';
+import type { Update } from '../App.tsx';
+import { SteeringTab } from './SteeringTab.tsx';
+import { PedalsTab } from './PedalsTab.tsx';
+import { ButtonsTab } from './ButtonsTab.tsx';
+import { LayoutTab } from './LayoutTab.tsx';
+import { ProfilesTab } from './ProfilesTab.tsx';
+import './Settings.css';
+
+const TABS = ['Steering', 'Pedals', 'Buttons', 'Layout', 'Profiles'] as const;
+type Tab = (typeof TABS)[number];
+export interface TabProps { cfg: Config; update: Update }
+
+export function Settings({ store, setStore, cfg, update, close }: { store: Store; setStore: React.Dispatch<React.SetStateAction<Store>>; cfg: Config; update: Update; close: () => void }) {
+  const [tab, setTab] = useState<Tab>(() => {
+    try { const t = sessionStorage.getItem('pw-tab') as Tab; return TABS.includes(t) ? t : TABS[0]; } catch { return TABS[0]; }
+  });
+  const pick = (t: Tab) => { setTab(t); try { sessionStorage.setItem('pw-tab', t); } catch { /* storage blocked */ } };
+  return (
+    <div className="settings">
+      <nav>
+        {TABS.map((t) => <button key={t} className={t === tab ? 'on' : ''} onClick={() => pick(t)}>{t}</button>)}
+        <div className="grow" />
+        <div className="profile-name">{store.active}</div>
+        <button className="primary" onClick={close}>Done</button>
+      </nav>
+      <section>
+        {tab === 'Steering' && <SteeringTab cfg={cfg} update={update} />}
+        {tab === 'Pedals' && <PedalsTab cfg={cfg} update={update} />}
+        {tab === 'Buttons' && <ButtonsTab cfg={cfg} update={update} />}
+        {tab === 'Layout' && <LayoutTab cfg={cfg} update={update} />}
+        {tab === 'Profiles' && <ProfilesTab store={store} setStore={setStore} />}
+      </section>
+    </div>
+  );
+}

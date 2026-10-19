@@ -88,20 +88,26 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
     });
   }
   const paired = url => { const t = url.searchParams.get('t') || ''; return t.length === token.length && crypto.timingSafeEqual(Buffer.from(t), Buffer.from(token)); };
+  // the page: the React build (phone-wheel/web/dist, npm run phone:build) at /, else the previous page; that one stays
+  // at /v1 (and the single-file one at /classic)
+  const webDist = path.join(pagesDir, 'web', 'dist');
+  function serveUnder(res, root, rel) {
+    const file = path.normalize(path.join(root, decodeURIComponent(rel)));
+    if (!file.startsWith(root + path.sep)) { res.writeHead(403).end(); return; }
+    serveFile(res, file);
+  }
   function onRequest(req, res) {
     const url = new URL(req.url, 'http://x');
-    if (url.pathname === '/') return serveFile(res, path.join(pagesDir, 'controller.html'));
+    if (url.pathname === '/') return serveFile(res, fs.existsSync(path.join(webDist, 'index.html')) ? path.join(webDist, 'index.html') : path.join(pagesDir, 'controller.html'));
+    if (url.pathname === '/v1') return serveFile(res, path.join(pagesDir, 'controller.html'));
+    if (url.pathname.startsWith('/assets/')) return serveUnder(res, path.join(webDist, 'assets'), url.pathname.slice(8));
     if (url.pathname === '/classic') return serveFile(res, path.join(pagesDir, 'static', 'classic.html'));
     if (url.pathname === '/check') {   // lets the phone tell "wrong pairing code" apart from "PC not reachable"
       const ok = paired(url);
       res.writeHead(ok ? 200 : 403, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify({ paired: ok }));
       return;
     }
-    if (url.pathname.startsWith('/static/')) {
-      const root = path.join(pagesDir, 'static'), file = path.normalize(path.join(root, decodeURIComponent(url.pathname.slice(8))));
-      if (!file.startsWith(root + path.sep)) { res.writeHead(403).end(); return; }
-      return serveFile(res, file);
-    }
+    if (url.pathname.startsWith('/static/')) return serveUnder(res, path.join(pagesDir, 'static'), url.pathname.slice(8));
     res.writeHead(404).end('not found');
   }
 

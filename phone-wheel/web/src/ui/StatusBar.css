@@ -1,0 +1,10 @@
+.topbar { display: flex; align-items: center; gap: var(--gap); flex-wrap: wrap; justify-content: center; }
+.status { font-size: 13px; display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.status i { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); display: inline-block; }
+.status.ok i { background: var(--gas); }
+.status.bad { color: var(--brake); } .status.bad i { background: var(--brake); }
+.linkq { font-size: var(--text-s); font-variant-numeric: tabular-nums; padding: 2px 7px; border-radius: var(--radius-s); color: var(--muted); white-space: nowrap; }
+.linkq:empty { display: none; }
+.linkq.good { color: var(--good); background: color-mix(in srgb, var(--good) 12%, transparent); }
+.linkq.fair { color: var(--fair); background: color-mix(in srgb, var(--fair) 14%, transparent); }
+.linkq.poor, .linkq.stalled { color: var(--poor); background: color-mix(in srgb, var(--poor) 16%, transparent); }

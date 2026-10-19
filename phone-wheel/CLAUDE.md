@@ -19,12 +19,19 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
 - `server.py` (Python, aiohttp) serves `controller.html` + `static/` to the phone over **HTTPS** on port 8443,
   using a self-signed cert it generates for the PC's LAN IP. HTTPS is required because Chrome
   on Android only provides `devicemotion` tilt data to secure pages.
-- Phone UI: Preact via htm's standalone build, vendored at `static/vendor/preact-htm.js`, no build step.
-  `static/engine.js` = sensors/steering/WebSocket hot path (kept outside Preact rendering),
-  `static/settings.js` = defaults, sanitize, profiles in localStorage, curve math,
-  `static/app.js` = UI. Old single-file page kept at `/classic` (`static/classic.html`).
+- Phone UI (2026-10-19, user wanted it easier to restyle; prefers React / TS): `web/` = React 19 + TypeScript, built by
+  Vite (from the Gridline GP root: `npm run phone:dev` desktop preview with fake tilt, `phone:watch`, `phone:build` →
+  `web/dist`; deps in the root package.json). See `web/README.md` (theme.css = every colour / size; one component +
+  CSS per screen part). `web/src/engine/engine.ts` = the hot path (tilt, pedals, 60 Hz feed, link probes, connection
+  phases idle/connecting/connected/lost/unpaired, `reconnect()`), `settings/settings.ts` = defaults, sanitize,
+  profiles (same `pw-store` key: old profiles load), curves, flick; `engine/preview.ts` = mouse / arrow-key tilt on a
+  PC. New vs the old page: ↻ reconnect and ⛶ full screen (+ landscape lock) in the status bar, a full-screen /
+  sideways prompt when the phone is upright while driving, a vibration test. Tests: `web/test/*.test.ts` (node
+  --experimental-strip-types, in the root `npm test`). Both servers serve `web/dist/index.html` at `/` when built
+  (assets at `/assets/`), else the previous Preact page (`controller.html` + `static/`, no build step), which also
+  stays at `/v1`; the single-file one at `/classic`.
 - The phone sends `{s, g, b, k}` (steer -1..1, gas 0..1, brake 0..1, button bitmask) over a WebSocket at ~60 Hz.
-  Bit i of `k` = `BUTTON_NAMES[i]` in phonewheel/protocol.py = `BUTTONS[i]` in settings.js (A B X Y LB RB BACK START GUIDE LS RS UP DOWN LEFT RIGHT).
+  Bit i of `k` = `BUTTON_NAMES[i]` in phonewheel/protocol.py = `BUTTONS[i]` in web/src/settings/settings.ts (and static/settings.js) (A B X Y LB RB BACK START GUIDE LS RS UP DOWN LEFT RIGHT).
 - Flick to shift (`settings.js` `flick` + `createFlick`, `Pedal` in app.js): a thumb on a pedal flicked toward the
   screen centre (≥ distance px within time ms, ≥ 2× sideways) taps a button via `engine.tap(id)` (held 80 ms, repeats
   spaced 50 ms apart): brake = down (LB), gas = up (RB), which Gridline GP uses as paddles. Pedal value is unaffected.
