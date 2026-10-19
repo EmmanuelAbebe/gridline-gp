@@ -318,5 +318,13 @@ them on. Before Performance mode existed the game ran at ~30 fps; target is 60.
 - Published as a claude.ai artifact ("Gridline GP"); that copy is a snapshot of the old single file.
 
 ## Ideas not done yet
+- Smarter AI (parked 2026-10-19 by the user "for later once better game mechanics are made"). User beat Northfold in
+  1:02.275 (fastest AI solo 67.6 s) with other lines through turns 2–3 and 5–6; LEGEND "feels fair: rewards good tries,
+  punishes mistakes", so keep its feel. Cause: `RO` is minimum-curvature and `VP` has no acceleration pass, so the AI
+  can't trade entry speed for exit speed (corner pairs, exits onto straights). Plan: (1) minimum-time line (forward
+  accel pass from the real drivetrain, optimise RO for lap time, check with AI solo laps; rescale levels so LEGEND's
+  lap times stay put unless the user says otherwise), (2) an "ALIEN" level above LEGEND = theoretical max, no
+  mistakes, (3) rivals that learn from the player: record the player's line/speed per corner on valid laps, adopt it
+  where the player is faster (blended), saved per circuit, toggle + reset in settings.
 - Qualifying session, tyre wear + pit stops, more circuits (only CTRL needs changing), halo pillar/mirrors
   as an optional cockpit detail, force feedback via phone vibration.
