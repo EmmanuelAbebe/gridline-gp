@@ -9,6 +9,7 @@
 import { TUNING, CAR, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT } from './tuning.js';
 import { clamp } from './math.js';
 import { DOWNFORCE_K, lateralGrip, brakeMax, drivetrain } from './vehicle.js';
+import { carCondition } from './pit.js';
 
 const G = 9.81, L = CH.wheelbase;
 const A_FRONT = L * (1 - CH.frontWeight), B_REAR = L * CH.frontWeight;   // CG to front / rear axle
@@ -58,11 +59,14 @@ function axle(D, alpha, peak, long, limit) {
 export function stepChassis(race, c, inp, dt) {
   const A = c.assists || ASSISTS.medium, surf = SURFACES[c.surface] || SURFACES.track;
   const d = drivetrain(c, inp, dt);
+  // the car's condition (pit.js): worn tyres, damage, empty tank (limp)
+  const cond = carCondition(c);
+  d.drive *= cond.power; d.resist *= cond.drag;
   const n = CH.substeps, h = dt / n;
   // dirty tyres after an off: picked up on grass / gravel / turf, worn off on a hard surface
   if (c.surface in ROUGH) c.dirt = Math.max(c.dirt || 0, ROUGH[c.surface]);
   else if (c.dirt) c.dirt = Math.max(0, c.dirt - dt / OT.clean);
-  const dirt = 1 - OT.loss * (c.dirt || 0);
+  const dirt = (1 - OT.loss * (c.dirt || 0)) * cond.grip;
   if (c.beached) { c.v = c.vy = c.yawRate = 0; c.slideF = c.slideR = 0; return; }   // stuck: waiting for the marshals
   // deep in gravel at walking pace the wheels dig in
   const dug = c.surface === 'gravel' && c.gravelDepth > OT.deep && Math.hypot(c.v, c.vy) < OT.digSpeed ? OT.dig : 1;
@@ -70,7 +74,7 @@ export function stepChassis(race, c, inp, dt) {
   for (let s = 0; s < n; s++) {
     // v: along the car's heading (negative = travelling backwards, e.g. past 90° in a spin), vy: sideways
     const v = c.v, sp = Math.abs(v), vy = c.vy, w = c.yawRate, speed = Math.hypot(v, vy);
-    const delta = c.steer * steerLock(v, A.steer);
+    const delta = c.steer * steerLock(v, A.steer) + cond.pull;
     // reverse gear and crawling (by the real speed: a car sliding sideways at 90° is not crawling): kinematic steering
     if (d.reverse || speed < CH.lowSpeed) {
       let a = -d.resist - surfaceDrag(surf, v);
@@ -87,10 +91,10 @@ export function stepChassis(race, c, inp, dt) {
     // axle loads (per mass): weight + downforce (less in dirty air, and sideways or backwards the wings stall)
     // ± load transfer from the last acceleration
     const beta = Math.atan2(Math.abs(vy), v), stall = clamp((beta - OT.spinFrom) / (OT.spinTo - OT.spinFrom), 0, 1);
-    const yawAero = 1 - (1 - OT.spinFloor) * stall * stall * (3 - 2 * stall);    const df = DOWNFORCE_K * v * v * (1 - CH.dirtyAir * (c.slip || 0)) * yawAero;
+    const yawAero = 1 - (1 - OT.spinFloor) * stall * stall * (3 - 2 * stall);    const df = DOWNFORCE_K * v * v * (1 - CH.dirtyAir * (c.slip || 0)) * yawAero * cond.aero;
     const transfer = c.ax * CH.cgHeight / L;
     const mu = CAR.grip * surf.grip * dirt;
-    const Df = mu * Math.max(0.5, G * CH.frontWeight + df * CH.aeroFront - transfer);
+    const Df = mu * Math.max(0.5, G * CH.frontWeight + df * CH.aeroFront * cond.front - transfer);
     const Dr = mu * CH.rearGrip * Math.max(0.5, G * (1 - CH.frontWeight) + df * (1 - CH.aeroFront) + transfer);
     // slip angles (velocity at each axle vs where its wheels point)
     // (rolling backwards the steering acts the other way round)

@@ -53,6 +53,7 @@ export function resolveWalls(track, c) {
   if (!c.wallHit) {
     const B = BARRIERS[R.barrier[c.idx]] || BARRIERS[0];
     c.impact = Math.abs(c.v * Math.sin(c.h - th)); c.impactHard = B.hard; c.barrier = B.name;
+    c.wallFront = Math.abs(Math.sin(c.h - th)); c.newWallHit = true;   // nose-on share (damage, pit.js)
     c.v *= B.keep; c.vy *= 0.3; c.yawRate *= 0.3; c.events.push(EV.WALL);
   }
   c.wallHit = true;

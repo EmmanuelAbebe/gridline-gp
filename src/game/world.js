@@ -210,16 +210,37 @@ export function buildWorld(parent, track, drivers) {
     st.add(crowd);
     placeAlong(st, landmarks.grandstand, -(wallAt(0, landmarks.grandstand) + 4), 0);
   }
-  if (landmarks.pits !== undefined) {
-    const pi = landmarks.pits, span = SIM.RUNOFF.landmarkSpan, near = i => Math.min((i - pi + N) % N, (pi - i + N) % N) <= span;
-    const laneIn = i => runoff[1].wall[i] + 0.6, laneOut = i => runoff[1].wall[i] + 12;
-    sideStrip(1, laneIn, laneOut, 0.03, i => near(i) ? COLORS.asphalt[1] : null, 1);
-    sideStrip(1, i => laneIn(i) + 3.6, i => laneIn(i) + 3.8, 0.05, i => near(i) ? COLORS.paint : null, 3);   // fast lane line
+  // pit lane (SIM track.pit): entry road off the track, fast lane behind the pit wall, a box per team in front of its
+  // garage, exit road back on; the pit wall starts with a TecPro nose; PIT 80 boards at the entry and the lane
+  if (track.pit) {
+    const L = track.pit, from = Math.floor(L.entry), to = Math.ceil(L.exit), span = to - from;
+    const inPit = i => ((i - from) % N + N) % N <= span, pOf = i => from + ((i - from) % N + N) % N;
+    const lane = i => SIM.laneCentre(track, pOf(i)), inLane = i => { const p = pOf(i); return p >= L.from && p <= L.to; };
+    const roadIn = i => inLane(i) ? L.wallLat + 0.15 : Math.max(HW, lane(i) - 2.4), roadOut = i => inLane(i) ? L.garageLat + 0.2 : Math.max(HW + 0.3, lane(i) + 2.4);
+    strip(roadIn, roadOut, 0.032, i => inPit(i) ? COLORS.asphalt[1] : null, 1.2);
+    for (const edge of [roadIn, roadOut]) strip(i => edge(i) - 0.12, i => edge(i) + 0.12, 0.05, i => inPit(i) && !(inLane(i) && edge === roadIn) && edge(i) > HW + 0.3 ? COLORS.paint : null, 3);
+    strip(i => L.lane + 1.7, i => L.lane + 1.9, 0.05, i => inLane(i) ? COLORS.paint : null, 3);          // fast lane | working lane
+    // box markings in team colours
+    const boxGeo = new THREE.PlaneGeometry(SIM.PIT.boxLength, 3).rotateX(-Math.PI / 2);
+    drivers.forEach((d, k) => { const p = L.boxes[k], i = ((Math.round(p) % N) + N) % N;
+      placeAlong(new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial(decal(3, { color: d.color, transparent: true, opacity: 0.55 }))), i, L.boxLat, 0.055); });
+    // the pit wall's nose
+    { const i = ((Math.round(L.from) % N) + N) % N, nose = new THREE.Group();
+      for (let k = 0; k < 3; k++) { const b = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.1, 1.2), lambert({ color: COLORS.tecpro[k % 2] })); b.position.set(-1.4 * k - 0.7, 0.55, 0); nose.add(b); }
+      placeAlong(nose, i, L.wallLat, 0); }
+    // PIT 80 boards
+    const sign = canvasTexture(64, 64, (x, w, h) => { x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.strokeStyle = '#d92b2b'; x.lineWidth = 7; x.beginPath(); x.arc(w / 2, h / 2 + 4, 22, 0, 7); x.stroke();
+      x.fillStyle = '#111'; x.font = 'bold 22px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('80', w / 2, h / 2 + 5); x.font = 'bold 11px sans-serif'; x.fillText('PIT', w / 2, 8); }, false);
+    for (const p of [L.entry + 4, L.from + 2]) {
+      const i = ((Math.round(p) % N) + N) % N, g = new THREE.Group(), b = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), lambert({ map: sign, side: THREE.DoubleSide }));
+      b.position.y = 2.2; b.rotation.y = -Math.PI / 2; g.add(b); g.add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.6, 0.1), lambert({ color: 0x8a9096 })));
+      g.children[1].position.y = 0.8; placeAlong(g, i, SIM.laneCentre(track, p) + 3.6, 0);
+    }
     const pits = new THREE.Group();
     const bld = new THREE.Mesh(new THREE.BoxGeometry(150, 7, 12), lambert({ color: COLORS.pits })); bld.position.set(0, 3.5, 6); pits.add(bld);
     const glass = new THREE.Mesh(new THREE.BoxGeometry(146, 2, 0.2), lambert({ color: COLORS.glass })); glass.position.set(0, 5, -0.05); pits.add(glass);
     drivers.forEach((d, k) => { const door = new THREE.Mesh(new THREE.BoxGeometry(11, 3.2, 0.2), lambert({ color: d.color })); door.position.set(-67.5 + k*15, 1.6, -0.05); pits.add(door); });
-    placeAlong(pits, pi, laneOut(pi) + 0.5, 0);
+    placeAlong(pits, landmarks.pits, L.garageLat, 0);
   }
 
   const scenery = buildScenery(scene, track, theme, { lambert, canvasTexture, placeAlong });

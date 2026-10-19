@@ -6,6 +6,7 @@ import { progress } from './race.js';
 import { afterMove } from './motion.js';
 import { stepChassis, steerLock, driftAngle } from './chassis.js';
 import { slipstream, cornerSpeed, brakeLimit, brakeMax, lateralGrip } from './vehicle.js';
+import { checkPitEntry, stepPit, updateWear, aiWantsPit } from './pit.js';
 
 // inp: steer -1..1 (+ = right), thr 0..1, brk 0..1, analog = from a wheel/pad (faster steering response),
 // steerRate = how fast analog steering may move (full lock per second; Infinity = no smoothing, the game's default
@@ -13,11 +14,13 @@ import { slipstream, cornerSpeed, brakeLimit, brakeMax, lateralGrip } from './ve
 // calm = 0..1 (analog only): at speed, small tilts turn the car about as gently as the original game (CHASSIS
 // calmLateral), full tilt still reaches the grip limit; 0 = steering in proportion to the grip (the default here).
 export function drivePlayer(race, c, inp, dt) {
+  if (checkPitEntry(race, c)) { stepPit(race, c, dt); afterMove(race, c); return; }   // the car drives itself in the pit lane
   const rate = inp.analog ? inp.steerRate ?? 14 : 5;
   c.steerIn ??= c.steer;
   c.steerIn += clamp(clamp(inp.steer, -1, 1) - c.steerIn, -dt*rate, dt*rate);
   c.steer = inp.analog && inp.calm ? calmSteer(c.steerIn, c.v, inp.calm) : c.steerIn;
   c.brake = inp.brk; c.thr = inp.thr;
+  updateWear(race, c, inp.thr, dt);
   slipstream(race, c, progress);
   stepChassis(race, c, inp, dt);
   afterMove(race, c);
@@ -40,6 +43,10 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   const T = race.track, { N, HW, ds, PX, PZ, NX, NZ, VP, RO, LK } = T;
   c.assists = c.assists || ASSISTS[AI.assists];
   c.aiT = race.t;
+  // pit stops: decided once a lap before the entry road (fuel, tyres, damage: pit.js), then the lane drives the car
+  const pitLane = T.pit;
+  if (pitLane && !c.pit && !c.finished) { const d = ((pitLane.entry - c.idx) % N + N) % N; if (d > 5 && d < 150) c.pitRequest = aiWantsPit(race, c); }
+  if (checkPitEntry(race, c)) { stepPit(race, c, dt); afterMove(race, c); return; }
   const sp = Math.max(c.v, 0);
   // mistakes: a late brake, decided when a braking zone starts, lasting through the corner
   if (c.mistakeEnd >= 0 && (c.idx - c.mistakeEnd + N) % N < N / 2) { c.mistake = 0; c.mistakeEnd = -1; }
@@ -124,6 +131,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
     brk = 0;
   }
   c.brake = brk; c.thr = thr;
+  updateWear(race, c, thr, dt);
   slipstream(race, c, progress);
   stepChassis(race, c, { thr, brk, steer: c.steer, shift: 0 }, dt);
   afterMove(race, c);

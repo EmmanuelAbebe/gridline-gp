@@ -18,6 +18,9 @@ export const Hud = (() => {
   let msgTimer = 0, toastTimer = 0, padLabel = '';
   function flash(text, dur = 1) { $('msg').textContent = text; $('msg').classList.add('show'); msgTimer = dur; }
   function toast(text, cls = '', dur = 2.2) { const t = $('toast'); t.textContent = text; t.className = 'panel show ' + cls; toastTimer = dur; }
+  // team radio: the pit wall talking to the player (fuel, tyres, damage, pit stops)
+  let radioTimer = 0;
+  function radio(text, dur = 4.5) { $('radioText').textContent = text; $('radio').classList.add('show'); radioTimer = dur; }
 
   const towerGap = (race, leader, c, i, showGaps) => {
     if (!showGaps) return '';
@@ -41,11 +44,12 @@ export const Hud = (() => {
   }
 
   return {
-    flash, toast,
+    flash, toast, radio,
     // fades out flash/toast on real time
     tick(dt) {
       if (msgTimer > 0 && (msgTimer -= dt) <= 0) $('msg').classList.remove('show');
       if (toastTimer > 0 && (toastTimer -= dt) <= 0) $('toast').classList.remove('show');
+      if (radioTimer > 0 && (radioTimer -= dt) <= 0) $('radio').classList.remove('show');
     },
     setStartLamps(n) { lampEls.forEach((l, i) => l.classList.toggle('on', i < n)); },
     showLights(on) { $('lights').hidden = !on; },
@@ -66,6 +70,33 @@ export const Hud = (() => {
       setText('tCur', lapTime);
       setOnce('lapInvalid', lapInvalid, on => $('tCur').classList.toggle('invalid', on));
     },
+    // car condition rows (only what the race uses) and the pit status line
+    updateCar(race, c) {
+      const W = race.wear, on = !!(W && (W.fuelLaps || W.tyreLaps || W.damage));
+      setOnce('carOn', on, v => { $('carState').hidden = !v; });
+      if (on) {
+        const showRow = (id, v) => { $(id).hidden = !v; $(id + 'Lbl').hidden = !v; };
+        setOnce('fuelOn', !!W.fuelLaps, v => showRow('fuel', v)); setOnce('tyresOn', !!W.tyreLaps, v => showRow('tyres', v)); setOnce('dmgOn', W.damage, v => showRow('dmg', v));
+        if (W.fuelLaps) {
+          const left = SIM.fuelLaps(race, c), short = left < SIM.lapsToGo(race, c);
+          setOnce('fuelTxt', c.fuel <= 0 ? 'EMPTY' : left.toFixed(1) + ' laps', t => { $('fuel').textContent = t; });
+          setOnce('fuelCls', c.fuel <= 0 || (short && left < 1) ? 'bad' : short ? 'warn' : '', k => { $('fuel').className = k; });
+        }
+        if (W.tyreLaps) {
+          const q = Math.round((1 - c.tyreWear) * 100);
+          setOnce('tyreTxt', q + ' %', t => { $('tyres').textContent = t; });
+          setOnce('tyreCls', q < 25 ? 'bad' : q < 45 ? 'warn' : '', k => { $('tyres').className = k; });
+        }
+        if (W.damage) {
+          const d = c.damage, parts = [['wing', 'WING'], ['floor', 'FLOOR'], ['susp', 'SUSP']].filter(([k]) => d[k] > 0.08);
+          const worst = Math.max(d.wing, d.floor, d.susp);
+          setOnce('dmgTxt', parts.length ? parts.map(([k, n]) => `${n} ${Math.round(d[k] * 100)}%`).join(' ') : 'none', t => { $('dmg').textContent = t; });
+          setOnce('dmgCls', worst > 0.5 ? 'bad' : worst > 0.08 ? 'warn' : '', k => { $('dmg').className = k; });
+        }
+      }
+      const pit = c.pit ? (c.pit.phase === 'stop' ? 'PIT STOP' : c.pitLimiter ? 'PIT LIMITER' : 'PIT EXIT') : c.pitRequest ? 'BOX THIS LAP' : '';
+      setOnce('pitTxt', pit, t => { $('pitState').hidden = !t; $('pitState').textContent = t; $('pitState').classList.toggle('limiter', !!c.pit); $('boxBtn').classList.toggle('on', !!t); });
+    },
     updateTower(race, player, showGaps) {
       const ord = SIM.order(race), leader = ord[0];
       setText('towerLap', towerTitle(race, leader));
@@ -74,7 +105,7 @@ export const Hud = (() => {
       $('timeLeftBox').hidden = !timed;
       if (timed) setText('timeLeft', fmtClock(race.duration - race.t));
       $('towerList').innerHTML = ord.map((c, i) =>
-        `<li class="${c.player ? 'me' : ''} ${c.finished ? 'fin' : ''}"><span class="p">${i+1}</span><i style="background:${hexCss(c.color)}"></i><span class="c">${c.code}</span><span class="g num">${towerGap(race, leader, c, i, showGaps)}</span></li>`).join('');
+        `<li class="${c.player ? 'me' : ''} ${c.finished ? 'fin' : ''}"><span class="p">${i+1}</span><i style="background:${hexCss(c.color)}"></i><span class="c">${c.code}</span><span class="g num">${c.pit ? 'PIT' : towerGap(race, leader, c, i, showGaps)}</span></li>`).join('');
       setText('pos', 'P' + (ord.indexOf(player) + 1));
       setText('lap', lapOf(race, player));
     },
@@ -83,7 +114,7 @@ export const Hud = (() => {
       $('verdict').innerHTML = pos === 1 ? 'Race <em>winner</em>' : `Finished <em>${ordinal(pos)}</em>`;
       $('verdict').title = gained > 0 ? `Gained ${gained} places` : '';
       $('resBody').innerHTML = ord.map((c, i) =>
-        `<tr class="${c.player ? 'me' : ''}"><td class="num">${i+1}</td><td><i style="background:${hexCss(c.color)}"></i>${c.name}</td><td class="team">${c.team}</td><td class="r num">${resultTime(race, leader, c, i)}${c.penalty ? `<span class="pen">+${c.penalty} s pen</span>` : ''}</td><td class="r num${race.fastestBy === c ? ' best' : ''}">${fmtTime(c.bestLap)}</td></tr>`).join('');
+        `<tr class="${c.player ? 'me' : ''}"><td class="num">${i+1}</td><td><i style="background:${hexCss(c.color)}"></i>${c.name}</td><td class="team">${c.team}</td><td class="r num">${resultTime(race, leader, c, i)}${c.penalty ? `<span class="pen">+${c.penalty} s pen</span>` : ''}${c.pitStops ? `<span class="stops">${c.pitStops} stop${c.pitStops > 1 ? 's' : ''}</span>` : ''}</td><td class="r num${race.fastestBy === c ? ' best' : ''}">${fmtTime(c.bestLap)}</td></tr>`).join('');
     },
     setFps(fps, title) {
       setText('fpsNum', Math.round(fps));

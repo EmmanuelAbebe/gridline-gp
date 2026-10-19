@@ -6,6 +6,7 @@
 // closing speed (m/s).
 import { CONTACT, EV, CHASSIS } from './tuning.js';
 import { afterMove } from './motion.js';
+import { addDamage } from './pit.js';
 
 const { rear: REAR, front: FRONT, radius: RADIUS, restitution: E, spin: SPIN } = CONTACT;
 const K2 = CHASSIS.gyration * CHASSIS.gyration;
@@ -48,6 +49,7 @@ export function collide(race) {
   for (const c of cars) { c.wasTouching = c.touching; c.touching = false; }
   for (let i = 0; i < cars.length; i++) for (let j = i+1; j < cars.length; j++) {
     const a = cars[i], b = cars[j];
+    if (a.pit || b.pit) continue;                                  // the pit lane is behind the pit wall
     if (Math.abs(b.x - a.x) > reach || Math.abs(b.z - a.z) > reach) continue;
     const [px, pz, qx, qz] = closest(segment(a), segment(b));
     let nx = qx - px, nz = qz - pz; const d = Math.hypot(nx, nz);
@@ -66,6 +68,11 @@ export function collide(race) {
       const ca = (mx - a.x) * nz - (mz - a.z) * nx, cb = (mx - b.x) * nz - (mz - b.z) * nx;
       const jn = (1 + E) * closing / (2 + SPIN * (ca * ca + cb * cb) / K2);
       kick(a, -nx*jn, -nz*jn, mx, mz); kick(b, nx*jn, nz*jn, mx, mz);
+      // damage: a hit ahead of the cockpit takes the front wing
+      if (!a.wasTouching || !b.wasTouching) for (const c of [a, b]) {
+        const fwd = (mx - c.x) * Math.cos(c.h) + (mz - c.z) * Math.sin(c.h);
+        addDamage(race, c, closing, fwd > 1.2 ? 1 : 0, 0.8);
+      }
     }
     afterMove(race, a); afterMove(race, b);
   }

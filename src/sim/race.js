@@ -3,6 +3,7 @@ import { EV, CP, LAP_ZONE, LIMITS } from './tuning.js';
 import { DRIVERS } from './drivers.js';
 import { DEFAULT_TRACK } from './track.js';
 import { createCar } from './car.js';
+import { setupWear } from './pit.js';
 
 // Race format: { type: 'laps', laps } | { type: 'timed', minutes } | { type: 'unlimited' }; a plain number means laps.
 // `drivers` is the grid in order (slot 0 = pole).
@@ -12,13 +13,15 @@ function normalizeFormat(f) {
   if (f && f.type === 'unlimited') return { type: 'unlimited' };
   return { type: 'laps', laps: Math.max(1, Math.round(+(f && f.laps) || 3)) };
 }
-// aiPace scales every AI driver's skill (difficulty, 1 = their own).
-export function createRace(format, { track = DEFAULT_TRACK, drivers = DRIVERS, aiPace = 1 } = {}) {
+// aiPace scales every AI driver's skill (difficulty, 1 = their own). wear = { fuel, tyres, damage } (pit.js setupWear).
+export function createRace(format, { track = DEFAULT_TRACK, drivers = DRIVERS, aiPace = 1, wear = {} } = {}) {
   const fmt = normalizeFormat(format);
-  return { track, format: fmt, aiPace,
+  const race = { track, format: fmt, aiPace,
     laps: fmt.type === 'laps' ? fmt.laps : Infinity,               // distance; Infinity for timed / unlimited
     duration: fmt.type === 'timed' ? fmt.minutes * 60 : Infinity,  // seconds; the clock starts at lights out
     chequered: false, t: 0, fastest: Infinity, fastestBy: null, cars: drivers.map((d, slot) => createCar(track, d, slot)) };
+  setupWear(race, wear);
+  return race;
 }
 
 export const progress = (race, c) => c.lap * race.track.N + c.idx;

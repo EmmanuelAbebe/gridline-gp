@@ -1,6 +1,7 @@
 // Moving a car and everything that has to run after any position change.
 import { locate, resolveWalls, updateSurface, updateBeached } from './car.js';
 import { updateLap, updateCheckpoints, updateLimits } from './race.js';
+import { addDamage } from './pit.js';
 
 // Record where the car passed each sample it crossed this step (moving forward; skipped when reversing).
 function updateTrail(race, c, old) {
@@ -14,7 +15,9 @@ export function afterMove(race, c) {
   updateTrail(race, c, old);
   updateLap(race, c, old);
   updateCheckpoints(race, c);
+  if (c.pit) return;                     // in the pit lane: on its own path (pit.js), no walls or track limits
   resolveWalls(race.track, c);
+  if (c.newWallHit) { c.newWallHit = false; addDamage(race, c, c.impact, c.wallFront, c.impactHard); }
   updateSurface(race.track, c);
   updateBeached(race, c);
   updateLimits(race, c, old);

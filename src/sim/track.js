@@ -3,6 +3,7 @@
 import { AI, TRACK_DEFAULTS, GRID, LIMITS } from './tuning.js';
 import { cornerSpeed, brakeLimit } from './vehicle.js';
 import { buildRunoff } from './runoff.js';
+import { buildPitLane } from './pit.js';
 import { CIRCUITS } from './circuits.js';
 import { clamp, wrapA } from './math.js';
 
@@ -110,6 +111,7 @@ export function buildTrack(circuit, opts = {}) {
   track.style = circuit.style || o.style; track.theme = circuit.theme || 'forest';
   track.runoff = buildRunoff(track, track.style);
   track.WALL = Math.max(...track.runoff.map(r => Math.max(...r.wall)));
+  track.pit = buildPitLane(track);   // pit.js; null without a `pits` landmark
   return track;
 }
 

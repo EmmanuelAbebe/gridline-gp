@@ -68,7 +68,7 @@ export const GFX_PROFILES = Object.freeze({
 
 // Start-screen race setup: limits and the default choice (the last choice is remembered).
 export const RACE_SETUP = Object.freeze({
-  defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10, gearbox: 'auto', assists: 'medium', ai: 'pro' },
+  defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10, gearbox: 'auto', assists: 'medium', ai: 'pro', fuel: 'normal', tyres: 'normal', damage: 'on' },
   // rival pace: scales every AI driver's skill (SIM createRace aiPace). Lap times: the fastest rival alone, measured
   // with tools/sim-test.mjs-style solo laps on Elkmoor (traffic and dirty air make race laps a little slower)
   aiLevels: {

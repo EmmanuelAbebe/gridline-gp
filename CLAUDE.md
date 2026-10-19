@@ -111,6 +111,28 @@ Tunables live in data tables (config modules), not inline in the logic.
      `LIMITS.wideSpeed` 15 m/s (c.cutWide; toast "ran wide"). AI: corner speeds × sqrt(downforce lost in dirty air),
      smoothed over `AI.dirtyTime` 0.8 s (halved the run-wides in traffic); ~14 run-wides per 120 car-laps remain at
      Harrow's fast left before the hairpin (in traffic), solo laps unchanged.
+   - Pit lane + stops (2026-10-19, `pit.js`, `PIT` / `WEAR` in tuning.js; user asked for a pit lane and reasons to use
+     it: low fuel, damage, with messages). `track.pit` (`buildPitLane`; ranges from runoff.js `pitRange`: entry road
+     `PIT.entry` samples before the pit wall, wall ±landmarkSpan around `pits`, exit road after; runoff gives the pit
+     roads an outer wall (cls 253) and the pit wall (cls 255) after the smoothing). Lateral: pit wall HW+3.5, fast lane
+     +2.4, boxes +8 (one per DRIVERS entry, at its garage door), garages +12.5. Entry: driving onto the entry road
+     (lat > HW + 2.5) or `c.pitRequest` at its start → `c.pit` {p (unwrapped sample position), phase in/stop/out}:
+     `stepPit` drives the car on a path (no chassis, no walls/limits in afterMove, no collisions), 80 km/h limiter,
+     stop in the box, service (tyres always 2.4 s, fuel at 12 kg/s to what the race needs + 0.4 lap, wing 3 s, repairs
+     up to 5 s), out; laps/timing carry on. Events PIT_IN/STOP/GO/OUT. Race option `createRace(…, { wear: { fuel,
+     tyres, damage } })` (`setupWear`; all off by default, so tests/physics are unchanged): fuel normal/high = a tank
+     lasts 8/4 laps, cars start with the race distance + 0.4 lap (≤ tank), empty = limp 15% power (FUEL_LOW/BOX/OUT);
+     tyres wear over 10/5 laps (sliding × 7), grip × (1 − 0.18 wear²) (TYRES_WORN); damage from walls (nose-on share →
+     wing) and contacts (hit ahead of the cockpit → wing): wing → front downforce × (1 − 0.6 w) (understeer), floor →
+     downforce × (1 − 0.3 f) + drag, suspension (hard hits) → steering pull + grip (EV.DAMAGE, c.damageNote);
+     `carCondition(c)` is what chassis.js applies. AI: `aiWantsPit` once a lap before the entry (fuel won't last,
+     tyres > 75% with > 1.5 laps to go, wing > 45%). Tests: tests/pit.test.js (every circuit's lane, a full stop
+     sequence ≤ 80 km/h in the lane, ~15–20 s lost, fuel/tyres/damage, a 6-lap thirsty AI race: everyone stops once).
+     Game: Settings → Driving Fuel use / Tyre wear / Damage (`game.setup` fuel normal, tyres normal, damage on); BOX
+     (B, pad X, HUD button) toggles the request; HUD rows Fuel (laps; amber/red if it won't last) / Tyres % / Damage
+     in the position panel, pit status line (BOX THIS LAP / PIT LIMITER / PIT STOP); `Hud.radio` team-radio messages
+     for every pit/fuel/tyre/damage event; tower shows PIT, results "n stops". world.js draws the pit roads, lane
+     lines, box markings, the pit wall's TecPro nose, PIT 80 boards. The phone wheel has no X button yet.
    - `car.js` (locate, createCar, resolveWalls, updateSurface; car has `gear`, `rpm`, `autoShift`, `slip`, `brake`,
      and `trailLat`/`trailT` per track sample = its wake), `race.js` (formats, createRace, progress, lap +
      flag rules, checkpoints, order, gapTo), `motion.js` (afterMove), `driving.js` (drivePlayer, driveAI),

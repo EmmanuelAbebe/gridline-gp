@@ -39,6 +39,15 @@ const TABS = [
       ['tc', 'Traction control', 'Stops wheel spin on the throttle. Off: full gas in low gears spins the rears.'],
       ['abs', 'ABS', 'Stops the brakes locking. Off: too much brake locks the fronts and the car goes straight on.']]
       .map(([k, label, note]) => seg('a.' + k, label, LEVELS, () => note, b => b.get('assists') === 'custom')),
+    // pit stops: what wears out (applies from the next race). Box: B, pad X / phone button 3, or the BOX button.
+    seg('fuel', 'Fuel use', [['off', 'OFF'], ['normal', 'NORMAL'], ['high', 'HIGH']], v => ({
+      off: 'No fuel use.', normal: 'A full tank lasts 8 laps: longer races need a stop. Cars start with what the race needs.',
+      high: 'A full tank lasts 4 laps.' })[v] + (v === 'off' ? '' : ' Box with B, pad X or the BOX button: the car drives itself through the pit lane.')),
+    seg('tyres', 'Tyre wear', [['off', 'OFF'], ['normal', 'NORMAL'], ['high', 'HIGH']], v => ({
+      off: 'Tyres never wear.', normal: 'Worn out after about 10 laps (sliding wears them faster): less grip.', high: 'Worn out after about 5 laps.' })[v]),
+    seg('damage', 'Damage', [['off', 'OFF'], ['on', 'ON']], v => v === 'on'
+      ? 'Hits break the front wing (understeer), the floor (less downforce) or the suspension (the car pulls). Repaired in the pits.'
+      : 'Hits never damage the car.'),
   ] },
   { id: 'controller', label: 'Controller', items: [
     { type: 'status' },

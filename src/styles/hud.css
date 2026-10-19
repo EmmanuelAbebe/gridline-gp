@@ -63,10 +63,19 @@
 #msg.show{opacity:1}
 #toast{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);padding:6px 14px;font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:.04em;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
 #toast.show{opacity:1}
+#carState{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1)}
+#carState .warn{color:var(--amber)} #carState .bad{color:var(--red)}
+#pitState{margin-top:6px;padding:3px 8px;border-radius:var(--radius);font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.12em;text-align:center;background:rgba(255,194,26,.16);color:#ffc21a}
+#pitState.limiter{background:rgba(41,211,255,.16);color:#7fe3ff}
+#boxBtn.on{background:#ffc21a;color:#111}
+#radio{position:fixed;top:calc(58px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);max-width:min(560px,calc(100vw - 32px));padding:7px 14px 8px;border-left:3px solid #ffc21a;opacity:0;transition:opacity .3s;pointer-events:none}
+#radio.show{opacity:1}
+#radio p{margin:2px 0 0;font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:.02em}
 #toast.purple{color:var(--purple)}
 #toast.warn{color:var(--amber)}
 .invalid{color:var(--red);text-decoration:line-through}
 .res .pen{display:block;font-size:.75em;color:var(--red)}
+.res .stops{display:block;font-size:.75em;opacity:.65}
 
 #hudBtns{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;gap:6px}
 .iconbtn{font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:.1em;color:var(--text);background:var(--panel);border:1px solid var(--rule);border-radius:var(--radius);padding:6px 10px;cursor:pointer}

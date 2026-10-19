@@ -71,6 +71,9 @@ function loadSetup() {
     custom: Object.fromEntries(Object.entries(RACE_SETUP.customDefault).map(([k, v]) =>
       [k, Object.hasOwn(RACE_SETUP.customLevels, s.custom?.[k] || '') ? s.custom[k] : v])),
     ai: Object.hasOwn(RACE_SETUP.aiLevels, s.ai || '') ? s.ai : d.ai,
+    fuel: ['off', 'normal', 'high'].includes(s.fuel) ? s.fuel : d.fuel,
+    tyres: ['off', 'normal', 'high'].includes(s.tyres) ? s.tyres : d.tyres,
+    damage: ['off', 'on'].includes(s.damage) ? s.damage : d.damage,
     track: Object.hasOwn(SIM.CIRCUITS, s.track || '') ? s.track : SIM.track.id,
   };
 }
@@ -129,7 +132,8 @@ function setStartLights(n) { Hud.setStartLamps(n); world.setStartLights(n); }
 function newRace() {
   timers.clear();
   const field = buildField(game.setup.cars);
-  const race = SIM.createRace(raceFormat(game.setup), { track, drivers: field, aiPace: RACE_SETUP.aiLevels[game.setup.ai].pace });
+  const s = game.setup, wear = { fuel: s.fuel, tyres: s.tyres, damage: s.damage === 'on' };
+  const race = SIM.createRace(raceFormat(s), { track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, wear });
   for (const [code, m] of modelOf) m.setVisible(field.some(d => d.code === code));
   const L = CONFIG.lights;
   const player = race.cars.find(c => c.player);
@@ -191,6 +195,24 @@ function onPlayerEvent(c, e) {
     case EV.SAUSAGE:          // a raised kerb: a bang and a jolt
       Sound.impact(Math.min(0.5, c.impact / 20), SFX.kerbStrike); CameraRig.shake(Math.min(0.5, c.impact / 15));
       break;
+    // pit stops and the car's condition: the team on the radio
+    case EV.PIT_IN: Hud.radio('Pit limiter on. Box, box.', 3); break;
+    case EV.PIT_STOP: {
+      const s = c.pit.service, jobs = ['tyres'];
+      if (s.fuel > 0.5) jobs.push(`${Math.round(s.fuel)} kg of fuel`);
+      if (s.wing) jobs.push('a new front wing'); if (s.repair) jobs.push('repairs');
+      Hud.radio(`Stop: ${jobs.join(', ')}. ${s.time.toFixed(1)} s.`, s.time + 0.5);
+      break;
+    }
+    case EV.PIT_GO: Hud.radio('Go, go, go!', 2); break;
+    case EV.PIT_OUT: Hud.radio(`Limiter off. You're P${SIM.order(race).indexOf(c) + 1}.`, 3); break;
+    case EV.FUEL_LOW: Hud.radio('Fuel is getting low: about 2 laps left, not enough for the finish. Box when you can (B / pad X).', 6); break;
+    case EV.FUEL_BOX: Hud.radio('Box this lap or you will run out of fuel!', 5); break;
+    case EV.FUEL_OUT: Hud.radio('We are out of fuel: limp mode. Bring it into the pits.', 6); break;
+    case EV.TYRES_WORN: Hud.radio('The tyres are going off. Box for fresh ones when you are ready.', 5); break;
+    case EV.DAMAGE: Hud.radio(({ wing: 'Front wing damage: you will have understeer. Box for a new nose.',
+      floor: 'Floor damage, we are losing downforce. We can fix it in the pits.',
+      susp: 'Suspension damage: the car will pull to one side. Box when you can.' })[c.damageNote], 5); break;
     case EV.BEACHED:
       Hud.toast('Beached in the gravel  ·  the marshals are recovering the car', 'warn', SIM.OFFTRACK.recoverTime);
       break;
@@ -343,18 +365,26 @@ function describeSetup() {
   const s = game.setup, p = game.prefs, cap = w => w[0].toUpperCase() + w.slice(1);
   const tc = assistsOf(s).tc, tcText = tc >= 1 ? '' : tc > 0 ? ' (traction control low)' : ' (no traction control)';
   Screens.summary(`${s.gearbox === 'semi' ? 'Semi-auto' : cap(s.gearbox)} gearbox · ${cap(s.assists)} assists${tcText} · ${GFX_PROFILES[game.gfx]?.label.replace(' mode', '') ?? ''} graphics`
-    + ` · controller smoothing ${p.smoothing ? p.smoothing : 'off'}`);
+    + ` · fuel ${s.fuel} · tyre wear ${s.tyres} · damage ${s.damage} · controller smoothing ${p.smoothing ? p.smoothing : 'off'}`);
 }
 
 const ACTIONS = { camera: cycleCamera, mute: toggleMute, pause: escape, fps: () => setPref('showFps', !game.prefs.showFps), graphics: toggleGfx, confirm,
   settings: () => SettingsScreen.open ? SettingsScreen.close() : openSettings(),
   tweak: () => TweakPanel.toggle(), layout: toggleLayout, fullscreen: () => AppShell.toggleFullscreen(),
   inputs: () => InputMonitor.toggle(),
-  shiftUp: () => shift(+1), shiftDown: () => shift(-1),
+  shiftUp: () => shift(+1), shiftDown: () => shift(-1), box: requestBox,
   // phone buttons 1 / 2 (pad A / B): shift down / up while racing, confirm / resume in menus
   primary: () => racing() ? shift(-1) : confirm(),
   secondary: () => racing() ? shift(+1) : SettingsScreen.open ? SettingsScreen.close() : game.paused ? togglePause() : null };
 Input.on('action', name => ACTIONS[name]?.());
+// BOX (B, pad X, the HUD button): pit at the end of this lap, press again to stay out
+function requestBox() {
+  const p = game.player;
+  if (!racing() || !p || p.pit || p.finished || !game.race.track.pit) return;
+  p.pitRequest = !p.pitRequest;
+  Hud.radio(p.pitRequest ? 'Copy, box this lap. The car takes over at the pit entry.' : 'Understood, stay out.', 3);
+}
+$('boxBtn').onclick = requestBox;
 Input.on('gesture', Sound.init);
 Input.on('padchange', on => { Hud.setPad(on, Input.gamepadAllowed); if (on && game.phase !== PHASE.MENU) Hud.toast('Wheel connected'); });
 
@@ -413,8 +443,9 @@ function renderFrame(dt) {
     lapTime: onLights ? '0:00.000' : fmtTime(player.finished ? player.finishTime : race.t - player.lapStart),
     lapInvalid: !onLights && !player.finished && player.lapInvalid, dirt: onLights ? 0 : player.dirt,
   });
+  Hud.updateCar(race, player);
   WheelScreen.update(dt, { gear: gi.gear, kmh: Math.round(Math.hypot(player.v, player.vy || 0) * 3.6), revs: gi.revs });
-  raceAudio.frame(dt, { race, player, cam, running: isRunning(), onLights, thr: player.finished ? 0 : drive.thr, brk: player.finished ? 0 : drive.brk, prefs: game.prefs });
+  raceAudio.frame(dt, { race, player, cam, running: isRunning(), onLights, thr: player.finished ? 0 : player.pit ? player.thr : drive.thr, brk: player.finished ? 0 : drive.brk, prefs: game.prefs });
   if (onLights) wakes.hideAll(); else wakes.update(race, player);
   if ((game.towerT -= dt) <= 0) {
     game.towerT = CONFIG.towerInterval;
@@ -480,6 +511,7 @@ window.gridlineDebug = { soundReady: () => Sound.ready,
     Display.camera.lookAt(PX[j] + NX[j] * side, 0, PZ[j] + NZ[j] * side);
     return track.name;
   },
+  pit() { const P = track.pit, N = track.N; return P && [P.entry, P.from, P.to].map(p => ((p % N) + N) % N / N); },
   corners() { const { N, VP } = track, out = [];   // the samples where the speed profile bottoms out (corner apexes)
     for (let i = 0; i < N; i++) if (VP[i] < VP[(i + N - 1) % N] && VP[i] <= VP[(i + 1) % N] && VP[i] < 60) out.push(i / N);
     return out; },

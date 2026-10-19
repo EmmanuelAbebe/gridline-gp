@@ -6,11 +6,11 @@ import { $, createEmitter } from './util.js';
 export const Input = (() => {
   const KEY_DRIVE = { ArrowUp:'up', KeyW:'up', ArrowDown:'down', KeyS:'down', ArrowLeft:'left', KeyA:'left', ArrowRight:'right', KeyD:'right' };
   const KEY_ACTIONS = { KeyC:'camera', KeyM:'mute', KeyP:'pause', Escape:'pause', KeyF:'fps', KeyG:'graphics', KeyT:'tweak', KeyL:'layout', KeyV:'fullscreen', KeyI:'inputs', KeyO:'settings',
-    KeyQ:'shiftDown', KeyE:'shiftUp' };
-  const PAD = { A: 0, B: 1, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
+    KeyQ:'shiftDown', KeyE:'shiftUp', KeyB:'box' };
+  const PAD = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
   // A / B are the phone wheel's buttons 1 and 2: confirm in menus, shift down / up while racing (the game decides)
   const PAD_ACTIONS = [[PAD.A, 'primary'], [PAD.B, 'secondary'], [PAD.LB, 'shiftDown'], [PAD.RB, 'shiftUp'],
-    [PAD.START, 'pause'], [PAD.Y, 'camera']];
+    [PAD.START, 'pause'], [PAD.Y, 'camera'], [PAD.X, 'box']];
   const TOUCH = { tLeft: 'left', tRight: 'right', tBrake: 'down', tGas: 'up' };
 
   const events = createEmitter();

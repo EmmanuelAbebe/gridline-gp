@@ -84,6 +84,11 @@ async function smokeTest(win) {
     lapTime: document.getElementById('tCur').textContent, position: document.getElementById('pos').textContent,
     cars: document.querySelectorAll('#towerList > *').length, sound: window.gridlineDebug.soundReady() })`);
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-race.png'), (await win.webContents.capturePage()).toPNG());
+  // BOX: the request shows in the HUD and the team answers on the radio
+  await win.webContents.executeJavaScript(`document.getElementById('boxBtn').click()`);
+  await new Promise(r => setTimeout(r, 300));
+  info.box = await win.webContents.executeJavaScript(`({ pit: document.getElementById('pitState').textContent, radio: document.getElementById('radioText').textContent,
+       car: document.getElementById('fuel').textContent + ' / ' + document.getElementById('tyres').textContent })`);
   // cockpit camera (C), steering held right for a moment: the driver's arms and the wheel screen
   await win.webContents.executeJavaScript(`document.getElementById('camBtn').click();
     addEventListener('keydown', () => {}); dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyD', key: 'd' }))`);
@@ -132,6 +137,10 @@ async function trackShots(win) {
     const corners = (await js(`gridlineDebug.corners()`)).slice(0, 3);
     const views = [['aerial', `gridlineDebug.view('${id}', ${corners[0] ?? 0.3}, -60, 70, 40)`],
       ['pits', `gridlineDebug.view('${id}', 0.975, -3, 5, 40, 12)`]];
+    const pit = await js(`gridlineDebug.pit()`);
+    if (pit) views.push(['pitentry', `gridlineDebug.view('${id}', ${pit[0]} - 0.012, 1, 2.2, 45, 6)`],
+      ['pitlane', `gridlineDebug.view('${id}', ${pit[1]} + 0.004, 13.4, 1.6, 40, 13.4)`],
+      ['pitaerial', `gridlineDebug.view('${id}', ${pit[0]}, -40, 45, 60, 10)`]);
     corners.forEach((f, k) => {
       views.push([`brake${k}`, `gridlineDebug.view('${id}', ${f} - 0.03, 0, 1.6, 60)`]);
       views.push([`corner${k}`, `gridlineDebug.view('${id}', ${f} + 0.004, 4, 3, 40, -8)`]);

@@ -197,7 +197,34 @@ export const LIMITS = Object.freeze({ halfWidth: 1.1, cutDist: 5, cornerSpan: 20
 export const GRID = Object.freeze({ front: 6, spacing: 7.5, lat: 3.2 }); // metres behind the line, between slots, off centre
 export const CP = 20;          // checkpoint spacing in samples, for timing gaps
 export const LAP_ZONE = 0.2;   // fraction of the lap either side of the line used to detect a crossing
+// Pit lane (pit.js), on the right of the main straight: the pit wall at RUNOFF.pitWall from the road edge, the fast
+// lane `fast` m and the boxes `box` m beyond the pit wall, the garages `garage` m beyond it. The entry road leaves the
+// track `entry` samples before the pit wall begins, the exit road joins it `exit` samples after it ends. In the lane
+// the car drives itself (as in F1 games) at `speed` m/s (80 km/h), braking at most `brake` m/s² to get there.
+// Service: tyres always (base s), fuel at refuel kg/s, a new front wing (wing s), the rest by damage (repair s per
+// unit of damage). AI: pits when fuel would not last to the flag (+ margin laps), worn tyres (> tyres) with > 1.5
+// laps to go, or wing damage over `wing`.
+export const PIT = Object.freeze({ fast: 2.4, box: 8, garage: 12.5, entry: 55, exit: 55, speed: 80 / 3.6, brake: 35,
+  base: 2.4, refuel: 12, wing: 3, repair: 5, boxLength: 7,
+  ai: Object.freeze({ margin: 0.05, tyres: 0.75, wing: 0.45 }) });
+// Fuel, tyres, damage (race options, off by default: tests and the physics stay as they were).
+// fuel: the tank lasts `laps` laps (kg per metre ∝ 0.35 + 0.65 × throttle); a car starts with what the race needs
+// (+ reserve laps), at most a full tank; empty = limp (power × limp). tyres: worn after `laps` laps of normal
+// driving (+ sliding wears them faster), grip × (1 − drop × wear²). Damage (0..1 each): front wing from frontal
+// hits (front downforce × (1 − 0.6 wing) = understeer), floor from any hit (downforce × (1 − 0.3 floor), drag up),
+// suspension from hard wall hits (steering pulls, grip down).
+export const WEAR = Object.freeze({
+  tank: 100, reserve: 0.4, limp: 0.15, slideWear: 6,
+  fuel: Object.freeze({ off: 0, normal: 8, high: 4 }),            // laps a full tank lasts (0 = no fuel use)
+  tyres: Object.freeze({ off: 0, normal: 10, high: 5 }),          // laps until worn out
+  drop: 0.18,
+  damage: Object.freeze({ min: 2, wing: 22, floor: 45, susp: 30, suspFrom: 12, wingLoss: 0.6, floorLoss: 0.3, floorDrag: 0.2,
+    suspPull: 0.02, suspGrip: 0.06 }),
+});
+
 // Things that happen to a car during a step; pushed into car.events, drained by the game.
 export const EV = Object.freeze({ LAP: 'lap', FASTEST: 'fastest', FINISH: 'finish', WALL: 'wall', CONTACT: 'contact',
   SHIFT: 'shift', SHIFT_DENIED: 'shift-denied', CUT: 'cut', PENALTY: 'penalty',
-  SAUSAGE: 'sausage', BEACHED: 'beached', RECOVERED: 'recovered' });
+  SAUSAGE: 'sausage', BEACHED: 'beached', RECOVERED: 'recovered',
+  PIT_IN: 'pit-in', PIT_STOP: 'pit-stop', PIT_GO: 'pit-go', PIT_OUT: 'pit-out', DAMAGE: 'damage',
+  FUEL_LOW: 'fuel-low', FUEL_BOX: 'fuel-box', FUEL_OUT: 'fuel-out', TYRES_WORN: 'tyres-worn' });

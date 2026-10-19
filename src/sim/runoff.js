@@ -7,7 +7,17 @@
 //   wall    the barrier line; `barrier` its type (BARRIER)
 // Built from the corners (RUNOFF: their apex speed and braking zone pick the kind of run-off), ramped smoothly along
 // the track, and kept from reaching into the run-off of another part of the track or folding over inside a corner.
-import { RUNOFF, BARRIER, ZONE, OFFTRACK } from './tuning.js';
+import { RUNOFF, BARRIER, ZONE, OFFTRACK, PIT } from './tuning.js';
+
+// The pit lane's span in samples (unwrapped: may run past N), from the `pits` landmark: entry road from `entry`, pit
+// wall from `from` to `to`, exit road until `exit`. null without pits.
+export function pitRange(track) {
+  const p = track.landmarks.pits; if (p === undefined) return null;
+  const from = p - RUNOFF.landmarkSpan, to = p + RUNOFF.landmarkSpan;
+  return { entry: from - PIT.entry, from, to, exit: to + PIT.exit };
+}
+// pit roads: entry and exit, on the right; the outer barrier beyond the road (m from the centre line)
+const pitRoadWall = HW => HW + RUNOFF.pitWall + PIT.fast + 4;
 
 const CLASSES = ['straight', 'inside', 'fast', 'medium', 'slow'];
 
@@ -42,10 +52,13 @@ export function buildRunoff(track, style = 'permanent') {
       for (let k = 0; k < N; k++) { const i = at(k), p = at(k - 1), w = wall[p] - RUNOFF.exitSlope * ds; if (w > wall[i]) { wall[i] = w; cls[i] = cls[p]; } }
       for (let k = N - 1; k >= 0; k--) { const i = at(k), n = at(k + 1), w = wall[n] - RUNOFF.slope * ds; if (w > wall[i]) { wall[i] = w; cls[i] = cls[n]; } }
     }
-    // 3. the main straight: pit wall beside the pits, concrete + debris fence in front of the grandstand
+    // 3. the main straight: pit wall beside the pits (and the pit roads before / after it: their outer barrier, set
+    //    again after the smoothing), concrete + debris fence in front of the grandstand
     const near = (l, i) => l !== undefined && Math.min(at(i - l), at(l - i)) <= RUNOFF.landmarkSpan;
+    const pr = pitRange(track), within = (i, a, b) => pr && at(i - a) <= b - a;
+    const fixed = i => s > 0 && pr ? within(i, pr.from, pr.to) ? HW + RUNOFF.pitWall : within(i, pr.entry, pr.exit) ? pitRoadWall(HW) : 0 : 0;
     for (let i = 0; i < N; i++) {
-      if (s > 0 && near(landmarks.pits, i)) { wall[i] = HW + RUNOFF.pitWall; cls[i] = 255; }
+      if (s > 0 && pr && within(i, pr.entry, pr.exit)) { wall[i] = fixed(i); cls[i] = within(i, pr.from, pr.to) ? 255 : 253; }
       else if (s < 0 && near(landmarks.grandstand, i)) { wall[i] = Math.min(wall[i], HW + RUNOFF.standWall); cls[i] = 254; }
     }
     // 4. room: never past the half-way line to another part of the track, never folding over inside a tight corner
@@ -60,15 +73,17 @@ export function buildRunoff(track, style = 'permanent') {
       for (let k = 0; k < N; k++) { const i = at(k), p = at(k - 1); wall[i] = Math.min(wall[i], wall[p] + 0.5 * ds); }
       for (let k = N - 1; k >= 0; k--) { const i = at(k), n = at(k + 1); wall[i] = Math.min(wall[i], wall[n] + 0.5 * ds); }
     }
+    for (let i = 0; i < N; i++) if (fixed(i)) wall[i] = Math.min(fixed(i), Math.max(free[i], HW + RUNOFF.pitWall));   // the pit wall starts with a nose
     // 5. the strips
     for (let i = 0; i < N; i++) {
       // kerbs where the road curves, and on the outside they run on past the corner exit (as on real circuits)
       let kerbed = Math.abs(K[i]) > KERB_K;
       for (let o = 1; o <= RUNOFF.exitKerb && !kerbed; o++) { const k = K[at(i - o)]; if (Math.abs(k) > KERB_K && s * k < 0) kerbed = true; }
       const c = cls[i];
+      if (c === 253) kerbed = false;                                         // the pit roads leave / join the track flat
       kerb[i] = kerbed ? HW + KERB : HW;
       sausage[i] = style !== 'street' && corner(i) && s * CK[i] > 0 && chicane(i) && Math.abs(K[i]) > 0.6 * Math.abs(CK[i]) ? 1 : 0;
-      const pit = c === 255 || c === 254, def = pit ? { zone: 'tarmac', barrier: 'concrete' } : S[CLASSES[c]];
+      const pit = c >= 253, def = pit ? { zone: 'tarmac', barrier: 'concrete' } : S[CLASSES[c]];
       turf[i] = kerbed && style !== 'street' && !pit ? Math.min(wall[i] - 1, kerb[i] + RUNOFF.turf) : kerb[i];
       zone[i] = ZONE[def.zone];
       gravel[i] = def.gravel !== undefined ? turf[i] + def.gravel : wall[i];   // wall = no gravel (for now)
@@ -79,7 +94,7 @@ export function buildRunoff(track, style = 'permanent') {
     for (let i = 0; i < N; i++) {
       let sum = 0; for (let o = -W; o <= W; o++) sum += Math.min(g0[at(i + o)], wall[at(i + o)]);
       const g = Math.max(turf[i], sum / (2 * W + 1));
-      gravel[i] = wall[i] - g >= 2 ? g : Infinity;
+      gravel[i] = g0[i] < wall[i] && wall[i] - g >= 2 ? g : Infinity;
     }
     return { kerb, sausage, turf, zone, gravel, wall, barrier, cls };
   });
