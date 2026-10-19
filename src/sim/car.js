@@ -1,7 +1,7 @@
 // Car state, where a car is on the track (nearest sample, lateral offset), walls and surface.
 import { EV, BARRIERS, ROUGH, OFFTRACK } from './tuning.js';
 import { surfaceAt } from './runoff.js';
-import { wrapA } from './math.js';
+import { wrapA, wrapIdx, speedOf } from './math.js';
 import { gridSlot, headingAt } from './track.js';
 
 // Nearest-sample search (full scan, or a window around the last index). Returns the previous index.
@@ -9,7 +9,7 @@ export function locate(track, c, full) {
   const { N, PX, PZ, NX, NZ } = track;
   let best = 1e18, bi = c.idx;
   if (full) { for (let i = 0; i < N; i++) { const dx = c.x-PX[i], dz = c.z-PZ[i], d = dx*dx+dz*dz; if (d < best) { best = d; bi = i; } } }
-  else for (let o = -24; o <= 24; o++) { const i = (c.idx+o+N)%N, dx = c.x-PX[i], dz = c.z-PZ[i], d = dx*dx+dz*dz; if (d < best) { best = d; bi = i; } }
+  else for (let o = -24; o <= 24; o++) { const i = wrapIdx(c.idx+o, N), dx = c.x-PX[i], dz = c.z-PZ[i], d = dx*dx+dz*dz; if (d < best) { best = d; bi = i; } }
   const old = c.idx; c.idx = bi;
   c.lat = (c.x-PX[bi])*NX[bi] + (c.z-PZ[bi])*NZ[bi];
   return old;
@@ -88,7 +88,7 @@ export function updateBeached(race, c) {
     updateSurface(track, c); c.events.push(EV.RECOVERED);
     return;
   }
-  const stuck = c.surface === 'gravel' && c.gravelDepth > O.deep && Math.hypot(c.v, c.vy) < O.stuckSpeed;
+  const stuck = c.surface === 'gravel' && c.gravelDepth > O.deep && speedOf(c) < O.stuckSpeed;
   c.stuckT = stuck ? (c.stuckT || 0) + (race.t - (c.beachClock ?? race.t)) : 0; c.beachClock = race.t;
   if (c.stuckT >= O.stuckTime) { c.beached = true; c.beachedAt = race.t; c.events.push(EV.BEACHED); }
 }

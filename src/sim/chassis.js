@@ -7,7 +7,7 @@
 // State on the car: v (forward speed), vy (sideways speed, + = right), yawRate (rad/s, + = turning right), ax.
 // Everything is per unit mass, so forces read as accelerations (m/s²).
 import { TUNING, CAR, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT } from './tuning.js';
-import { clamp } from './math.js';
+import { clamp, speedOf } from './math.js';
 import { DOWNFORCE_K, lateralGrip, brakeMax, drivetrain } from './vehicle.js';
 import { carCondition } from './pit.js';
 
@@ -69,7 +69,7 @@ export function stepChassis(race, c, inp, dt) {
   const dirt = (1 - OT.loss * (c.dirt || 0)) * cond.grip;
   if (c.beached) { c.v = c.vy = c.yawRate = 0; c.slideF = c.slideR = 0; return; }   // stuck: waiting for the marshals
   // deep in gravel at walking pace the wheels dig in
-  const dug = c.surface === 'gravel' && c.gravelDepth > OT.deep && Math.hypot(c.v, c.vy) < OT.digSpeed ? OT.dig : 1;
+  const dug = c.surface === 'gravel' && c.gravelDepth > OT.deep && speedOf(c) < OT.digSpeed ? OT.dig : 1;
   let slideF = 0, slideR = 0, lockF = false, spinR = false;
   for (let s = 0; s < n; s++) {
     // v: along the car's heading (negative = travelling backwards, e.g. past 90° in a spin), vy: sideways
@@ -91,7 +91,9 @@ export function stepChassis(race, c, inp, dt) {
     // axle loads (per mass): weight + downforce (less in dirty air, and sideways or backwards the wings stall)
     // ± load transfer from the last acceleration
     const beta = Math.atan2(Math.abs(vy), v), stall = clamp((beta - OT.spinFrom) / (OT.spinTo - OT.spinFrom), 0, 1);
-    const yawAero = 1 - (1 - OT.spinFloor) * stall * stall * (3 - 2 * stall);    const df = DOWNFORCE_K * v * v * (1 - CH.dirtyAir * (c.slip || 0)) * yawAero * cond.aero;
+    // = smoothstep(stall), written out: the helper multiplies in another order (last-bit rounding: sim-trace would differ)
+    const yawAero = 1 - (1 - OT.spinFloor) * stall * stall * (3 - 2 * stall);
+    const df = DOWNFORCE_K * v * v * (1 - CH.dirtyAir * (c.slip || 0)) * yawAero * cond.aero;
     const transfer = c.ax * CH.cgHeight / L;
     const mu = CAR.grip * surf.grip * dirt;
     const Df = mu * Math.max(0.5, G * CH.frontWeight + df * CH.aeroFront * cond.front - transfer);
@@ -136,10 +138,10 @@ export function stepChassis(race, c, inp, dt) {
     c.v += (ax + vy * w) * h;
     c.vy += (ay - v * w) * h;
     c.yawRate += dw * h;
-    if (v0 > 0 && c.v < 0 && Math.hypot(c.v, c.vy) < CH.lowSpeed) c.v = 0;   // braking to a stop doesn't roll back
+    if (v0 > 0 && c.v < 0 && speedOf(c) < CH.lowSpeed) c.v = 0;   // braking to a stop doesn't roll back
     c.v = Math.min(c.v, TUNING.V_CAP);
     // below blendSpeed (the real speed) fade toward kinematic steering, which is stable at walking pace
-    const k = clamp((Math.hypot(c.v, c.vy) - CH.lowSpeed) / (CH.blendSpeed - CH.lowSpeed), 0, 1);
+    const k = clamp((speedOf(c) - CH.lowSpeed) / (CH.blendSpeed - CH.lowSpeed), 0, 1);
     if (k < 1) { const w0 = c.v * Math.tan(delta) / L; c.yawRate = k * c.yawRate + (1 - k) * w0; c.vy = k * c.vy + (1 - k) * B_REAR * w0; }
     c.h += c.yawRate * h;
     c.x += (Math.cos(c.h) * c.v - Math.sin(c.h) * c.vy) * h;

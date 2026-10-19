@@ -1,7 +1,7 @@
 // The player's and the AI's driving. Every car is the same car (vehicle.js engine/gearbox/aero, chassis.js tyres);
 // the player and the AI only decide steering, throttle, brake and shifts.
 import { AI, ASSISTS, CHASSIS, CAR, TUNING } from './tuning.js';
-import { clamp, wrapA } from './math.js';
+import { clamp, wrapA, wrapIdx } from './math.js';
 import { progress } from './race.js';
 import { afterMove } from './motion.js';
 import { stepChassis, steerLock, driftAngle } from './chassis.js';
@@ -45,11 +45,11 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   c.aiT = race.t;
   // pit stops: decided once a lap before the entry road (fuel, tyres, damage: pit.js), then the lane drives the car
   const pitLane = T.pit;
-  if (pitLane && !c.pit && !c.finished) { const d = ((pitLane.entry - c.idx) % N + N) % N; if (d > 5 && d < 150) c.pitRequest = aiWantsPit(race, c); }
+  if (pitLane && !c.pit && !c.finished) { const d = wrapIdx(pitLane.entry - c.idx, N); if (d > 5 && d < 150) c.pitRequest = aiWantsPit(race, c); }
   if (checkPitEntry(race, c)) { stepPit(race, c, dt); afterMove(race, c); return; }
   const sp = Math.max(c.v, 0);
   // mistakes: a late brake, decided when a braking zone starts, lasting through the corner
-  if (c.mistakeEnd >= 0 && (c.idx - c.mistakeEnd + N) % N < N / 2) { c.mistake = 0; c.mistakeEnd = -1; }
+  if (c.mistakeEnd >= 0 && wrapIdx(c.idx - c.mistakeEnd, N) < N / 2) { c.mistake = 0; c.mistakeEnd = -1; }
   const skill = (skillOverride || c.skill * (race.aiPace || 1)) * (1 + c.mistake);
   const ti = (c.idx + Math.round((AI.look + sp * AI.lookTime) / ds)) % N;
   let off = RO[ti] + c.bias;

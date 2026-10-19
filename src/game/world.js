@@ -214,7 +214,7 @@ export function buildWorld(parent, track, drivers) {
   // garage, exit road back on; the pit wall starts with a TecPro nose; PIT 80 boards at the entry and the lane
   if (track.pit) {
     const L = track.pit, from = Math.floor(L.entry), to = Math.ceil(L.exit), span = to - from;
-    const inPit = i => ((i - from) % N + N) % N <= span, pOf = i => from + ((i - from) % N + N) % N;
+    const inPit = i => SIM.wrapIdx(i - from, N) <= span, pOf = i => from + SIM.wrapIdx(i - from, N);
     const lane = i => SIM.laneCentre(track, pOf(i)), inLane = i => { const p = pOf(i); return p >= L.from && p <= L.to; };
     const roadIn = i => inLane(i) ? L.wallLat + 0.15 : Math.max(HW, lane(i) - 2.4), roadOut = i => inLane(i) ? L.garageLat + 0.2 : Math.max(HW + 0.3, lane(i) + 2.4);
     strip(roadIn, roadOut, 0.032, i => inPit(i) ? COLORS.asphalt[1] : null, 1.2);
@@ -222,17 +222,17 @@ export function buildWorld(parent, track, drivers) {
     strip(i => L.lane + 1.7, i => L.lane + 1.9, 0.05, i => inLane(i) ? COLORS.paint : null, 3);          // fast lane | working lane
     // box markings in team colours
     const boxGeo = new THREE.PlaneGeometry(SIM.PIT.boxLength, 3).rotateX(-Math.PI / 2);
-    drivers.forEach((d, k) => { const p = L.boxes[k], i = ((Math.round(p) % N) + N) % N;
+    drivers.forEach((d, k) => { const p = L.boxes[k], i = SIM.wrapIdx(Math.round(p), N);
       placeAlong(new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial(decal(3, { color: d.color, transparent: true, opacity: 0.55 }))), i, L.boxLat, 0.055); });
     // the pit wall's nose
-    { const i = ((Math.round(L.from) % N) + N) % N, nose = new THREE.Group();
+    { const i = SIM.wrapIdx(Math.round(L.from), N), nose = new THREE.Group();
       for (let k = 0; k < 3; k++) { const b = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.1, 1.2), lambert({ color: COLORS.tecpro[k % 2] })); b.position.set(-1.4 * k - 0.7, 0.55, 0); nose.add(b); }
       placeAlong(nose, i, L.wallLat, 0); }
     // PIT 80 boards
     const sign = canvasTexture(64, 64, (x, w, h) => { x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.strokeStyle = '#d92b2b'; x.lineWidth = 7; x.beginPath(); x.arc(w / 2, h / 2 + 4, 22, 0, 7); x.stroke();
       x.fillStyle = '#111'; x.font = 'bold 22px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('80', w / 2, h / 2 + 5); x.font = 'bold 11px sans-serif'; x.fillText('PIT', w / 2, 8); }, false);
     for (const p of [L.entry + 4, L.from + 2]) {
-      const i = ((Math.round(p) % N) + N) % N, g = new THREE.Group(), b = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), lambert({ map: sign, side: THREE.DoubleSide }));
+      const i = SIM.wrapIdx(Math.round(p), N), g = new THREE.Group(), b = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), lambert({ map: sign, side: THREE.DoubleSide }));
       b.position.y = 2.2; b.rotation.y = -Math.PI / 2; g.add(b); g.add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.6, 0.1), lambert({ color: 0x8a9096 })));
       g.children[1].position.y = 0.8; placeAlong(g, i, SIM.laneCentre(track, p) + 3.6, 0);
     }

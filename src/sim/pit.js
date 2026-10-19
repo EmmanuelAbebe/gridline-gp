@@ -10,9 +10,8 @@ import { PIT, WEAR, EV, TUNING, RUNOFF } from './tuning.js';
 import { pitRange } from './runoff.js';
 import { DRIVERS } from './drivers.js';
 import { rpmAt } from './vehicle.js';
-import { clamp, wrapA } from './math.js';
+import { clamp, wrapA, wrapIdx, smoothstep } from './math.js';
 
-const smooth = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
 
 // The lane on a track (null without pits): sample ranges + lateral offsets; boxes = one per DRIVERS entry, in front
 // of the garage doors world.js draws (−67.5 + 15 k m along from the `pits` landmark).
@@ -97,13 +96,13 @@ export function aiWantsPit(race, c) {
 }
 
 // ---------- the pit lane ----------
-const at = (track, p) => ((Math.floor(p) % track.N) + track.N) % track.N;
+const at = (track, p) => wrapIdx(Math.floor(p), track.N);
 const boxOf = (lane, c) => lane.boxes[Math.max(0, DRIVERS.findIndex(d => d.code === c.code))];
 
 // Called before a car's normal step: starts its pit stop at the entry road. Returns true when it is in the pit lane.
 export function checkPitEntry(race, c) {
   const lane = race.track.pit; if (!lane || c.finished || c.pit) return !!c.pit;
-  const { N } = race.track, d = ((c.idx - lane.entry) % N + N) % N;
+  const { N } = race.track, d = wrapIdx(c.idx - lane.entry, N);
   if (d >= lane.from - lane.entry - 12) return false;
   const onRoad = c.lat > race.track.HW + 2.5;
   if (!onRoad && !(c.pitRequest && d < 4)) return false;
@@ -115,19 +114,19 @@ export function checkPitEntry(race, c) {
 // the pit road's centre line at p for drawing (world.js): from the road edge onto the fast lane, along it, back out
 export function laneCentre(track, p) {
   const L = track.pit, edge = track.HW - 1.5;
-  if (p < L.from) return edge + (L.lane - edge) * smooth((p - L.entry) / (L.from - L.entry));
+  if (p < L.from) return edge + (L.lane - edge) * smoothstep((p - L.entry) / (L.from - L.entry));
   if (p <= L.to) return L.lane;
-  return L.lane + (edge - L.lane) * smooth((p - L.to) / (L.exit - L.to));
+  return L.lane + (edge - L.lane) * smoothstep((p - L.to) / (L.exit - L.to));
 }
 // lateral offset of the pit path at p (unwrapped samples)
 function pathLat(race, c, p) {
   const lane = race.track.pit, P = c.pit;
-  if (p < lane.from) return P.lat0 + (lane.lane - P.lat0) * smooth((p - P.p0) / (lane.from - P.p0));
+  if (p < lane.from) return P.lat0 + (lane.lane - P.lat0) * smoothstep((p - P.p0) / (lane.from - P.p0));
   if (p <= lane.to) {
-    const into = smooth((p - (P.box - 14)) / 11), out = 1 - smooth((p - P.box) / 12);
+    const into = smoothstep((p - (P.box - 14)) / 11), out = 1 - smoothstep((p - P.box) / 12);
     return lane.lane + (lane.boxLat - lane.lane) * (p < P.box ? into : out);
   }
-  return lane.lane + (race.track.HW - 1.5 - lane.lane) * smooth((p - lane.to) / (lane.exit - lane.to));
+  return lane.lane + (race.track.HW - 1.5 - lane.lane) * smoothstep((p - lane.to) / (lane.exit - lane.to));
 }
 
 // One step of a car in the pit lane (instead of the driving model). Moves it along the path; the caller runs afterMove.

@@ -4,6 +4,7 @@ import { DRIVERS } from './drivers.js';
 import { DEFAULT_TRACK } from './track.js';
 import { createCar } from './car.js';
 import { setupWear } from './pit.js';
+import { wrapIdx, speedOf } from './math.js';
 
 // Race format: { type: 'laps', laps } | { type: 'timed', minutes } | { type: 'unlimited' }; a plain number means laps.
 // `drivers` is the grid in order (slot 0 = pole).
@@ -58,9 +59,9 @@ export function updateLap(race, c, oldIdx) {
 export function updateLimits(race, c, oldIdx) {
   const { N, ds, CK, KERB_K, runoff } = race.track, i = c.idx;
   const edge = runoff[c.lat < 0 ? 0 : 1].kerb[i], past = Math.abs(c.lat) - LIMITS.halfWidth > edge && Math.abs(CK[i]) > KERB_K;
-  const inside = c.lat * CK[i] > 0, wide = past && !inside && Math.hypot(c.v, c.vy) > LIMITS.wideSpeed;
+  const inside = c.lat * CK[i] > 0, wide = past && !inside && speedOf(c) > LIMITS.wideSpeed;
   if (!(past && inside) && !wide) { c.cutRun = 0; return; }
-  const d = (i - oldIdx + N) % N;
+  const d = wrapIdx(i - oldIdx, N);
   if (d === 0 || d > N / 2 || c.finished) return;            // standing still or going backwards
   const before = c.cutRun; c.cutRun += d * ds;
   if (before < LIMITS.cutDist && c.cutRun >= LIMITS.cutDist) {

@@ -8,6 +8,7 @@
 // Built from the corners (RUNOFF: their apex speed and braking zone pick the kind of run-off), ramped smoothly along
 // the track, and kept from reaching into the run-off of another part of the track or folding over inside a corner.
 import { RUNOFF, BARRIER, ZONE, OFFTRACK, PIT } from './tuning.js';
+import { wrapIdx } from './math.js';
 
 // The pit lane's span in samples (unwrapped: may run past N), from the `pits` landmark: entry road from `entry`, pit
 // wall from `from` to `to`, exit road until `exit`. null without pits.
@@ -23,7 +24,7 @@ const CLASSES = ['straight', 'inside', 'fast', 'medium', 'slow'];
 
 export function buildRunoff(track, style = 'permanent') {
   const { N, ds, HW, KERB, K, CK, KERB_K, VP, landmarks } = track, S = RUNOFF[style] || RUNOFF.permanent;
-  const at = i => (i % N + N) % N;
+  const at = i => wrapIdx(i, N);
   // per sample: the corner's apex speed (lowest planned speed within the corner span) and the speed scrubbed before it
   const span = 20, apex = new Float32Array(N), scrub = new Float32Array(N);
   for (let i = 0; i < N; i++) {
@@ -116,7 +117,7 @@ function freeDistance(track, side, wanted) {
       let clash = false;
       for (let a = -1; a <= 1 && !clash; a++) for (let b = -1; b <= 1 && !clash; b++) {
         for (const j of grid.get((cx + a) + ',' + (cz + b)) || []) {
-          const along = Math.min((j - i + N) % N, (i - j + N) % N);
+          const along = Math.min(wrapIdx(j - i, N), wrapIdx(i - j, N));
           if (along <= win) continue;
           if (Math.hypot(x - PX[j], z - PZ[j]) < d + 1) { clash = true; break; }
         }

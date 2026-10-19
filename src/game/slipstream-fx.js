@@ -59,7 +59,7 @@ export function createSlipstreamFx(scene, cars) {
     const p = w.pos, { N, ds, PX, PZ, NX, NZ } = track;
     let last = null;
     for (let k = 0; k < ROWS; k++) {
-      const i = (c.idx - k + N) % N, fresh = c.trailT[i] >= 0 && t - c.trailT[i] < FX.maxAge;
+      const i = SIM.wrapIdx(c.idx - k, N), fresh = c.trailT[i] >= 0 && t - c.trailT[i] < FX.maxAge;
       if (!fresh && k < 2) return false;
       if (fresh) last = { i, lat: c.trailLat[i], hw: SIM.wakeHalfWidth(k * ds) + edge * 0.5 };
       const { i: j, lat, hw } = last, w0 = fresh ? hw : 0;     // past the fresh part the band closes to nothing

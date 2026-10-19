@@ -42,7 +42,7 @@ export const CameraRig = (() => {
       shakeAmp *= Math.exp(-dt / SOUND.shake.decay);
       if (!still) {                                     // surface shake
         if (car.onKerb && Math.abs(car.v) > 12) camera.position.y += (Math.random() - 0.5) * 0.08;
-        if (car.offTrack && Math.hypot(car.v, car.vy || 0) > 4) camera.position.y += (Math.random() - 0.5) * (car.surface === 'gravel' ? 0.18 : car.surface === 'turf' ? 0.06 : 0.12);
+        if (car.offTrack && SIM.speedOf(car) > 4) camera.position.y += (Math.random() - 0.5) * (car.surface === 'gravel' ? 0.18 : car.surface === 'turf' ? 0.06 : 0.12);
       }
       camera.lookAt(look);
       if (!still && jolt > 1e-4) camera.rotateZ((Math.random() - 0.5) * jolt * 0.35);   // a little roll with the shake

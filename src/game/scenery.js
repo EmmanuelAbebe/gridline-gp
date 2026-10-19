@@ -9,7 +9,7 @@ import { COLORS, BRANDS } from './config.js';
 export function buildScenery(scene, track, theme, { lambert, canvasTexture, placeAlong }) {
   const { N, ds, HW, PX, PZ, K, CK, KERB_K, VP, runoff, bounds } = track;
   const { minX, maxX, minZ, maxZ, cx, cz } = bounds;
-  const at = i => (i % N + N) % N;
+  const at = i => SIM.wrapIdx(i, N);
   const sideOf = s => runoff[s < 0 ? 0 : 1];
   const reach = new Float32Array(N); for (let i = 0; i < N; i++) reach[i] = Math.max(runoff[0].wall[i], runoff[1].wall[i]);
   // a point is free if it is further than the barrier (+ margin) from every part of the track

@@ -438,13 +438,13 @@ function renderFrame(dt) {
   const drive = Input.drive, onLights = game.phase === PHASE.LIGHTS;
   const gi = dashGear(player, onLights, drive.thr);
   Hud.updateDash({
-    kmh: Math.round(Math.hypot(player.v, player.vy || 0) * 3.6), gear: gi.gear, gearNext: gi.next, revs: gi.revs, slip: onLights ? 0 : player.slip,
+    kmh: Math.round(SIM.speedOf(player) * 3.6), gear: gi.gear, gearNext: gi.next, revs: gi.revs, slip: onLights ? 0 : player.slip,
     steer: player.finished ? 0 : player.steer, thr: drive.thr, brk: drive.brk,
     lapTime: onLights ? '0:00.000' : fmtTime(player.finished ? player.finishTime : race.t - player.lapStart),
     lapInvalid: !onLights && !player.finished && player.lapInvalid, dirt: onLights ? 0 : player.dirt,
   });
   Hud.updateCar(race, player);
-  WheelScreen.update(dt, { gear: gi.gear, kmh: Math.round(Math.hypot(player.v, player.vy || 0) * 3.6), revs: gi.revs });
+  WheelScreen.update(dt, { gear: gi.gear, kmh: Math.round(SIM.speedOf(player) * 3.6), revs: gi.revs });
   raceAudio.frame(dt, { race, player, cam, running: isRunning(), onLights, thr: player.finished ? 0 : player.pit ? player.thr : drive.thr, brk: player.finished ? 0 : drive.brk, prefs: game.prefs });
   if (onLights) wakes.hideAll(); else wakes.update(race, player);
   if ((game.towerT -= dt) <= 0) {
@@ -506,12 +506,12 @@ function setTrack(id) {
 window.gridlineDebug = { soundReady: () => Sound.ready,
   view(id, at, lat, height, ahead, side = 0) {
     setTrack(id);
-    const { N, PX, PZ, NX, NZ } = track, i = Math.round(at * N) % N, j = (i + ahead + N) % N;
+    const { N, PX, PZ, NX, NZ } = track, i = Math.round(at * N) % N, j = SIM.wrapIdx(i + ahead, N);
     Display.camera.position.set(PX[i] + NX[i] * lat, height, PZ[i] + NZ[i] * lat);
     Display.camera.lookAt(PX[j] + NX[j] * side, 0, PZ[j] + NZ[j] * side);
     return track.name;
   },
-  pit() { const P = track.pit, N = track.N; return P && [P.entry, P.from, P.to].map(p => ((p % N) + N) % N / N); },
+  pit() { const P = track.pit, N = track.N; return P && [P.entry, P.from, P.to].map(p => SIM.wrapIdx(p, N) / N); },
   corners() { const { N, VP } = track, out = [];   // the samples where the speed profile bottoms out (corner apexes)
     for (let i = 0; i < N; i++) if (VP[i] < VP[(i + N - 1) % N] && VP[i] <= VP[(i + 1) % N] && VP[i] < 60) out.push(i / N);
     return out; },

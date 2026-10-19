@@ -5,7 +5,7 @@ import { cornerSpeed, brakeLimit } from './vehicle.js';
 import { buildRunoff } from './runoff.js';
 import { buildPitLane } from './pit.js';
 import { CIRCUITS } from './circuits.js';
-import { clamp, wrapA } from './math.js';
+import { clamp, wrapA, wrapIdx } from './math.js';
 
 // Closed centripetal Catmull-Rom through the control points, `steps` points per segment.
 function catmullRomClosed(ctrl, steps) {
@@ -49,7 +49,7 @@ function buildAiProfile({ N, HW, ds, K, PX, PZ, NX, NZ }) {
   // straightens the line with its neighbours `s` and 2·s samples away (least squared second difference), first on a
   // coarse set of points, then finer, filling in between.
   const RO = new Float64Array(N), lim = HW - AI.lineMargin;
-  const at = (j, o) => { j = (j+N)%N; return [PX[j] + NX[j]*RO[j], PZ[j] + NZ[j]*RO[j]][o]; };
+  const at = (j, o) => { j = wrapIdx(j, N); return [PX[j] + NX[j]*RO[j], PZ[j] + NZ[j]*RO[j]][o]; };
   for (const s of AI.lineStrides) {
     for (let it = 0; it < AI.lineIterations; it++) for (let i = 0; i < N; i += s) {
       const mx = (4*(at(i-s, 0) + at(i+s, 0)) - at(i-2*s, 0) - at(i+2*s, 0)) / 6;
@@ -65,8 +65,9 @@ function buildAiProfile({ N, HW, ds, K, PX, PZ, NX, NZ }) {
     LS[i] = Math.hypot(dx, dz) || ds; LH[i] = Math.atan2(dz, dx);
   }
   for (let i = 0; i < N; i++) {
-    let len = 0; for (let o = -W; o < W; o++) len += LS[(i+o+N)%N];
-    LK[i] = wrapA(LH[(i+W-1)%N] - LH[(i-W+N)%N]) / (len - LS[(i+W-1)%N] / 2 - LS[(i-W+N)%N] / 2 || ds);
+    let len = 0; for (let o = -W; o < W; o++) len += LS[wrapIdx(i+o, N)];
+    const a = wrapIdx(i-W, N), b = wrapIdx(i+W-1, N);
+    LK[i] = wrapA(LH[b] - LH[a]) / (len - LS[b] / 2 - LS[a] / 2 || ds);
   }
   const VP = new Float32Array(N);
   for (let i = 0; i < N; i++) VP[i] = cornerSpeed(Math.abs(LK[i]), grip);
@@ -85,12 +86,12 @@ export function buildTrack(circuit, opts = {}) {
   const { PX, PZ, L, ds } = resampleClosed(dense, N);
   const TX = new Float32Array(N), TZ = new Float32Array(N), NX = new Float32Array(N), NZ = new Float32Array(N), K = new Float32Array(N);
   for (let i = 0; i < N; i++) {
-    const a = (i-1+N)%N, b = (i+1)%N; let tx = PX[b]-PX[a], tz = PZ[b]-PZ[a]; const l = Math.hypot(tx, tz);
+    const a = wrapIdx(i-1, N), b = wrapIdx(i+1, N); let tx = PX[b]-PX[a], tz = PZ[b]-PZ[a]; const l = Math.hypot(tx, tz);
     tx /= l; tz /= l; TX[i] = tx; TZ[i] = tz; NX[i] = -tz; NZ[i] = tx;   // +N is the driver's right
   }
   const W = 5;
   for (let i = 0; i < N; i++) {
-    const a = (i-W+N)%N, b = (i+W)%N;
+    const a = wrapIdx(i-W, N), b = wrapIdx(i+W, N);
     K[i] = Math.atan2(TX[a]*TZ[b] - TZ[a]*TX[b], TX[a]*TX[b] + TZ[a]*TZ[b]) / (2*W*ds); // >0 turns toward +N
   }
   const bounds = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
@@ -101,7 +102,7 @@ export function buildTrack(circuit, opts = {}) {
   bounds.cx = (bounds.minX + bounds.maxX) / 2; bounds.cz = (bounds.minZ + bounds.maxZ) / 2;
   // CK: the curvature of the corner a sample belongs to (the strongest |K| within ±cornerSpan), for track limits
   const CK = new Float32Array(N);
-  for (let i = 0; i < N; i++) for (let o = -LIMITS.cornerSpan; o <= LIMITS.cornerSpan; o++) { const k = K[(i+o+N)%N]; if (Math.abs(k) > Math.abs(CK[i])) CK[i] = k; }
+  for (let i = 0; i < N; i++) for (let o = -LIMITS.cornerSpan; o <= LIMITS.cornerSpan; o++) { const k = K[wrapIdx(i+o, N)]; if (Math.abs(k) > Math.abs(CK[i])) CK[i] = k; }
   // landmarks: sample index, or negative = metres before the line
   const landmarks = Object.fromEntries(Object.entries(circuit.landmarks || {}).map(([k, v]) => [k, v < 0 ? N - Math.round(-v / ds) : v]));
   const track = { id: circuit.id, name: circuit.name, landmarks, N, HW, KERB, WALL: HW + runoff, KERB_K, L, ds,
@@ -120,7 +121,7 @@ export const headingAt = (track, i) => Math.atan2(track.TZ[i], track.TX[i]);
 // Grid slot `slot` (0 = pole). `ahead` shifts the point forward, e.g. for the painted box line.
 export function gridSlot(track, slot, ahead = 0) {
   const back = GRID.front + slot * GRID.spacing - ahead;
-  return { idx: (track.N - Math.round(back / track.ds)) % track.N, lat: slot % 2 === 0 ? -GRID.lat : GRID.lat };
+  return { idx: wrapIdx(-Math.round(back / track.ds), track.N), lat: slot % 2 === 0 ? -GRID.lat : GRID.lat };
 }
 
 export const DEFAULT_TRACK = buildTrack(CIRCUITS.elkmoor);

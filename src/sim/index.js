@@ -7,7 +7,7 @@ import { fuelLaps, lapsToGo, carCondition, laneCentre } from './pit.js';
 import { steerLock, tyreCurve, driftAngle } from './chassis.js';
 import { CIRCUITS } from './circuits.js';
 import { DRIVERS } from './drivers.js';
-import { clamp, wrapA } from './math.js';
+import { clamp, wrapA, wrapIdx, smoothstep, speedOf } from './math.js';
 import { buildTrack, gridSlot, headingAt, DEFAULT_TRACK } from './track.js';
 import { createRace, order, gapTo, progress, raceTime } from './race.js';
 import { drivePlayer, driveAI, calmSteer } from './driving.js';
@@ -18,4 +18,4 @@ export const SIM = Object.freeze({ TUNING, AI, CONTACT, LIMITS, CAR, SLIP, ASSIS
   SURFACES, OFFTRACK, RUNOFF, BARRIER, BARRIERS, ZONE, surfaceAt, PIT, WEAR, fuelLaps, lapsToGo, carCondition, laneCentre,
   steerLock, tyreCurve, driftAngle, DRIVERS, EV, track: DEFAULT_TRACK,
   rpmAt, cornerSpeed, lateralGrip, brakeLimit, wakeHalfWidth, VEHICLE: VEHICLE_INFO,
-  buildTrack, gridSlot, headingAt, createRace, drivePlayer, driveAI, calmSteer, collide, carGap, order, gapTo, progress, raceTime, clamp, wrapA });
+  buildTrack, gridSlot, headingAt, createRace, drivePlayer, driveAI, calmSteer, collide, carGap, order, gapTo, progress, raceTime, clamp, wrapA, wrapIdx, smoothstep, speedOf });
