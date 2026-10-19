@@ -23,6 +23,7 @@ import { createMinimap, drawOutline } from './minimap.js';
 import { Hud } from './hud.js';
 import { Screens } from './screens.js';
 import { WheelScreen } from './wheel-screen.js';
+import { createMirrors } from './mirrors.js';
 import { HudStyle } from './hud-style.js';
 import { LayoutEditor } from './layout-editor.js';
 import { TweakPanel } from './tweak-panel.js';
@@ -48,7 +49,11 @@ const trackOf = id => { if (!tracks.has(id)) tracks.set(id, SIM.buildTrack(SIM.C
 let track = null, world = null, minimap = null;
 const carModels = SIM.DRIVERS.map(d => CarModels.create(Display.scene, d, Design.data.car));
 const modelOf = new Map(SIM.DRIVERS.map((d, i) => [d.code, carModels[i]]));   // car model by driver code
-carModels[SIM.DRIVERS.findIndex(d => d.player)].mountScreen(WheelScreen.mesh);
+const playerModel0 = carModels[SIM.DRIVERS.findIndex(d => d.player)];
+playerModel0.mountScreen(WheelScreen.mesh);
+// working rear-view mirrors on the player's car (mirrors.js), rebuilt with the car design
+const mirrors = createMirrors(Display.renderTo);
+mirrors.build(playerModel0.object, Design.data.car.parts);
 const wakes = createSlipstreamFx(Display.scene, SIM.DRIVERS);
 const raceAudio = createRaceAudio();
 const timers = createTimers();
@@ -80,6 +85,7 @@ function setGfx(id, announce) {
   const p = GFX_PROFILES[id], gpu = Display.gpu;
   game.gfx = id;
   Display.applyProfile(p); world?.applyProfile(p); CarModels.applyProfile(carModels, p);
+  mirrors.setQuality(!p.lambertCars); mirrors.build(playerModel0.object, Design.data.car.parts);   // resolution follows the mode
   game.gfxNote = (gpu.short ? 'Graphics: ' + gpu.short + '. ' : '') + p.note(gpu.weak);
   if (announce) { Settings.set(CONFIG.storageKeys.gfx, id); Hud.toast(p.label); }
   describeSetup(); SettingsScreen.redraw();
@@ -358,6 +364,8 @@ function renderFrame(dt) {
   modelOf.get(player.code).setPedals(player.finished ? 0 : Input.drive.thr, player.finished ? 0 : Input.drive.brk);
   for (const c of race.cars) modelOf.get(c.code).sync(c, poseOf(c), dt);
   CameraRig.update(dt, player, !isRunning());
+  const eye = Design.data.cameras.find(c => c.id === 'cockpit') || cam;
+  mirrors.update([-eye.back, eye.height, eye.side || 0], cam.cockpitBody ? 'cockpit' : 'outside', Display.camera.position);
   Display.render();
 
   const drive = Input.drive, onLights = game.phase === PHASE.LIGHTS;
@@ -399,7 +407,7 @@ function frame(now) {
   Input.poll();
   InputMonitor.sample(dt, Input.drive, Input.pad);
   SettingsScreen.tick(Input.pad, Input.shapeSteer(Input.pad.steerRaw));
-  if (game.carsDirty) { game.carsDirty = false; for (const m of carModels) m.rebuild(Design.data.car); }
+  if (game.carsDirty) { game.carsDirty = false; for (const m of carModels) m.rebuild(Design.data.car); mirrors.build(playerModel0.object, Design.data.car.parts); }
   const running = isRunning();
   if (running) { game.acc += dt; while (game.acc >= STEP) { simStep(STEP); game.acc -= STEP; } }
   else game.acc = 0;

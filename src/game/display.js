@@ -51,7 +51,9 @@ export const Display = (() => {
   addEventListener('resize', resize); resize();
   return { scene, camera, gpu, applyProfile, stepDown, render: () => renderer.render(scene, camera), get scale() { return scales[scaleIdx]; },
     // another scene through another camera on the same canvas (the garage)
-    renderWith: (sc, cam) => renderer.render(sc, cam) };
+    renderWith: (sc, cam) => renderer.render(sc, cam),
+    // the race scene into a texture (the player's mirrors)
+    renderTo(target, cam) { renderer.setRenderTarget(target); renderer.render(scene, cam); renderer.setRenderTarget(null); } };
 })();
 
 export function createFpsMonitor(windowSec) {

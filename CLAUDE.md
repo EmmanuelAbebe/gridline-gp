@@ -329,6 +329,13 @@ Tunables live in data tables (config modules), not inline in the logic.
      the wheel grips every frame (follow the steering), legs to the pedals (right foot = throttle, left = brake).
      Dev tool: `npm run car-shot -- out.png [driver=MAR&brake=0&part=wing]` renders
      `tools/showroom/` (six views) offscreen via Electron + Vite.
+   - Working mirrors (2026-10-19, `mirrors.js`; user: "make the mirror actually work"): every design part named
+     "mirror glass …" on the player's car gets a glass plane (facing the driver) showing a render target: a camera at the
+     glass looks along the driver's eye→glass line reflected off the glass (eye = the cockpit camera's back/height, in
+     every camera view), `MIRROR` fov 11°, picture flipped left-right (texture repeat −1). Rendered in renderFrame before
+     the main render (`Display.renderTo`) only in cockpit view or with the camera within 18 m; Performance mode: half
+     resolution, one mirror per frame. Rebuilt with the car design and on graphics-mode change. Showroom `?mirrors=1`
+     adds red (left) / blue (right) markers behind the car. Tests: tests/mirrors.test.js.
    - `CameraRig` (reads `Design.data.cameras` live), `createMinimap` (cached track canvas, dots at 30 Hz),
      `Hud` (cached DOM writes), `Screens` (overlays + start-menu controls).
    - Design tools: `DESIGN_DEFAULTS` (cameras, car parts/wheels/steering wheel, HUD theme + layouts) → `Design`

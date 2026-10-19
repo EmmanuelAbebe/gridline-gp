@@ -1,11 +1,12 @@
 // Development showroom: one car from six angles (npm run car-shot, or open /tools/showroom/ on the dev server).
 // ?driver=VOS picks the livery, ?brake=0 turns the brake lights off, ?part=name shows only parts whose name matches,
-// ?eye=back,height moves the cockpit camera, ?aero=1 opens the wings (straight mode), ?cam=ex,ey,ez,ax,ay,az[,fov] one close-up view (eye, look-at), ?wheel=y sets the steering wheel height, ?cockpit=1 shows only the cockpit view.
+// ?eye=back,height moves the cockpit camera, ?aero=1 opens the wings (straight mode), ?mirrors=1 working mirrors (+ markers behind), ?cam=ex,ey,ez,ax,ay,az[,fov] one close-up view (eye, look-at), ?wheel=y sets the steering wheel height, ?cockpit=1 shows only the cockpit view.
 import * as THREE from 'three';
 import { SIM } from '../../src/sim/index.js';
 import { CarModels } from '../../src/game/car-models.js';
 import { DESIGN_DEFAULTS } from '../../src/game/design-defaults.js';
 import { CONFIG, COLORS } from '../../src/game/config.js';
+import { createMirrors } from '../../src/game/mirrors.js';
 
 const q = new URLSearchParams(location.search);
 const driver = SIM.DRIVERS.find(d => d.code === (q.get('driver') || 'VOS')) || SIM.DRIVERS[0];
@@ -26,6 +27,14 @@ const sun = new THREE.DirectionalLight(0xfff0d4, 0.95); sun.position.set(-300, 5
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: COLORS.asphalt[0] }));
 scene.add(ground);
 const model = CarModels.create(scene, driver, design);
+// ?mirrors=1: working mirrors, with markers behind the car (red on its left, blue on its right) to check the picture
+const mirrors = q.get('mirrors') ? createMirrors((target, cam) => { renderer.setRenderTarget(target); renderer.render(scene, cam); renderer.setRenderTarget(null); }) : null;
+if (mirrors) {
+  mirrors.build(model.object, design.parts);
+  for (const [z, color] of [[-4, 0xff2020], [4, 0x2050ff]]) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(1.5, 3, 1.5), new THREE.MeshLambertMaterial({ color })); m.position.set(-14, 1.5, z); scene.add(m);
+  }
+}
 const brake = q.get('brake') === '0' ? 0 : 1, steer = q.get('steer') ? +q.get('steer') : 0.25;
 const aeroOpen = q.get('aero') ? +q.get('aero') : 0;   // ?aero=1: wings in straight mode
 const pose = () => { model.setPedals(1 - brake, brake); for (let i = 0; i < 30; i++) model.sync({ roll: 0.6, steer, brake, aeroOpen }, { x: 0, z: 0, h: 0 }, 1 / 30); };
@@ -44,6 +53,7 @@ only.forEach(([name, eye, at], i) => {
   const cam = new THREE.PerspectiveCamera(name === 'cockpit' ? 56 : name === 'close-up' ? (CAM[6] || 30) : 32, W / H, name === 'cockpit' ? 0.12 : 0.1, 200);
   model.useCockpitView(name === 'cockpit' || name.startsWith('driver')); pose();
   cam.position.set(...eye); cam.lookAt(...at);
+  if (mirrors) { renderer.setScissorTest(false); mirrors.update([-eyeBack, eyeH, 0], name === 'cockpit' || name.startsWith('driver') ? 'cockpit' : 'outside', cam.position); renderer.setScissorTest(true); }
   if (name === 'cockpit') { cam.near = cockpitCam.near; cam.fov = cockpitCam.fov; cam.updateProjectionMatrix(); cam.lookAt(-eyeBack + cockpitCam.ahead, cockpitCam.lookY, 0); }
   const x = (i % cols) * W, y = innerHeight - (Math.floor(i / cols) + 1) * H;
   renderer.setViewport(x, y, W, H); renderer.setScissor(x, y, W, H);
