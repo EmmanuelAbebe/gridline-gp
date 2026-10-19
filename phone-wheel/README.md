@@ -133,6 +133,11 @@ USB stays the steadiest link of the three.
 - The virtual Xbox controller is Windows-only, so on Linux it uses keyboard mode (needs an X11
   session, which is the default on Linux Mint).
 
+## Code and tests
+
+`server.py` starts the program; the code is in the `phonewheel/` package (outputs, links, certificates, web
+servers, command line). Run the tests from this folder with `python -m unittest` (or `pytest`).
+
 ## Troubleshooting
 
 - **Page won't load on phone**: wrong Wi-Fi, firewall blocked it, or the PC has several network

@@ -3,6 +3,17 @@
 Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slowroads.io on this PC.
 
 ## How it works
+- Code layout (2026-10-19, split from one 944-line server.py): `server.py` = the entry point only (so
+  `python server.py ...` and `phone-wheel.spec` are unchanged); the code is the `phonewheel/` package:
+  `paths` (HERE/RES/DATA, data_dir, mime types), `protocol` (BUTTON_NAMES, `parse_message`, clamp, squash),
+  `certs` (ensure_cert, pairing_token; both take an optional folder), `links` (local_ip, adb reverse, Bluetooth:
+  bt_link / BluetoothLink + pure parsers `bt_addr_from_ip_json`, `parse_devices`, `match_phones`, `nmcli_reason`),
+  `outputs` (GamepadOut, LinuxGamepadOut, KeyboardOut + pure `pulse_keys`, DryRunOut + `dry_line`, pick_output),
+  `webapp` (build_app, build_pair_app + `status_snapshot`, serve_https), `main` (argparse, watch_bluetooth, run).
+  Tests: `python -m unittest` from phone-wheel/ (stdlib unittest + aiohttp's test client, no extra deps; pytest
+  also runs them): tests/test_pure.py (parsing, certs/token in a temp dir, Bluetooth parsers, keyboard pulses) and
+  tests/test_web.py (pairing, WebSocket → output, link probe, release on disconnect + watchdog, QR page
+  localhost-only). Keep new logic in pure functions so it can be tested the same way.
 - `server.py` (Python, aiohttp) serves `controller.html` + `static/` to the phone over **HTTPS** on port 8443,
   using a self-signed cert it generates for the PC's LAN IP. HTTPS is required because Chrome
   on Android only provides `devicemotion` tilt data to secure pages.
@@ -11,12 +22,12 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   `static/settings.js` = defaults, sanitize, profiles in localStorage, curve math,
   `static/app.js` = UI. Old single-file page kept at `/classic` (`static/classic.html`).
 - The phone sends `{s, g, b, k}` (steer -1..1, gas 0..1, brake 0..1, button bitmask) over a WebSocket at ~60 Hz.
-  Bit i of `k` = `BUTTON_NAMES[i]` in server.py = `BUTTONS[i]` in settings.js (A B X Y LB RB BACK START GUIDE LS RS UP DOWN LEFT RIGHT).
+  Bit i of `k` = `BUTTON_NAMES[i]` in phonewheel/protocol.py = `BUTTONS[i]` in settings.js (A B X Y LB RB BACK START GUIDE LS RS UP DOWN LEFT RIGHT).
 - Flick to shift (`settings.js` `flick` + `createFlick`, `Pedal` in app.js): a thumb on a pedal flicked toward the
   screen centre (≥ distance px within time ms, ≥ 2× sideways) taps a button via `engine.tap(id)` (held 80 ms, repeats
   spaced 50 ms apart): brake = down (LB), gas = up (RB), which Gridline GP uses as paddles. Pedal value is unaffected.
 - Browser check: `tools/browser-test.mjs` (Playwright vs `server.py --dry-run --port 8450`, steps in its header).
-- Output backends in `server.py`:
+- Output backends in `phonewheel/outputs.py`:
   - `GamepadOut` (default on Windows): virtual Xbox 360 pad through `vgamepad`/ViGEmBus.
     Left stick X = steer, RT = gas, LT = brake.
   - `KeyboardOut` (`--keyboard`): arrow keys through `pynput`, partial steering done by pulsing the key.
@@ -34,7 +45,7 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   (localhost only, Host header checked). Opened in the browser at start only if the terminal
   couldn't print the QR code (or with `--browser`; `--no-browser` never opens it).
 - Packaging: `phone-wheel.spec` (PyInstaller, one file). Frozen builds read pages from `sys._MEIPASS`
-  and keep cert/token in the user config dir (`data_dir()` in server.py); from source they stay next to server.py.
+  and keep cert/token in the user config dir (`data_dir()` in phonewheel/paths.py); from source they stay next to server.py.
 
 ## Status
 - Works end to end on the user's Linux PC (X11, Flatpak Chrome) as of 2026-10-04:

@@ -319,7 +319,8 @@ Tunables live in data tables (config modules), not inline in the logic.
 ## Phone wheel notes (roadmap step 3: merging it in)
 - Project: `phone-wheel/` in this repo since 2026-10-19 (imported with `git subtree` from ~/Downloads/Phone-wheel-main,
   github.com/EmmanuelAbebe/Phone-wheel, history kept; its own `phone-wheel/CLAUDE.md` has the details; its GitHub
-  workflow in `phone-wheel/.github` doesn't run from a subfolder). aiohttp `server.py` serves the
+  workflow in `phone-wheel/.github` doesn't run from a subfolder). aiohttp `server.py` (entry point; code in `phone-wheel/phonewheel/`,
+  tests `python -m unittest` in phone-wheel/) serves the
   phone page over HTTPS :8443; phone sends `{s, g, b, k}` over a WebSocket at ~60 Hz. Links: Wi-Fi, `--usb` (adb),
   `--bluetooth` (phone's Bluetooth tethering; see phone-wheel/README.md). Python deps: the old checkout's venv
   (~/Downloads/Phone-wheel-main/venv) works for `phone-wheel/server.py`.
