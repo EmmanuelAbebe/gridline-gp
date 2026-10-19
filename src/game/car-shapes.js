@@ -1,8 +1,10 @@
 import * as THREE from 'three';
+import { bodyShell } from './car-body.js';
 
 // Geometry for one car part (Design.data.car.parts), before it is moved to `pos` / turned by `rot`.
 // box, rounded, sphere, cylinder, torus: plain primitives. loft: a smooth body through cross-sections. wing: an
 // airfoil. rod: a tube from `pos` to `pos + size`. decal: a flat face-up square for a texture (the race number).
+// body: the whole body as one surface (car-body.js).
 const DEG = Math.PI / 180;
 
 // Box with rounded corners on its y-z face (the face you see from the cockpit): an extruded rounded rectangle.
@@ -90,10 +92,11 @@ export const SHAPES = {
   rounded:  (s, p) => roundedBox(s[0], s[1], s[2], p.radius),
   torus:    (s)    => { const arc = Math.min(360, Math.max(1, s[2])); return new THREE.TorusGeometry(s[0], s[1], 8, Math.max(8, Math.round(arc / 8)), arc * DEG); },
   loft, wing, rod,
+  body: bodyShell,
   decal:    (s)    => new THREE.PlaneGeometry(s[0], s[1]).rotateX(-Math.PI / 2),
 };
 // Shapes whose size may be negative (rod: a direction) or is a scale (loft); the rest are clamped to > 0.
-export const SIGNED_SIZE = new Set(['rod', 'loft']);
+export const SIGNED_SIZE = new Set(['rod', 'loft', 'body']);
 // Shapes that bring their own texture coordinates (the rest get a projected carbon-weave mapping).
 export const OWN_UV = new Set(['decal']);
 

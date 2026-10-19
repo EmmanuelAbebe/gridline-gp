@@ -1,6 +1,6 @@
 // Development showroom: one car from six angles (npm run car-shot, or open /tools/showroom/ on the dev server).
 // ?driver=VOS picks the livery, ?brake=0 turns the brake lights off, ?part=name shows only parts whose name matches,
-// ?eye=back,height moves the cockpit camera, ?wheel=y sets the steering wheel height, ?cockpit=1 shows only the cockpit view.
+// ?eye=back,height moves the cockpit camera, ?cam=ex,ey,ez,ax,ay,az[,fov] one close-up view (eye, look-at), ?wheel=y sets the steering wheel height, ?cockpit=1 shows only the cockpit view.
 import * as THREE from 'three';
 import { SIM } from '../../src/sim/index.js';
 import { CarModels } from '../../src/game/car-models.js';
@@ -36,10 +36,11 @@ const views = [
   ['top', [0.2, 9, 0.01], [0.2, 0, 0]], ['front', [7, 0.8, 0], [0, 0.45, 0]], ['cockpit', [-eyeBack, eyeH, 0], [30, 0.8, 0]],
   ['driver (cockpit parts, from the side)', [0.2, 1.6, 3.2], [0.1, 0.5, 0]],
 ];
-const only = q.get('cockpit') ? views.filter(v => v[0].startsWith('cockpit') || v[0].startsWith('driver')) : views.slice(0, 6);
+const CAM = q.get('cam') ? q.get('cam').split(',').map(Number) : [];
+const only = CAM.length ? [['close-up', CAM.slice(0, 3), CAM.slice(3, 6)]] : q.get('cockpit') ? views.filter(v => v[0].startsWith('cockpit') || v[0].startsWith('driver')) : views.slice(0, 6);
 const cols = only.length > 2 ? 3 : only.length, W = innerWidth / cols, H = innerHeight / (only.length > 3 ? 2 : 1);
 only.forEach(([name, eye, at], i) => {
-  const cam = new THREE.PerspectiveCamera(name === 'cockpit' ? 56 : 32, W / H, name === 'cockpit' ? 0.12 : 0.1, 200);
+  const cam = new THREE.PerspectiveCamera(name === 'cockpit' ? 56 : name === 'close-up' ? (CAM[6] || 30) : 32, W / H, name === 'cockpit' ? 0.12 : 0.1, 200);
   model.useCockpitView(name === 'cockpit' || name.startsWith('driver')); pose();
   cam.position.set(...eye); cam.lookAt(...at);
   if (name === 'cockpit') { cam.near = cockpitCam.near; cam.fov = cockpitCam.fov; cam.updateProjectionMatrix(); cam.lookAt(-eyeBack + cockpitCam.ahead, cockpitCam.lookY, 0); }

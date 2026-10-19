@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { COLORS } from './config.js';
 import { SHAPES, SIGNED_SIZE, OWN_UV, tyreGeometry } from './car-shapes.js';
+import { BODY_ROLES } from './car-body.js';
 import { createDriverBody } from './driver-body.js';
 import { carbonTexture, tyreTexture, skyEnvironment, glowTexture, numberTexture } from './car-textures.js';
 
@@ -52,7 +53,7 @@ export const CarModels = (() => {
   // Texture coordinates: decals keep their own; everything else is projected along its face's main axis
   // (so the carbon weave has the same scale on every part).
   function mergeParts(parts, driver, origin = [0, 0, 0]) {
-    const out = FINISHES.map(() => ({ pos: [], nor: [], col: [], uv: [] })), c = new THREE.Color(), o = new THREE.Object3D();
+    const out = FINISHES.map(() => ({ pos: [], nor: [], col: [], uv: [] })), o = new THREE.Object3D();
     const a = new THREE.Vector3(), b = new THREE.Vector3(), n = new THREE.Vector3();
     for (const p of parts) {
       const size = p.size.map((v, i) => SIGNED_SIZE.has(p.shape) || (p.shape === 'torus' && i === 2) ? v : Math.max(0.001, Math.abs(v)));
@@ -62,10 +63,15 @@ export const CarModels = (() => {
       o.rotation.set(p.rot[0] * DEG, p.rot[1] * DEG, p.rot[2] * DEG); o.updateMatrix();
       g.applyMatrix4(o.matrix);
       const P = g.attributes.position.array, Nn = g.attributes.normal.array, U = g.attributes.uv && g.attributes.uv.array;
-      const dst = out[FINISHES.indexOf(finishOf(p))], keep = OWN_UV.has(p.shape) && U;
-      c.setHex(resolveColor(p.color, driver));
-      for (let i = 0; i < P.length; i++) { dst.pos.push(P[i]); dst.nor.push(Nn[i]); }
+      // per-face roles (car-body.js): 0 = this part's colour and finish, others = BODY_ROLES overrides
+      const R = g.attributes.role && g.attributes.role.array, looks = [p, ...BODY_ROLES.slice(1)].map(r => {
+        const q = r === p ? p : { ...r, finish: r.finish ?? p.finish, color: r.color };
+        return { dst: out[FINISHES.indexOf(finishOf(q))], col: new THREE.Color(resolveColor(q.color, driver)) };
+      });
+      const keep = OWN_UV.has(p.shape) && U;
       for (let t = 0; t < P.length; t += 9) {
+        const { dst, col } = looks[R ? R[t / 3] : 0];
+        for (let i = t; i < t + 9; i++) { dst.pos.push(P[i]); dst.nor.push(Nn[i]); }
         a.set(P[t+3] - P[t], P[t+4] - P[t+1], P[t+5] - P[t+2]); b.set(P[t+6] - P[t], P[t+7] - P[t+1], P[t+8] - P[t+2]);
         n.crossVectors(a, b); const ax = Math.abs(n.x), ay = Math.abs(n.y), az = Math.abs(n.z);
         for (let k = 0; k < 9; k += 3) {
@@ -74,7 +80,7 @@ export const CarModels = (() => {
           else if (ax >= ay && ax >= az) dst.uv.push(z * CARBON_UV, y * CARBON_UV);
           else if (ay >= az) dst.uv.push(x * CARBON_UV, z * CARBON_UV);
           else dst.uv.push(x * CARBON_UV, y * CARBON_UV);
-          dst.col.push(c.r, c.g, c.b);
+          dst.col.push(col.r, col.g, col.b);
         }
       }
       g.dispose();

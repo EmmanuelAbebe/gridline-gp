@@ -10,7 +10,7 @@ const mirrorZ = p => ({ ...p, name: p.name.replace(/R(\d?)$/, 'L$1'), pos: [p.po
 const withMirrors = parts => parts.flatMap(p => /R\d?$/.test(p.name) && !p.steer ? [p, mirrorZ(p)] : [p]);
 
 export const DESIGN_DEFAULTS = {
-  version: 5,
+  version: 6,
   // Camera modes, cycled with C / Y. back/side/height/ahead/lookY are metres relative to the car.
   // k = follow stiffness, rigid = no smoothing, cockpitBody = player car shows its cockpit-view parts.
   cameras: [
@@ -29,39 +29,28 @@ export const DESIGN_DEFAULTS = {
     // steer: part of the steering wheel: positioned relative to the wheel centre (steering.pivot), moves/tilts/scales with
     //   the wheel and turns with the steering input.  Omitted fields: rot [0,0,0], show always, steer false.
     parts: withMirrors([
-      // survival cell from the nose tip to the rear crash structure (rain light on its end)
-      { name: 'monocoque', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'body', show: 'outside', sections: [
-        [3.3, 0.25, 0.07, 0.05, 2.2], [3.0, 0.28, 0.11, 0.075, 2.4], [2.5, 0.34, 0.16, 0.11, 2.6], [2.0, 0.42, 0.21, 0.15, 2.8],
-        [1.5, 0.47, 0.26, 0.19, 3], [1.0, 0.5, 0.31, 0.22, 3.2], [0.6, 0.5, 0.36, 0.24, 3.4], [0.0, 0.45, 0.4, 0.2, 3.6],
-        [-0.4, 0.45, 0.4, 0.21, 3.6], [-0.8, 0.42, 0.34, 0.2, 3.2], [-1.3, 0.38, 0.25, 0.16, 3], [-1.9, 0.36, 0.15, 0.12, 2.6],
-        [-2.3, 0.38, 0.08, 0.08, 2.2]] },
-      // cockpit view: the same nose up to the front bulkhead, open sides around the driver
-      { name: 'monocoque (cockpit view)', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'body', show: 'cockpit', sections: [
-        [3.3, 0.25, 0.07, 0.05, 2.2], [3.0, 0.28, 0.11, 0.075, 2.4], [2.5, 0.34, 0.16, 0.11, 2.6], [2.0, 0.42, 0.21, 0.15, 2.8],
-        [1.5, 0.47, 0.26, 0.19, 3], [1.0, 0.5, 0.31, 0.22, 3.2], [0.6, 0.5, 0.36, 0.24, 3.4], [0.52, 0.5, 0.36, 0.24, 3.4]] },
-      { name: 'front bulkhead', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: '#0d0e10', finish: 'rubber', show: 'cockpit', sections: [
-        [0.521, 0.49, 0.33, 0.22, 3.4], [0.5, 0.49, 0.33, 0.22, 3.4]] },
-      { name: 'cockpit side R', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'body', show: 'cockpit', sections: [
-        [0.55, 0.52, 0.05, 0.2, 3, 0.31], [0.1, 0.5, 0.06, 0.2, 3, 0.33], [-0.45, 0.5, 0.06, 0.19, 3, 0.31]] },
-      { name: 'nose tip', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'accent', sections: [
-        [3.36, 0.248, 0.035, 0.022, 2], [3.32, 0.25, 0.06, 0.042, 2.2], [3.2, 0.26, 0.085, 0.058, 2.3], [3.05, 0.272, 0.103, 0.07, 2.4]] },
-      { name: 'cockpit opening', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', show: 'outside', sections: [
-        [0.52, 0.705, 0.17, 0.035, 3], [0.3, 0.68, 0.25, 0.035, 3], [-0.15, 0.665, 0.27, 0.035, 3], [-0.5, 0.67, 0.22, 0.035, 3]] },
-      { name: 'engine cover', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'body', sections: [
-        [-0.45, 0.62, 0.2, 0.28, 2.8], [-0.68, 0.64, 0.25, 0.3, 3], [-0.95, 0.62, 0.25, 0.27, 3], [-1.35, 0.56, 0.2, 0.21, 2.8],
-        [-1.85, 0.5, 0.12, 0.15, 2.4], [-2.2, 0.46, 0.05, 0.08, 2.2]] },
-      { name: 'airbox', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'body', sections: [
-        [-0.44, 0.98, 0.1, 0.17, 2.4], [-0.72, 0.96, 0.11, 0.16, 2.4], [-1.05, 0.86, 0.08, 0.12, 2.4], [-1.45, 0.74, 0.03, 0.06, 2.2]] },
-      { name: 'airbox inlet', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', sections: [
-        [-0.43, 1.03, 0.065, 0.075, 2.4], [-0.46, 1.03, 0.065, 0.075, 2.4]] },
+      // the body as one surface (car-body.js): survival cell + nose, sidepods, engine cover, airbox, with the cockpit
+      // opening, sidepod inlets and airbox intake cut into it; the nose tip ahead of accentFrom is the accent colour
+      { name: 'body', shape: 'body', size: [1, 1, 1], pos: [0, 0, 0], color: 'body', accentFrom: 3.05,
+        tub: [
+          [3.36, 0.248, 0.035, 0.022, 2], [3.32, 0.25, 0.06, 0.042, 2.2], [3.2, 0.26, 0.085, 0.058, 2.3], [3.0, 0.28, 0.11, 0.075, 2.4],
+          [2.5, 0.34, 0.16, 0.11, 2.6], [2.0, 0.42, 0.21, 0.15, 2.8], [1.5, 0.47, 0.26, 0.19, 3], [1.0, 0.5, 0.31, 0.22, 3.2],
+          [0.6, 0.5, 0.36, 0.24, 3.4], [0.0, 0.47, 0.4, 0.23, 3.6], [-0.4, 0.47, 0.4, 0.24, 3.6], [-0.8, 0.42, 0.34, 0.2, 3.2],
+          [-1.3, 0.38, 0.25, 0.16, 3], [-1.9, 0.36, 0.15, 0.12, 2.6], [-2.3, 0.38, 0.08, 0.08, 2.2]],
+        pods: [
+          [0.42, 0.475, 0.11, 0.12, 3.2, 0.525], [0.37, 0.47, 0.15, 0.155, 3.3, 0.54], [0.2, 0.47, 0.2, 0.17, 3.4, 0.55],
+          [-0.3, 0.45, 0.22, 0.18, 3.4, 0.55], [-0.8, 0.4, 0.18, 0.15, 3, 0.5], [-1.3, 0.32, 0.12, 0.1, 2.6, 0.42],
+          [-1.8, 0.27, 0.03, 0.03, 2.2, 0.16]],
+        cover: [
+          [-0.42, 0.62, 0.2, 0.28, 2.8], [-0.68, 0.64, 0.25, 0.3, 3], [-0.95, 0.62, 0.25, 0.27, 3], [-1.35, 0.56, 0.2, 0.21, 2.8],
+          [-1.85, 0.5, 0.12, 0.15, 2.4], [-2.25, 0.41, 0.04, 0.05, 2.2]],
+        airbox: [
+          [-0.44, 1.0, 0.07, 0.085, 2.4], [-0.48, 0.98, 0.1, 0.17, 2.4], [-0.72, 0.96, 0.11, 0.16, 2.4], [-1.05, 0.86, 0.08, 0.12, 2.4],
+          [-1.5, 0.68, 0.03, 0.05, 2.2]],
+        cockpit: { from: 0.52, to: -0.42, floor: 0.28, side: 35 } },
       { name: 'shark fin', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'body', sections: [
         [-0.95, 0.95, 0.008, 0.06, 6], [-1.3, 0.86, 0.01, 0.1, 6], [-1.7, 0.78, 0.01, 0.12, 6], [-1.98, 0.72, 0.008, 0.1, 6]] },
       { name: 'camera pod', shape: 'rounded', size: [0.16, 0.05, 0.11], radius: 0.02, pos: [-0.62, 1.16, 0], color: 'accent' },
-      { name: 'sidepod R', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'body', sections: [
-        [0.42, 0.47, 0.13, 0.14, 3.2, 0.52], [0.2, 0.47, 0.2, 0.17, 3.4, 0.55], [-0.3, 0.45, 0.22, 0.18, 3.4, 0.55],
-        [-0.8, 0.4, 0.18, 0.15, 3, 0.5], [-1.3, 0.32, 0.12, 0.1, 2.6, 0.42], [-1.75, 0.25, 0.05, 0.05, 2.2, 0.3]] },
-      { name: 'sidepod inlet R', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', sections: [
-        [0.43, 0.475, 0.105, 0.11, 3.2, 0.525], [0.4, 0.475, 0.105, 0.11, 3.2, 0.525]] },
       { name: 'floor', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', sections: [
         [1.35, 0.075, 0.26, 0.018, 8], [0.85, 0.075, 0.6, 0.018, 10], [0.2, 0.075, 0.8, 0.018, 10], [-0.75, 0.075, 0.78, 0.018, 10],
         [-1.15, 0.075, 0.6, 0.018, 10], [-1.6, 0.08, 0.56, 0.018, 10], [-1.95, 0.09, 0.52, 0.018, 8]] },

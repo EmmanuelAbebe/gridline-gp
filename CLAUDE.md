@@ -277,6 +277,20 @@ Tunables live in data tables (config modules), not inline in the logic.
      (lakes, rocks)). Returns `applyProfile`, `setStartLights`. `npx electron desktop/main.cjs --track-shots=dir`
      renders every circuit from an aerial, the pits and braking into / beside the slowest corners
      (`window.gridlineDebug.view/corners`).
+   - One-piece body (2026-10-19; user saw visual glitches on the car: the body was ~14 separate lofts pushed into each
+     other, nearly touching surfaces z-fought and the joins were jagged): design shape `body` (`car-body.js`, part
+     `body` in design-defaults) = survival cell + nose (`tub`), sidepods (`pods`, mirrored, each with an automatic
+     fairing to the tub), engine cover, airbox as ONE watertight skin with a real recessed cockpit (`cockpit` {from, to,
+     floor, side}: rounded opening, padded lip, body-colour side walls, dark floor/bulkhead), sidepod inlets and the
+     airbox intake = dark forward faces at sharp steps, nose tip in the accent (`accentFrom`). Per station: union of
+     superellipses on rays from the cell's centre line (smooth max), dense + refined, resampled, Taubin-smoothed
+     (fillets), vertices spaced by length + curvature (`BEND`; without it the cover/airbox crease sawtoothed), stations
+     next to a step take the neighbour's directions; creased normals (55°); face `role` attribute → mergeParts colour/
+     finish (`BODY_ROLES`). Cached per design (~0.4 s to build in Node), ~31k triangles. Design v6 migrates saves
+     (replaces the old body parts by name, keeps the rest). Components should end inside the body, not on top of it
+     (an abrupt end = spikes). Proportions checked against the 2026 rules (wheelbase ≤ 3.4 m, cockpit ~0.52 m wide).
+     Tests: tests/car-body.test.js (watertight, roles, open cockpit, migration). Showroom `?cam=ex,ey,ez,ax,ay,az,fov`
+     = one close-up (`npm run car-shot -- out.png "cam=...&part=body"`).
    - `CarModels` (`car-models.js`; shapes in `car-shapes.js`, canvas textures in `car-textures.js`): F1-style body
      from design parts merged per car into one mesh with a geometry group per finish (paint = clearcoat + sky cube
      reflection, carbon = twill weave texture, rubber, metal, light, decal); shapes include `loft` (smooth body
@@ -301,10 +315,10 @@ Tunables live in data tables (config modules), not inline in the logic.
      `car.screen` are positioned relative to the wheel centre; `car.steering` = { pivot (centre in car space),
      rot [x,y,z]°, scale [x,y,z], lock° }. Model: root → mount (pivot/rot/scale) → steering mesh (turns with
      input) → screen (always fixed to the wheel). Panel shows wheel width/height in metres via
-     `CarModels.measure` (natural size × scale). Design format v5; `migrate()` converts v1 (car-space steer
+     `CarModels.measure` (natural size × scale). Design format v6; `migrate()` converts v1 (car-space steer
      parts), v2 (tilt/uniform scale/screen.steer) and v3/v4 (body parts and wheels replaced by the new defaults, the
      player's steering-wheel parts and settings kept; an untouched wheel x 0.45 moves to 0.18). Parts named "… R" get a mirrored "… L" twin (`withMirrors`).
-     Shapes: box, rounded (extruded rounded rectangle, `radius`), sphere, cylinder, torus, loft, wing, rod, decal; optional `finish`.
+     Shapes: box, rounded (extruded rounded rectangle, `radius`), sphere, cylinder, torus, loft, wing, rod, decal, body; optional `finish`.
    - `WheelScreen`: canvas texture on the player's steering wheel (top rev lights, middle speed, bottom gear),
      placed by `car.screen` (pos/rot relative to the wheel, size in metres, show), redrawn ≤ 30 Hz only when visible and values change.
      Key handling ignores keystrokes while a tool input has focus.

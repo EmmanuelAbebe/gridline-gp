@@ -45,6 +45,14 @@ export const Design = (() => {
       const st = s.car.steering;
       if (isObj(st) && Array.isArray(st.pivot) && Math.abs(st.pivot[0] - 0.45) < 1e-6) st.pivot[0] = DESIGN_DEFAULTS.car.steering.pivot[0];
     }
+    if (v < 6 && isObj(s.car) && Array.isArray(s.car.parts)) {
+      // v6: the separate body shapes (tub, nose tip, cockpit pieces, engine cover, airbox, sidepods + inlets) became one
+      // surface (shape 'body'); the player's other parts are kept
+      const merged = /^(monocoque|monocoque \(cockpit view\)|front bulkhead|cockpit side [RL]|nose tip|cockpit opening|engine cover|airbox|airbox inlet|sidepod [RL]|sidepod inlet [RL])$/;
+      const keep = s.car.parts.filter(p => !(isObj(p) && merged.test(p.name)));
+      if (!keep.some(p => isObj(p) && p.shape === 'body')) keep.unshift(clone(DESIGN_DEFAULTS.car.parts.find(p => p.shape === 'body')));
+      s.car.parts = keep;
+    }
     s.version = DESIGN_DEFAULTS.version;
     return s;
   }
