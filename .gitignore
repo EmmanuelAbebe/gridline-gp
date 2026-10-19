@@ -4,3 +4,5 @@ dist/
 # pre-git safety copies from the first refactor; git history replaces them
 backup/
 sound-check/
+# design tool export (local, per-player)
+gridline-design.json
