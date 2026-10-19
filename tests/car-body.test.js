@@ -42,7 +42,22 @@ test('design v5 saves: the separate body shapes become the one-piece body, other
   const mine = { name: 'my winglet', shape: 'box', size: [0.1, 0.1, 0.1], pos: [1, 0.5, 0], color: 'accent' };
   Design.replace({ version: 5, car: { parts: [...old, mine, { name: 'shark fin', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'body' }] } });
   const names = Design.data.car.parts.map(p => p.name);
-  assert.deepEqual(names, ['body', 'my winglet', 'shark fin']);
-  assert.equal(Design.data.car.parts[0].shape, 'body');
+  assert.equal(names.filter(n => n === 'body').length, 1, 'one body');
+  assert.ok(names.includes('my winglet'), 'own part kept');
+  assert.equal(names.filter(n => n === 'shark fin').length, 1, 'no duplicates');
+  for (const o of old) if (o.name !== 'body') assert.ok(!names.includes(o.name), `${o.name} gone`);
+  assert.equal(Design.data.car.parts.find(p => p.name === 'body').shape, 'body');
+  Design.reset();
+});
+
+test('design v6 saves: the new rear and moving wings replace the default parts, own parts and the steering wheel stay', () => {
+  const v6 = [{ name: 'diffuser', shape: 'box' }, { name: 'wing pylon', shape: 'rounded' }, { name: 'rear wing flap', shape: 'wing', rot: [0, 0, -40] },
+    { name: 'my camera', shape: 'box', size: [0.1, 0.1, 0.1], pos: [0, 1.2, 0] }, { name: 'wheel body', shape: 'rounded', steer: true, size: [0.05, 0.2, 0.3] }];
+  Design.replace({ version: 6, car: { parts: v6 } });
+  const parts = Design.data.car.parts, names = parts.map(p => p.name);
+  assert.ok(!names.includes('diffuser') && !names.includes('wing pylon'), 'old rear parts gone');
+  assert.equal(parts.find(p => p.name === 'rear wing flap').open, 24, 'the flap moves');
+  assert.ok(names.includes('my camera'));
+  assert.deepEqual(parts.filter(p => p.steer).map(p => p.name), ['wheel body'], 'the player\'s steering wheel kept');
   Design.reset();
 });

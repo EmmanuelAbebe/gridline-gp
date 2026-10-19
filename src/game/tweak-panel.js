@@ -97,6 +97,7 @@ export const TweakPanel = (() => {
         p.shape === 'rounded' && num('Corner radius', p, 'radius', [0, 0.5, 0.001], ch),
         p.shape === 'rod' && num('Rod radius', p, 'radius', [0.002, 0.2, 0.001], ch),
         p.shape === 'wing' && num('Camber', Object.assign(p, { camber: p.camber ?? 0.05 }), 'camber', [0, 0.2, 0.005], ch),
+        !p.steer && num('Opens ° (straight mode)', Object.assign(p, { open: p.open ?? 0 }), 'open', [-60, 60, 1], ch),
         ...(p.steer
           ? vec3('Position (m from wheel centre)', p, 'pos', [[-0.5, 0.5, 0.0005], [-0.5, 0.5, 0.0005], [-0.5, 0.5, 0.0005]], ch)
           : vec3('Position (m) · x forward, y up, z right', p, 'pos', [[-4, 4, 0.005], [-1, 3, 0.005], [-2, 2, 0.005]], ch)),

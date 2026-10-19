@@ -42,6 +42,11 @@ export const EVENT_MESSAGES = {
   [EV.FUEL_OUT]: () => ({ radio: 'We are out of fuel: limp mode. Bring it into the pits.', secs: 6 }),
   [EV.TYRES_WORN]: () => ({ radio: 'The tyres are going off. Box for fresh ones when you are ready.', secs: 5 }),
   [EV.DAMAGE]: e => ({ radio: DAMAGE[e.part], secs: 5 }),
+  // overtake mode (active-aero.js)
+  [EV.BOOST_READY]: (e, c) => ({ radio: `${e.gap.toFixed(1)} s to the car ahead: overtake mode this lap.`
+    + (c.boostAuto ? ' It deploys on the straights.' : ' Press X / pad View when you want it.'), secs: 4 }),
+  [EV.BOOST]: (e, c) => c.boostAuto ? null : e.on ? { toast: `Overtake mode ON  ·  ${e.left.toFixed(1)} s`, secs: 1.5 }
+    : e.left > 0.05 ? { toast: `Overtake mode off  ·  ${e.left.toFixed(1)} s left`, secs: 1.5 } : { toast: 'Overtake mode used up', secs: 1.5 },
 };
 export const messageFor = (e, c, race) => EVENT_MESSAGES[e.type]?.(e, c, race) ?? null;
 
@@ -53,4 +58,6 @@ export const SAY = {
   autoShift: { toast: 'Automatic gearbox: pick SEMI-AUTO or MANUAL in Settings (O) to shift yourself' },
   downQueued: { toast: 'Too fast for that gear: the downshift goes in as you slow down' },
   noHud: { toast: 'Start a race to arrange the HUD' },
+  boostNone: { toast: 'No overtake mode this lap: cross the line within 1 s of the car ahead' },
+  boostAuto: { toast: 'Overtake mode is on AUTO: pick BUTTON in Settings → Driving to fire it yourself' },
 };

@@ -33,7 +33,7 @@ import { SoundStudio } from './sound-studio.js';
 import { createSlipstreamFx } from './slipstream-fx.js';
 import { createRaceAudio } from './race-audio.js';
 import { poseOf, savePoses, interpolatePoses } from './pose.js';
-import { loadSetup, loadPrefs, steerRate, raceFormat, raceWear, buildField, playerSlotOf, assistsOf, setupSummary } from './setup-store.js';
+import { loadSetup, loadPrefs, steerRate, raceFormat, raceWear, raceAero, buildField, playerSlotOf, assistsOf, setupSummary } from './setup-store.js';
 import { messageFor, SAY } from './race-messages.js';
 import { bindSettings } from './settings-binding.js';
 import { installDebug } from './debug.js';
@@ -95,14 +95,15 @@ function setStartLights(n) { Hud.setStartLamps(n); world.setStartLights(n); }
 function newRace() {
   timers.clear();
   const s = game.setup, field = buildField(s.cars).map(d => d.player ? playerDriver(game.garage) : d);   // your livery in the tower, map, results
-  const race = SIM.createRace(raceFormat(s), { track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, wear: raceWear(s) });
+  const race = SIM.createRace(raceFormat(s), { track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, wear: raceWear(s), ...raceAero(s) });
   for (const [code, m] of modelOf) m.setVisible(field.some(d => d.code === code));
   const L = CONFIG.lights;
   const player = race.cars.find(c => c.player);
   setGearbox(player, game.setup.gearbox);
   player.assists = assistsOf(game.setup);
   player.spec = playerSpec(game.garage);             // the garage's setup + open mods (the rivals race SIM.STOCK)
-  Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, autoShiftHinted: false, queueHinted: false,
+  player.boostAuto = s.overtake === 'auto';
+  Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, pendingBoost: false, autoShiftHinted: false, queueHinted: false,
     resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
     lights: { t: 0, lit: 0, hold: L.holdMin + Math.random() * L.holdRand } });
   setStartLights(0); Hud.showLights(true); Hud.setLapTimes(0, 0); raceAudio.reset();
@@ -194,7 +195,7 @@ function simStep(dt) {
   if (game.phase === PHASE.LIGHTS) { stepStartLights(dt); return; }
   race.t += dt;
   for (const c of race.cars) {
-    if (c.player && !c.finished) { SIM.drivePlayer(race, c, { ...Input.drive, steerRate: game.steerRate, calm: game.prefs.calm / 100, shift: game.pendingShift }, dt); game.pendingShift = 0; }
+    if (c.player && !c.finished) { SIM.drivePlayer(race, c, { ...Input.drive, steerRate: game.steerRate, calm: game.prefs.calm / 100, shift: game.pendingShift, boost: game.pendingBoost }, dt); game.pendingShift = 0; game.pendingBoost = false; }
     else SIM.driveAI(race, c, dt, c.finished ? CONFIG.finishedAiSkill : 0);
   }
   SIM.collide(race);
@@ -253,6 +254,7 @@ function setDriving(key, value) {
   if (game.player) {                         // takes effect at once, also mid-race
     if (key === 'gearbox') setGearbox(game.player, value);
     if (key === 'assists' || key.startsWith('a.')) game.player.assists = assistsOf(game.setup);
+    if (key === 'overtake') game.player.boostAuto = value === 'auto';
   }
 }
 const settings = bindSettings(game, { setGfx, setPref, setDriving, togglePause, toggleLayout });
@@ -286,7 +288,7 @@ const ACTIONS = { camera: cycleCamera, mute: toggleMute, pause: escape, fps: () 
   settings: () => settings.toggle(),
   tweak: () => TweakPanel.toggle(), layout: toggleLayout, fullscreen: () => AppShell.toggleFullscreen(),
   inputs: () => InputMonitor.toggle(),
-  shiftUp: () => shift(+1), shiftDown: () => shift(-1), box: requestBox,
+  shiftUp: () => shift(+1), shiftDown: () => shift(-1), box: requestBox, boost: requestBoost,
   // phone buttons 1 / 2 (pad A / B): shift down / up while racing, confirm / resume in menus
   primary: () => racing() ? shift(-1) : confirm(),
   secondary: () => racing() ? shift(+1) : SettingsScreen.open ? SettingsScreen.close() : game.paused ? togglePause() : null };
@@ -299,6 +301,14 @@ function requestBox() {
   showMessage(p.pitRequest ? SAY.boxOn : SAY.boxOff);
 }
 $('boxBtn').onclick = requestBox;
+// overtake mode (X, pad View, the HUD button) when set to BUTTON: on / off while it is available this lap
+function requestBoost() {
+  const p = game.player;
+  if (!racing() || !p || p.finished || !game.race.overtake) return;
+  if (p.boostAuto) { showMessage(SAY.boostAuto); return; }
+  if (p.boostLeft > 0) game.pendingBoost = true; else showMessage(SAY.boostNone);
+}
+$('boostBtn').onclick = requestBoost;
 Input.on('gesture', Sound.init);
 Input.on('padchange', (on, label) => { Hud.setPad(on, Input.gamepadAllowed); if (on && game.phase !== PHASE.MENU) showMessage({ toast: `${label} connected` }); });
 
@@ -419,7 +429,7 @@ function setTrack(id) {
 }
 
 // ---- boot ----
-installDebug(setTrack, () => track);
+installDebug(setTrack, () => track, () => game.player);
 setTrack(game.setup.track);
 { const saved = Settings.get(CONFIG.storageKeys.gfx);
   setGfx(Object.hasOwn(GFX_PROFILES, saved || '') ? saved : (Display.gpu.weak ? 'perf' : 'quality'), false); }

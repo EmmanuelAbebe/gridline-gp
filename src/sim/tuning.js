@@ -213,6 +213,22 @@ export const SLIP = Object.freeze({
   minSpeed: 40,       // full wake from this speed (m/s); weaker below
 });
 
+// Active aero (active-aero.js; race option `activeAero`), as on the 2026 cars: in straight-mode zones (worked out per
+// circuit from the racing line: flat out, no corner a car with open wings couldn't take at top speed, not braking for
+// `closeAhead` m) the front and rear wing flaps open (straight mode: less drag and downforce) on full throttle with
+// the wheel near straight; braking, lifting, turning or the end of the zone closes them (corner mode).
+export const ACTIVE_AERO = Object.freeze({
+  dragCut: 0.24,        // share of the drag gone with the wings fully open
+  downforceCut: 0.36,   // share of the downforce gone (the floor keeps the rest)
+  openTime: 0.35, closeTime: 0.18,   // s for the flaps to open / close fully
+  thr: 0.85, steer: 0.3, minSpeed: 30,   // open only above this throttle, below this steering, above this speed (m/s)
+  zone: Object.freeze({ minLength: 180, closeAhead: 45, look: 90 }),   // m: shortest zone; close this far before
+                        // braking; corners checked this far ahead
+});
+// Overtake mode: crossing the line within `gap` s of the car ahead gives `seconds` of extra electrical power
+// (`power` share more drive) for that lap; the player switches it on (BOOST), the AI uses it on straights when close.
+export const OVERTAKE = Object.freeze({ gap: 1.0, seconds: 5, power: 0.14, fromLap: 2 });
+
 // kerbs where |curvature| > kerbK; runoff = the default barrier distance past the road edge (the layout varies it)
 // samples: fixed count, or (when absent) one sample every `ds` metres; Elkmoor fixes 1200 (≈ 2.06 m)
 export const TRACK_DEFAULTS = Object.freeze({ ds: 2.06, halfWidth: 7.5, kerb: 1.4, runoff: 14, kerbK: 0.0025, style: 'permanent' });
@@ -276,4 +292,5 @@ export const EV = Object.freeze({ LAP: 'lap', FASTEST: 'fastest', FINISH: 'finis
   SHIFT: 'shift', SHIFT_DENIED: 'shift-denied', CUT: 'cut', PENALTY: 'penalty',
   SAUSAGE: 'sausage', BEACHED: 'beached', RECOVERED: 'recovered',
   PIT_IN: 'pit-in', PIT_STOP: 'pit-stop', PIT_GO: 'pit-go', PIT_OUT: 'pit-out', DAMAGE: 'damage',
-  FUEL_LOW: 'fuel-low', FUEL_BOX: 'fuel-box', FUEL_OUT: 'fuel-out', TYRES_WORN: 'tyres-worn' });
+  FUEL_LOW: 'fuel-low', FUEL_BOX: 'fuel-box', FUEL_OUT: 'fuel-out', TYRES_WORN: 'tyres-worn',
+  BOOST_READY: 'boost-ready', BOOST: 'boost' });

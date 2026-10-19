@@ -22,6 +22,7 @@ const KEYS = `<div class="keys">
   <span><kbd>↓</kbd> <kbd>S</kbd></span><span>Brake / reverse</span>
   <span><kbd>←</kbd><kbd>→</kbd> <kbd>A</kbd><kbd>D</kbd></span><span>Steer (eased in, so a tap is not full lock)</span>
   <span><kbd>Q</kbd> <kbd>E</kbd></span><span>Shift down / up (semi-auto and manual gearbox)</span>
+  <span><kbd>B</kbd> <kbd>X</kbd></span><span>Box this lap, overtake mode (when set to BUTTON)</span>
   <span><kbd>C</kbd></span><span>Camera</span>
   <span><kbd>P</kbd> <kbd>Esc</kbd></span><span>Pause</span>
   <span><kbd>O</kbd></span><span>Settings</span>
@@ -29,7 +30,7 @@ const KEYS = `<div class="keys">
   <span><kbd>T</kbd> <kbd>L</kbd> <kbd>I</kbd></span><span>Design tools, HUD layout, input monitor</span>
 </div>
 <p class="note">Controller: right trigger gas, left trigger brake, LB / RB or A / B (phone buttons 1 / 2) shift down / up
-while racing, A confirms in menus, START pauses, Y changes camera.</p>`;
+while racing, A confirms in menus, START pauses, Y changes camera, X boxes, View (Back) switches overtake mode on.</p>`;
 
 const TABS = [
   { id: 'driving', label: 'Driving', items: [
@@ -53,6 +54,14 @@ const TABS = [
     seg('damage', 'Damage', C.damage, v => v === 'on'
       ? 'Hits break the front wing (understeer), the floor (less downforce) or the suspension (the car pulls). Repaired in the pits.'
       : 'Hits never damage the car.'),
+    // active aero and overtake mode (applies from the next race; the overtake trigger at once)
+    seg('aero', 'Active aero', C.aero, v => v === 'on'
+      ? 'Every car opens its wing flaps on the straights (straight mode: less drag, about 350 km/h) and closes them to brake and turn (corner mode). The zones are marked on the minimap.'
+      : 'Wings stay in corner mode: about 330 km/h.'),
+    seg('overtake', 'Overtake mode', C.overtake, v => ({
+      auto: 'Within 1 s of the car ahead at the line: 5 s of extra power that lap, used for you on the straights when you are close.',
+      button: 'Within 1 s of the car ahead at the line: 5 s of extra power that lap. Switch it on with X, pad View or the BOOST button.',
+      off: 'No overtake boost for anyone.' })[v], b => b.get('aero') === 'on'),
   ] },
   { id: 'controller', label: 'Controller', items: [
     panel(createControllerPanel),

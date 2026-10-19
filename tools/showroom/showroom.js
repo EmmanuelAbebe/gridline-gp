@@ -1,6 +1,6 @@
 // Development showroom: one car from six angles (npm run car-shot, or open /tools/showroom/ on the dev server).
 // ?driver=VOS picks the livery, ?brake=0 turns the brake lights off, ?part=name shows only parts whose name matches,
-// ?eye=back,height moves the cockpit camera, ?cam=ex,ey,ez,ax,ay,az[,fov] one close-up view (eye, look-at), ?wheel=y sets the steering wheel height, ?cockpit=1 shows only the cockpit view.
+// ?eye=back,height moves the cockpit camera, ?aero=1 opens the wings (straight mode), ?cam=ex,ey,ez,ax,ay,az[,fov] one close-up view (eye, look-at), ?wheel=y sets the steering wheel height, ?cockpit=1 shows only the cockpit view.
 import * as THREE from 'three';
 import { SIM } from '../../src/sim/index.js';
 import { CarModels } from '../../src/game/car-models.js';
@@ -27,7 +27,8 @@ const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60).rotateX(-Math.PI /
 scene.add(ground);
 const model = CarModels.create(scene, driver, design);
 const brake = q.get('brake') === '0' ? 0 : 1, steer = q.get('steer') ? +q.get('steer') : 0.25;
-const pose = () => { model.setPedals(1 - brake, brake); for (let i = 0; i < 30; i++) model.sync({ roll: 0.6, steer, brake }, { x: 0, z: 0, h: 0 }, 1 / 30); };
+const aeroOpen = q.get('aero') ? +q.get('aero') : 0;   // ?aero=1: wings in straight mode
+const pose = () => { model.setPedals(1 - brake, brake); for (let i = 0; i < 30; i++) model.sync({ roll: 0.6, steer, brake, aeroOpen }, { x: 0, z: 0, h: 0 }, 1 / 30); };
 pose();
 
 // car space: +x forward, +z right; the car sits at the origin facing +x

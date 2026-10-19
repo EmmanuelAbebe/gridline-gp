@@ -2,7 +2,7 @@
 // One model for every car, with the car's own numbers from its spec (spec.js: STOCK for the AI, the garage setup for
 // the player; every function takes it, default STOCK); the tyres and chassis are in chassis.js, the drivers in driving.js.
 // Everything is per unit mass (m/s²) so it reads as accelerations.
-import { TUNING, CAR, CHASSIS, SLIP, EV } from './tuning.js';
+import { TUNING, CAR, CHASSIS, SLIP, EV, ACTIVE_AERO, OVERTAKE } from './tuning.js';
 import { clamp } from './math.js';
 import { emit } from './events.js';
 import { STOCK } from './spec.js';
@@ -10,7 +10,7 @@ import { STOCK } from './spec.js';
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
 
-const G = 9.81, TAU = 2 * Math.PI;
+export const G = 9.81; const TAU = 2 * Math.PI;
 const { aero, engine, gearbox } = CAR;
 const R_WHEEL = TUNING.WHEEL_RADIUS;
 export const DOWNFORCE_K = STOCK.dfK;   // stock downforce / mass = K·v²
@@ -139,13 +139,15 @@ export function slipstream(race, c, progressOf) {
 /** @param {Car} c */
 export function drivetrain(c, { thr, brk, shift = 0 }, dt) {
   updateGear(c, thr, brk, shift, dt);
-  const v = c.v, dragK = c.spec.dragK * (1 - SLIP.drag * (c.slip || 0));
+  // drag: less in a slipstream and with the wings open (active-aero.js; aeroOpen 0 multiplies by exactly 1)
+  const v = c.v, dragK = c.spec.dragK * (1 - SLIP.drag * (c.slip || 0)) * (1 - ACTIVE_AERO.dragCut * c.aeroOpen);
   let resist = dragK * v * Math.abs(v) + Math.sign(v) * aero.rolling;
   if (c.gear === -1) { c.rpm = engine.idle + brk * 3000; c.drive = 0; return { drive: 0, resist, reverse: true }; }
   const rpm = engineRpm(v, c.gear, thr, c.spec);
   c.rpm = rpm;
   let drive = driveAccel(rpm, c.gear, c.spec) * thr;
   if (c.shiftT > 0) drive *= gearbox.shiftCut;
+  if (c.boostOn) drive *= 1 + OVERTAKE.power;       // overtake mode: extra electrical power
   if (thr < 0.05 && v > 0.5) resist += engine.engineBrake * Math.min(1, rpm / engine.redline);
   c.drive = drive;
   return { drive, resist, reverse: false };

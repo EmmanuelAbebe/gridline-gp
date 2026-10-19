@@ -18,7 +18,7 @@ export function balanceAt(s, v) {
 
 /** @param {Spec} s */
 export function specStats(s) {
-  const c = { spec: s, v: 0, gear: 1, rpm: 0, shiftT: 0, autoShift: true, autoDown: false, downQueue: 0, slip: 0, drive: 0,
+  const c = { spec: s, v: 0, gear: 1, rpm: 0, shiftT: 0, autoShift: true, autoDown: false, downQueue: 0, slip: 0, drive: 0, aeroOpen: 0, boostOn: false,
     assists: ASSISTS.medium, events: [] };
   let v = 0, t = 0, t100 = null, t200 = null, top = 0, steady = 0;
   while (t < 60 && steady < 2) {

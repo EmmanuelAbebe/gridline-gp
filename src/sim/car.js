@@ -40,6 +40,9 @@ export function createCar(track, driver, slot, rng) {
     spec: STOCK,
     // drivetrain (vehicle.js): gear 1..8, -1 = reverse; autoShift = automatic gearbox; downQueue = manual downshifts waiting for the revs; slip = slipstream 0..1
     gear: 1, rpm: 0, shiftT: 0, autoShift: true, autoDown: false, downQueue: 0, drive: 0, slip: 0, slipBy: null,
+    // active aero (active-aero.js): wings open 0..1 (straight mode); overtake mode: seconds left this lap, on, lap detected
+    // boostAuto: a player car using overtake mode the way the AI does (the game's AUTO setting)
+    aeroOpen: 0, boostLeft: 0, boostOn: false, boostLap: 0, boostAuto: false,
     // chassis (chassis.js): lateral speed (m/s, + = right), yaw rate (rad/s), last longitudinal accel,
     // how saturated each axle is (0..1), lock-up / wheel spin flags; assists (ASSISTS levels, set by createRace / the game)
     vy: 0, yawRate: 0, ax: 0, slideF: 0, slideR: 0, lockF: false, spinR: false, assists: null,

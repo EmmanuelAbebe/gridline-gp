@@ -125,6 +125,8 @@ export const CarModels = (() => {
     const shadow = new THREE.Mesh(SHADOW_GEO, SHADOW_MAT); shadow.position.y = 0.04; shadow.renderOrder = 1;
     root.add(body, mount, shadow); scene.add(root);
     let geo = null, wheelGeos = [], pivots = [], wheels = [], fronts = [], glows = [], cockpitView = false, lock = 0, lit = 0;
+    // active-aero parts (design `open`: degrees they turn in straight mode): one small mesh each, turned by car.aeroOpen
+    let movers = [];
     let driverBody = null, grips = [], pedals = [0, 0];
     const hands = [new THREE.Vector3(), new THREE.Vector3()];
 
@@ -134,6 +136,7 @@ export const CarModels = (() => {
       for (const s of glows) s.visible = !cockpitView && lit > 0.02;
       if (cockpitView && !driverBody) { driverBody = createDriverBody(driver); root.add(driverBody.group); }
       if (driverBody) driverBody.group.visible = cockpitView;
+      for (const m of movers) m.mesh.visible = m.show === 'always' || m.show === (cockpitView ? 'cockpit' : 'outside');
       if (screen) screen.visible = screenSpec.show === 'always' || screenSpec.show === (cockpitView ? 'cockpit' : 'outside');
     }
     // Optional live screen (player car only), fixed to the steering wheel: moves, tilts, scales and turns with it.
@@ -153,8 +156,15 @@ export const CarModels = (() => {
       if (geo) for (const g of Object.values(geo)) g.dispose();
       for (const g of wheelGeos) g.dispose();
       for (const p of pivots) root.remove(p);
+      for (const m of movers) { root.remove(m.mesh); m.mesh.geometry.dispose(); }
       for (const s of glows) root.remove(s);
-      const pick = (steer, view) => parts.filter(p => !!p.steer === steer && (p.show === 'always' || p.show === view));
+      const moves = p => !p.steer && p.show !== 'off' && +p.open;
+      const pick = (steer, view) => parts.filter(p => !!p.steer === steer && !moves(p) && (p.show === 'always' || p.show === view));
+      movers = parts.filter(moves).map(p => {
+        const mesh = new THREE.Mesh(mergeParts([p], driver, p.pos), matList());
+        mesh.position.set(p.pos[0], p.pos[1], p.pos[2]); root.add(mesh);
+        return { mesh, open: +p.open * DEG, show: p.show };
+      });
       geo = {
         outside: mergeParts(pick(false, 'outside'), driver), cockpit: mergeParts(pick(false, 'cockpit'), driver),
         steerOutside: mergeParts(pick(true, 'outside'), driver), steerCockpit: mergeParts(pick(true, 'cockpit'), driver),
@@ -198,6 +208,7 @@ export const CarModels = (() => {
       },
       setMaterials(set) {
         mats = set; body.material = matList(); steering.material = matList();
+        for (const m of movers) m.mesh.material = matList();
         for (const w of wheels) for (const m of w.children) m.material = m.userData.tyre ? set.tyre : matList();
       },
       useCockpitView(on) { if (on !== cockpitView) { cockpitView = on; showView(); } },
@@ -211,6 +222,7 @@ export const CarModels = (() => {
         this.place(pose.x, pose.z, pose.h);
         for (const w of wheels) w.rotation.z = -car.roll;
         for (const p of fronts) p.rotation.y = -car.steer * FRONT_STEER;
+        for (const m of movers) m.mesh.rotation.z = m.open * (car.aeroOpen || 0);   // straight mode: the flaps flatten
         steering.rotation.x = car.steer * lock;          // + steer (right) turns the wheel clockwise from the driver's seat
         const want = car.brake > 0.05 ? Math.min(1, 0.6 + car.brake) : 0;
         lit += (want - lit) * Math.min(1, dt * (want > lit ? 30 : 12));

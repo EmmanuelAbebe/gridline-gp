@@ -24,6 +24,13 @@
 #slipTag.on{opacity:1}
 #dirtTag{position:absolute;left:0;bottom:calc(100% + 6px);padding:4px 9px;border-radius:var(--radius);background:var(--panel);border:1px solid rgba(214,170,96,.6);font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.12em;color:#e6c487;opacity:0;transition:opacity .4s;pointer-events:none}
 #dirtTag.on{opacity:1}
+/* active aero: straight mode (wings open) and overtake mode, a row above the slipstream / dirt chips */
+#aeroTags{position:absolute;left:0;right:0;bottom:calc(100% + 38px);display:flex;justify-content:flex-end;gap:6px;pointer-events:none}
+#aeroTags span{padding:4px 9px;border-radius:var(--radius);background:var(--panel);font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.12em;opacity:0;transition:opacity .2s}
+#aeroTag{border:1px solid rgba(80,230,140,.6);color:#7ff0b0}
+#boostTag{border:1px solid rgba(190,120,255,.6);color:#d4b0ff}
+#boostTag.live{background:#a46bff;color:#120a1c}
+#aeroTags span.on{opacity:1}
 #slipTag i{width:54px;height:5px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
 #slipTag u{display:block;height:100%;width:100%;background:#dff4ff;transform-origin:0 50%;transform:scaleX(0);will-change:transform}
 #speedo{padding:10px 14px 10px;display:grid;grid-template-columns:auto auto;gap:4px 18px;align-items:end;min-width:200px}
@@ -68,6 +75,7 @@
 #pitState{margin-top:6px;padding:3px 8px;border-radius:var(--radius);font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.12em;text-align:center;background:rgba(255,194,26,.16);color:#ffc21a}
 #pitState.limiter{background:rgba(41,211,255,.16);color:#7fe3ff}
 #boxBtn.on{background:#ffc21a;color:#111}
+#boostBtn.on{background:#a46bff;color:#120a1c}
 #radio{position:fixed;top:calc(58px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);max-width:min(560px,calc(100vw - 32px));padding:7px 14px 8px;border-left:3px solid #ffc21a;opacity:0;transition:opacity .3s;pointer-events:none}
 #radio.show{opacity:1}
 #radio p{margin:2px 0 0;font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:.02em}

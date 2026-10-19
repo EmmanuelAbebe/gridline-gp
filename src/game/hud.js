@@ -95,6 +95,12 @@ export const Hud = (() => {
         }
       }
       const pit = c.pit ? (c.pit.phase === 'stop' ? 'PIT STOP' : c.pitLimiter ? 'PIT LIMITER' : 'PIT EXIT') : c.pitRequest ? 'BOX THIS LAP' : '';
+      // active aero: straight mode chip, overtake mode (ready / on with seconds left) and its button (BUTTON setting)
+      setOnce('aeroOn', !!race.activeAero && c.aeroOpen > 0.5, v => $('aeroTag').classList.toggle('on', v));
+      const boost = c.boostOn ? `OVERTAKE ${c.boostLeft.toFixed(1)} s` : c.boostLeft > 0 ? (c.boostAuto ? 'OVERTAKE READY' : 'OVERTAKE READY · X') : '';
+      setOnce('boostTxt', boost, t => { if (t) $('boostTag').textContent = t; $('boostTag').classList.toggle('on', !!t); });
+      setOnce('boostLive', c.boostOn, v => { $('boostTag').classList.toggle('live', v); $('boostBtn').classList.toggle('on', v); });
+      setOnce('boostBtn', !!race.overtake && !c.boostAuto, v => { $('boostBtn').hidden = !v; });
       setOnce('pitTxt', pit, t => { $('pitState').hidden = !t; $('pitState').textContent = t; $('pitState').classList.toggle('limiter', !!c.pit); $('boxBtn').classList.toggle('on', !!t); });
     },
     updateTower(race, player, showGaps) {

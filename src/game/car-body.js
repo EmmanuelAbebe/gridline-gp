@@ -12,6 +12,7 @@ import * as THREE from 'three';
 //   p.tub      survival cell from the nose tip to the crash structure (sets the length of the body)
 //   p.pods     right sidepod (and its mirror); where it starts at full size, the step facing forward is its inlet
 //   p.cover    engine cover        p.airbox  roll hoop + airbox (its forward-facing start = the intake)
+//   p.keel     under the tub, down into the floor plate: the body meets the floor instead of floating above it
 //   p.cockpit  { from, to, floor, side }: x range of the opening, its floor height, and the ray angle (degrees
 //              above horizontal) where the rim sits: the opening is as wide as the body is at that angle
 //   p.accentFrom  x ahead of which the nose is in the accent colour
@@ -76,14 +77,14 @@ function farHit(oz, oy, dz, dy, cz, cy, hw, hh, n) {
 
 const cache = new Map();
 export function bodyShell(size, p) {
-  const key = JSON.stringify([size, p.tub, p.pods, p.cover, p.airbox, p.cockpit, p.accentFrom]);
+  const key = JSON.stringify([size, p.tub, p.pods, p.cover, p.airbox, p.keel, p.cockpit, p.accentFrom]);
   if (!cache.has(key)) { if (cache.size > 16) cache.clear(); cache.set(key, build(size, p)); }
   return cache.get(key).clone();
 }
 
 function build(size, p) {
   const tub = component(p.tub) || component([[2, 0.4, 0.2, 0.15, 3], [-2, 0.4, 0.2, 0.15, 3]]);
-  const pods = component(p.pods), cover = component(p.cover), airbox = component(p.airbox);
+  const pods = component(p.pods), cover = component(p.cover), airbox = component(p.airbox), keel = component(p.keel);
   const ck = p.cockpit && Number.isFinite(+p.cockpit.from) ? p.cockpit : null;
   const accentFrom = Number.isFinite(+p.accentFrom) ? +p.accentFrom : Infinity;
   // stations: even spacing plus a pair at each sharp step (component starts, the cockpit's ends)
@@ -107,7 +108,7 @@ function build(size, p) {
     // flow into the tub as on a real car, and every point of the section stays visible from the centre line
     const pod = add(pods, true);
     if (pod) parts.push([0, pod[0], pod[4], pod[2], 4]);
-    add(cover, false); add(airbox, false);
+    add(cover, false); add(airbox, false); add(keel, false);
     const cy = T[0];
     return { T, cy, r: a => parts.map(([cz, py, hw, hh, n]) => farHit(0, cy, Math.cos(a), Math.sin(a), cz, py, hw, hh, n)).filter(t => t > 0).sort((u, v) => u - v).reduce(smax, 0) };
   };

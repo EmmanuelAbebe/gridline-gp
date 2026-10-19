@@ -79,7 +79,7 @@ const AI_LEVELS = {
   legend: { pace: 1.03, note: 'On the limit everywhere (Elkmoor: about 32 s).' },
 };
 export const RACE_SETUP = Object.freeze({
-  defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10, gearbox: 'auto', assists: 'medium', ai: 'pro', fuel: 'normal', tyres: 'normal', damage: 'on' },
+  defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10, gearbox: 'auto', assists: 'medium', ai: 'pro', fuel: 'normal', tyres: 'normal', damage: 'on', aero: 'on', overtake: 'auto' },
   aiLevels: AI_LEVELS,
   // Every setup choice that is one of a list: [value, button label]. The saved setup is checked against these (an
   // unknown value falls back to the default), the Settings screen and the start menu draw their buttons from them,
@@ -92,6 +92,8 @@ export const RACE_SETUP = Object.freeze({
     fuel: levels(Object.keys(SIM.WEAR.fuel)),
     tyres: levels(Object.keys(SIM.WEAR.tyres)),
     damage: levels(['off', 'on']),
+    aero: levels(['off', 'on']),
+    overtake: [['auto', 'AUTO'], ['button', 'BUTTON'], ['off', 'OFF']],
   },
   assistNotes: {
     off: 'No help: the car can spin, lock its brakes and spin its wheels.',

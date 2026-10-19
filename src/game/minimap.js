@@ -23,6 +23,13 @@ export function createMinimap(canvas, track) {
     x.beginPath(); for (let i = 0; i <= N; i += 4) { const k = i % N; i ? x.lineTo(mx(PX[k]), mz(PZ[k])) : x.moveTo(mx(PX[k]), mz(PZ[k])); }
     x.closePath(); x.strokeStyle = 'rgba(255,255,255,.18)'; x.lineWidth = 14; x.stroke();
     x.strokeStyle = '#e9ebe6'; x.lineWidth = 4; x.stroke();
+    // active aero straight-mode zones (track.aeroZones), in green over the outline
+    x.strokeStyle = '#4fe08f'; x.lineWidth = 4; x.lineCap = 'round';
+    for (const zn of track.aeroZones || []) {
+      const len = (zn.to - zn.from + N) % N || N;
+      x.beginPath(); for (let o = 0; o <= len; o += 3) { const k = (zn.from + Math.min(o, len - 1)) % N; o ? x.lineTo(mx(PX[k]), mz(PZ[k])) : x.moveTo(mx(PX[k]), mz(PZ[k])); }
+      x.stroke();
+    }
     x.save(); x.translate(mx(PX[0]), mz(PZ[0])); x.rotate(Math.atan2(NZ[0], NX[0]));
     x.fillStyle = '#ffc21a'; x.fillRect(-12, -3, 24, 6); x.restore(); }
   const ctx = canvas.getContext('2d');

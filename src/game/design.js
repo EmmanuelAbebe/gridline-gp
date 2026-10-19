@@ -53,6 +53,14 @@ export const Design = (() => {
       if (!keep.some(p => isObj(p) && p.shape === 'body')) keep.unshift(clone(DESIGN_DEFAULTS.car.parts.find(p => p.shape === 'body')));
       s.car.parts = keep;
     }
+    if (v < 7 && isObj(s.car) && Array.isArray(s.car.parts)) {
+      // v7: new rear (floor with the diffuser kick-up, fences, curved endplates, twin pylons, two-element beam wing),
+      // the body sits on the floor, and the wing flaps move with active aero (`open`). Every part that came from the
+      // defaults is replaced by the new defaults; parts the player added (other names) and the steering wheel are kept.
+      const known = new Set([...DESIGN_DEFAULTS.car.parts.map(p => p.name), 'diffuser', 'wing pylon']);
+      const mine = s.car.parts.filter(p => isObj(p) && (p.steer || !known.has(p.name)));
+      s.car.parts = clone(DESIGN_DEFAULTS.car.parts.filter(p => !p.steer)).concat(mine.some(p => p.steer) ? [] : clone(DESIGN_DEFAULTS.car.parts.filter(p => p.steer)), mine);
+    }
     s.version = DESIGN_DEFAULTS.version;
     return s;
   }

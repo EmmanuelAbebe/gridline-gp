@@ -1,7 +1,7 @@
 // The Settings screen's wiring: what each setting reads and writes, its actions, and opening it over the start or
 // pause menu (a running race pauses first; closing goes back to that menu). main.js passes the game state and the
 // commands that change it (`act`: setGfx, setPref, setDriving, togglePause, toggleLayout).
-import { PREFS, PHASE } from './config.js';
+import { PREFS, PHASE, RACE_SETUP } from './config.js';
 import { Screens } from './screens.js';
 import { Sound } from './sound.js';
 import { AppShell } from './app-shell.js';
@@ -11,7 +11,8 @@ import { SoundStudio } from './sound-studio.js';
 import { TweakPanel } from './tweak-panel.js';
 import { SOUND } from './audio/audio-config.js';
 
-const isDriving = key => key === 'gearbox' || key === 'assists' || key.startsWith('a.');   // a.* = CUSTOM assists
+// race-setup choices (gearbox, assists, fuel, active aero...) live in game.setup; a.* = CUSTOM assists
+const isDriving = key => Object.hasOwn(RACE_SETUP.choices, key) || key.startsWith('a.');
 
 export function bindSettings(game, act) {
   SettingsScreen.bind({

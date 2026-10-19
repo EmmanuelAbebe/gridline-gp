@@ -4,6 +4,7 @@ import { AI, TRACK_DEFAULTS, GRID, LIMITS } from './tuning.js';
 import { cornerSpeed, brakeLimit } from './vehicle.js';
 import { buildRunoff } from './runoff.js';
 import { buildPitLane } from './pit.js';
+import { buildAeroZones } from './active-aero.js';
 import { CIRCUITS } from './circuits.js';
 import { clamp, wrapA, wrapIdx } from './math.js';
 /** @typedef {import('./types.js').Track} Track */
@@ -110,10 +111,14 @@ export function buildTrack(circuit, opts = {}) {
     PX, PZ, TX, TZ, NX, NZ, K, CK, bounds };
   // + the AI's line and speeds; what lies beside the road (runoff.js; WALL = the furthest barrier); the pit lane
   const track = { ...shape, ...buildAiProfile(shape), style: circuit.style || o.style, theme: circuit.theme || 'forest',
-    runoff: /** @type {import('./runoff.js').Runoff[]} */ (null), pit: /** @type {import('./pit.js').PitLane} */ (null) };
+    runoff: /** @type {import('./runoff.js').Runoff[]} */ (null), pit: /** @type {import('./pit.js').PitLane} */ (null),
+    aeroZone: /** @type {Uint8Array} */ (null), aeroZones: /** @type {{ from: number, to: number }[]} */ (null) };
   track.runoff = buildRunoff(track, track.style);
   track.WALL = Math.max(...track.runoff.map(r => Math.max(...r.wall)));
   track.pit = buildPitLane(track);   // pit.js; null without a `pits` landmark
+  // straight-mode zones for active aero (active-aero.js): 1 per sample inside one, and the list
+  const aero = buildAeroZones(track);
+  track.aeroZone = aero.zone; track.aeroZones = aero.zones;
   return track;
 }
 

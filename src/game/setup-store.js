@@ -24,6 +24,8 @@ export function loadSetup(json) {
     fuel: oneOf('fuel'),
     tyres: oneOf('tyres'),
     damage: oneOf('damage'),
+    aero: oneOf('aero'),
+    overtake: oneOf('overtake'),
     track: Object.hasOwn(SIM.CIRCUITS, s.track || '') ? s.track : SIM.track.id,
   };
 }
@@ -50,6 +52,8 @@ export const raceFormat = s => s.type === 'timed' ? { type: 'timed', minutes: s.
 
 // fuel / tyre / damage choices → createRace's wear option
 export const raceWear = s => ({ fuel: s.fuel, tyres: s.tyres, damage: s.damage === 'on' });
+// active aero / overtake mode choices → createRace's options
+export const raceAero = s => ({ activeAero: s.aero === 'on', overtake: s.aero === 'on' && s.overtake !== 'off' });
 
 // The grid: the fastest `cars - 1` rivals in skill order, with you about three-quarters of the way back.
 export function buildField(cars) {
@@ -70,5 +74,7 @@ export function assistsOf(s) {
 export function setupSummary(s, prefs, gfx) {
   const tc = assistsOf(s).tc, tcText = tc >= 1 ? '' : tc > 0 ? ' (traction control low)' : ' (no traction control)';
   return `${choiceWord('gearbox', s.gearbox)} gearbox · ${choiceWord('assists', s.assists)} assists${tcText} · ${GFX_PROFILES[gfx]?.label.replace(' mode', '') ?? ''} graphics`
-    + ` · fuel ${s.fuel} · tyre wear ${s.tyres} · damage ${s.damage} · controller smoothing ${prefs.smoothing ? prefs.smoothing : 'off'}`;
+    + ` · fuel ${s.fuel} · tyre wear ${s.tyres} · damage ${s.damage}`
+    + (s.aero === 'on' ? ` · active aero${s.overtake === 'off' ? '' : ` + overtake ${s.overtake}`}` : ' · active aero off')
+    + ` · controller smoothing ${prefs.smoothing ? prefs.smoothing : 'off'}`;
 }

@@ -6,7 +6,7 @@
 //
 // State on the car: v (forward speed), vy (sideways speed, + = right), yawRate (rad/s, + = turning right), ax.
 // Everything is per unit mass, so forces read as accelerations (m/s²).
-import { TUNING, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT } from './tuning.js';
+import { TUNING, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT, ACTIVE_AERO } from './tuning.js';
 import { clamp, speedOf } from './math.js';
 import { lateralGrip, brakeMax, drivetrain } from './vehicle.js';
 import { STOCK } from './spec.js';
@@ -98,7 +98,8 @@ export function stepChassis(race, c, inp, dt) {
     const beta = Math.atan2(Math.abs(vy), v), stall = clamp((beta - OT.spinFrom) / (OT.spinTo - OT.spinFrom), 0, 1);
     // = smoothstep(stall), written out: the helper multiplies in another order (last-bit rounding: sim-trace would differ)
     const yawAero = 1 - (1 - OT.spinFloor) * stall * stall * (3 - 2 * stall);
-    const df = S.dfK * v * v * (1 - CH.dirtyAir * (c.slip || 0)) * yawAero * cond.aero;
+    // (open wings: straight mode, active-aero.js; aeroOpen 0 multiplies by exactly 1)
+    const df = S.dfK * v * v * (1 - CH.dirtyAir * (c.slip || 0)) * yawAero * cond.aero * (1 - ACTIVE_AERO.downforceCut * c.aeroOpen);
     const transfer = c.ax * CH.cgHeight / L;
     const mu = S.grip * surf.grip * dirt;
     const Df = mu * S.frontGrip * Math.max(0.5, G * CH.frontWeight + df * S.aeroFront * cond.front - transfer);

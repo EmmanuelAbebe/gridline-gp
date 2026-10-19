@@ -133,6 +133,16 @@ async function smokeTest(win) {
   await new Promise(r => setTimeout(r, 300));
   info.box = await win.webContents.executeJavaScript(`({ pit: document.getElementById('pitState').textContent, radio: document.getElementById('radioText').textContent,
        car: document.getElementById('fuel').textContent + ' / ' + document.getElementById('tyres').textContent })`);
+  // active aero: full throttle down the straight until the wings open (straight mode chip), screenshot
+  await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW', key: 'w' }))`);
+  info.aero = { opened: false };
+  for (let i = 0; i < 60 && !info.aero.opened; i++) {
+    await new Promise(r => setTimeout(r, 200));
+    const s = await win.webContents.executeJavaScript(`({ car: window.gridlineDebug.car(), chip: document.getElementById('aeroTag').classList.contains('on') })`);
+    info.aero = { opened: s.car.aeroOpen > 0.99 && s.chip, kmh: s.car.kmh, chip: s.chip };
+  }
+  if (info.aero.opened) fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-aero.png'), (await win.webContents.capturePage()).toPNG());
+  await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyW', key: 'w' }))`);
   // cockpit camera (C), steering held right for a moment: the driver's arms and the wheel screen
   await win.webContents.executeJavaScript(`document.getElementById('camBtn').click();
     addEventListener('keydown', () => {}); dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyD', key: 'd' }))`);

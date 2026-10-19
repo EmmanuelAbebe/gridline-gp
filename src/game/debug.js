@@ -6,9 +6,11 @@ import { Display } from './display.js';
 import { Sound } from './sound.js';
 import { Input } from './input.js';
 
-export function installDebug(setTrack, current) {
+export function installDebug(setTrack, current, player = () => null) {
   window.gridlineDebug = { soundReady: () => Sound.ready,
     input: () => ({ ...Input.drive, device: Input.pad.label, kind: Input.pad.kind }),   // what drives the car right now
+    // the player's car: speed (km/h), wings open (active aero), overtake mode
+    car: () => { const c = player(); return c && { kmh: Math.round(SIM.speedOf(c) * 3.6), aeroOpen: c.aeroOpen, boostLeft: c.boostLeft, boostOn: c.boostOn }; },
     view(id, at, lat, height, ahead, side = 0) {
       const track = setTrack(id);
       const { N, PX, PZ, NX, NZ } = track, i = Math.round(at * N) % N, j = SIM.wrapIdx(i + ahead, N);

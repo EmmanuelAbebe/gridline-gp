@@ -8,6 +8,7 @@ import { afterMove } from './motion.js';
 import { stepChassis, steerLock, driftAngle } from './chassis.js';
 import { slipstream, cornerSpeed, brakeLimit, brakeMax, lateralGrip } from './vehicle.js';
 import { checkPitEntry, stepPit, updateWear, aiWantsPit } from './pit.js';
+import { updateActiveAero } from './active-aero.js';
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
 
@@ -18,6 +19,7 @@ import { checkPitEntry, stepPit, updateWear, aiWantsPit } from './pit.js';
 // calmLateral), full tilt still reaches the grip limit; 0 = steering in proportion to the grip (the default here).
 /** @param {Race} race @param {Car} c */
 export function drivePlayer(race, c, inp, dt) {
+  updateActiveAero(race, c, inp, dt);
   if (checkPitEntry(race, c)) { stepPit(race, c, dt); afterMove(race, c); return; }   // the car drives itself in the pit lane
   const rate = inp.analog ? inp.steerRate ?? 14 : 5;
   c.steerIn ??= c.steer;
@@ -52,7 +54,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   // pit stops: decided once a lap before the entry road (fuel, tyres, damage: pit.js), then the lane drives the car
   const pitLane = T.pit;
   if (pitLane && !c.pit && !c.finished) { const d = wrapIdx(pitLane.entry - c.idx, N); if (d > 5 && d < 150) c.pitRequest = aiWantsPit(race, c); }
-  if (checkPitEntry(race, c)) { stepPit(race, c, dt); afterMove(race, c); return; }
+  if (checkPitEntry(race, c)) { updateActiveAero(race, c, { thr: 0, brk: 0 }, dt); stepPit(race, c, dt); afterMove(race, c); return; }
   const sp = Math.max(c.v, 0);
   // mistakes: a late brake, decided when a braking zone starts, lasting through the corner
   if (c.mistakeEnd >= 0 && wrapIdx(c.idx - c.mistakeEnd, N) < N / 2) { c.mistake = 0; c.mistakeEnd = -1; }
@@ -137,6 +139,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
     brk = 0;
   }
   c.brake = brk; c.thr = thr;
+  updateActiveAero(race, c, { thr, brk }, dt);
   updateWear(race, c, thr, dt);
   slipstream(race, c, progress);
   stepChassis(race, c, { thr, brk, steer: c.steer, shift: 0 }, dt);

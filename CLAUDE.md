@@ -175,6 +175,24 @@ Tunables live in data tables (config modules), not inline in the logic.
      Running wide counts too since 2026-10-18 (see Run-off layout). Classification and finished gaps use `raceTime(c)` = finishTime +
      penalty. Game: warning/penalty toasts, current/last lap time struck through red when invalid, results show
      "+N s pen". Tests: tests/limits.test.js.
+   - Active aero + overtake mode (2026-10-19, `active-aero.js`, `ACTIVE_AERO` / `OVERTAKE` in tuning.js; user asked for
+     wings that visibly move for corner / attack mode, and chose real physics + an overtake boost). Race option
+     `createRace(…, { activeAero, overtake })` (both off by default: tests and sim-trace unchanged; aeroOpen 0 multiplies
+     by exactly 1). Zones per circuit (`buildAeroZones` in buildTrack → `track.aeroZone` per sample + `track.aeroZones`):
+     the AI profile flat out (VP = V_CAP) for `closeAhead` 45 m and every bend in the next 90 m flat out even with open
+     wings, runs ≥ 180 m. `updateActiveAero` (drivePlayer / driveAI, before the chassis): in a zone, throttle ≥ 0.85, no
+     brake, |steer| < 0.3, > 30 m/s → `c.aeroOpen` → 1 in 0.35 s (closes in 0.18 s): drag × (1 − 0.24·open) (vehicle.js
+     drivetrain), downforce × (1 − 0.36·open) (chassis.js). Same rules for every car (the player's opens automatically),
+     so relative pace is unchanged: AI solo laps gain Elkmoor 0.5, Harrow 1.2, Cobalt 0.4, Marrow 0.2, Northfold 1.4 s,
+     top speed ~331 → ~352 km/h; rival levels not rescaled. Overtake mode: each lap start (from lap 2) within `gap` 1 s
+     of the car ahead (`gapAhead`: from the other cars' trail times at this sample) → `c.boostLeft` 5 s for that lap
+     (EV.BOOST_READY); while `c.boostOn` drive × 1.14 (EV.BOOST on/off). AI and `c.boostAuto` players use it in zones when
+     within 1.2 s; otherwise the player toggles it (inp.boost). Tests: tests/active-aero.test.js.
+     Game: Settings → Driving Active aero ON/OFF, Overtake mode AUTO (default; the phone has no spare button) / BUTTON
+     (X, pad View/Back, HUD BOOST button) / OFF (`game.setup.aero/overtake`, setup-store `raceAero`); HUD chips above the
+     speedo: STRAIGHT MODE, OVERTAKE READY / OVERTAKE n s; minimap zones in green; radio when the boost is earned.
+     (Fixed on the way: Settings → Driving fuel / tyres / damage were written to prefs, not the race setup: settings-
+     binding `isDriving` now = any RACE_SETUP.choices key.)
    - Randomness (2026-10-19): each race has its own seeded generator `race.rng` (math.js `mulberry32`, `createRace(…,
      { seed })`, default seed drawn from Math.random, kept as `race.seed`): AI line biases and mistakes use it, nothing
      else in the sim calls Math.random, so the same seed + inputs = the same race (replays, ghosts, learning rivals).
@@ -291,6 +309,14 @@ Tunables live in data tables (config modules), not inline in the logic.
      (an abrupt end = spikes). Proportions checked against the 2026 rules (wheelbase ≤ 3.4 m, cockpit ~0.52 m wide).
      Tests: tests/car-body.test.js (watertight, roles, open cockpit, migration). Showroom `?cam=ex,ey,ez,ax,ay,az,fov`
      = one close-up (`npm run car-shot -- out.png "cam=...&part=body"`).
+   - Rear and floor (2026-10-19, design v7): body `keel` (under the tub, down into the floor plate) and taller
+     sidepods reaching the floor (narrower at the bottom) so the body sits on the floor; floor loft continues into the
+     diffuser kick-up (no separate box), diffuser fences + side walls under the ramp; rear wing main plane + flap
+     between curved loft endplates (LED strips on the trailing edges), twin swan-neck pylons, two-element beam wing.
+     (Skirts under the sidepods were tried: a "double sausage" from the side; dropped.) Moving parts: a part with
+     `open` (degrees) is its own mesh, turned about its position by `open × car.aeroOpen` (front flaps 11 / 20°, rear
+     main 4°, flap 24°); tweak panel "Opens °". v7 migration replaces every default-named part with the new defaults,
+     keeping the player's own parts and steering wheel. Showroom `?aero=1` = straight mode.
    - `CarModels` (`car-models.js`; shapes in `car-shapes.js`, canvas textures in `car-textures.js`): F1-style body
      from design parts merged per car into one mesh with a geometry group per finish (paint = clearcoat + sky cube
      reflection, carbon = twill weave texture, rubber, metal, light, decal); shapes include `loft` (smooth body
@@ -315,7 +341,7 @@ Tunables live in data tables (config modules), not inline in the logic.
      `car.screen` are positioned relative to the wheel centre; `car.steering` = { pivot (centre in car space),
      rot [x,y,z]°, scale [x,y,z], lock° }. Model: root → mount (pivot/rot/scale) → steering mesh (turns with
      input) → screen (always fixed to the wheel). Panel shows wheel width/height in metres via
-     `CarModels.measure` (natural size × scale). Design format v6; `migrate()` converts v1 (car-space steer
+     `CarModels.measure` (natural size × scale). Design format v7; `migrate()` converts v1 (car-space steer
      parts), v2 (tilt/uniform scale/screen.steer) and v3/v4 (body parts and wheels replaced by the new defaults, the
      player's steering-wheel parts and settings kept; an untouched wheel x 0.45 moves to 0.18). Parts named "… R" get a mirrored "… L" twin (`withMirrors`).
      Shapes: box, rounded (extruded rounded rectangle, `radius`), sphere, cylinder, torus, loft, wing, rod, decal, body; optional `finish`.
