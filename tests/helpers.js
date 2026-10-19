@@ -21,7 +21,7 @@ export function run(S, race, maxSeconds, drive) {
     race.t += DT;
     for (const c of race.cars) drive(race, c);
     S.collide(race);
-    for (const c of race.cars) { const s = seen.get(c); for (const e of c.events) s[e] = (s[e] || 0) + 1; c.events.length = 0; }
+    for (const c of race.cars) { const s = seen.get(c); for (const e of c.events) s[e.type] = (s[e.type] || 0) + 1; c.events.length = 0; }
   }
   return seen;
 }

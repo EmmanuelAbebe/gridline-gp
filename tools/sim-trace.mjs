@@ -22,7 +22,7 @@ function trace(name, makeRace, seconds, drive) {
     S.collide(race);
     for (const c of race.cars) {
       buf.set([c.x, c.z, c.h, c.v, c.lap, c.steer]); h.update(new Uint8Array(buf.buffer));
-      h.update(c.events.join(',')); c.events.length = 0;
+      h.update(c.events.map(e => e.type ?? e).join(',')); c.events.length = 0;   // ?? e: older builds pushed bare strings
     }
   }
   Math.random = realRandom;

@@ -7,6 +7,7 @@
 import { CONTACT, EV, CHASSIS } from './tuning.js';
 import { afterMove } from './motion.js';
 import { addDamage } from './pit.js';
+import { emit } from './events.js';
 
 const { rear: REAR, front: FRONT, radius: RADIUS, restitution: E, spin: SPIN } = CONTACT;
 const K2 = CHASSIS.gyration * CHASSIS.gyration;
@@ -58,7 +59,7 @@ export function collide(race) {
     const mx = (px + qx) / 2, mz = (pz + qz) / 2;
     const [vax, vaz] = pointVelocity(a, mx, mz), [vbx, vbz] = pointVelocity(b, mx, mz);
     const closing = Math.max(0, (vax - vbx) * nx + (vaz - vbz) * nz);
-    for (const c of [a, b]) { if (!c.wasTouching && !c.touching) { c.impact = closing; c.events.push(EV.CONTACT); } c.touching = true; }
+    for (const c of [a, b]) { if (!c.wasTouching && !c.touching) emit(c, EV.CONTACT, { impact: closing, with: c === a ? b.code : a.code }); c.touching = true; }
     const push = (2 * RADIUS - d) / 2;
     a.x -= nx*push; a.z -= nz*push; b.x += nx*push; b.z += nz*push;
     if (closing > 0) {

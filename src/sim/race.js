@@ -5,6 +5,7 @@ import { DEFAULT_TRACK } from './track.js';
 import { createCar } from './car.js';
 import { setupWear } from './pit.js';
 import { wrapIdx, speedOf } from './math.js';
+import { emit } from './events.js';
 
 // Race format: { type: 'laps', laps } | { type: 'timed', minutes } | { type: 'unlimited' }; a plain number means laps.
 // `drivers` is the grid in order (slot 0 = pole).
@@ -42,20 +43,20 @@ export function updateLap(race, c, oldIdx) {
       const lt = race.t - c.lapStart; c.lastLap = lt; c.lapStart = race.t; c.lastLapInvalid = c.lapInvalid;
       if (!c.lapInvalid) {                       // a lap with a cut never counts as a best or the fastest lap
         if (lt < c.bestLap) c.bestLap = lt;
-        if (lt < race.fastest) { race.fastest = lt; race.fastestBy = c; c.events.push(EV.FASTEST); }
+        if (lt < race.fastest) { race.fastest = lt; race.fastestBy = c; emit(c, EV.FASTEST, { time: lt }); }
       }
-      c.events.push(EV.LAP);
+      emit(c, EV.LAP, { time: lt, invalid: c.lastLapInvalid });
     }
     c.lapInvalid = false;
     if (!c.finished && c.lap >= 2 && flagFor(race, c)) {
-      race.chequered = true; c.finished = true; c.finishTime = race.t; c.finishLap = c.lap; c.events.push(EV.FINISH);
+      race.chequered = true; c.finished = true; c.finishTime = race.t; c.finishLap = c.lap; emit(c, EV.FINISH);
     }
   } else if (oldIdx < N*LAP_ZONE && c.idx > N*(1-LAP_ZONE)) c.lap--;
 }
 
 // Track limits (LIMITS): count track metres covered with the whole car past the edge (the kerb where one is painted)
 // of a corner: on the inside (a cut), or on the outside faster than wideSpeed (running wide). Reaching cutDist is one
-// offence (EV.CUT, lap invalid, c.cutWide says which), and past the warnings each adds a time penalty (EV.PENALTY).
+// offence (EV.CUT, lap invalid, its `wide` says which), and past the warnings each adds a time penalty (EV.PENALTY).
 export function updateLimits(race, c, oldIdx) {
   const { N, ds, CK, KERB_K, runoff } = race.track, i = c.idx;
   const edge = runoff[c.lat < 0 ? 0 : 1].kerb[i], past = Math.abs(c.lat) - LIMITS.halfWidth > edge && Math.abs(CK[i]) > KERB_K;
@@ -65,8 +66,8 @@ export function updateLimits(race, c, oldIdx) {
   if (d === 0 || d > N / 2 || c.finished) return;            // standing still or going backwards
   const before = c.cutRun; c.cutRun += d * ds;
   if (before < LIMITS.cutDist && c.cutRun >= LIMITS.cutDist) {
-    c.cuts++; c.lapInvalid = true; c.cutWide = !inside; c.events.push(EV.CUT);
-    if (c.cuts > LIMITS.warnings) { c.penalty += LIMITS.penalty; c.events.push(EV.PENALTY); }
+    c.cuts++; c.lapInvalid = true; emit(c, EV.CUT, { wide: !inside });
+    if (c.cuts > LIMITS.warnings) { c.penalty += LIMITS.penalty; emit(c, EV.PENALTY, { seconds: LIMITS.penalty, total: c.penalty }); }
   }
 }
 

@@ -32,7 +32,7 @@ test('a pit stop: request, 80 km/h limiter, stop in the box, service, back on tr
   const events = []; let maxLane = 0, stopIdx = -1;
   run(S, race, 200, (r, car) => {
     tester(T, 1)(r, car);
-    events.push(...car.events.filter(e => e.startsWith('pit')));
+    events.push(...car.events.map(e => e.type).filter(t => t.startsWith('pit')));
     if (car.pit?.phase === 'stop') stopIdx = car.idx;
     if (car.pit && car.pit.p > T.pit.from && car.pit.p < T.pit.to) maxLane = Math.max(maxLane, car.v);
   });
@@ -52,7 +52,7 @@ test('driving onto the entry road is a pit stop too', () => {
   const i = (T.pit.entry + 5 + T.N) % T.N, lat = T.HW + 3;
   Object.assign(c, { idx: i, lat, x: T.PX[i] + T.NX[i] * lat, z: T.PZ[i] + T.NZ[i] * lat, h: S.headingAt(T, i), v: 40, lap: 1 });
   S.drivePlayer(race, c, { thr: 1, brk: 0, steer: 0, analog: true }, DT);
-  assert.ok(c.pit && c.events.includes(S.EV.PIT_IN));
+  assert.ok(c.pit && c.events.some(e => e.type === S.EV.PIT_IN));
 });
 
 test('fuel: a short race needs no stop, a long one does; warnings; an empty tank leaves the car limping', () => {
@@ -61,7 +61,7 @@ test('fuel: a short race needs no stop, a long one does; warnings; an empty tank
   assert.ok(S.fuelLaps(short, short.cars[0]) > 3 && S.fuelLaps(short, short.cars[0]) < 4, 'just enough for 3 laps');
   const long = S.createRace(12, { drivers: player(), wear: { fuel: 'high' } }), c = long.cars[0], seen = [];
   assert.ok(Math.abs(S.fuelLaps(long, c) - 4) < 1e-9, 'a full tank: 4 laps');
-  run(S, long, 200, (r, car) => { tester(T)(r, car); seen.push(...car.events); if (car.lap >= 6) car.finished = true; });
+  run(S, long, 200, (r, car) => { tester(T)(r, car); seen.push(...car.events.map(e => e.type)); if (car.lap >= 6) car.finished = true; });
   assert.ok(seen.includes(S.EV.FUEL_LOW) && seen.includes(S.EV.FUEL_BOX) && seen.includes(S.EV.FUEL_OUT), 'warned, then ran dry');
   const v = c.v; for (let k = 0; k < 120; k++) S.drivePlayer(long, c, { thr: 1, brk: 0, steer: 0, analog: true }, DT);
   assert.ok(c.fuel === 0 && c.v < v + 10, 'empty: barely accelerates');
@@ -78,7 +78,7 @@ test('damage: a nose-first wall hit breaks the front wing (understeer); off by d
   assert.equal(hit({}).damage.wing, 0, 'off by default');
   const c = hit({ damage: true });
   assert.ok(c.damage.wing > 0.5, `wing ${c.damage.wing.toFixed(2)}`);
-  assert.ok(c.events.includes(S.EV.DAMAGE));
+  assert.ok(c.events.some(e => e.type === S.EV.DAMAGE));
   assert.ok(S.carCondition(c).front < 0.8, 'front downforce lost');
 });
 

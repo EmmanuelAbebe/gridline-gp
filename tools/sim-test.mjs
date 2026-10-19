@@ -6,7 +6,7 @@ import { centreProfile } from '../tests/helpers.js';
 const S = await loadSim(process.argv[2]);
 const T = S.track, { N, PX, PZ, K, ds, WALL, VP } = T;
 const CP = S.cornerSpeed ? centreProfile(S, T) : VP;   // the scripted lap drives the centre line
-const countWalls = c => { const n = c.events.filter(e => e === S.EV.WALL).length; c.events.length = 0; return n; };
+const countWalls = c => { const n = c.events.filter(e => (e.type ?? e) === S.EV.WALL).length; c.events.length = 0; return n; };
 
 console.log(`${T.name}: track length ${T.L.toFixed(0)} m, sample spacing ${ds.toFixed(2)} m`);
 let maxK = 0; for (let i = 0; i < N; i++) maxK = Math.max(maxK, Math.abs(K[i]));

@@ -65,7 +65,7 @@ test('manual gearbox: paddles shift, over-revving downshift is refused, wrong ge
   straight(race, c, GAS, 5);
   c.events.length = 0;
   straight(race, c, { ...GAS, shift: -1 }, DT); straight(race, c, { ...GAS, shift: -1 }, DT); straight(race, c, { ...GAS, shift: -1 }, DT);
-  assert.ok(c.events.includes(S.EV.SHIFT_DENIED), 'downshift into an over-rev was held back');
+  assert.ok(c.events.some(e => e.type === S.EV.SHIFT_DENIED), 'downshift into an over-rev was held back');
   assert.equal(c.gear, 4, 'all three wait: 3rd would over-rev at this speed');
   assert.equal(c.downQueue, 3);
   // braking: each waiting downshift goes in once its gear is under the limiter, never over-revving

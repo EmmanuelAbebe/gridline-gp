@@ -17,8 +17,8 @@ export function afterMove(race, c) {
   updateLap(race, c, old);
   updateCheckpoints(race, c);
   if (c.pit) return;                     // in the pit lane: on its own path (pit.js), no walls or track limits
-  resolveWalls(race.track, c);
-  if (c.newWallHit) { c.newWallHit = false; addDamage(race, c, c.impact, c.wallFront, c.impactHard); }
+  const hit = resolveWalls(race.track, c);
+  if (hit) addDamage(race, c, hit.impact, hit.front, hit.hard);
   updateSurface(race.track, c);
   updateBeached(race, c);
   updateLimits(race, c, old);

@@ -172,7 +172,11 @@ Tunables live in data tables (config modules), not inline in the logic.
      Chequered flag (`race.chequered`): first car past the distance, or the leader crossing after time is up;
      then every car finishes at its next crossing (lapped cars too). Finished cars sort by `finishLap`, then time.
    - `gapTo(race, leader, c)`: checkpoint every 20 samples (`cpT`); gap = now − leader's time at my checkpoint.
-   - Cars push `EV.*` strings into `car.events`; the game drains them each step.
+   - Events (`events.js` `emit(c, EV.X, details)`): cars push `{ type, ...details }` objects into `car.events`; the game
+     drains them each step. Details travel in the event, not on the car (since 2026-10-19): WALL {impact, hard, front,
+     barrier}, CONTACT {impact, with}, SAUSAGE {impact}, CUT {wide}, PENALTY {seconds, total}, DAMAGE {part},
+     PIT_STOP {service}, LAP {time, invalid}, FASTEST {time}, SHIFT {from, to}. `resolveWalls` returns the hit (motion.js
+     turns it into damage). Tests count `e.type`.
 2. **Game** (`src/game/`, one module per item below, imported in dependency order by `main.js`); modules call down,
    `Input` talks up via events; no state in the DOM.
    - `config.js`: `CONFIG` (timings, intervals, fps thresholds), `SFX`, `COLORS`, `GFX_PROFILES`

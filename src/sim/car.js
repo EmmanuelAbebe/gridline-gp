@@ -3,6 +3,7 @@ import { EV, BARRIERS, ROUGH, OFFTRACK, WALLS } from './tuning.js';
 import { surfaceAt } from './runoff.js';
 import { wrapA, wrapIdx, speedOf } from './math.js';
 import { gridSlot, headingAt } from './track.js';
+import { emit } from './events.js';
 
 // Nearest-sample search (full scan, or a window around the last index). Returns the previous index.
 export function locate(track, c, full) {
@@ -20,7 +21,7 @@ export function createCar(track, driver, slot) {
   const c = { ...driver, slot,
     // physics
     idx, x: PX[idx] + NX[idx]*lat, z: PZ[idx] + NZ[idx]*lat, h: headingAt(track, idx), v: 0, lat, steer: 0, roll: 0,
-    wallHit: false, touching: false, wasTouching: false, impact: 0, impactHard: 1, barrier: null, onKerb: false, offTrack: false,
+    wallHit: false, touching: false, wasTouching: false, onKerb: false, offTrack: false,
     // off track: tyre dirt 0..1, depth in a gravel trap, beached (stuck in gravel, waiting for the marshals)
     dirt: 0, gravelDepth: 0, beached: false, beachedAt: 0, stuckT: 0,
     // drivetrain (vehicle.js): gear 1..8, -1 = reverse; autoShift = automatic gearbox; downQueue = manual downshifts waiting for the revs; slip = slipstream 0..1
@@ -36,29 +37,31 @@ export function createCar(track, driver, slot) {
     // track limits (race.js): metres of the current cut, cuts so far, penalty seconds, current / last lap invalid
     cutRun: 0, cuts: 0, penalty: 0, lapInvalid: false, lastLapInvalid: false,
     lap: 0, finished: false, finishTime: 0, finishLap: 0, lapStart: 0, lastLap: 0, bestLap: Infinity, cpT: [], lastCp: -1,
-    // things that happened this step (EV.*); the game drains this queue. `impact` = speed of the last hit
+    // things that happened this step ({ type: EV.*, ...details }, events.js); the game drains this queue
     events: [] };
   locate(track, c, true);
   return c;
 }
 
 // The barrier on the car's side at its sample (runoff.js). A hit keeps BARRIERS[type].keep of the speed (a tyre wall
-// soaks up more than concrete, which the car glances off); c.impactHard = how hard it felt (sound, shake).
+// soaks up more than concrete, which the car glances off). Returns the new hit's EV.WALL event (impact speed, `hard` =
+// how hard it felt for sound and shake, `front` = nose-on share for damage), else null.
 export function resolveWalls(track, c) {
   const { NX, NZ } = track, R = track.runoff[c.lat < 0 ? 0 : 1], lim = R.wall[c.idx] - WALLS.clearance;
-  if (Math.abs(c.lat) <= lim) { c.wallHit = false; return; }
+  if (Math.abs(c.lat) <= lim) { c.wallHit = false; return null; }
   const s = Math.sign(c.lat), over = Math.abs(c.lat) - lim;
   c.x -= NX[c.idx]*s*over; c.z -= NZ[c.idx]*s*over; c.lat = s*lim;
   let th = headingAt(track, c.idx);           // nudge the heading back along the wall
+  let hit = null;
   if (!c.wallHit) {
     const B = BARRIERS[R.barrier[c.idx]] || BARRIERS[0];
-    c.impact = Math.abs(c.v * Math.sin(c.h - th)); c.impactHard = B.hard; c.barrier = B.name;
-    c.wallFront = Math.abs(Math.sin(c.h - th)); c.newWallHit = true;   // nose-on share (damage, pit.js)
-    c.v *= B.keep; c.vy *= WALLS.sideways; c.yawRate *= WALLS.sideways; c.events.push(EV.WALL);
+    hit = { impact: Math.abs(c.v * Math.sin(c.h - th)), hard: B.hard, front: Math.abs(Math.sin(c.h - th)), barrier: B.name };
+    c.v *= B.keep; c.vy *= WALLS.sideways; c.yawRate *= WALLS.sideways; emit(c, EV.WALL, hit);
   }
   c.wallHit = true;
   if (Math.cos(c.h - th) < 0) th += Math.PI;
   c.h += wrapA(th - c.h) * WALLS.align;
+  return hit;
 }
 
 // Surface under the car (runoff.js surfaceAt: the same layout the renderer draws). Running onto a sausage kerb
@@ -71,7 +74,7 @@ export function updateSurface(track, c) {
   if (surface === 'sausage' && was !== 'sausage') {
     const hit = Math.min(1, Math.abs(c.v) / OFFTRACK.sausageFull);
     c.yawRate += -Math.sign(c.lat) * OFFTRACK.sausageYaw * hit; c.v *= 1 - OFFTRACK.sausageLoss * hit;
-    c.impact = Math.abs(c.v) * OFFTRACK.sausageImpact; c.events.push(EV.SAUSAGE);
+    emit(c, EV.SAUSAGE, { impact: Math.abs(c.v) * OFFTRACK.sausageImpact });
   }
 }
 
@@ -85,10 +88,10 @@ export function updateBeached(race, c) {
     const lat = s * Math.min(R.turf[i] + O.recoverLat, R.wall[i] - O.recoverWall);
     c.x = track.PX[i] + track.NX[i] * lat; c.z = track.PZ[i] + track.NZ[i] * lat; c.lat = lat; c.h = headingAt(track, i);
     c.v = c.vy = c.yawRate = 0; c.beached = false; c.stuckT = 0; c.dirt = 1; c.gear = 1; c.cutRun = 0;
-    updateSurface(track, c); c.events.push(EV.RECOVERED);
+    updateSurface(track, c); emit(c, EV.RECOVERED);
     return;
   }
   const stuck = c.surface === 'gravel' && c.gravelDepth > O.deep && speedOf(c) < O.stuckSpeed;
   c.stuckT = stuck ? (c.stuckT || 0) + (race.t - (c.beachClock ?? race.t)) : 0; c.beachClock = race.t;
-  if (c.stuckT >= O.stuckTime) { c.beached = true; c.beachedAt = race.t; c.events.push(EV.BEACHED); }
+  if (c.stuckT >= O.stuckTime) { c.beached = true; c.beachedAt = race.t; emit(c, EV.BEACHED); }
 }

@@ -76,8 +76,8 @@ test('contact: a nose-to-tail hit pushes apart, trades speed and reports the imp
   a.h = b.h = 0; b.z = a.z; b.x = a.x + reach - 0.3; a.v = 20; b.v = 5;
   S.collide(race);
   assert.ok(S.carGap(a, b) >= -1e-6, 'separated');
-  assert.deepEqual(a.events, [S.EV.CONTACT]);
-  assert.ok(a.impact > 10, `impact ${a.impact}`);
+  assert.deepEqual(a.events.map(e => e.type), [S.EV.CONTACT]);
+  assert.ok(a.events[0].impact > 10 && a.events[0].with === b.code, `impact ${a.events[0].impact}`);
   assert.ok(a.v < 20 && b.v > 5 && Math.abs(a.v + b.v - 25) < 1e-6, `speeds ${a.v} ${b.v}: the hit car is shoved, momentum kept`);
   a.events.length = 0;
   S.collide(race);
@@ -102,7 +102,7 @@ test('contact: cars fit side by side a car width apart; a side swipe pushes side
   a.vy = 3;                                                     // a drifts into b
   b.z = a.z + 2 * S.CONTACT.radius - 0.1;
   S.collide(race);
-  assert.deepEqual(b.events, [S.EV.CONTACT]);
+  assert.deepEqual(b.events.map(e => e.type), [S.EV.CONTACT]);
   assert.ok(b.vy > 0 && a.vy < 3, `b pushed right (${b.vy.toFixed(2)}), a slowed sideways (${a.vy.toFixed(2)})`);
   assert.ok(Math.abs(a.v - 50) < 0.01 && Math.abs(b.v - 50) < 0.01, 'forward speeds untouched');
 });

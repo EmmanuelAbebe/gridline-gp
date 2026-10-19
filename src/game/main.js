@@ -164,24 +164,24 @@ function lightsOut() {
 
 function onPlayerEvent(c, e) {
   const race = game.race;
-  switch (e) {
+  switch (e.type) {
     case EV.LAP:
       Hud.setLapTimes(c.lastLap, c.bestLap, c.lastLapInvalid);
       if (c.lastLapInvalid) Hud.toast('Lap ' + (c.lap - 1) + '  ' + fmtTime(c.lastLap) + '  invalid', 'warn');
-      else if (race.fastestBy === c && c.events.includes(EV.FASTEST)) Hud.toast('Fastest lap  ' + fmtTime(c.lastLap), 'purple');
+      else if (race.fastestBy === c && c.events.some(f => f.type === EV.FASTEST)) Hud.toast('Fastest lap  ' + fmtTime(c.lastLap), 'purple');
       else Hud.toast('Lap ' + (c.lap - 1) + '  ' + fmtTime(c.lastLap));
       if (c.lap === race.laps && !c.finished) announceFinalLap();
       break;
     // track limits: a cut invalidates the lap; past the warnings each cut is a time penalty (SIM.LIMITS)
     case EV.CUT:
-      if (c.cuts <= SIM.LIMITS.warnings) Hud.toast(`Track limits${c.cutWide ? ' (ran wide)' : ''}  warning ${c.cuts}/${SIM.LIMITS.warnings}  ·  lap invalid`, 'warn', 3);
+      if (c.cuts <= SIM.LIMITS.warnings) Hud.toast(`Track limits${e.wide ? ' (ran wide)' : ''}  warning ${c.cuts}/${SIM.LIMITS.warnings}  ·  lap invalid`, 'warn', 3);
       Sound.beep(...SFX.cut);
       break;
     case EV.SHIFT_DENIED:     // manual: a downshift waiting for the revs to drop (shown in the gear label)
       if (!game.queueHinted) { game.queueHinted = true; Hud.toast('Too fast for that gear: the downshift goes in as you slow down'); }
       break;
     case EV.PENALTY:
-      Hud.toast(`+${SIM.LIMITS.penalty} s penalty  ·  track limits  (total +${c.penalty} s)`, 'warn', 3.5);
+      Hud.toast(`+${e.seconds} s penalty  ·  track limits  (total +${e.total} s)`, 'warn', 3.5);
       break;
     case EV.FINISH:
       Hud.flash('CHEQUERED FLAG', 2); game.phase = PHASE.DONE; game.resultsAt = race.t + CONFIG.resultsDelay;
@@ -189,17 +189,17 @@ function onPlayerEvent(c, e) {
     case EV.WALL:
     case EV.CONTACT: {
       // a tyre wall or TecPro soaks a hit up (softer sound, less shake) than Armco or concrete (SIM BARRIERS)
-      const sfx = e === EV.WALL ? SFX.wall : SFX.contact, hard = e === EV.WALL ? c.impactHard ?? 1 : 1;
-      if (c.impact >= sfx.min) { const k = Math.min(1, c.impact / sfx.fullAt) * hard; Sound.impact(k, sfx); CameraRig.shake(k * (e === EV.WALL ? 0.6 : 0.35)); }
+      const wall = e.type === EV.WALL, sfx = wall ? SFX.wall : SFX.contact, hard = wall ? e.hard : 1;
+      if (e.impact >= sfx.min) { const k = Math.min(1, e.impact / sfx.fullAt) * hard; Sound.impact(k, sfx); CameraRig.shake(k * (wall ? 0.6 : 0.35)); }
       break;
     }
     case EV.SAUSAGE:          // a raised kerb: a bang and a jolt
-      Sound.impact(Math.min(0.5, c.impact / 20), SFX.kerbStrike); CameraRig.shake(Math.min(0.5, c.impact / 15));
+      Sound.impact(Math.min(0.5, e.impact / 20), SFX.kerbStrike); CameraRig.shake(Math.min(0.5, e.impact / 15));
       break;
     // pit stops and the car's condition: the team on the radio
     case EV.PIT_IN: Hud.radio('Pit limiter on. Box, box.', 3); break;
     case EV.PIT_STOP: {
-      const s = c.pit.service, jobs = ['tyres'];
+      const s = e.service, jobs = ['tyres'];
       if (s.fuel > 0.5) jobs.push(`${Math.round(s.fuel)} kg of fuel`);
       if (s.wing) jobs.push('a new front wing'); if (s.repair) jobs.push('repairs');
       Hud.radio(`Stop: ${jobs.join(', ')}. ${s.time.toFixed(1)} s.`, s.time + 0.5);
@@ -213,7 +213,7 @@ function onPlayerEvent(c, e) {
     case EV.TYRES_WORN: Hud.radio('The tyres are going off. Box for fresh ones when you are ready.', 5); break;
     case EV.DAMAGE: Hud.radio(({ wing: 'Front wing damage: you will have understeer. Box for a new nose.',
       floor: 'Floor damage, we are losing downforce. We can fix it in the pits.',
-      susp: 'Suspension damage: the car will pull to one side. Box when you can.' })[c.damageNote], 5); break;
+      susp: 'Suspension damage: the car will pull to one side. Box when you can.' })[e.part], 5); break;
     case EV.BEACHED:
       Hud.toast('Beached in the gravel  ·  the marshals are recovering the car', 'warn', SIM.OFFTRACK.recoverTime);
       break;

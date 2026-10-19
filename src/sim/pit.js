@@ -10,6 +10,7 @@ import { PIT, WEAR, EV, TUNING, RUNOFF } from './tuning.js';
 import { pitRange } from './runoff.js';
 import { DRIVERS } from './drivers.js';
 import { rpmAt, GEARS } from './vehicle.js';
+import { emit } from './events.js';
 import { clamp, wrapA, wrapIdx, smoothstep } from './math.js';
 
 
@@ -56,14 +57,14 @@ export function updateWear(race, c, thr, dt) {
     c.fuel = Math.max(0, c.fuel - W.burnLap * dist / L * (B.idle + B.throttle * thr) / B.lap);   // ≈ 1 tank-lap per racing lap
     const left = fuelLaps(race, c), need = lapsToGo(race, c);
     if (left < need) {
-      if (left < WEAR.warn.fuelLow && !c.warned.low) { c.warned.low = true; c.events.push(EV.FUEL_LOW); }
-      if (left < WEAR.warn.fuelBox && !c.warned.box) { c.warned.box = true; c.events.push(EV.FUEL_BOX); }
+      if (left < WEAR.warn.fuelLow && !c.warned.low) { c.warned.low = true; emit(c, EV.FUEL_LOW); }
+      if (left < WEAR.warn.fuelBox && !c.warned.box) { c.warned.box = true; emit(c, EV.FUEL_BOX); }
     }
-    if (c.fuel <= 0 && !c.warned.out) { c.warned.out = true; c.events.push(EV.FUEL_OUT); }
+    if (c.fuel <= 0 && !c.warned.out) { c.warned.out = true; emit(c, EV.FUEL_OUT); }
   }
   if (W.tyreLaps) {
     c.tyreWear = Math.min(1, c.tyreWear + dist / (L * W.tyreLaps) * (1 + WEAR.slideWear * (c.slideF + c.slideR)));
-    if (c.tyreWear > WEAR.warn.tyres && !c.warned.tyres) { c.warned.tyres = true; c.events.push(EV.TYRES_WORN); }
+    if (c.tyreWear > WEAR.warn.tyres && !c.warned.tyres) { c.warned.tyres = true; emit(c, EV.TYRES_WORN); }
   }
 }
 
@@ -77,7 +78,7 @@ export function addDamage(race, c, impact, front, hard = 1) {
   d.susp = Math.min(1, d.susp + Math.max(0, e - D.suspFrom) / D.susp);
   // a message when a part gets noticeably worse (crossing a quarter step)
   const worst = ['wing', 'floor', 'susp'].find(k => Math.floor(d[k] * D.steps) > Math.floor(before[k] * D.steps));
-  if (worst) { c.damageNote = worst; c.events.push(EV.DAMAGE); }
+  if (worst) emit(c, EV.DAMAGE, { part: worst });
 }
 // what the damage and tyres do to the car (chassis.js): grip, front / total downforce, drag, steering pull
 export function carCondition(c) {
@@ -109,7 +110,7 @@ export function checkPitEntry(race, c) {
   const onRoad = c.lat > race.track.HW + E.road;
   if (!onRoad && !(c.pitRequest && d < E.request)) return false;
   c.pit = { p: lane.entry + d, p0: lane.entry + d, lat0: c.lat, box: boxOf(lane, c), phase: 'in', until: 0, service: null };
-  c.pitRequest = false; c.events.push(EV.PIT_IN);
+  c.pitRequest = false; emit(c, EV.PIT_IN);
   return true;
 }
 
@@ -142,11 +143,11 @@ export function stepPit(race, c, dt) {
     v = v > target ? Math.max(target, v - PIT.brake * dt) : Math.min(target, v + PIT.accel * dt);
     if (toBox < PIT.stopAt || (toBox < PIT.creep.within && v < PIT.creep.below)) {
       v = 0; P.p = P.box; P.phase = 'stop';
-      P.service = service(race, c); P.until = race.t + P.service.time; c.events.push(EV.PIT_STOP);
+      P.service = service(race, c); P.until = race.t + P.service.time; emit(c, EV.PIT_STOP, { service: P.service });
     }
   } else if (P.phase === 'stop') {
     v = 0;
-    if (race.t >= P.until) { applyService(race, c, P.service); P.phase = 'out'; c.events.push(EV.PIT_GO); }
+    if (race.t >= P.until) { applyService(race, c, P.service); P.phase = 'out'; emit(c, EV.PIT_GO); }
   } else {
     const limit = P.p < lane.to ? PIT.speed : TUNING.V_CAP;            // the limiter ends with the pit lane
     accel = P.p < lane.to ? PIT.accel : PIT.exitAccel; v = Math.min(limit, v + accel * dt);
@@ -167,7 +168,7 @@ export function stepPit(race, c, dt) {
   c.pitLimiter = P.p < lane.to && P.phase !== 'stop';
   if (P.p >= lane.exit) {                                             // back on the track
     c.h = Math.atan2(T.TZ[i], T.TX[i]) + wrapA(c.h - Math.atan2(T.TZ[i], T.TX[i])); c.pit = null; c.pitLimiter = false;
-    c.offset = lat; c.events.push(EV.PIT_OUT);
+    c.offset = lat; emit(c, EV.PIT_OUT);
   }
 }
 

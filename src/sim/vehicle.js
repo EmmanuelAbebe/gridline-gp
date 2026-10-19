@@ -3,6 +3,7 @@
 // Everything is per unit mass (m/s²) so it reads as accelerations.
 import { TUNING, CAR, CHASSIS, SLIP, EV } from './tuning.js';
 import { clamp } from './math.js';
+import { emit } from './events.js';
 
 const G = 9.81, TAU = 2 * Math.PI;
 const { aero, engine, gearbox } = CAR;
@@ -86,14 +87,14 @@ function updateGear(c, thr, brk, shift, dt) {
       if (shift > 0) { c.downQueue = 0; if (c.gear < GEARS) c.gear++; }
       else if (shift < 0 && c.gear - (c.downQueue || 0) > 1) {
         if (!c.downQueue && rpmAt(v, c.gear - 1) <= engine.limiter) c.gear--;
-        else { c.downQueue = (c.downQueue || 0) + 1; c.events.push(EV.SHIFT_DENIED); }
+        else { c.downQueue = (c.downQueue || 0) + 1; emit(c, EV.SHIFT_DENIED); }
       }
       if (c.downQueue > 0 && rpmAt(v, c.gear - 1) <= engine.limiter) { c.gear--; c.downQueue--; }
       else if (c.autoDown && shift <= 0 && autoDown(c, v, thr)) { c.gear--; c.downQueue = Math.max(0, c.downQueue - 1); }
       if (v < 2 && thr < 0.05) { c.gear = 1; c.downQueue = 0; }
     }
   }
-  if (c.gear !== before) { if (before > 0 && c.gear > 0) c.shiftT = gearbox.shiftTime; c.events.push(EV.SHIFT); }
+  if (c.gear !== before) { if (before > 0 && c.gear > 0) c.shiftT = gearbox.shiftTime; emit(c, EV.SHIFT, { from: before, to: c.gear }); }
 }
 
 // ---------- slipstream ----------

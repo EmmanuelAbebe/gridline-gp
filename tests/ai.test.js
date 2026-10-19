@@ -14,7 +14,7 @@ function race(r, seconds, skills = {}) {
     r.t += DT;
     for (const c of r.cars) S.driveAI(r, c, DT, skills[c.code] || 0);
     S.collide(r);
-    for (const c of r.cars) { const s = seen.get(c); for (const e of c.events) { s[e] = (s[e] || 0) + 1; if (e === S.EV.CONTACT && c.impact > 3) s.hard = (s.hard || 0) + 1; } c.events.length = 0; }
+    for (const c of r.cars) { const s = seen.get(c); for (const e of c.events) { s[e.type] = (s[e.type] || 0) + 1; if (e.type === S.EV.CONTACT && e.impact > 3) s.hard = (s.hard || 0) + 1; } c.events.length = 0; }
   }
   return seen;
 }

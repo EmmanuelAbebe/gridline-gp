@@ -67,7 +67,7 @@ test('gravel: keep moving and the car drives out; stop deep in it and it is beac
     assert.ok(!c.beached && c.v > 2.5, `shallow: ${(c.v * 3.6).toFixed(0)} km/h after 2 s`); }
   // deep, stopped: beached, then put back beside the track
   const { race, c } = solo(); place(c, i, s * (R.gravel[i] + 5)); const seen = [];
-  for (let k = 0; k < 120 * 8; k++) { race.t += DT; S.drivePlayer(race, c, { thr: 1, brk: 0, steer: 0, analog: true }, DT); seen.push(...c.events.splice(0)); }
+  for (let k = 0; k < 120 * 8; k++) { race.t += DT; S.drivePlayer(race, c, { thr: 1, brk: 0, steer: 0, analog: true }, DT); seen.push(...c.events.splice(0).map(e => e.type)); }
   assert.ok(seen.includes(S.EV.BEACHED), 'beached');
   assert.ok(seen.includes(S.EV.RECOVERED), 'recovered');
   assert.ok(!c.beached && c.surface !== 'gravel' && Math.abs(c.lat) < R.turf[c.idx] + 3, `put back at lat ${c.lat.toFixed(1)} on ${c.surface}`);
@@ -110,7 +110,7 @@ test('sausage kerbs upset the car', () => {
   const { race, c } = solo(); place(c, i, s * (R.kerb[i] - 0.3)); c.v = 25; c.surface = 'kerb';
   c.h += s * 0.15;                                     // heading over it
   const w0 = c.yawRate; let hit = false;
-  for (let k = 0; k < 30 && !hit; k++) { race.t += DT; S.drivePlayer(race, c, { thr: 0.3, brk: 0, steer: 0, analog: true }, DT); hit = c.events.includes(S.EV.SAUSAGE); c.events.length = 0; }
+  for (let k = 0; k < 30 && !hit; k++) { race.t += DT; S.drivePlayer(race, c, { thr: 0.3, brk: 0, steer: 0, analog: true }, DT); hit = c.events.some(e => e.type === S.EV.SAUSAGE); c.events.length = 0; }
   assert.ok(hit, 'hit the sausage');
   assert.ok(Math.abs(c.yawRate - w0) > 0.1, 'yaw kick');
 });
@@ -124,6 +124,6 @@ test('track limits: running wide at speed counts, a slow car rejoining does not'
       S.drivePlayer(race, c, { thr: 0, brk: 0, steer: 0, analog: true }, 0); }
     return c; };
   const fast = run(40);
-  assert.equal(fast.cuts, 1); assert.ok(fast.cutWide && fast.lapInvalid);
+  assert.equal(fast.cuts, 1); assert.ok(fast.lapInvalid && fast.events.some(e => e.type === S.EV.CUT && e.wide));
   assert.equal(run(5).cuts, 0);
 });

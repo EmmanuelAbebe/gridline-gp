@@ -249,7 +249,7 @@ export const WEAR = Object.freeze({
     suspPull: 0.02, suspGrip: 0.06, steps: 4 }),               // steps: a message each time a part crosses a 1/steps mark
 });
 
-// Things that happen to a car during a step; pushed into car.events, drained by the game.
+// Things that happen to a car during a step: the `type` of the event objects in car.events (events.js `emit`).
 export const EV = Object.freeze({ LAP: 'lap', FASTEST: 'fastest', FINISH: 'finish', WALL: 'wall', CONTACT: 'contact',
   SHIFT: 'shift', SHIFT_DENIED: 'shift-denied', CUT: 'cut', PENALTY: 'penalty',
   SAUSAGE: 'sausage', BEACHED: 'beached', RECOVERED: 'recovered',
