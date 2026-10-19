@@ -10,7 +10,8 @@ export const TUNING = Object.freeze({
 // Car contact (collide.js): each car is a capsule from `rear` to `front` m along its heading (from the car's origin,
 // between the axles), `radius` wide each side: about the bodywork. restitution = bounce of the closing speed, spin =
 // how much an off-centre hit turns the car (0..1 of the free-body rotation).
-export const CONTACT = Object.freeze({ rear: 1.5, front: 2.3, radius: 1.05, restitution: 0.1, spin: 0.3 });
+// nose: a touch more than `nose` m ahead of the car's centre hits the front wing; damageHard = how hard a car feels
+export const CONTACT = Object.freeze({ rear: 1.5, front: 2.3, radius: 1.05, restitution: 0.1, spin: 0.3, nose: 1.2, damageHard: 0.8 });
 
 // The AI drivers (driving.js): they drive the same car as the player, through steering, throttle and brake.
 export const AI = Object.freeze({
@@ -123,7 +124,12 @@ export const ROUGH = Object.freeze({ turf: 0.4, grass: 1, gravel: 1 });
 // Gravel: deeper than `deep` m and slower than `digSpeed` m/s the wheels dig in (drive × dig); stopped there
 // (< stuckSpeed for stuckTime s) the car is beached, and marshals put it back at the track edge after recoverTime s.
 export const OFFTRACK = Object.freeze({ loss: 0.1, clean: 3, spinFloor: 0.1, spinFrom: 0.35, spinTo: 1.5, deep: 2, digSpeed: 2, dig: 0.2,
-  stuckSpeed: 0.6, stuckTime: 1.5, recoverTime: 4, sausageWidth: 0.7, sausageYaw: 0.35, sausageLoss: 0.02 });
+  stuckSpeed: 0.6, stuckTime: 1.5, recoverTime: 4, sausageWidth: 0.7, sausageYaw: 0.35, sausageLoss: 0.02,
+  sausageFull: 40, sausageImpact: 0.25,   // full kick from 40 m/s; impact (sound, shake) = speed × sausageImpact
+  recoverLat: 1.5, recoverWall: 2 });     // marshals set a car down 1.5 m beyond the turf, at least 2 m off the barrier
+// Hitting a barrier (car.js resolveWalls): the car's centre stays `clearance` m off it, keeps `sideways` of its slide
+// and yaw, and its heading turns `align` of the way to the wall's each step while it scrapes along.
+export const WALLS = Object.freeze({ clearance: 1.3, sideways: 0.3, align: 0.12 });
 
 // Run-off layout (runoff.js), metres from the centre line. Each side of each sample gets: kerb (where painted), an
 // artificial-grass strip behind it, then grass or tarmac, gravel from some distance, and a barrier. What goes where
@@ -206,7 +212,23 @@ export const LAP_ZONE = 0.2;   // fraction of the lap either side of the line us
 // laps to go, or wing damage over `wing`.
 export const PIT = Object.freeze({ fast: 2.4, box: 8, garage: 12.5, entry: 55, exit: 55, speed: 80 / 3.6, brake: 35,
   base: 2.4, refuel: 12, wing: 3, repair: 5, boxLength: 7,
-  ai: Object.freeze({ margin: 0.05, tyres: 0.75, wing: 0.45 }) });
+  // garages (world.js draws them, pit.js stops each car at its own): door k at first + step·k m from the `pits` landmark
+  garages: Object.freeze({ first: -67.5, step: 15, door: 11, building: 150 }),
+  // entering: on the entry road = more than `road` m past the track edge; a car asked to pit turns in within
+  // `request` samples of the entry road's start; neither counts later than `latest` samples before the pit wall
+  enter: Object.freeze({ road: 2.5, request: 4, latest: 12 }),
+  edge: 1.5,                     // m inside the track edge where the pit roads leave and join the track
+  // the path into the box: swings across from `turnIn` samples before it over `turnInLength`, out over `turnOut`
+  turnIn: 14, turnInLength: 11, turnOut: 12,
+  // speeds in the lane: braking into the box at boxBrake m/s², pulling away at accel m/s², exitAccel on the exit road
+  boxBrake: 6, accel: 8, exitAccel: 18, stopAt: 0.05, creep: Object.freeze({ within: 1, below: 0.3 }),
+  // what the self-driving car shows the HUD and sound: throttle in / out, brake light, gear and revs
+  show: Object.freeze({ thrIn: 0.15, thrOut: 0.6, brake: 0.3, steer: 4, steerMax: 0.5, upshift: 10500, idle: 4200 }),
+  // service: a wing counts as damaged above wingFrom, floor + suspension damage above repairFrom gets repaired
+  wingFrom: 0.05, repairFrom: 0.02,
+  // the AI's decision: never within `late` laps of the flag; fuel only when under fuelBelow laps are left; tyres only
+  // with more than tyresLeft laps to go, the wing with more than wingLeft
+  ai: Object.freeze({ margin: 0.05, tyres: 0.75, wing: 0.45, late: 0.6, fuelBelow: 1.6, tyresLeft: 1.5, wingLeft: 1 }) });
 // Fuel, tyres, damage (race options, off by default: tests and the physics stay as they were).
 // fuel: the tank lasts `laps` laps (kg per metre ∝ 0.35 + 0.65 × throttle); a car starts with what the race needs
 // (+ reserve laps), at most a full tank; empty = limp (power × limp). tyres: worn after `laps` laps of normal
@@ -215,11 +237,16 @@ export const PIT = Object.freeze({ fast: 2.4, box: 8, garage: 12.5, entry: 55, e
 // suspension from hard wall hits (steering pulls, grip down).
 export const WEAR = Object.freeze({
   tank: 100, reserve: 0.4, limp: 0.15, slideWear: 6,
+  // burn per metre ∝ idle + throttle × thr, divided by the average of that over a racing lap (so a tank lasts its laps)
+  burn: Object.freeze({ idle: 0.35, throttle: 0.65, lap: 0.93 }),
+  lapSpeed: 62,                  // m/s: lap-time guess for timed races before the first lap is done
+  // radio warnings: fuel for fewer than `fuelLow` / `fuelBox` laps (when it won't reach the flag), tyres past `tyres`
+  warn: Object.freeze({ fuelLow: 2, fuelBox: 1.1, tyres: 0.75 }),
   fuel: Object.freeze({ off: 0, normal: 8, high: 4 }),            // laps a full tank lasts (0 = no fuel use)
   tyres: Object.freeze({ off: 0, normal: 10, high: 5 }),          // laps until worn out
   drop: 0.18,
   damage: Object.freeze({ min: 2, wing: 22, floor: 45, susp: 30, suspFrom: 12, wingLoss: 0.6, floorLoss: 0.3, floorDrag: 0.2,
-    suspPull: 0.02, suspGrip: 0.06 }),
+    suspPull: 0.02, suspGrip: 0.06, steps: 4 }),               // steps: a message each time a part crosses a 1/steps mark
 });
 
 // Things that happen to a car during a step; pushed into car.events, drained by the game.

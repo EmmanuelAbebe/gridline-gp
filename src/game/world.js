@@ -237,9 +237,9 @@ export function buildWorld(parent, track, drivers) {
       g.children[1].position.y = 0.8; placeAlong(g, i, SIM.laneCentre(track, p) + 3.6, 0);
     }
     const pits = new THREE.Group();
-    const bld = new THREE.Mesh(new THREE.BoxGeometry(150, 7, 12), lambert({ color: COLORS.pits })); bld.position.set(0, 3.5, 6); pits.add(bld);
-    const glass = new THREE.Mesh(new THREE.BoxGeometry(146, 2, 0.2), lambert({ color: COLORS.glass })); glass.position.set(0, 5, -0.05); pits.add(glass);
-    drivers.forEach((d, k) => { const door = new THREE.Mesh(new THREE.BoxGeometry(11, 3.2, 0.2), lambert({ color: d.color })); door.position.set(-67.5 + k*15, 1.6, -0.05); pits.add(door); });
+    const G = SIM.PIT.garages, bld = new THREE.Mesh(new THREE.BoxGeometry(G.building, 7, 12), lambert({ color: COLORS.pits })); bld.position.set(0, 3.5, 6); pits.add(bld);
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(G.building - 4, 2, 0.2), lambert({ color: COLORS.glass })); glass.position.set(0, 5, -0.05); pits.add(glass);
+    drivers.forEach((d, k) => { const door = new THREE.Mesh(new THREE.BoxGeometry(G.door, 3.2, 0.2), lambert({ color: d.color })); door.position.set(G.first + k * G.step, 1.6, -0.05); pits.add(door); });
     placeAlong(pits, landmarks.pits, L.garageLat, 0);
   }
 

@@ -71,7 +71,7 @@ export function collide(race) {
       // damage: a hit ahead of the cockpit takes the front wing
       if (!a.wasTouching || !b.wasTouching) for (const c of [a, b]) {
         const fwd = (mx - c.x) * Math.cos(c.h) + (mz - c.z) * Math.sin(c.h);
-        addDamage(race, c, closing, fwd > 1.2 ? 1 : 0, 0.8);
+        addDamage(race, c, closing, fwd > CONTACT.nose ? 1 : 0, CONTACT.damageHard);
       }
     }
     afterMove(race, a); afterMove(race, b);

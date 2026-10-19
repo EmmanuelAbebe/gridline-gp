@@ -1,5 +1,5 @@
 // Car state, where a car is on the track (nearest sample, lateral offset), walls and surface.
-import { EV, BARRIERS, ROUGH, OFFTRACK } from './tuning.js';
+import { EV, BARRIERS, ROUGH, OFFTRACK, WALLS } from './tuning.js';
 import { surfaceAt } from './runoff.js';
 import { wrapA, wrapIdx, speedOf } from './math.js';
 import { gridSlot, headingAt } from './track.js';
@@ -45,7 +45,7 @@ export function createCar(track, driver, slot) {
 // The barrier on the car's side at its sample (runoff.js). A hit keeps BARRIERS[type].keep of the speed (a tyre wall
 // soaks up more than concrete, which the car glances off); c.impactHard = how hard it felt (sound, shake).
 export function resolveWalls(track, c) {
-  const { NX, NZ } = track, R = track.runoff[c.lat < 0 ? 0 : 1], lim = R.wall[c.idx] - 1.3;
+  const { NX, NZ } = track, R = track.runoff[c.lat < 0 ? 0 : 1], lim = R.wall[c.idx] - WALLS.clearance;
   if (Math.abs(c.lat) <= lim) { c.wallHit = false; return; }
   const s = Math.sign(c.lat), over = Math.abs(c.lat) - lim;
   c.x -= NX[c.idx]*s*over; c.z -= NZ[c.idx]*s*over; c.lat = s*lim;
@@ -54,11 +54,11 @@ export function resolveWalls(track, c) {
     const B = BARRIERS[R.barrier[c.idx]] || BARRIERS[0];
     c.impact = Math.abs(c.v * Math.sin(c.h - th)); c.impactHard = B.hard; c.barrier = B.name;
     c.wallFront = Math.abs(Math.sin(c.h - th)); c.newWallHit = true;   // nose-on share (damage, pit.js)
-    c.v *= B.keep; c.vy *= 0.3; c.yawRate *= 0.3; c.events.push(EV.WALL);
+    c.v *= B.keep; c.vy *= WALLS.sideways; c.yawRate *= WALLS.sideways; c.events.push(EV.WALL);
   }
   c.wallHit = true;
   if (Math.cos(c.h - th) < 0) th += Math.PI;
-  c.h += wrapA(th - c.h) * 0.12;
+  c.h += wrapA(th - c.h) * WALLS.align;
 }
 
 // Surface under the car (runoff.js surfaceAt: the same layout the renderer draws). Running onto a sausage kerb
@@ -69,9 +69,9 @@ export function updateSurface(track, c) {
   c.onKerb = surface === 'kerb' || surface === 'sausage';
   c.offTrack = surface in ROUGH;
   if (surface === 'sausage' && was !== 'sausage') {
-    const hit = Math.min(1, Math.abs(c.v) / 40);
+    const hit = Math.min(1, Math.abs(c.v) / OFFTRACK.sausageFull);
     c.yawRate += -Math.sign(c.lat) * OFFTRACK.sausageYaw * hit; c.v *= 1 - OFFTRACK.sausageLoss * hit;
-    c.impact = Math.abs(c.v) * 0.25; c.events.push(EV.SAUSAGE);
+    c.impact = Math.abs(c.v) * OFFTRACK.sausageImpact; c.events.push(EV.SAUSAGE);
   }
 }
 
@@ -82,7 +82,7 @@ export function updateBeached(race, c) {
   if (c.beached) {
     if (race.t - c.beachedAt < O.recoverTime) return;
     const i = c.idx, s = c.lat < 0 ? -1 : 1, R = track.runoff[s < 0 ? 0 : 1];
-    const lat = s * Math.min(R.turf[i] + 1.5, R.wall[i] - 2);
+    const lat = s * Math.min(R.turf[i] + O.recoverLat, R.wall[i] - O.recoverWall);
     c.x = track.PX[i] + track.NX[i] * lat; c.z = track.PZ[i] + track.NZ[i] * lat; c.lat = lat; c.h = headingAt(track, i);
     c.v = c.vy = c.yawRate = 0; c.beached = false; c.stuckT = 0; c.dirt = 1; c.gear = 1; c.cutRun = 0;
     updateSurface(track, c); c.events.push(EV.RECOVERED);
