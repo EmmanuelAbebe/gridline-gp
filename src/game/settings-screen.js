@@ -2,6 +2,7 @@ import { SIM } from '../sim/index.js';
 import { PREFS, RACE_SETUP } from './config.js';
 import { SCENARIOS } from './audio/scenarios.js';
 import { $, createEmitter } from './util.js';
+import { createControllerPanel } from './controller-panel.js';
 
 // Settings screen (start menu SETTINGS, pause menu, or O): tabs of controls built from the TABS table below.
 // Values live elsewhere (race setup, prefs, graphics mode); main.js passes a binding { get(key), set(key, value),
@@ -10,6 +11,8 @@ const pct = v => v + ' %';
 const seg = (key, label, options, note, when) => ({ type: 'seg', key, label, options, note, when });
 const slider = (key, label, fmt, note) => ({ type: 'slider', key, label, fmt, note, limits: PREFS.limits[key] });
 const buttons = (...list) => ({ type: 'buttons', list });
+// a self-drawing block (make(bind) → { el, tick(pad) }), built once and kept: it may hold state and listeners
+const panel = make => ({ type: 'panel', make });
 const ON_OFF = [[true, 'ON'], [false, 'OFF']];
 const LEVELS = [['off', 'OFF'], ['low', 'LOW'], ['on', 'ON']];
 const C = RACE_SETUP.choices, WEAR = SIM.WEAR;
@@ -52,7 +55,7 @@ const TABS = [
       : 'Hits never damage the car.'),
   ] },
   { id: 'controller', label: 'Controller', items: [
-    { type: 'status' },
+    panel(createControllerPanel),
     slider('smoothing', 'Steering smoothing', v => v ? String(v) : 'OFF',
       v => v ? `The steering takes ${Math.round(1000 * v / PREFS.smoothingRate)} ms from centre to full lock.`
         : 'Off: the car gets your controller\'s steering exactly as it arrives. Smoothing on the phone wheel is set in its own app.'),
@@ -98,12 +101,13 @@ export const SettingsScreen = (() => {
   const root = $('setOv'), tabBar = $('setTabs'), body = $('setBody'), events = createEmitter();
   let bind = null, tab = TABS[0].id, open = false;
   const refresh = [];           // per visible control: () => redraw from the bound value
-  let readout = null, status = null;
+  let readout = null;
+  const panels = new Set();      // panels on the visible tab
 
   function control(it) {
     const row = document.createElement('div'); row.className = 'set-item';
     if (it.type === 'html') { row.innerHTML = it.html; return row; }
-    if (it.type === 'status') { row.innerHTML = '<p class="note set-status"></p>'; status = row.firstChild; return row; }
+    if (it.type === 'panel') { it.instance ||= it.make(bind); panels.add(it.instance); row.append(it.instance.el); return row; }
     if (it.type === 'readout') {
       row.innerHTML = '<div class="set-readout"><span class="lbl">Controller</span><i><b></b><u></u></i><span class="lbl">To the car</span><i><b></b><u></u></i></div>';
       readout = [...row.querySelectorAll('u')]; return row;
@@ -147,7 +151,7 @@ export const SettingsScreen = (() => {
   }
 
   function render() {
-    tabBar.innerHTML = ''; body.innerHTML = ''; refresh.length = 0; readout = status = null;
+    tabBar.innerHTML = ''; body.innerHTML = ''; refresh.length = 0; readout = null; panels.clear();
     for (const t of TABS) {
       const b = document.createElement('button'); b.type = 'button'; b.textContent = t.label;
       b.setAttribute('aria-pressed', String(t.id === tab)); b.onclick = () => { tab = t.id; render(); };
@@ -168,13 +172,10 @@ export const SettingsScreen = (() => {
     bind(b) { bind = b; },
     show(tabId) { if (tabId) tab = tabId; open = true; root.hidden = false; render(); $('setClose').focus(); },
     close, redraw,
-    // every frame while open: controller status and the live steering bars (raw from the device, shaped for the car)
+    // every frame while open: the panels (controller list) and the live steering bars (raw from the device, shaped for the car)
     tick(pad, shaped) {
       if (!open) return;
-      if (status) {
-        const text = pad.connected ? `Connected: ${pad.id.replace(/\s*\(.*$/, '') || 'controller'}` : 'No controller seen yet: press a pedal or button on it.';
-        if (status.textContent !== text) status.textContent = text;
-      }
+      for (const p of panels) p.tick(pad);
       if (readout) [pad.connected ? pad.steerRaw : 0, pad.connected ? shaped : 0].forEach((v, i) => {
         const w = Math.min(1, Math.abs(v)) * 50;
         readout[i].style.left = (v < 0 ? 50 - w : 50) + '%'; readout[i].style.width = w + '%';

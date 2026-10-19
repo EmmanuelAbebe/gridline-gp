@@ -52,6 +52,5 @@ export const SAY = {
   timeUp: { toast: 'Time up: the leader\'s next lap is the last' },
   autoShift: { toast: 'Automatic gearbox: pick SEMI-AUTO or MANUAL in Settings (O) to shift yourself' },
   downQueued: { toast: 'Too fast for that gear: the downshift goes in as you slow down' },
-  padOn: { toast: 'Wheel connected' },
   noHud: { toast: 'Start a race to arrange the HUD' },
 };

@@ -1,7 +1,9 @@
 import { PREFS } from './config.js';
 import { $, createEmitter } from './util.js';
+import { Controllers } from './controllers.js';
 
-// Keyboard, touch buttons and Gamepad API (standard Xbox mapping; the phone wheel shows up as one).
+// Keyboard, touch buttons and one controller (controllers.js: the phone wheel, or a Gamepad API device in the standard
+// Xbox layout), chosen by prefs.controller.
 // Exposes `drive` (read by the sim) and emits: 'action' (name), 'padchange' (connected), 'gesture' (for audio unlock).
 export const Input = (() => {
   const KEY_DRIVE = { ArrowUp:'up', KeyW:'up', ArrowDown:'down', KeyS:'down', ArrowLeft:'left', KeyA:'left', ArrowRight:'right', KeyD:'right' };
@@ -18,15 +20,16 @@ export const Input = (() => {
   const drive = { steer: 0, thr: 0, brk: 0, analog: false };
   // the connected controller as the browser reports it, for the input monitor: id, mapping, and `timestamp`,
   // which the browser bumps every time the device sends new data (so its change rate = the controller's update rate)
-  const pad = { connected: false, id: '', mapping: '', timestamp: 0, steerRaw: 0 };
+  const pad = { connected: false, key: '', kind: '', label: '', id: '', mapping: '', timestamp: 0, steerRaw: 0 };
   // controller shaping from the Settings screen (fractions; setConfig converts from the screen's percentages)
-  const cfg = { deadZone: 0, range: 1, curve: 1, pedalDeadZone: 0 };
+  const cfg = { deadZone: 0, range: 1, curve: 1, pedalDeadZone: 0, controller: 'auto' };
   function setConfig(p) {
+    cfg.controller = p.controller || 'auto';
     cfg.deadZone = p.deadZone / 100; cfg.range = p.range / 100; cfg.curve = p.curve; cfg.pedalDeadZone = p.pedalDeadZone / 100;
   }
   setConfig(PREFS.defaults);
   const gamepadAllowed = !(document.featurePolicy && document.featurePolicy.allowsFeature && !document.featurePolicy.allowsFeature('gamepad'));
-  let padPrev = [], padConnected = false;
+  let padPrev = [], padKey = '';
 
   const typing = e => e.target instanceof Element && e.target.matches('input, select, textarea');   // design-tool fields
   addEventListener('keydown', e => {
@@ -46,10 +49,6 @@ export const Input = (() => {
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, off);
   }
 
-  function pickPad() {
-    const list = navigator.getGamepads ? [...navigator.getGamepads()].filter(g => g && g.connected) : [];
-    return list.find(g => g.mapping === 'standard') || list[0] || null;
-  }
   const pressed = (p, i) => { const b = p.buttons[i]; return !!b && (b.pressed || b.value > 0.5); };
   const deadZone = (x, dz) => Math.abs(x) < dz ? 0 : Math.sign(x) * (Math.abs(x) - dz) / (1 - dz);
   // analog steering: dead zone, then full lock at `range` of the travel, then the response curve
@@ -57,12 +56,13 @@ export const Input = (() => {
 
   // Called once per frame: merges every source into `drive` and fires button actions on press edges.
   function poll() {
-    const p = pickPad();
-    if (!!p !== padConnected) { padConnected = !!p; events.emit('padchange', padConnected); }
+    const p = Controllers.pick(cfg.controller);
+    if ((p?.key ?? '') !== padKey) { padKey = p?.key ?? ''; events.emit('padchange', !!p, p?.label ?? ''); }   // connected, or another device
     let steer = (held.right ? 1 : 0) - (held.left ? 1 : 0), thr = held.up ? 1 : 0, brk = held.down ? 1 : 0, analog = false;
     pad.connected = !!p;
     if (p) {
-      pad.id = p.id; pad.mapping = p.mapping; pad.timestamp = p.timestamp; pad.steerRaw = p.axes[0] || 0;
+      if (pad.key !== p.key) padPrev = p.buttons.map((b, i) => pressed(p, i));   // another device: buttons already held don't fire
+      pad.key = p.key; pad.kind = p.kind; pad.label = p.label; pad.id = p.id; pad.mapping = p.mapping; pad.timestamp = p.timestamp; pad.steerRaw = p.axes[0] || 0;
       const x = shapeSteer(p.axes[0] || 0);
       let pt = p.buttons[PAD.RT] ? p.buttons[PAD.RT].value : 0, pb = p.buttons[PAD.LT] ? p.buttons[PAD.LT].value : 0;
       if (p.mapping !== 'standard' && p.axes.length >= 6) {           // raw Xbox layout: triggers on axes 5 / 2, -1 at rest

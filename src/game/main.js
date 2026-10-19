@@ -37,6 +37,7 @@ import { loadSetup, loadPrefs, steerRate, raceFormat, raceWear, buildField, play
 import { messageFor, SAY } from './race-messages.js';
 import { bindSettings } from './settings-binding.js';
 import { installDebug } from './debug.js';
+import { PhoneWheel } from './phone-wheel.js';
 
 const { EV } = SIM;
 // circuits are built on first use (~40 ms) and kept
@@ -268,7 +269,7 @@ function requestBox() {
 }
 $('boxBtn').onclick = requestBox;
 Input.on('gesture', Sound.init);
-Input.on('padchange', on => { Hud.setPad(on, Input.gamepadAllowed); if (on && game.phase !== PHASE.MENU) showMessage(SAY.padOn); });
+Input.on('padchange', (on, label) => { Hud.setPad(on, Input.gamepadAllowed); if (on && game.phase !== PHASE.MENU) showMessage({ toast: `${label} connected` }); });
 
 $('camBtn').onclick = cycleCamera;
 $('muteBtn').onclick = () => { Sound.init(); toggleMute(); };
@@ -390,6 +391,7 @@ setTrack(game.setup.track);
 { const saved = Settings.get(CONFIG.storageKeys.gfx);
   setGfx(Object.hasOwn(GFX_PROFILES, saved || '') ? saved : (Display.gpu.weak ? 'perf' : 'quality'), false); }
 applyPrefs(); game.steerRate = steerRate(game.prefs);
+if (PhoneWheel.available && game.prefs.phoneAuto) PhoneWheel.start({ link: game.prefs.phoneLink });   // Settings → Controller
 Hud.setPad(false, Input.gamepadAllowed);
 HudStyle.apply(CameraRig.mode.id);
 Screens.describeEvent(track, game.setup.cars, playerSlotOf(game.setup.cars));

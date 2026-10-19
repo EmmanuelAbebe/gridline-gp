@@ -63,6 +63,17 @@ ipcMain.handle('app:toggle-fullscreen', e => {
 });
 ipcMain.handle('app:is-fullscreen', e => BrowserWindow.fromWebContents(e.sender).isFullScreen());
 
+// The phone wheel (phone-link.cjs): Settings → Controller starts / stops it; its input and status go to the page.
+// Cert and pairing code live in the app's profile (userData), the phone page in phone-wheel/.
+const { createPhoneLink } = require('./phone-link.cjs');
+const toPage = (channel, data) => { for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send(channel, data); };
+const phone = createPhoneLink({ dataDir: path.join(app.getPath('userData'), 'phone-wheel'), pagesDir: path.join(ROOT, 'phone-wheel'),
+  onInput: input => toPage('phone:input', input), onStatus: s => toPage('phone:status', s) });
+ipcMain.handle('phone:start', (_e, opts) => phone.start(opts));
+ipcMain.handle('phone:stop', () => phone.stop().then(() => phone.status()));
+ipcMain.handle('phone:status', () => phone.status());
+app.on('will-quit', () => { phone.close(); });
+
 async function smokeTest(win) {
   const errors = [];
   win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) errors.push(message); });
@@ -104,6 +115,30 @@ async function smokeTest(win) {
   info.settings = await win.webContents.executeJavaScript(`(() => { const shown = !document.getElementById('setOv').hidden;
     const smoothing = document.querySelector('#setBody output').textContent; document.getElementById('setClose').click();
     return { shown, smoothing, backToPause: !document.getElementById('pauseOv').hidden }; })()`);
+  // Settings → Controller → Connect phone: the QR code shows (screenshot); a phone (a WebSocket client here) joins,
+  // steers and presses gas; the game drives from it; then Stop
+  await win.webContents.executeJavaScript(`document.getElementById('pauseSettingsBtn').click();
+    [...document.querySelectorAll('#setTabs button')].find(b => b.textContent === 'Controller').click();
+    [...document.querySelectorAll('#setBody button')].find(b => b.textContent === 'Connect phone').click()`);
+  await new Promise(r => setTimeout(r, 2500));
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-phone.png'), (await win.webContents.capturePage()).toPNG());
+  info.phone = await (async () => {
+    const st = phone.status(), url = new URL(st.url);
+    if (!st.running) return { error: st.error || 'not running' };
+    const WebSocket = require('ws'), ws = new WebSocket(`wss://127.0.0.1:${st.port}/ws?t=${url.searchParams.get('t')}`, { rejectUnauthorized: false });
+    await new Promise((r, j) => { ws.on('open', r); ws.on('error', j); });
+    const feed = setInterval(() => ws.send(JSON.stringify({ s: 0.6, g: 1, b: 0, k: 0 })), 16);
+    await new Promise(r => setTimeout(r, 600));
+    const seen = await win.webContents.executeJavaScript(`({ ...gridlineDebug.input(), state: document.querySelector('.dev-state').textContent,
+      inUse: document.querySelector('.dev-row.active b')?.textContent })`);
+    clearInterval(feed); ws.close();
+    await new Promise(r => setTimeout(r, 400));
+    const after = await win.webContents.executeJavaScript(`gridlineDebug.input()`);
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('#setBody button')].find(b => b.textContent === 'Stop').click()`);
+    await new Promise(r => setTimeout(r, 400));
+    return { link: st.link, port: st.port, qr: st.qr.startsWith('<svg'), seen, releasedSteer: after.steer, stopped: !phone.status().running };
+  })();
+  await win.webContents.executeJavaScript(`document.getElementById('setClose').click()`);
   // Sound studio from Settings → Sound: the bench plays (no errors), screenshot, close
   await win.webContents.executeJavaScript(`document.getElementById('pauseSettingsBtn').click();
     [...document.querySelectorAll('#setTabs button')].find(b => b.textContent === 'Sound').click();

@@ -126,7 +126,12 @@ export const PREFS = Object.freeze({
     engineVol: 100, fxVol: 100, ambVol: 100,   // % per sound bus
     doppler: true, shiftBeep: false,
     shake: 70,           // % camera shake (close passes, dirty air)
+    controller: 'auto',  // the device that drives: 'auto' (phone, then a standard pad, then any) or a device key (controllers.js)
+    phoneLink: 'wifi',   // how the phone wheel connects (desktop app): wifi / bluetooth / usb (desktop/phone-net.cjs)
+    phoneAuto: false,    // start the phone wheel with the game
   },
+  // text prefs with a fixed set of values (others keep any string)
+  options: { phoneLink: ['wifi', 'bluetooth', 'usb'] },
   smoothingRate: 40,     // smoothing level n: the steering moves at most 40/n of full lock per second
   limits: { smoothing: [0, 10, 1], deadZone: [0, 20, 0.5], range: [40, 100, 5], curve: [1, 3, 0.1], calm: [0, 100, 10], pedalDeadZone: [0, 20, 1], volume: [0, 100, 5],
     engineVol: [0, 150, 5], fxVol: [0, 150, 5], ambVol: [0, 150, 5], shake: [0, 150, 10] },

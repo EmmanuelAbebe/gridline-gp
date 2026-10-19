@@ -3,6 +3,8 @@
 Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slowroads.io on this PC.
 
 ## How it works
+- Gridline GP's desktop app now has its own server for the same phone page (desktop/phone-link.cjs, Node; see the root
+  CLAUDE.md): keep the page's protocol ({s,g,b,k}, /check, /ws, probes {p,r} → {pong,hz,gap}) compatible with both.
 - Code layout (2026-10-19, split from one 944-line server.py): `server.py` = the entry point only (so
   `python server.py ...` and `phone-wheel.spec` are unchanged); the code is the `phonewheel/` package:
   `paths` (HERE/RES/DATA, data_dir, mime types), `protocol` (BUTTON_NAMES, `parse_message`, clamp, squash),

@@ -28,11 +28,14 @@ export function loadSetup(json) {
   };
 }
 
-// saved JSON (or null) → every pref: booleans as saved, numbers clamped to PREFS.limits, else PREFS.defaults
+// saved JSON (or null) → every pref: booleans as saved, numbers clamped to PREFS.limits, text from PREFS.options (any
+// string where there is no list), else PREFS.defaults
 export function loadPrefs(json) {
   const s = parse(json), out = {};
   for (const [k, d] of Object.entries(PREFS.defaults)) {
     const lim = PREFS.limits[k];
+    const opts = PREFS.options[k];
+    if (typeof d === 'string') { out[k] = typeof s[k] === 'string' && (!opts || opts.includes(s[k])) ? s[k] : d; continue; }
     out[k] = typeof d === 'boolean' ? (typeof s[k] === 'boolean' ? s[k] : d)
       : Number.isFinite(+s[k]) && s[k] !== null && s[k] !== '' ? Math.min(lim[1], Math.max(lim[0], +s[k])) : d;
   }

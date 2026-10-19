@@ -58,6 +58,23 @@ table.res i{display:inline-block;width:4px;height:14px;vertical-align:-2px;margi
 .set-readout i b{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--muted)}
 .set-readout i u{position:absolute;top:0;bottom:0;left:50%;width:0;background:var(--amber)}
 .set-item.btns{display:flex}
+/* Settings → Controller devices (controller-panel.js) */
+.dev-panel{display:grid;gap:10px}
+.dev-card{display:grid;gap:8px;padding:12px;border:1px solid var(--rule);border-radius:4px;background:rgba(255,255,255,.02)}
+.dev-card .row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.dev-card .lbl.dim{opacity:.8}
+.dev-card .btns{display:flex;gap:8px;flex-wrap:wrap}
+.dev-card .note.warn,.set-item .dev-card p.note.warn{color:var(--amber)}
+.dev-state{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.08em;color:var(--muted)}
+.dev-state.on{color:var(--green)}
+.dev-pair{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.dev-qr{flex:0 0 auto;width:min(176px,100%);aspect-ratio:1;background:#fff;border-radius:4px;padding:6px;box-sizing:border-box}
+.dev-qr svg{display:block;width:100%;height:100%}
+.dev-steps{flex:1 1 220px;display:grid;gap:6px;min-width:0}
+.dev-url{font-size:12px;word-break:break-all;color:var(--text);background:#1d232b;padding:4px 6px;border-radius:3px;user-select:all}
+.dev-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--rule)}
+.dev-row.active b{color:var(--amber)}
+.dev-row p.note{margin:2px 0 0}
 #startOv .card{width:min(560px,100%);gap:10px;padding-top:20px}
 #startOv .trackinfo,#startOv .summary{margin-top:-2px}
 #startOv .btns .btn{white-space:nowrap}

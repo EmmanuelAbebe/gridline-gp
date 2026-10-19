@@ -126,8 +126,9 @@ export const Hud = (() => {
       $('padChip').hidden = !on; $('padChip').classList.toggle('on', on);
       const row = $('padStatus');
       row.classList.toggle('on', on); row.classList.toggle('warn', !on && !allowed);
-      const label = on ? 'Wheel connected. Tilt to steer, pedals for gas and brake, A to start.'
-        : allowed ? `Phone wheel: press gas on your phone once so ${window.gridlineApp ? 'the game' : 'the browser'} sees it.`
+      const label = on ? 'Controller connected. A to start; Settings → Controller lists every device.'
+        : allowed ? (window.gridlineApp?.phone ? 'Phone wheel: connect it in Settings → Controller. Other controllers: press a button on it once.'
+          : 'Phone wheel or controller: press gas or a button once so the browser sees it.')
         : 'This view blocks controllers. Run the wheel in keyboard mode: PhoneWheel --keyboard --window gridline';
       if (label !== padLabel) { $('padText').textContent = label; padLabel = label; }
     },

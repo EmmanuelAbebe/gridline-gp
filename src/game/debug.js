@@ -4,9 +4,11 @@
 import { SIM } from '../sim/index.js';
 import { Display } from './display.js';
 import { Sound } from './sound.js';
+import { Input } from './input.js';
 
 export function installDebug(setTrack, current) {
   window.gridlineDebug = { soundReady: () => Sound.ready,
+    input: () => ({ ...Input.drive, device: Input.pad.label, kind: Input.pad.kind }),   // what drives the car right now
     view(id, at, lat, height, ahead, side = 0) {
       const track = setTrack(id);
       const { N, PX, PZ, NX, NZ } = track, i = Math.round(at * N) % N, j = SIM.wrapIdx(i + ahead, N);

@@ -8,8 +8,8 @@ which shows up in the browser as a virtual Xbox 360 controller.
 ## Goal and roadmap (Oct 2026)
 Turning the prototype into a production-grade game. Agreed order: (1) foundation [done: modules, Vite, tests],
 (2) sim-cade physics in 4 parts: [done] engine/gearbox/downforce/slipstream; [done] tyre + chassis model;
-[done] AI on the same chassis (racing line, racecraft, mistakes, difficulty); tuning screen (downforce, grip, power, brake balance), (3) merge the Phone-wheel project into this one (server inside Electron,
-pairing from the settings menu, vibration + rev lights on the phone), (4) car/world visuals: [done 2026-10-14] brake lights, cockpit view (user's seat: eye 0.33 m back / 0.77 m high, wheel 0.675 m high; wheel at x 0.18 so the arms reach it, halo visible, driver's arms/legs),
+[done] AI on the same chassis (racing line, racecraft, mistakes, difficulty); tuning screen (downforce, grip, power, brake balance), (3) merge the Phone-wheel project into this one ([done 2026-10-19] server inside Electron,
+pairing from the settings menu; still to do: vibration + rev lights on the phone, BOX button on the phone, per-device mapping for wheels/joysticks), (4) car/world visuals: [done 2026-10-14] brake lights, cockpit view (user's seat: eye 0.33 m back / 0.77 m high, wheel 0.675 m high; wheel at x 0.18 so the arms reach it, halo visible, driver's arms/legs),
 F1-style curved car with textures; still to do: crash physics, scenery, (5) HUD, menus, presentation.
 
 ## Files
@@ -316,7 +316,31 @@ Tunables live in data tables (config modules), not inline in the logic.
    - Game: `game` state object, phases menu → lights → race → done; `newRace`, `simStep` (fixed 120 Hz),
      `renderFrame` (interpolated `rx/rz/rh`), `monitorFps` (two slow 0.5 s windows < 52 fps → step down).
 
-## Phone wheel notes (roadmap step 3: merging it in)
+## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
+## gamepads / joysticks / wheels later)
+- Electron main runs the phone server itself: `desktop/phone-link.cjs` (`createPhoneLink({ dataDir, pagesDir, onInput,
+  onStatus })`, `start({ link, port, renewCode })`): https on 8443 (next free up to +10) with a front door that sends TLS to
+  https and anything else to a redirect; serves phone-wheel/controller.html + static/ (the same phone page), `/check`,
+  WebSocket `/ws` (`ws` package): `{s,g,b,k}` → onInput, link probes answered `{pong, hz, gap}`, heartbeat, release on
+  close and by a 0.4 s watchdog. Self-signed cert made with node-forge (SAN = every address it was needed for, ≤ 8),
+  pairing code `phone-token`; both in `<userData>/phone-wheel/`. QR = SVG (`qrcode`). `desktop/phone-net.cjs`: links
+  wifi (LAN IP) / bluetooth (BT interface by /sys DEVTYPE, nmcli profile `phone-wheel-bt` like the Python server,
+  re-polled every 3 s, cert follows a new address) / usb (adb reverse, plain http on localhost). No virtual pad: the
+  input goes over IPC (`main.cjs` phone:start/stop/status, `phone:input` / `phone:status` events; preload
+  `gridlineApp.phone`). Tests: tests/phone-link.test.js (real server on a free port).
+- Game: `phone-wheel.js` (`PhoneWheel`: the bridge; `pad()` = the phone as a standard-layout gamepad snapshot, phone
+  button bits → standard indices, LT/RT = brake/gas), `controllers.js` (`Controllers.list()` = phone + Gamepad API
+  devices, `pick(prefs.controller)`: chosen, else phone, else standard pad, else any; `kindOf(id)` guesses wheel /
+  joystick / xbox / playstation / gamepad, `KINDS` = label + note per kind: the place for per-kind mapping later),
+  `Input` reads `Controllers.pick` (so PAD_ACTIONS etc. work for every device; switching device doesn't fire held
+  buttons; 'padchange' (connected, label)). `controller-panel.js` = Settings → Controller top: phone card (link
+  WI-FI / BLUETOOTH / USB, Connect / Stop / New pairing code, QR + URL + steps, live state CONNECTED · Hz · ms,
+  Start with the game) + controller list (AUTO or USE per device). Settings item type `panel` (built once, kept,
+  ticked per frame). Prefs `controller`, `phoneLink`, `phoneAuto` (PREFS.options = allowed text values). Smoke test:
+  Connect phone → a WebSocket "phone" steers the car (`gridlineDebug.input()`), screenshot `out-phone.png`.
+- In a plain browser there is no phone server: run phone-wheel/server.py as before (its uinput pad is a controller).
+
+## Phone wheel notes (standalone project, now in phone-wheel/)
 - Project: `phone-wheel/` in this repo since 2026-10-19 (imported with `git subtree` from ~/Downloads/Phone-wheel-main,
   github.com/EmmanuelAbebe/Phone-wheel, history kept; its own `phone-wheel/CLAUDE.md` has the details; its GitHub
   workflow in `phone-wheel/.github` doesn't run from a subfolder). aiohttp `server.py` (entry point; code in `phone-wheel/phonewheel/`,

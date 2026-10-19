@@ -41,6 +41,10 @@ test('prefs: clamped to their limits, booleans only as booleans', () => {
   assert.equal(loadPrefs(JSON.stringify({ deadZone: '' })).deadZone, PREFS.defaults.deadZone);
   assert.equal(loadPrefs(JSON.stringify({ muted: 'yes' })).muted, PREFS.defaults.muted);
   assert.equal(loadPrefs(JSON.stringify({ muted: !PREFS.defaults.muted })).muted, !PREFS.defaults.muted);
+  assert.equal(loadPrefs(JSON.stringify({ phoneLink: 'bluetooth', controller: 'pad:Some Wheel' })).phoneLink, 'bluetooth');
+  assert.equal(loadPrefs(JSON.stringify({ phoneLink: 'carrier-pigeon' })).phoneLink, PREFS.defaults.phoneLink);
+  assert.equal(loadPrefs(JSON.stringify({ controller: 'pad:Some Wheel' })).controller, 'pad:Some Wheel');
+  assert.equal(loadPrefs(JSON.stringify({ controller: 5 })).controller, 'auto');
   assert.equal(steerRate({ smoothing: 0 }), Infinity);
   assert.equal(steerRate({ smoothing: 2 }), PREFS.smoothingRate / 2);
 });
