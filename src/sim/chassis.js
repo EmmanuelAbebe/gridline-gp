@@ -6,9 +6,10 @@
 //
 // State on the car: v (forward speed), vy (sideways speed, + = right), yawRate (rad/s, + = turning right), ax.
 // Everything is per unit mass, so forces read as accelerations (m/s²).
-import { TUNING, CAR, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT } from './tuning.js';
+import { TUNING, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT } from './tuning.js';
 import { clamp, speedOf } from './math.js';
-import { DOWNFORCE_K, lateralGrip, brakeMax, drivetrain } from './vehicle.js';
+import { lateralGrip, brakeMax, drivetrain } from './vehicle.js';
+import { STOCK } from './spec.js';
 import { carCondition } from './pit.js';
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
@@ -31,9 +32,10 @@ export const tyreCurve = (alpha, peak = CH.peakSlip) => Math.sin(C_SHAPE * Math.
 // tightest steady turn the tyres can hold (wheelbase / radius, plus the tyres' slip, measured: limitTurn, steerMargin),
 // so a full tilt or a held key at 300 km/h asks for the grip there is, not more, and half tilt is about half the
 // cornering. Less assist mixes back the raw lock (squared, so medium stays close to the grip limit).
-export function steerLock(v, assist) {
+/** @param {number} v @param {number} assist @param {import('./spec.js').Spec} [spec] */
+export function steerLock(v, assist, spec = STOCK) {
   const sp = Math.max(Math.abs(v), 1);
-  const useful = Math.min(CH.maxSteer, L * lateralGrip(sp) / (sp * sp) * CH.limitTurn + CH.steerMargin);
+  const useful = Math.min(CH.maxSteer, L * lateralGrip(sp, spec) / (sp * sp) * CH.limitTurn + CH.steerMargin);
   return useful + (CH.maxSteer - useful) * (1 - assist) ** 2;
 }
 
@@ -60,7 +62,7 @@ function axle(D, alpha, peak, long, limit) {
 // One player step: steering, drivetrain, tyres, assists, integration. Moves c.x/c.z/c.h; the caller runs afterMove.
 /** @param {Race} race @param {Car} c */
 export function stepChassis(race, c, inp, dt) {
-  const A = c.assists || ASSISTS.medium, surf = SURFACES[c.surface] || SURFACES.track;
+  const A = c.assists || ASSISTS.medium, surf = SURFACES[c.surface] || SURFACES.track, S = c.spec;   // S: the car's own numbers (spec.js)
   const d = drivetrain(c, inp, dt);
   // the car's condition (pit.js): worn tyres, damage, empty tank (limp)
   const cond = carCondition(c);
@@ -77,12 +79,12 @@ export function stepChassis(race, c, inp, dt) {
   for (let s = 0; s < n; s++) {
     // v: along the car's heading (negative = travelling backwards, e.g. past 90° in a spin), vy: sideways
     const v = c.v, sp = Math.abs(v), vy = c.vy, w = c.yawRate, speed = Math.hypot(v, vy);
-    const delta = c.steer * steerLock(v, A.steer) + cond.pull;
+    const delta = c.steer * steerLock(v, A.steer, S) + cond.pull;
     // reverse gear and crawling (by the real speed: a car sliding sideways at 90° is not crawling): kinematic steering
     if (d.reverse || speed < CH.lowSpeed) {
       let a = -d.resist - surfaceDrag(surf, v);
       if (d.reverse) { a += v > 0 ? -CH.brakeSystem * 0.4 * inp.brk : -TUNING.REVERSE_ACC * inp.brk; if (inp.thr > 0 && v < 0) a += 20 * inp.thr; }
-      else { a += Math.min(d.drive, CAR.grip * surf.grip * dirt * G * (1 - CH.frontWeight) * CH.longGrip) * dug; if (v > 0) a -= 20 * inp.brk * surf.grip; }
+      else { a += Math.min(d.drive, S.grip * surf.grip * dirt * G * (1 - CH.frontWeight) * CH.longGrip) * dug; if (v > 0) a -= 20 * inp.brk * surf.grip; }
       const v0 = c.v; c.v = clamp(c.v + a * h, -TUNING.REVERSE_MAX, TUNING.V_CAP);
       if (!d.reverse && v0 >= 0 && c.v < 0) c.v = 0;
       // the rear axle rolls straight: sideways speed at the centre of mass is B_REAR × yaw rate (no tyre slip)
@@ -96,19 +98,19 @@ export function stepChassis(race, c, inp, dt) {
     const beta = Math.atan2(Math.abs(vy), v), stall = clamp((beta - OT.spinFrom) / (OT.spinTo - OT.spinFrom), 0, 1);
     // = smoothstep(stall), written out: the helper multiplies in another order (last-bit rounding: sim-trace would differ)
     const yawAero = 1 - (1 - OT.spinFloor) * stall * stall * (3 - 2 * stall);
-    const df = DOWNFORCE_K * v * v * (1 - CH.dirtyAir * (c.slip || 0)) * yawAero * cond.aero;
+    const df = S.dfK * v * v * (1 - CH.dirtyAir * (c.slip || 0)) * yawAero * cond.aero;
     const transfer = c.ax * CH.cgHeight / L;
-    const mu = CAR.grip * surf.grip * dirt;
-    const Df = mu * Math.max(0.5, G * CH.frontWeight + df * CH.aeroFront * cond.front - transfer);
-    const Dr = mu * CH.rearGrip * Math.max(0.5, G * (1 - CH.frontWeight) + df * (1 - CH.aeroFront) + transfer);
+    const mu = S.grip * surf.grip * dirt;
+    const Df = mu * S.frontGrip * Math.max(0.5, G * CH.frontWeight + df * S.aeroFront * cond.front - transfer);
+    const Dr = mu * S.rearGrip * Math.max(0.5, G * (1 - CH.frontWeight) + df * (1 - S.aeroFront) + transfer);
     // slip angles (velocity at each axle vs where its wheels point)
     // (rolling backwards the steering acts the other way round)
     const back = v / Math.max(sp, 0.5);   // +1 forwards, −1 backwards, smooth through 0 (brakes then damp v to rest)
     const alphaF = Math.atan2(vy + A_FRONT * w, Math.max(sp, 1)) - delta * Math.sign(back || 1);
     const alphaR = Math.atan2(vy - B_REAR * w, Math.max(sp, 1));
     // brakes split by axle load (+ a front bias), drive on the rear
-    const brake = brakeMax(sp) * inp.brk;
-    const bias = clamp(Df / (Df + Dr) + CH.brakeBias, 0.3, 0.8);
+    const brake = brakeMax(sp, S) * inp.brk;
+    const bias = clamp(Df / (Df + Dr) + S.brakeBias, 0.3, 0.8);
     const absLimit = A.abs > 0 ? 0.97 + 0.15 * (1 - A.abs) : null, tcLimit = A.tc > 0 ? 0.97 + 0.25 * (1 - A.tc) : null;
     const front = axle(Df, alphaF, CH.peakSlip, -brake * bias * back, absLimit);
     const rearLong = d.drive - brake * (1 - bias) * back;
@@ -132,7 +134,7 @@ export function stepChassis(race, c, inp, dt) {
     // stability assist: when the rear slides, pull the yaw rate back toward what the steering asks for
     // damping assist: always, gently, toward that same yaw rate
     if (A.stability > 0 || A.damping > 0) {
-      const wGrip = lateralGrip(sp) / sp, wRef = clamp(v * Math.tan(delta) / L, -wGrip, wGrip);
+      const wGrip = lateralGrip(sp, S) / sp, wRef = clamp(v * Math.tan(delta) / L, -wGrip, wGrip);
       const rearSliding = clamp((Math.abs(alphaR) - 0.4 * CH.rearPeakSlip) / (0.6 * CH.rearPeakSlip), 0, 1);
       dw -= (A.stability * CH.stabilityGain * rearSliding + (A.damping || 0) * CH.dampingGain) * (w - wRef);
     }

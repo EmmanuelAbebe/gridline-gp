@@ -1,40 +1,46 @@
 // The car's performance: grip and downforce, drag, engine and gearbox, brakes, slipstream.
-// One model for every car; the tyres and chassis are in chassis.js, the drivers (player and AI) in driving.js.
+// One model for every car, with the car's own numbers from its spec (spec.js: STOCK for the AI, the garage setup for
+// the player; every function takes it, default STOCK); the tyres and chassis are in chassis.js, the drivers in driving.js.
 // Everything is per unit mass (m/s²) so it reads as accelerations.
 import { TUNING, CAR, CHASSIS, SLIP, EV } from './tuning.js';
 import { clamp } from './math.js';
 import { emit } from './events.js';
+import { STOCK } from './spec.js';
+/** @typedef {import('./spec.js').Spec} Spec */
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
 
 const G = 9.81, TAU = 2 * Math.PI;
 const { aero, engine, gearbox } = CAR;
 const R_WHEEL = TUNING.WHEEL_RADIUS;
-export const DOWNFORCE_K = 0.5 * aero.rho * aero.liftArea / CAR.mass;   // downforce / mass = K·v²
-export const DRAG_K = 0.5 * aero.rho * aero.dragArea / CAR.mass;        // drag / mass = K·v²
+export const DOWNFORCE_K = STOCK.dfK;   // stock downforce / mass = K·v²
 export const GEARS = gearbox.top.length - 1;
 
 // ---------- grip ----------
 // Cornering limit (m/s²): tyre friction × (weight + downforce). Grows with v², so fast corners open up.
-export const lateralGrip = v => CAR.grip * (G + DOWNFORCE_K * v * v);
+/** @param {number} v @param {Spec} [s] */
+export const lateralGrip = (v, s = STOCK) => s.grip * (G + s.dfK * v * v);
 // Straight-line braking limit of the tyres (ABS at the peak): longitudinal grip × (weight + downforce), up to what the
 // brake system can ask for. The AI's speed profile brakes at a share of this.
-export const brakeLimit = v => Math.min(CHASSIS.brakeSystem, CAR.grip * CHASSIS.longGrip * (G + DOWNFORCE_K * v * v));
+/** @param {number} v @param {Spec} [s] */
+export const brakeLimit = (v, s = STOCK) => Math.min(s.brakeSystem, s.grip * CHASSIS.longGrip * (G + s.dfK * v * v));
 // Deceleration asked for at full pedal: brake pressure follows the grip (like a real car's brakes set up for its
 // downforce), a little past the limit so a stamp on the pedal still locks without ABS.
-export const brakeMax = v => Math.min(CHASSIS.brakeSystem, CHASSIS.brakePedal * CAR.grip * CHASSIS.longGrip * (G + DOWNFORCE_K * v * v));
+/** @param {number} v @param {Spec} [s] */
+export const brakeMax = (v, s = STOCK) => Math.min(s.brakeSystem, CHASSIS.brakePedal * s.grip * CHASSIS.longGrip * (G + s.dfK * v * v));
 
 // Fastest steady speed through curvature |k| using `share` of the grip: v² = R·a(v) solved for v (V_CAP when the
 // downforce outgrows the corner, i.e. it is flat out).
-export function cornerSpeed(absK, share = 1) {
-  const R = 1 / Math.max(absK, 1e-6), mu = CAR.grip * share, den = 1 - R * mu * DOWNFORCE_K;
+/** @param {number} absK @param {number} [share] @param {Spec} [s] */
+export function cornerSpeed(absK, share = 1, s = STOCK) {
+  const R = 1 / Math.max(absK, 1e-6), mu = s.grip * share, den = 1 - R * mu * s.dfK;
   return den <= 0.02 ? TUNING.V_CAP : Math.min(TUNING.V_CAP, Math.sqrt(R * mu * G / den));
 }
 
 // ---------- engine + gearbox ----------
-// overall ratio per gear, from the speed each gear reaches at the redline
-const RATIO = gearbox.top.map(kmh => kmh ? (engine.redline * TAU / 60) / (kmh / 3.6 / R_WHEEL) : 0);
-export const rpmAt = (v, gear) => gear > 0 ? Math.abs(v) / R_WHEEL * RATIO[gear] * 60 / TAU : 0;
+// overall ratio per gear (spec.ratio), from the speed each gear reaches at the redline
+/** @param {number} v @param {number} gear @param {Spec} [s] */
+export const rpmAt = (v, gear, s = STOCK) => gear > 0 ? Math.abs(v) / R_WHEEL * s.ratio[gear] * 60 / TAU : 0;
 
 function powerKw(rpm) {
   const P = engine.power;
@@ -46,15 +52,16 @@ function powerKw(rpm) {
   return P[P.length - 1][1];
 }
 // Engine rpm in a gear, with clutch slip pulling away (never below idle; up to `launch` on the throttle in 1st).
-function engineRpm(v, gear, thr) {
-  const r = rpmAt(v, gear);
+function engineRpm(v, gear, thr, s) {
+  const r = rpmAt(v, gear, s);
   return Math.max(r, engine.idle, gear === 1 ? engine.idle + thr * (engine.launch - engine.idle) : 0);
 }
 // Wheel force per mass at full throttle in a gear (before the traction limit).
-function driveAccel(rpm, gear) {
+/** @param {Spec} s */
+export function driveAccel(rpm, gear, s = STOCK) {
   if (rpm >= engine.limiter) return 0;
-  const torque = powerKw(rpm) * 1000 / (rpm * TAU / 60);
-  return torque * RATIO[gear] * engine.efficiency / R_WHEEL / CAR.mass;
+  const torque = powerKw(rpm) * s.power * 1000 / (rpm * TAU / 60);
+  return torque * s.ratio[gear] * engine.efficiency / R_WHEEL / s.mass;
 }
 
 // Gear changes. Auto: shift up at autoUp; on the throttle shift down only when revs fall below autoDown, off it (lifting,
@@ -67,8 +74,8 @@ function driveAccel(rpm, gear) {
 // the box only kicks down on (nearly) full throttle or when the revs are really low (autoLug).
 /** @param {Car} c */
 const autoDown = (c, v, thr) => c.gear > 1 && (thr < 0.05
-  ? rpmAt(v, c.gear - 1) < gearbox.autoBrakeDown
-  : rpmAt(v, c.gear) < ((c.assists?.tc ?? 1) >= 1 || thr > 0.9 ? gearbox.autoDown : gearbox.autoLug) && rpmAt(v, c.gear - 1) < gearbox.autoUp - 400);
+  ? rpmAt(v, c.gear - 1, c.spec) < gearbox.autoBrakeDown
+  : rpmAt(v, c.gear, c.spec) < ((c.assists?.tc ?? 1) >= 1 || thr > 0.9 ? gearbox.autoDown : gearbox.autoLug) && rpmAt(v, c.gear - 1, c.spec) < gearbox.autoUp - 400);
 
 // c.autoShift: automatic gearbox. Otherwise paddles (shift -1/+1); c.autoDown = semi-automatic: the player shifts up,
 // the car also shifts down by itself (the player can still click down earlier).
@@ -81,7 +88,7 @@ function updateGear(c, thr, brk, shift, dt) {
   else if (Math.hypot(v, c.vy || 0) <= 0.3 && brk > 0.1 && thr < 0.02) c.gear = -1;   // stopped, not sliding sideways
   if (c.gear > 0) {
     if (c.autoShift) {
-      if (c.gear < GEARS && rpmAt(v, c.gear) > gearbox.autoUp) c.gear++;
+      if (c.gear < GEARS && rpmAt(v, c.gear, c.spec) > gearbox.autoUp) c.gear++;
       else if (autoDown(c, v, thr)) c.gear--;
       else if (v < 2) c.gear = 1;
     } else {
@@ -90,10 +97,10 @@ function updateGear(c, thr, brk, shift, dt) {
       // early while braking. Stopped: back to 1st, ready to pull away.
       if (shift > 0) { c.downQueue = 0; if (c.gear < GEARS) c.gear++; }
       else if (shift < 0 && c.gear - (c.downQueue || 0) > 1) {
-        if (!c.downQueue && rpmAt(v, c.gear - 1) <= engine.limiter) c.gear--;
+        if (!c.downQueue && rpmAt(v, c.gear - 1, c.spec) <= engine.limiter) c.gear--;
         else { c.downQueue = (c.downQueue || 0) + 1; emit(c, EV.SHIFT_DENIED); }
       }
-      if (c.downQueue > 0 && rpmAt(v, c.gear - 1) <= engine.limiter) { c.gear--; c.downQueue--; }
+      if (c.downQueue > 0 && rpmAt(v, c.gear - 1, c.spec) <= engine.limiter) { c.gear--; c.downQueue--; }
       else if (c.autoDown && shift <= 0 && autoDown(c, v, thr)) { c.gear--; c.downQueue = Math.max(0, c.downQueue - 1); }
       if (v < 2 && thr < 0.05) { c.gear = 1; c.downQueue = 0; }
     }
@@ -132,12 +139,12 @@ export function slipstream(race, c, progressOf) {
 /** @param {Car} c */
 export function drivetrain(c, { thr, brk, shift = 0 }, dt) {
   updateGear(c, thr, brk, shift, dt);
-  const v = c.v, dragK = DRAG_K * (1 - SLIP.drag * (c.slip || 0));
+  const v = c.v, dragK = c.spec.dragK * (1 - SLIP.drag * (c.slip || 0));
   let resist = dragK * v * Math.abs(v) + Math.sign(v) * aero.rolling;
   if (c.gear === -1) { c.rpm = engine.idle + brk * 3000; c.drive = 0; return { drive: 0, resist, reverse: true }; }
-  const rpm = engineRpm(v, c.gear, thr);
+  const rpm = engineRpm(v, c.gear, thr, c.spec);
   c.rpm = rpm;
-  let drive = driveAccel(rpm, c.gear) * thr;
+  let drive = driveAccel(rpm, c.gear, c.spec) * thr;
   if (c.shiftT > 0) drive *= gearbox.shiftCut;
   if (thr < 0.05 && v > 0.5) resist += engine.engineBrake * Math.min(1, rpm / engine.redline);
   c.drive = drive;

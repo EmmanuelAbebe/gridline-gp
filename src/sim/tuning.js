@@ -68,6 +68,28 @@ export const CAR = Object.freeze({
 });
 
 // The player's chassis (chassis.js): a two-axle car whose tyres make grip from slip angle.
+// The garage (spec.js carSpec): a car's race SETUP, real trade-offs only (no free speed: fair against the AI, which
+// races the stock setup), and OPEN MODS (no limits; any mod off its default flags the car as modified, kept apart in
+// the lap records). Every value acts as stock × (1 + k·(value − default)) or stock + k·(value − default), so the
+// defaults give exactly the stock car (sim-trace unchanged). Per item: min, max, step, default (def).
+export const SETUP = Object.freeze({
+  wing:    { min: 1, max: 11, step: 1, def: 6 },        // downforce level: more grip in corners, more drag on straights
+  balance: { min: 40, max: 50, step: 0.5, def: 45 },    // % of the downforce on the front axle: more = sharper turn-in, looser rear
+  brakes:  { min: 51, max: 63, step: 0.5, def: 57 },    // brake balance, % front (at rest: front weight 45 % + the bias)
+  gearing: { min: 310, max: 380, step: 5, def: 340 },   // km/h in top gear at the redline: long enough for the top speed (low wing, slipstream), or the car hits the limiter
+  mech:    { min: -5, max: 5, step: 1, def: 0 },        // mechanical balance (anti-roll bars): + = front grip up, rear down
+  liftPerStep: 0.07, dragPerStep: 0.045,                // wing: liftArea × (1 + 0.07·steps), dragArea × (1 + 0.045·steps)
+  mechPerStep: 0.012,                                   // mech: front × (1 + 0.012·steps), rear × (1 − 0.012·steps)
+});
+export const MODS = Object.freeze({
+  power:     { min: 50, max: 250, step: 5, def: 100 },   // % engine power
+  mass:      { min: 500, max: 1200, step: 10, def: 800 }, // kg with driver
+  grip:      { min: 50, max: 250, step: 5, def: 100 },   // % tyre grip
+  downforce: { min: 0, max: 300, step: 5, def: 100 },    // % downforce (on top of the wing setting)
+  drag:      { min: 20, max: 200, step: 5, def: 100 },   // % aerodynamic drag
+  brakes:    { min: 50, max: 250, step: 5, def: 100 },   // % brake system force (the tyres still limit it)
+});
+
 export const CHASSIS = Object.freeze({
   wheelbase: 3.6, frontWeight: 0.45,   // static weight on the front axle
   aeroFront: 0.45,      // share of the downforce on the front axle (more = more oversteer)

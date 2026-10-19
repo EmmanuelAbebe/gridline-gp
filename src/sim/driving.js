@@ -1,6 +1,7 @@
 // The player's and the AI's driving. Every car is the same car (vehicle.js engine/gearbox/aero, chassis.js tyres);
 // the player and the AI only decide steering, throttle, brake and shifts.
-import { AI, ASSISTS, CHASSIS, CAR, TUNING } from './tuning.js';
+import { AI, ASSISTS, CHASSIS, TUNING } from './tuning.js';
+import { STOCK } from './spec.js';
 import { clamp, wrapA, wrapIdx } from './math.js';
 import { progress } from './race.js';
 import { afterMove } from './motion.js';
@@ -21,7 +22,7 @@ export function drivePlayer(race, c, inp, dt) {
   const rate = inp.analog ? inp.steerRate ?? 14 : 5;
   c.steerIn ??= c.steer;
   c.steerIn += clamp(clamp(inp.steer, -1, 1) - c.steerIn, -dt*rate, dt*rate);
-  c.steer = inp.analog && inp.calm ? calmSteer(c.steerIn, c.v, inp.calm) : c.steerIn;
+  c.steer = inp.analog && inp.calm ? calmSteer(c.steerIn, c.v, inp.calm, c.spec) : c.steerIn;
   c.brake = inp.brk; c.thr = inp.thr;
   updateWear(race, c, inp.thr, dt);
   slipstream(race, c, progress);
@@ -30,8 +31,9 @@ export function drivePlayer(race, c, inp, dt) {
 }
 
 // s' = k·s + (1 − k)·s³: slope k at the centre, 1 at full tilt
-export function calmSteer(s, v, calm) {
-  const slope = clamp(CHASSIS.calmLateral / lateralGrip(Math.abs(v)), CHASSIS.calmMinSlope, 1), k = 1 - (1 - slope) * calm;
+/** @param {number} s @param {number} v @param {number} calm @param {import('./spec.js').Spec} [spec] */
+export function calmSteer(s, v, calm, spec = STOCK) {
+  const slope = clamp(CHASSIS.calmLateral / lateralGrip(Math.abs(v), spec), CHASSIS.calmMinSlope, 1), k = 1 - (1 - slope) * calm;
   return k * s + (1 - k) * s * s * s;
 }
 
@@ -59,7 +61,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   let off = RO[ti] + c.bias;
   // in another car's dirty air the downforce drops (chassis.js): take the corners that much slower (not the straights)
   // (smoothed over AI.dirtyTime s: the wake comes and goes, the speed shouldn't)
-  const wantDirty = Math.sqrt(1 - CHASSIS.dirtyAir * (c.slip || 0) * (1 - CAR.grip * 9.81 / lateralGrip(Math.max(sp, 1))));
+  const wantDirty = Math.sqrt(1 - CHASSIS.dirtyAir * (c.slip || 0) * (1 - c.spec.grip * 9.81 / lateralGrip(Math.max(sp, 1), c.spec)));
   c.dirtyK += (wantDirty - c.dirtyK) * Math.min(1, dt / AI.dirtyTime);
   const dirty = c.dirtyK;
   const vp = j => VP[j] < TUNING.V_CAP * 0.97 ? VP[j] * dirty : VP[j];
@@ -101,7 +103,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   const lost = Math.abs(alpha) > Math.PI / 2;
   const kappa = 2 * (lost ? Math.sign(alpha) : Math.sin(alpha)) / dist, v5 = Math.max(sp, 5);
   const delta = CHASSIS.wheelbase * kappa + AI.yawGain * (sp * kappa - c.yawRate) * CHASSIS.wheelbase / v5;
-  const want = clamp(delta / steerLock(c.v, c.assists.steer), -1, 1);
+  const want = clamp(delta / steerLock(c.v, c.assists.steer, c.spec), -1, 1);
   c.steer += clamp(want - c.steer, -dt * AI.steerRate, dt * AI.steerRate);
   if (lost) targetV = Math.min(targetV, AI.recoverSpeed);
   // speed: the hardest deceleration the profile asks for ahead. Off the racing line (passing, defending) a corner is
@@ -113,7 +115,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   };
   // Far ahead, brake only once the deceleration needed reaches what the profile plans with (brake late, not long).
   let need = 0, vmin = sp;
-  const late = AI.brake * brakeLimit(sp) * 0.9;
+  const late = AI.brake * brakeLimit(sp, c.spec) * 0.9;
   for (let k = 2; k <= AI.brakeLook; k += k < 12 ? 2 : 6) {
     const j = (c.idx+k)%N, vt = Math.min(vp(j) * skill * offLine(j), targetV + k * 0.5);
     if (k <= 6) targetV = Math.min(targetV, vt);
@@ -123,7 +125,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   }
   const over = sp - targetV;
   let thr = 0, brk = 0;
-  if (need > 2 || over > 1) brk = clamp(need / brakeMax(sp) + Math.max(0, over) * AI.brakeGain, 0, 1);
+  if (need > 2 || over > 1) brk = clamp(need / brakeMax(sp, c.spec) + Math.max(0, over) * AI.brakeGain, 0, 1);
   else if (need <= 0) thr = clamp(0.5 - over * AI.thrGain, 0, 1);
   // no throttle while asking the front tyres for more than they have (it would only push the car wide)
   if (!lost && sp > AI.recoverSpeed && (Math.abs(want) > 0.95 || c.slideF > 0.3)) thr = Math.min(thr, AI.lockThrottle);

@@ -5,6 +5,7 @@ import { wrapA, wrapIdx, speedOf } from './math.js';
 import { gridSlot, headingAt } from './track.js';
 import { emit } from './events.js';
 import { pitState } from './pit.js';
+import { STOCK } from './spec.js';
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
 /** @typedef {import('./types.js').Track} Track */
@@ -35,6 +36,8 @@ export function createCar(track, driver, slot, rng) {
     // off track: tyre dirt 0..1, depth in a gravel trap, beached (stuck in gravel, waiting for the marshals);
     // beachClock = race time of the last updateBeached (null before the first)
     dirt: 0, gravelDepth: 0, beached: false, beachedAt: 0, stuckT: 0, beachClock: null,
+    // performance spec (spec.js): STOCK, or the player's garage setup + mods (set by the game before the start)
+    spec: STOCK,
     // drivetrain (vehicle.js): gear 1..8, -1 = reverse; autoShift = automatic gearbox; downQueue = manual downshifts waiting for the revs; slip = slipstream 0..1
     gear: 1, rpm: 0, shiftT: 0, autoShift: true, autoDown: false, downQueue: 0, drive: 0, slip: 0, slipBy: null,
     // chassis (chassis.js): lateral speed (m/s, + = right), yaw rate (rad/s), last longitudinal accel,
