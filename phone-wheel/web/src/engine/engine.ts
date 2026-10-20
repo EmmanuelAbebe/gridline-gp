@@ -3,8 +3,9 @@
 // delay an input. The wire protocol is unchanged from the old page (desktop/phone-link.cjs, phonewheel/webapp.py):
 //   phone → PC  {s, g, b, k} at ~60 Hz (steer −1..1, gas 0..1, brake 0..1, button bitmask), every 500 ms plus
 //               p (probe sequence) and r (our last round trip)
-//   PC → phone  {pong, hz, gap} for each probe;  GET /check?t= tells a refused socket "wrong pairing code" apart
+//   PC → phone  {pong, hz, gap} for each probe, and {fx} = force feedback (haptics.ts);  GET /check?t= tells a refused socket "wrong pairing code" apart
 import { steerCurve, bitOf, type Config, type ButtonId } from '../settings/settings.ts';
+import { idlePlan, planFeedback, type Fx } from './haptics.ts';
 
 export type Phase = 'idle' | 'connecting' | 'connected' | 'lost' | 'unpaired';
 export interface Status { phase: Phase; retryAt: number; attempts: number }
@@ -73,6 +74,30 @@ function keys() {
 }
 
 export function center() { offsetDeg = smoothDeg; }
+
+// ---------- force feedback: the game's {fx} → vibration (not while Settings is open, unless it is a test)
+let fxPlan = idlePlan(), testUntil = 0, testTimer = 0;
+const vibrate = (p: number[]) => { try { navigator.vibrate?.(p.length ? p : 0); } catch { /* not allowed yet */ } };
+export function feedback(fx: Fx, test = false) {
+  if (!cfg || (!test && (state.paused || performance.now() < testUntil))) return;
+  const r = planFeedback(fx, cfg.feedback, performance.now(), fxPlan);
+  fxPlan = r.state;
+  if (r.pattern) vibrate(r.pattern);
+}
+// a touch buzz (screen.ts) took over the motor for `ms`: the game's rumble starts again after it
+export function feedbackInterrupted(ms: number) { fxPlan = { ...idlePlan(), busyUntil: performance.now() + ms }; }
+export function stopFeedback() { clearInterval(testTimer); testUntil = 0; feedback({}, true); }
+// Settings → Feedback test buttons: play `fx` the way the game would send it (20 per second) for `ms`
+export function testFeedback(fx: Fx, ms = 1500) {
+  clearInterval(testTimer);
+  testUntil = performance.now() + ms;
+  feedback(fx, true);
+  const once = { ...fx, h: undefined, g: undefined };   // one-off moments only in the first message
+  testTimer = window.setInterval(() => {
+    if (performance.now() >= testUntil) { clearInterval(testTimer); testUntil = 0; feedback({}, true); return; }
+    feedback(once, true);
+  }, 50);
+}
 
 // ---------- tilt → steering angle
 const wrap = (d: number) => ((d + 540) % 360) - 180;   // keep the math continuous across the ±180 seam
@@ -164,9 +189,11 @@ function connect() {
   sock.onmessage = (e) => {
     let d: unknown = null; try { d = JSON.parse(e.data); } catch { return; }
     if (d && typeof (d as { pong?: unknown }).pong === 'number') onPong(d as { pong: number }, performance.now());
+    else if (d && typeof (d as { fx?: unknown }).fx === 'object') feedback((d as { fx: Fx }).fx);
   };
   sock.onclose = async () => {
     if (ws !== sock) return;                    // replaced by reconnect()
+    feedback({});                               // nothing more is coming: let the motor stop
     // a browser can't see why a WebSocket failed, so ask whether the pairing code is the problem
     let paired: boolean | null = null;
     try { paired = (await fetch(`/check?t=${t}`, { cache: 'no-store' })).ok; } catch { paired = null; }

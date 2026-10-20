@@ -30,6 +30,12 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   --experimental-strip-types, in the root `npm test`). Both servers serve `web/dist/index.html` at `/` when built
   (assets at `/assets/`), else the previous Preact page (`controller.html` + `static/`, no build step), which also
   stays at `/v1`; the single-file one at `/classic`.
+- PC → phone also `{fx: {k, kh, o, s, h?, g?}}` = Gridline GP's force feedback (src/game/haptics.js), played by
+  `web/src/engine/haptics.ts` `planFeedback` (pure, test/haptics.test.ts): a motor is only on/off, so strength = pulse
+  width; kerbs = regular ripple kept in phase when renewed, gravel/grass = uneven rumble, slides = fine buzz, hits /
+  shifts = one pulse that takes the motor; each vibrate() covers 400 ms, so a silent PC stops it. Not while Settings is
+  open; a touch buzz (screen.ts) pauses it. Settings → Feedback (`feedback` in the profile). Status bar icons:
+  react-icons (Remix set, `react-icons/ri`).
 - The phone sends `{s, g, b, k}` (steer -1..1, gas 0..1, brake 0..1, button bitmask) over a WebSocket at ~60 Hz.
   Bit i of `k` = `BUTTON_NAMES[i]` in phonewheel/protocol.py = `BUTTONS[i]` in web/src/settings/settings.ts (and static/settings.js) (A B X Y LB RB BACK START GUIDE LS RS UP DOWN LEFT RIGHT).
 - Flick to shift (`settings.js` `flick` + `createFlick`, `Pedal` in app.js): a thumb on a pedal flicked toward the

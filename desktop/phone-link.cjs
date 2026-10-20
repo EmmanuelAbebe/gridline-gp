@@ -1,14 +1,14 @@
 // The phone wheel inside the desktop app (roadmap step 3; replaces running phone-wheel/server.py next to the game).
 // Serves the phone page (phone-wheel/controller.html + static/) and takes its input over a WebSocket: JSON
 // { s, g, b, k } at ~60 Hz (steer -1..1, gas 0..1, brake 0..1, button bits in BUTTONS order) plus link probes { p, r }
-// answered at once with { pong, hz, gap }. The input goes straight to the game (onInput); there is no virtual
+// answered at once with { pong, hz, gap }; feedback(fx) sends the game's force feedback { fx } to the phones. The input goes straight to the game (onInput); there is no virtual
 // controller. Phones only give tilt data to https pages, so it makes a self-signed certificate for this PC's address
 // (kept, and covering every address it was needed for), and a pairing code (`t` in the QR link) keeps other phones
 // on the network out. Plain http on the port is redirected to https (phones often open a typed address as http).
 // Links (phone-net.cjs): wifi, bluetooth (tethering; the address is watched and the certificate follows it), usb.
 //
 //   const link = createPhoneLink({ dataDir, pagesDir, onInput, onStatus });
-//   await link.start({ link: 'wifi' | 'bluetooth' | 'usb', port }); link.status(); await link.stop();
+//   await link.start({ link: 'wifi' | 'bluetooth' | 'usb', port }); link.status(); link.feedback(fx); await link.stop();
 const fs = require('node:fs');
 const path = require('node:path');
 const net = require('node:net');
@@ -238,7 +238,14 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
     if (wasRunning) changed();
   }
 
-  return { start, stop, status, close: async () => { clearInterval(watchdog); await stop(); } };
+  // force feedback from the game (src/game/haptics.js) → every connected phone; dropped when a socket is backed up
+  function feedback(fx) {
+    if (!fx || typeof fx !== 'object') return;
+    const text = JSON.stringify({ fx });
+    for (const ws of wss.clients) if (ws.readyState === 1 && ws.bufferedAmount < 4096) ws.send(text);
+  }
+
+  return { start, stop, status, feedback, close: async () => { clearInterval(watchdog); await stop(); } };
 }
 
 module.exports = { createPhoneLink, parseMessage, pairingToken, ensureCert, BUTTONS };

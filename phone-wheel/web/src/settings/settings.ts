@@ -24,7 +24,9 @@ export interface ButtonCfg { label: string; bind: ButtonId; toggle: boolean }
 export interface FlickCfg { on: boolean; distance: number; time: number; down: ButtonId; up: ButtonId }
 export type ButtonSize = 's' | 'm' | 'l';
 export interface LayoutCfg { swapPedals: boolean; pedalSize: number; buttonSize: ButtonSize; showWheel: boolean; quickSliders: boolean; haptics: boolean }
-export interface Config { steer: SteerCfg; gas: PedalCfg; brake: PedalCfg; buttons: ButtonCfg[]; flick: FlickCfg; layout: LayoutCfg }
+// force feedback from the game (engine/haptics.ts): strength × every effect, and which effects play
+export interface FeedbackCfg { on: boolean; strength: number; hits: boolean; kerbs: boolean; offTrack: boolean; slides: boolean; shifts: boolean }
+export interface Config { steer: SteerCfg; gas: PedalCfg; brake: PedalCfg; buttons: ButtonCfg[]; flick: FlickCfg; layout: LayoutCfg; feedback: FeedbackCfg }
 export interface Store { active: string; profiles: Record<string, Config> }
 
 export const DEFAULTS: Config = {
@@ -40,6 +42,7 @@ export const DEFAULTS: Config = {
   // (`distance` px within `time` ms, mostly sideways); each flick taps the bound button once
   flick: { on: true, distance: 40, time: 160, down: 'LB', up: 'RB' },
   layout: { swapPedals: false, pedalSize: 1, buttonSize: 'm', showWheel: true, quickSliders: true, haptics: true },
+  feedback: { on: true, strength: 1, hits: true, kerbs: true, offTrack: true, slides: true, shifts: false },
 };
 
 export const clone = <T>(o: T): T => JSON.parse(JSON.stringify(o));
@@ -63,7 +66,7 @@ function pedal(raw: unknown, d: PedalCfg): PedalCfg {
 
 // Fill in anything missing or out of range, so old or hand-edited profiles always load.
 export function sanitize(input: unknown): Config {
-  const s = obj(input), D = DEFAULTS, st = obj(s.steer), l = obj(s.layout), f = obj(s.flick);
+  const s = obj(input), D = DEFAULTS, st = obj(s.steer), l = obj(s.layout), f = obj(s.flick), fb = obj(s.feedback);
   const buttons = Array.isArray(s.buttons) ? s.buttons : D.buttons;
   return {
     steer: {
@@ -93,6 +96,15 @@ export function sanitize(input: unknown): Config {
       showWheel: bool(l.showWheel, D.layout.showWheel),
       quickSliders: bool(l.quickSliders, D.layout.quickSliders),
       haptics: bool(l.haptics, D.layout.haptics),
+    },
+    feedback: {
+      on: bool(fb.on, D.feedback.on),
+      strength: num(fb.strength, D.feedback.strength, 0.3, 2),
+      hits: bool(fb.hits, D.feedback.hits),
+      kerbs: bool(fb.kerbs, D.feedback.kerbs),
+      offTrack: bool(fb.offTrack, D.feedback.offTrack),
+      slides: bool(fb.slides, D.feedback.slides),
+      shifts: bool(fb.shifts, D.feedback.shifts),
     },
   };
 }

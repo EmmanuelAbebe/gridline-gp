@@ -40,6 +40,7 @@ import { messageFor, SAY } from './race-messages.js';
 import { bindSettings } from './settings-binding.js';
 import { installDebug } from './debug.js';
 import { PhoneWheel } from './phone-wheel.js';
+import { createHaptics } from './haptics.js';
 import { Garage } from './garage.js';
 import { loadGarage, loadRecords, recordLap, playerSpec, playerDriver } from './garage-store.js';
 
@@ -77,6 +78,7 @@ const isRunning = () => !!game.race && game.phase !== PHASE.MENU && !game.paused
 
 // ---- ghost laps and time trial (ghost.js) ----
 const recorder = createRecorder();
+const haptics = createHaptics();       // force feedback for the phone wheel
 const ghostModel = CarModels.create(Display.scene, playerDriver(game.garage), Design.data.car);   // the see-through car
 ghostModel.setMaterials(CarModels.ghostMaterials()); ghostModel.setVisible(false);
 const saveGhosts = () => Settings.set(CONFIG.storageKeys.ghosts, JSON.stringify(game.ghosts));
@@ -181,6 +183,7 @@ const showMessage = m => { if (!m) return; if (m.radio) Hud.radio(m.radio, m.sec
 // A player car's SIM event: its message (race-messages.js), plus what it does to the race flow, sound and camera.
 function onPlayerEvent(c, e) {
   const race = game.race;
+  haptics.event(e);
   showMessage(messageFor(e, c, race));
   switch (e.type) {
     case EV.LAP: {
@@ -479,6 +482,7 @@ function frame(now) {
   if (Garage.open) Garage.frame(dt);
   else if (game.race) { interpolatePoses(game.race.cars, running ? game.acc / STEP : 1); renderFrame(dt); }
   else Display.render();
+  { const p = game.player, m = haptics.frame(running && game.phase === PHASE.RACE && p && !p.finished ? p : null, dt); if (m) PhoneWheel.feedback(m.fx); }
   monitorFps(dt);
 }
 

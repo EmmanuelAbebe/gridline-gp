@@ -9,7 +9,7 @@ which shows up in the browser as a virtual Xbox 360 controller.
 Turning the prototype into a production-grade game. Agreed order: (1) foundation [done: modules, Vite, tests],
 (2) sim-cade physics in 4 parts: [done] engine/gearbox/downforce/slipstream; [done] tyre + chassis model;
 [done] AI on the same chassis (racing line, racecraft, mistakes, difficulty); [done 2026-10-19] tuning screen = the garage (setup + open mods + livery), (3) merge the Phone-wheel project into this one ([done 2026-10-19] server inside Electron,
-pairing from the settings menu; still to do: vibration + rev lights on the phone, BOX button on the phone, per-device mapping for wheels/joysticks), (4) car/world visuals: [done 2026-10-14] brake lights, cockpit view (user's seat: eye 0.33 m back / 0.77 m high, wheel 0.675 m high; wheel at x 0.18 so the arms reach it, halo visible, driver's arms/legs),
+pairing from the settings menu; [done 2026-10-19] force feedback = phone vibration; still to do: rev lights on the phone, BOX button on the phone, per-device mapping for wheels/joysticks), (4) car/world visuals: [done 2026-10-14] brake lights, cockpit view (user's seat: eye 0.33 m back / 0.77 m high, wheel 0.675 m high; wheel at x 0.18 so the arms reach it, halo visible, driver's arms/legs),
 F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing section, teardrop from above, legs behind the shoulders) + a curved centre pillar (design v8, 2026-10-19); still to do: crash physics, scenery, (5) HUD, menus, presentation.
 
 ## Files
@@ -419,6 +419,13 @@ Tunables live in data tables (config modules), not inline in the logic.
   Start with the game) + controller list (AUTO or USE per device). Settings item type `panel` (built once, kept,
   ticked per frame). Prefs `controller`, `phoneLink`, `phoneAuto` (PREFS.options = allowed text values). Smoke test:
   Connect phone → a WebSocket "phone" steers the car (`gridlineDebug.input()`), screenshot `out-phone.png`.
+- Force feedback (2026-10-19): `haptics.js` (pure, tests/haptics.test.js; `HAPTICS` table) turns what the player's car
+  feels into `{ fx: { k, kh, o, s, h?, g? } }` (kerb 0..1 + ripples/s, off-track rumble, slide/lock/spin, one-off hit
+  from WALL/CONTACT/SAUSAGE, gear shift) at 20 Hz while felt, one all-zero message when it stops (menus, pause,
+  finished = nothing); main.js `frame` → `PhoneWheel.feedback` → preload `phone.feedback` → ipc `phone:feedback` →
+  phone-link.cjs `feedback(fx)` → every phone socket. The phone (web/src/engine/haptics.ts) makes the vibrate patterns
+  and owns the settings (Settings → Feedback: on, strength, per effect, test buttons). The standalone Python server
+  sends no feedback (a browser game can't reach it).
 - In a plain browser there is no phone server: run phone-wheel/server.py as before (its uinput pad is a controller).
 - The phone page itself (2026-10-19): `phone-wheel/web/` (React + TypeScript + Vite; see phone-wheel/web/README.md and
   phone-wheel/CLAUDE.md). `npm run build` also builds it (`phone:build`; `phone:dev` = PC preview with fake tilt,

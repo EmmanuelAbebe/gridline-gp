@@ -23,7 +23,7 @@ export function App() {
   engine.setConfig(cfg);                     // cheap, and keeps the engine in step on every render
   setHaptics(cfg.layout.haptics);
   useEffect(() => saveStore(store), [store]);
-  useEffect(() => { engine.state.paused = settingsOpen; }, [settingsOpen]);
+  useEffect(() => { engine.state.paused = settingsOpen; if (settingsOpen) engine.stopFeedback(); }, [settingsOpen]);
 
   const update: Update = (fn) => setStore((s) => { const next = clone(s); fn(next.profiles[next.active]); return next; });
 

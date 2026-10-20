@@ -1,5 +1,6 @@
 // The phone's screen: full screen + landscape lock (Android only allows the lock while in full screen), keeping the
 // screen awake while driving, and vibration.
+import { feedbackInterrupted } from '../engine/engine.ts';
 export const isFullscreen = () => !!document.fullscreenElement;
 
 export async function enterFullscreen() {
@@ -28,4 +29,8 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 
 let haptics = true;
 export const setHaptics = (on: boolean) => { haptics = on; };
-export const buzz = (ms: number | number[]) => { if (haptics && navigator.vibrate) navigator.vibrate(ms); };
+export const buzz = (ms: number | number[]) => {
+  if (!haptics || !navigator.vibrate) return;
+  navigator.vibrate(ms);
+  feedbackInterrupted(Array.isArray(ms) ? ms.reduce((a, b) => a + b, 0) : ms);
+};

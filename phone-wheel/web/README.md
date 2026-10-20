@@ -14,7 +14,7 @@ phone server (`desktop/phone-link.cjs`) and `server.py` serve at `/` (the previo
   | driving screen layout | `ui/Drive.tsx` / `.css` |
   | pedals | `ui/Pedal.tsx` / `.css` |
   | middle column (wheel, readout, Center, quick sliders) | `ui/Center.tsx`, `ui/Wheel.tsx` (the SVG) |
-  | status bar (connection, link quality, ↻ reconnect, ⛶ full screen, Settings) | `ui/StatusBar.tsx` / `.css` |
+  | status bar (connection, link quality, reconnect, full screen, Settings) | `ui/StatusBar.tsx` / `.css` (icons: `react-icons/ri`, size `--icon-size`) |
   | on-screen buttons | `ui/AuxButton.tsx` / `.css` |
   | "turn sideways" prompt | `ui/RotateHint.tsx` |
   | settings (tabs, rows, sliders) | `ui/settings/*` (`controls.tsx` = the row building blocks, `Settings.css`) |
@@ -22,6 +22,10 @@ phone server (`desktop/phone-link.cjs`) and `server.py` serve at `/` (the previo
 - Don't put input logic in components: steering, pedals and the 60 Hz feed to the PC live in `src/engine/engine.ts`
   (outside React, so rendering never delays an input). Components read `engine.state` in `useFrame` and write pedals /
   buttons. Settings and their limits: `src/settings/settings.ts`.
+- Force feedback (the game's vibration): the rhythm of each effect (kerb ripple, gravel rumble, slide buzz, hit length)
+  is the `FFB` table in `src/engine/haptics.ts`; Settings → Feedback has test buttons to feel a change at once.
+- Icons: any of https://react-icons.github.io/react-icons/icons/ri/ (`import { RiSomethingFill } from 'react-icons/ri'`);
+  other sets in react-icons work the same way.
 
 ## Workflow (from the repo root)
 1. **On the PC, with hot reload**: `npm run phone:dev`, open http://localhost:5180. The mouse across the window (or

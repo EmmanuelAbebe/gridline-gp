@@ -7,10 +7,11 @@ import { SteeringTab } from './SteeringTab.tsx';
 import { PedalsTab } from './PedalsTab.tsx';
 import { ButtonsTab } from './ButtonsTab.tsx';
 import { LayoutTab } from './LayoutTab.tsx';
+import { FeedbackTab } from './FeedbackTab.tsx';
 import { ProfilesTab } from './ProfilesTab.tsx';
 import './Settings.css';
 
-const TABS = ['Steering', 'Pedals', 'Buttons', 'Layout', 'Profiles'] as const;
+const TABS = ['Steering', 'Pedals', 'Buttons', 'Feedback', 'Layout', 'Profiles'] as const;
 type Tab = (typeof TABS)[number];
 export interface TabProps { cfg: Config; update: Update }
 
@@ -31,6 +32,7 @@ export function Settings({ store, setStore, cfg, update, close }: { store: Store
         {tab === 'Steering' && <SteeringTab cfg={cfg} update={update} />}
         {tab === 'Pedals' && <PedalsTab cfg={cfg} update={update} />}
         {tab === 'Buttons' && <ButtonsTab cfg={cfg} update={update} />}
+        {tab === 'Feedback' && <FeedbackTab cfg={cfg} update={update} />}
         {tab === 'Layout' && <LayoutTab cfg={cfg} update={update} />}
         {tab === 'Profiles' && <ProfilesTab store={store} setStore={setStore} />}
       </section>

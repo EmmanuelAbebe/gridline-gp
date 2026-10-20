@@ -72,6 +72,7 @@ const phone = createPhoneLink({ dataDir: path.join(app.getPath('userData'), 'pho
 ipcMain.handle('phone:start', (_e, opts) => phone.start(opts));
 ipcMain.handle('phone:stop', () => phone.stop().then(() => phone.status()));
 ipcMain.handle('phone:status', () => phone.status());
+ipcMain.on('phone:feedback', (_e, fx) => phone.feedback(fx));
 app.on('will-quit', () => { phone.close(); });
 
 async function smokeTest(win) {
@@ -174,12 +175,24 @@ async function smokeTest(win) {
     await new Promise(r => setTimeout(r, 600));
     const seen = await win.webContents.executeJavaScript(`({ ...gridlineDebug.input(), state: document.querySelector('.dev-state').textContent,
       inUse: document.querySelector('.dev-row.active b')?.textContent })`);
-    clearInterval(feed); ws.close();
+    // back to the race for 3 s on full lock and full gas: the phone gets force feedback ({fx}: slides, kerbs, grass)
+    const fx = [];
+    ws.on('message', m => { const d = JSON.parse(m); if (d.fx) fx.push(d.fx); });
+    await win.webContents.executeJavaScript(`document.getElementById('setClose').click(); document.getElementById('resumeBtn').click()`);
+    clearInterval(feed);
+    const steerHard = setInterval(() => ws.send(JSON.stringify({ s: 1, g: 1, b: 0, k: 0 })), 16);
+    await new Promise(r => setTimeout(r, 3000));
+    clearInterval(steerHard);
+    await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click(); document.getElementById('pauseSettingsBtn').click();
+      [...document.querySelectorAll('#setTabs button')].find(b => b.textContent === 'Controller').click()`);
+    await new Promise(r => setTimeout(r, 300));          // paused: the rumble's last message (all 0) arrives
+    ws.close();
     await new Promise(r => setTimeout(r, 400));
     const after = await win.webContents.executeJavaScript(`gridlineDebug.input()`);
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('#setBody button')].find(b => b.textContent === 'Stop').click()`);
     await new Promise(r => setTimeout(r, 400));
-    return { link: st.link, port: st.port, qr: st.qr.startsWith('<svg'), seen, releasedSteer: after.steer, stopped: !phone.status().running };
+    return { link: st.link, port: st.port, qr: st.qr.startsWith('<svg'), seen, releasedSteer: after.steer, stopped: !phone.status().running,
+      feedback: { messages: fx.length, felt: [...new Set(fx.flatMap(f => Object.keys(f).filter(k => k !== 'kh' && f[k] > 0)))], endsAtZero: !!fx.length && !fx.at(-1).k && !fx.at(-1).o && !fx.at(-1).s } };
   })();
   await win.webContents.executeJavaScript(`document.getElementById('setClose').click()`);
   // Sound studio from Settings → Sound: the bench plays (no errors), screenshot, close

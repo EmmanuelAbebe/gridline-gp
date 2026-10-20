@@ -92,6 +92,9 @@ test('phone link server: pages, redirect, pairing, input, probes, release', asyn
     assert.equal(p.pong, 3); assert.ok(p.hz >= 2);
     assert.deepEqual(inputs.slice(-2), [{ s: 0.25, g: 1, b: 0, k: 16 }, { s: 0.5, g: 0, b: 0.5, k: 0 }]);
     assert.equal(link.status().rtt, 21.5);
+    const fx = new Promise(r => ws.once('message', m => r(JSON.parse(m))));   // force feedback reaches the phone
+    link.feedback({ k: 0.5, kh: 12, o: 0, s: 0, h: 1 });
+    assert.deepEqual(await fx, { fx: { k: 0.5, kh: 12, o: 0, s: 0, h: 1 } });
     await until(() => inputs.at(-1).s === 0, 1500);           // silent for > 0.4 s: the watchdog lets go
     ws.send(JSON.stringify({ s: 1, g: 1, b: 0, k: 1 }));
     await until(() => inputs.at(-1).s === 1);
