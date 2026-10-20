@@ -16,6 +16,10 @@ test('every level laps Elkmoor clean, slowest to fastest', () => {
   for (let i = 1; i < times.length; i++) assert.ok(times[i] < times[i - 1], `level ${i} faster: ${times}`);
   assert.equal(laps.alien.driver, `${ghostDriver().code} · ALIEN`);
   assert.ok(ghostPose(laps.alien, laps.alien.time / 2), 'plays back');
+  // lap 1 from the grid: starts still, at the grid slot, and is slower than the flying lap
+  const st = laps.alien.standing, F = st.frames;
+  assert.ok(validGhost(st, SIM.CIRCUITS) && st.time > laps.alien.time);
+  assert.ok(Math.hypot(F[3] - F[0], F[4] - F[1]) < 0.1, 'still at lights out');
 });
 
 test('the same lap every time', () => {

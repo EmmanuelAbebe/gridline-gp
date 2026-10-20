@@ -471,9 +471,10 @@ function renderFrame(dt) {
   modelOf.get(player.code).setPedals(player.finished ? 0 : Input.drive.thr, player.finished ? 0 : Input.drive.brk);
   for (const c of race.cars) modelOf.get(c.code).sync(c, poseOf(c), dt);
   CameraRig.update(dt, player, !isRunning());
-  // the ghost car (time trial) at the same time into its lap as you are into yours, and the live delta (an AI ghost's
-  // lap is a flying lap: it waits for you at the line)
-  const g = game.ghost, lapT = race.t - player.lapStart, gp = g && game.phase === PHASE.RACE && !player.finished && (!g.flying || player.lap >= 1) ? ghostPose(g, lapT) : null;
+  // the ghost car (time trial) at the same time into its lap as you are into yours, and the live delta (an AI ghost
+  // races its standing-start lap against your lap 1 from the grid, then its flying lap)
+  const g = game.ghost && player.lap <= 1 && game.ghost.standing || game.ghost, lapT = race.t - player.lapStart;
+  const gp = g && game.phase === PHASE.RACE && !player.finished ? ghostPose(g, lapT) : null;
   ghostModel.setVisible(!!gp);
   if (gp) ghostModel.sync({ roll: lapT * 60, steer: 0, brake: 0, aeroOpen: 0 }, gp, dt);
   // (the delta from the first crossing of the line on: from the grid, behind the line, the split would be the lap's last)

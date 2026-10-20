@@ -563,8 +563,8 @@ yours); in the race a see-through car (CarModels.ghostMaterials) at the same tim
 trial's active-aero setting) and keeps the best clean flying lap as a ghost (~50 ms of sim per level, cached per circuit ×
 aero for the session, made 30 ms after the list first shows). Start menu ghost row = a list (`#ghostList`): Your best /
 Loaded / ROOKIE..ALIEN with lap times and the gap to your best; the pick is `game.setup.ghost` (RACE_SETUP.choices.ghost;
-a loaded file selects 'loaded'). AI ghosts are flying laps (`flying: true`): shown from your first crossing of the line.
-The smoke test screenshots the list (`out-trial-menu.png`) and races the ALIEN's lap (autopilot over the line, `out-ghost.png`). Smoke test: TIME TRIAL row and a
+a loaded file selects 'loaded'). An AI ghost = its best flying lap + `standing` (its lap 1 from lights out on the same grid slot): your lap 1 races the standing one (you both launch from 0), later laps the flying one.
+The smoke test screenshots the list (`out-trial-menu.png`) and races the ALIEN's lap (autopilot, `out-ghost.png`). Smoke test: TIME TRIAL row and a
 solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-ghost.png`.
 
 ## Ideas not done yet

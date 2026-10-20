@@ -223,9 +223,9 @@ async function smokeTest(win) {
   await win.webContents.executeJavaScript(`document.getElementById('startBtn').click()`);
   {                                             // high camera, just after the start: the ghost (ALIEN, or the file's) pulling away
     await win.webContents.executeJavaScript(`document.getElementById('camBtn').click(); gridlineDebug.autopilot(0.9)`);
-    // (the AI drives your car over the line: an AI ghost's flying lap starts there)
+    // (the AI drives your car: beside the ghost's standing start)
     for (let i = 0; i < 40 && !(await win.webContents.executeJavaScript(`gridlineDebug.playerState().lap >= 1`)); i++) await new Promise(r => setTimeout(r, 250));
-    await new Promise(r => setTimeout(r, 400));
+    await new Promise(r => setTimeout(r, 1200));
     fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-ghost.png'), (await win.webContents.capturePage()).toPNG());
     await win.webContents.executeJavaScript(`gridlineDebug.autopilot(0)`);
   }
