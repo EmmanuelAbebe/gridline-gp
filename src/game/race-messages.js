@@ -35,6 +35,7 @@ export const EVENT_MESSAGES = {
     if (s.repair) jobs.push('repairs');
     return { radio: `Stop: ${jobs.join(', ')}. ${s.time.toFixed(1)} s.`, secs: s.time + 0.5 };
   },
+  [EV.PIT_READY]: () => ({ toast: 'Service done  ·  GAS to leave the box', secs: 4 }),
   [EV.PIT_GO]: () => ({ radio: 'Go, go, go!', secs: 2 }),
   [EV.PIT_OUT]: (e, c, race) => ({ radio: `Limiter off. You're P${SIM.order(race).indexOf(c) + 1}.`, secs: 3 }),
   [EV.FUEL_LOW]: () => ({ radio: 'Fuel is getting low: about 2 laps left, not enough for the finish. Box when you can (B / pad X).', secs: 6 }),

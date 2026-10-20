@@ -20,6 +20,15 @@ export function installDebug(setTrack, current, player = () => null, toMenu = ()
       Display.camera.lookAt(PX[j] + NX[j] * side, 0, PZ[j] + NZ[j] * side);
       return track.name;
     },
+    // put your car in the pit lane `metres` before its box at 60 km/h, with a damaged wing and floor (pit stop shots)
+    pitNow(metres = 40) {
+      const c = player(), track = current(), L = track.pit; if (!c || !L) return false;
+      const box = L.boxes[SIM.DRIVERS.findIndex(d => d.code === c.code)];
+      c.pit = { p: box - metres / track.ds, p0: L.from - 1, lat0: L.lane, box, phase: 'in', at: 0, until: 0, service: null, done: false };
+      c.v = 60 / 3.6; if (c.damage) Object.assign(c.damage, { wing: 0.5, floor: 0.2 });
+      return true;
+    },
+    pitState: () => { const c = player(); return c?.pit ? { phase: c.pit.phase, done: c.pit.done, kmh: Math.round(c.v * 3.6) } : null; },
     pit() { const track = current(), P = track.pit, N = track.N; return P && [P.entry, P.from, P.to].map(p => SIM.wrapIdx(p, N) / N); },
     corners() { const track = current(), { N, VP } = track, out = [];   // where the speed profile bottoms out (apexes)
       for (let i = 0; i < N; i++) if (VP[i] < VP[(i + N - 1) % N] && VP[i] <= VP[(i + 1) % N] && VP[i] < 60) out.push(i / N);

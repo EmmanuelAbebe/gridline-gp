@@ -41,6 +41,7 @@ import { bindSettings } from './settings-binding.js';
 import { installDebug } from './debug.js';
 import { PhoneWheel } from './phone-wheel.js';
 import { createHaptics } from './haptics.js';
+import { createPitCrews } from './pit-crew.js';
 import { Garage } from './garage.js';
 import { loadGarage, loadRecords, recordLap, playerSpec, playerDriver } from './garage-store.js';
 
@@ -79,6 +80,7 @@ const isRunning = () => !!game.race && game.phase !== PHASE.MENU && !game.paused
 // ---- ghost laps and time trial (ghost.js) ----
 const recorder = createRecorder();
 const haptics = createHaptics();       // force feedback for the phone wheel
+const crews = createPitCrews(Display.scene);   // the people in the pit lane (built per race)
 const ghostModel = CarModels.create(Display.scene, playerDriver(game.garage), Design.data.car);   // the see-through car
 ghostModel.setMaterials(CarModels.ghostMaterials()); ghostModel.setShadows(false); ghostModel.setVisible(false);
 const saveGhosts = () => Settings.set(CONFIG.storageKeys.ghosts, JSON.stringify(game.ghosts));
@@ -155,6 +157,7 @@ function newRace() {
   player.boostAuto = s.overtake === 'auto';
   game.trial = s.type === 'trial'; game.ghost = game.trial ? activeGhost(player.spec.modified) : null; recorder.stop();
   Hud.setDelta(null, game.trial); ghostModel.setVisible(false);
+  crews.build(race, Design.data.car);
   if (game.ghost) ghostModel.setLivery({ ...game.garage.livery, ...(game.ghost.livery || {}) });
   Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, pendingBoost: false, autoShiftHinted: false, queueHinted: false,
     resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
@@ -422,7 +425,11 @@ function dashGear(p, onLights, thr) {
 }
 function renderFrame(dt) {
   const { race, player } = game, cam = CameraRig.mode;
-  modelOf.get(player.code).useCockpitView(!!cam.cockpitBody);
+  crews.update(race, dt, Display.camera.position);
+  for (const c of race.cars) modelOf.get(c.code).setService(crews.serviceOf(c));
+  CameraRig.setShot(game.prefs.pitCam ? pitShot(race, player) : null);
+  const cockpit = !!cam.cockpitBody && !CameraRig.onShot;          // the pit camera shows the car from outside
+  modelOf.get(player.code).useCockpitView(cockpit);
   modelOf.get(player.code).setPedals(player.finished ? 0 : Input.drive.thr, player.finished ? 0 : Input.drive.brk);
   for (const c of race.cars) modelOf.get(c.code).sync(c, poseOf(c), dt);
   CameraRig.update(dt, player, !isRunning());
@@ -433,7 +440,7 @@ function renderFrame(dt) {
   // (the delta from the first crossing of the line on: from the grid, behind the line, the split would be the lap's last)
   if (game.trial) Hud.setDelta(gp && player.lap >= 1 ? ghostDelta(g, player.idx, lapT) : null, true);
   const eye = Design.data.cameras.find(c => c.id === 'cockpit') || cam;
-  mirrors.update([-eye.back, eye.height, eye.side || 0], cam.cockpitBody ? 'cockpit' : 'outside', Display.camera.position);
+  mirrors.update([-eye.back, eye.height, eye.side || 0], cockpit ? 'cockpit' : 'outside', Display.camera.position);
   Display.render();
 
   const drive = Input.drive, onLights = game.phase === PHASE.LIGHTS;
@@ -455,6 +462,18 @@ function renderFrame(dt) {
   }
   if ((game.mapT -= dt) <= 0) { game.mapT = CONFIG.mapInterval; minimap.draw(race.cars); }
   Hud.tick(dt);
+}
+
+// The pit stop camera (Settings → Graphics): from the last metres into the box until just after leaving it, a TV
+// shot from above the fast lane, at the front quarter of the box, so you watch the crew work; it drifts slowly while they do.
+function pitShot(race, c) {
+  const P = c.pit; if (!P || c.finished) return null;
+  const ds = race.track.ds, f = crews.boxOf(c);
+  const on = P.phase === 'stop' || (P.phase === 'in' && (P.box - P.p) * ds < 22) || (P.phase === 'out' && (P.p - P.box) * ds < 9);
+  if (!on || !f) return null;
+  const t = P.phase === 'stop' ? race.t - P.at : 0, cx = Math.cos(f.h), cz = Math.sin(f.h);
+  const at = (x, y, z) => [f.x + cx * x - cz * z, y, f.z + cz * x + cx * z];       // box frame → world (z = right)
+  return { pos: at(6.4 - Math.min(2.5, t * 0.22), 3.6, -6.4 + Math.min(1, t * 0.08)), look: at(0.2, 0.35, 0.5), fov: 44 };
 }
 
 function monitorFps(dt) {
@@ -490,7 +509,7 @@ function frame(now) {
 function setTrack(id) {
   if (track && track.id === id) return track;
   track = trackOf(id);
-  if (game.race) { game.race = null; game.player = null; wakes.hideAll(); }    // the last race was on the old circuit
+  if (game.race) { game.race = null; game.player = null; wakes.hideAll(); crews.dispose(); }    // the last race was on the old circuit
   drawOutline($('trackPreview'), track); describeRecord();
   world?.dispose();
   world = buildWorld(Display.scene, track, SIM.DRIVERS);

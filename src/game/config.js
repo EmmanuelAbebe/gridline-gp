@@ -135,6 +135,7 @@ export const PREFS = Object.freeze({
     engineVol: 100, fxVol: 100, ambVol: 100,   // % per sound bus
     doppler: true, shiftBeep: false,
     shake: 70,           // % camera shake (close passes, dirty air)
+    pitCam: true,        // TV shot of your pit stop (main.js pitShot)
     controller: 'auto',  // the device that drives: 'auto' (phone, then a standard pad, then any) or a device key (controllers.js)
     phoneLink: 'wifi',   // how the phone wheel connects (desktop app): wifi / bluetooth / usb (desktop/phone-net.cjs)
     phoneAuto: false,    // start the phone wheel with the game

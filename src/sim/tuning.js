@@ -274,7 +274,9 @@ export const PIT = Object.freeze({ fast: 2.4, box: 8, garage: 12.5, entry: 55, e
   // speeds in the lane: braking into the box at boxBrake m/s², pulling away at accel m/s², exitAccel on the exit road
   boxBrake: 6, accel: 8, exitAccel: 18, stopAt: 0.05, creep: Object.freeze({ within: 1, below: 0.3 }),
   // what the self-driving car shows the HUD and sound: throttle in / out, brake light, gear and revs
-  show: Object.freeze({ thrIn: 0.15, thrOut: 0.6, brake: 0.3, steer: 4, steerMax: 0.5, upshift: 10500, idle: 4200 }),
+  // (steering: wheel angle = atan(wheelbase × the path's curvature), as a share of wheelLock rad; eased at steerRate/s)
+  show: Object.freeze({ thrIn: 0.15, thrOut: 0.6, brake: 0.3, wheelbase: 3.4, wheelLock: 0.32, steerRate: 8, upshift: 10500, idle: 4200 }),
+  release: 0.4,                  // a player's car leaves its box once the service is done and the gas is past this
   // service: a wing counts as damaged above wingFrom, floor + suspension damage above repairFrom gets repaired
   wingFrom: 0.05, repairFrom: 0.02,
   // the AI's decision: never within `late` laps of the flag; fuel only when under fuelBelow laps are left; tyres only
@@ -304,6 +306,6 @@ export const WEAR = Object.freeze({
 export const EV = Object.freeze({ LAP: 'lap', FASTEST: 'fastest', FINISH: 'finish', WALL: 'wall', CONTACT: 'contact',
   SHIFT: 'shift', SHIFT_DENIED: 'shift-denied', CUT: 'cut', PENALTY: 'penalty',
   SAUSAGE: 'sausage', BEACHED: 'beached', RECOVERED: 'recovered',
-  PIT_IN: 'pit-in', PIT_STOP: 'pit-stop', PIT_GO: 'pit-go', PIT_OUT: 'pit-out', DAMAGE: 'damage',
+  PIT_IN: 'pit-in', PIT_STOP: 'pit-stop', PIT_READY: 'pit-ready', PIT_GO: 'pit-go', PIT_OUT: 'pit-out', DAMAGE: 'damage',
   FUEL_LOW: 'fuel-low', FUEL_BOX: 'fuel-box', FUEL_OUT: 'fuel-out', TYRES_WORN: 'tyres-worn',
   BOOST_READY: 'boost-ready', BOOST: 'boost' });

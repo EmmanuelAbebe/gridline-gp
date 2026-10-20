@@ -23,9 +23,9 @@ import { clamp, wrapA, wrapIdx, smoothstep } from './math.js';
 /** @typedef {{ wing: number, floor: number, susp: number }} Damage */   // each 0..1
 /** @typedef {{ fuel: number, fuelTo: number, wing: boolean, repair: boolean, tyres: boolean, time: number }} Service */
 /** In the pit lane: p = unwrapped sample position (from p0, lateral lat0 at the entry), the car's box, phase, service
- * done at the stop (until race time `until`).
- * @typedef {{ p: number, p0: number, lat0: number, box: number, phase: 'in' | 'stop' | 'out', until: number,
- *   service: Service }} PitStop */
+ * done at the stop (from race time `at` until `until`); done = service finished (a player then waits for the gas).
+ * @typedef {{ p: number, p0: number, lat0: number, box: number, phase: 'in' | 'stop' | 'out', at: number, until: number,
+ *   service: Service, done: boolean }} PitStop */
 
 // The lane on a track (null without pits): sample ranges + lateral offsets; boxes = one per DRIVERS entry, in front
 // of the garage doors world.js draws (PIT.garages: first + step·k m along from the `pits` landmark).
@@ -139,7 +139,7 @@ export function checkPitEntry(race, c) {
   if (d >= lane.from - lane.entry - E.latest) return false;
   const onRoad = c.lat > race.track.HW + E.road;
   if (!onRoad && !(c.pitRequest && d < E.request)) return false;
-  c.pit = { p: lane.entry + d, p0: lane.entry + d, lat0: c.lat, box: boxOf(lane, c), phase: 'in', until: 0, service: null };
+  c.pit = { p: lane.entry + d, p0: lane.entry + d, lat0: c.lat, box: boxOf(lane, c), phase: 'in', at: 0, until: 0, service: null, done: false };
   c.pitRequest = false; emit(c, EV.PIT_IN);
   return true;
 }
@@ -164,10 +164,25 @@ function pathLat(race, c, p) {
   return lane.lane + (race.track.HW - PIT.edge - lane.lane) * smoothstep((p - lane.to) / (lane.exit - lane.to));
 }
 
-// One step of a car in the pit lane (instead of the driving model). Moves it along the path; the caller runs afterMove.
+// the path's point at p (unwrapped samples): track position interpolated between samples + the lateral offset
 /** @param {Race} race @param {Car} c */
-export function stepPit(race, c, dt) {
-  const T = race.track, lane = T.pit, P = c.pit, ds = T.ds;
+function pathPoint(race, c, p) {
+  const T = race.track, i = at(T, p), j = (i + 1) % T.N, f = p - Math.floor(p), lat = pathLat(race, c, p);
+  const nx = T.NX[i] + (T.NX[j] - T.NX[i]) * f, nz = T.NZ[i] + (T.NZ[j] - T.NZ[i]) * f;
+  return [T.PX[i] + (T.PX[j] - T.PX[i]) * f + nx * lat, T.PZ[i] + (T.PZ[j] - T.PZ[i]) * f + nz * lat];
+}
+// direction of the path at p (central difference over a sample, so it turns smoothly instead of per sample)
+/** @param {Race} race @param {Car} c */
+function pathHeading(race, c, p) {
+  const a = pathPoint(race, c, p - 0.5), b = pathPoint(race, c, p + 0.5);
+  return Math.atan2(b[1] - a[1], b[0] - a[0]);
+}
+
+// One step of a car in the pit lane (instead of the driving model). Moves it along the path; the caller runs afterMove.
+// go = the driver lets it leave once the service is done (drivePlayer: the gas; the AI always)
+/** @param {Race} race @param {Car} c */
+export function stepPit(race, c, dt, go = true) {
+  const T = race.track, lane = T.pit, P = c.pit, ds = T.ds, S = PIT.show;
   c.pitRequest = false;                                               // already in
   let v = Math.max(0, c.v), accel = 0;
   if (P.phase === 'in') {
@@ -176,33 +191,49 @@ export function stepPit(race, c, dt) {
     v = v > target ? Math.max(target, v - PIT.brake * dt) : Math.min(target, v + PIT.accel * dt);
     if (toBox < PIT.stopAt || (toBox < PIT.creep.within && v < PIT.creep.below)) {
       v = 0; P.p = P.box; P.phase = 'stop';
-      P.service = service(race, c); P.until = race.t + P.service.time; emit(c, EV.PIT_STOP, { service: P.service });
+      P.service = service(race, c); P.at = race.t; P.until = race.t + P.service.time; emit(c, EV.PIT_STOP, { service: P.service });
     }
   } else if (P.phase === 'stop') {
     v = 0;
-    if (race.t >= P.until) { applyService(race, c, P.service); P.phase = 'out'; emit(c, EV.PIT_GO); }
+    if (!P.done && race.t >= P.until) { applyService(race, c, P.service); P.done = true; emit(c, EV.PIT_READY); }
+    if (P.done && go) { P.phase = 'out'; emit(c, EV.PIT_GO); }
   } else {
     const limit = P.p < lane.to ? PIT.speed : TUNING.V_CAP;            // the limiter ends with the pit lane
     accel = P.p < lane.to ? PIT.accel : PIT.exitAccel; v = Math.min(limit, v + accel * dt);
   }
   const p0 = P.p; P.p += v * dt / ds;
-  // place the car on the path
-  const i = at(T, P.p), j = (i + 1) % T.N, f = P.p - Math.floor(P.p), lat = pathLat(race, c, P.p);
-  const x = T.PX[i] + (T.PX[j] - T.PX[i]) * f, z = T.PZ[i] + (T.PZ[j] - T.PZ[i]) * f;
-  const nx = T.NX[i] + (T.NX[j] - T.NX[i]) * f, nz = T.NZ[i] + (T.NZ[j] - T.NZ[i]) * f;
-  c.x = x + nx * lat; c.z = z + nz * lat;
-  const slope = (pathLat(race, c, P.p + 0.5) - pathLat(race, c, P.p - 0.5)) / ds;
-  if (v > 0.05 || P.phase !== 'stop') c.h = Math.atan2(T.TZ[i], T.TX[i]) + Math.atan(slope);
-  c.v = v; c.vy = 0; c.yawRate = 0; c.steer = clamp(Math.atan(slope) * PIT.show.steer, -1, 1) * PIT.show.steerMax; c.slideF = c.slideR = 0; c.lockF = c.spinR = false;
-  const S = PIT.show;
+  // place the car on the path, pointing along it; the front wheels steer by the path's curvature (bicycle geometry)
+  // and the wheels roll with the distance, so it drives into the box instead of sliding there
+  const [x, z] = pathPoint(race, c, P.p), h0 = pathHeading(race, c, P.p);
+  c.x = x; c.z = z;
+  if (P.phase !== 'stop') c.h = h0;
+  const k = wrapA(pathHeading(race, c, P.p + 0.6) - pathHeading(race, c, P.p - 0.6)) / (1.2 * ds);
+  const steer = clamp(Math.atan(S.wheelbase * k) / S.wheelLock, -1, 1);
+  if (v > 0.05) c.steer += (steer - c.steer) * Math.min(1, dt * S.steerRate);
+  c.roll += v * dt / TUNING.WHEEL_RADIUS;
+  c.v = v; c.vy = 0; c.yawRate = 0; c.slideF = c.slideR = 0; c.lockF = c.spinR = false;
   c.thr = P.phase === 'out' ? S.thrOut : S.thrIn; c.brake = P.phase === 'in' && v < PIT.speed - 0.5 && P.p - p0 > 0 ? S.brake : 0;
   c.gear = 1; while (c.gear < GEARS && rpmAt(v, c.gear) > S.upshift) c.gear++;
   c.rpm = Math.max(S.idle, rpmAt(v, c.gear)); c.ax = 0; c.surface = 'tarmac';
   c.pitLimiter = P.p < lane.to && P.phase !== 'stop';
   if (P.p >= lane.exit) {                                             // back on the track
-    c.h = Math.atan2(T.TZ[i], T.TX[i]) + wrapA(c.h - Math.atan2(T.TZ[i], T.TX[i])); c.pit = null; c.pitLimiter = false;
-    c.offset = lat; emit(c, EV.PIT_OUT);
+    const i = at(T, P.p), t = Math.atan2(T.TZ[i], T.TX[i]);
+    c.h = t + wrapA(c.h - t); c.pit = null; c.pitLimiter = false;
+    c.offset = pathLat(race, c, P.p); emit(c, EV.PIT_OUT);
   }
+}
+
+// The stop's jobs one after another (the time adds up to service.time): tyres always, then fuel, a new front wing,
+// repairs. The pit crew (game: pit-crew.js) acts them out; [{ job, from, to }] in s from the stop.
+/** @param {Service} s */
+export function serviceSteps(s) {
+  const out = [{ job: 'tyres', from: 0, to: PIT.base }];
+  let t = PIT.base;
+  const add = (job, d) => { if (d > 0.01) { out.push({ job, from: t, to: t + d }); t += d; } };
+  add('fuel', Number.isFinite(s.fuel) ? s.fuel / PIT.refuel : 0);
+  add('wing', s.wing ? PIT.wing : 0);
+  add('repair', Math.max(0, s.time - t));
+  return out;
 }
 
 // what the crew does: always tyres; fuel for the rest of the race (+ reserve, at most a full tank); a new front

@@ -1,6 +1,6 @@
 // The player's and the AI's driving. Every car is the same car (vehicle.js engine/gearbox/aero, chassis.js tyres);
 // the player and the AI only decide steering, throttle, brake and shifts.
-import { AI, ASSISTS, CHASSIS, TUNING } from './tuning.js';
+import { AI, ASSISTS, CHASSIS, TUNING, PIT } from './tuning.js';
 import { STOCK } from './spec.js';
 import { clamp, wrapA, wrapIdx } from './math.js';
 import { progress } from './race.js';
@@ -20,7 +20,8 @@ import { updateActiveAero } from './active-aero.js';
 /** @param {Race} race @param {Car} c */
 export function drivePlayer(race, c, inp, dt) {
   updateActiveAero(race, c, inp, dt);
-  if (checkPitEntry(race, c)) { stepPit(race, c, dt); afterMove(race, c); return; }   // the car drives itself in the pit lane
+  // the car drives itself in the pit lane; once serviced it waits in the box for the gas
+  if (checkPitEntry(race, c)) { stepPit(race, c, dt, inp.thr >= PIT.release); afterMove(race, c); return; }
   const rate = inp.analog ? inp.steerRate ?? 14 : 5;
   c.steerIn ??= c.steer;
   c.steerIn += clamp(clamp(inp.steer, -1, 1) - c.steerIn, -dt*rate, dt*rate);

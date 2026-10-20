@@ -137,6 +137,17 @@ Tunables live in data tables (config modules), not inline in the logic.
      in the position panel, pit status line (BOX THIS LAP / PIT LIMITER / PIT STOP); `Hud.radio` team-radio messages
      for every pit/fuel/tyre/damage event; tower shows PIT, results "n stops". world.js draws the pit roads, lane
      lines, box markings, the pit wall's TecPro nose, PIT 80 boards. The phone wheel has no X button yet.
+     2026-10-20 (user: show the crew fixing the specific parts; the car slid into the box with still wheels; wait for
+     the driver to leave): stepPit places the car on the path with the heading from a central difference of the path
+     (smooth, no per-sample kinks), front wheels steered by the path's curvature (atan(wheelbase·k) / wheelLock), wheels
+     rolling (c.roll); after the service `P.done` + EV.PIT_READY, and a player's car leaves only with the gas
+     (≥ PIT.release; drivePlayer passes it; the AI goes at once); HUD "GAS TO GO". `serviceSteps(service)` = the jobs in
+     order (tyres, fuel, wing, repair). Game `pit-crew.js`: 16 people per car in the race (team colours, jointed box
+     rigs) waiting in front of the garage; out when the car is < 140 m away: jacks (car lifted 0.07 m), gunner + carrier
+     per wheel (the wheel really comes off: CarModels `setService`), fuel man, wing men with a spare wing, repair crew,
+     lollipop man (red / green); nobody stands in the car's way (`wait` / `after` spots). Pit camera (pref `pitCam`,
+     Settings → Graphics; CameraRig `setShot` glides to a TV shot over the fast lane, main.js `pitShot`). Debug:
+     `gridlineDebug.pitNow(m)` drops your car into the lane m before its box with a damaged wing.
    - `car.js` (locate, createCar, resolveWalls, updateSurface; car has `gear`, `rpm`, `autoShift`, `slip`, `brake`,
      and `trailLat`/`trailT` per track sample = its wake), `race.js` (formats, createRace, progress, lap +
      flag rules, checkpoints, order, gapTo), `motion.js` (afterMove), `driving.js` (drivePlayer, driveAI),

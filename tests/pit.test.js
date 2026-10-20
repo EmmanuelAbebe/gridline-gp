@@ -36,7 +36,7 @@ test('a pit stop: request, 80 km/h limiter, stop in the box, service, back on tr
     if (car.pit?.phase === 'stop') stopIdx = car.idx;
     if (car.pit && car.pit.p > T.pit.from && car.pit.p < T.pit.to) maxLane = Math.max(maxLane, car.v);
   });
-  assert.deepEqual([...new Set(events)], [S.EV.PIT_IN, S.EV.PIT_STOP, S.EV.PIT_GO, S.EV.PIT_OUT]);
+  assert.deepEqual([...new Set(events)], [S.EV.PIT_IN, S.EV.PIT_STOP, S.EV.PIT_READY, S.EV.PIT_GO, S.EV.PIT_OUT]);
   assert.ok(maxLane <= 80 / 3.6 + 0.01, `${(maxLane * 3.6).toFixed(1)} km/h in the lane`);
   const box = T.pit.boxes[S.DRIVERS.findIndex(d => d.player)] % T.N;
   assert.ok(Math.abs(stopIdx - box) <= 1, `stopped at ${stopIdx}, box ${box.toFixed(1)}`);
@@ -45,6 +45,36 @@ test('a pit stop: request, 80 km/h limiter, stop in the box, service, back on tr
   const plain = S.createRace(3, { drivers: player() }); run(S, plain, 200, tester(T));
   const loss = c.finishTime - plain.cars[0].finishTime;
   assert.ok(loss > 8 && loss < 30, `the stop cost ${loss.toFixed(1)} s`);
+});
+
+test('in the pit lane the car drives: wheels roll, heading follows the path, steering by its curve; it waits for the gas', () => {
+  const T = S.track, race = S.createRace(3, { drivers: player(), wear: { tyres: 'normal' } }), c = race.cars[0];
+  let lastPos = null, worstSlip = 0, maxSteer = 0, readyAt = -1, left = -1, rollAtStop = 0;
+  const drive = tester(T, 1);
+  for (let s = 0; s < 120 * 120 && left < 0; s++) {
+    race.t += DT;
+    if (c.pit?.done) {                                               // serviced: no gas for 2 s, then gas
+      if (readyAt < 0) readyAt = race.t;
+      S.drivePlayer(race, c, { thr: race.t - readyAt > 2 ? 1 : 0, brk: 0, steer: 0, analog: true }, DT);
+    } else drive(race, c);
+    for (const e of c.events) if (e.type === S.EV.PIT_GO) left = race.t;
+    c.events.length = 0;
+    if (c.pit && lastPos && c.v > 1) {                               // moving the way it points (no sideways slide)
+      const dir = Math.atan2(c.z - lastPos[1], c.x - lastPos[0]);
+      worstSlip = Math.max(worstSlip, Math.abs(S.wrapA(dir - c.h)));
+      maxSteer = Math.max(maxSteer, Math.abs(c.steer));
+    }
+    if (c.pit?.phase === 'stop' && !rollAtStop) rollAtStop = c.roll;
+    lastPos = c.pit ? [c.x, c.z] : null;
+  }
+  assert.ok(left > 0 && left - readyAt >= 2 - 1e-6, `waited ${(left - readyAt).toFixed(2)} s for the gas`);
+  assert.ok(worstSlip < 0.03, `slide ${(worstSlip * 57.3).toFixed(1)}°`);
+  assert.ok(maxSteer > 0.05 && maxSteer < 1, `steers into the box (${maxSteer.toFixed(2)})`);
+  assert.ok(rollAtStop > 100, 'the wheels rolled down the lane');
+  // the crew's jobs add up to the stop
+  const steps = S.serviceSteps({ fuel: 24, fuelTo: 60, wing: true, repair: true, tyres: true, time: 2.4 + 2 + 3 + 1.5 });
+  assert.deepEqual(steps.map(s => s.job), ['tyres', 'fuel', 'wing', 'repair']);
+  assert.ok(Math.abs(steps.at(-1).to - 8.9) < 1e-9);
 });
 
 test('driving onto the entry road is a pit stop too', () => {

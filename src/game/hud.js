@@ -100,7 +100,7 @@ export const Hud = (() => {
           setOnce('dmgCls', worst > 0.5 ? 'bad' : worst > 0.08 ? 'warn' : '', k => { $('dmg').className = k; });
         }
       }
-      const pit = c.pit ? (c.pit.phase === 'stop' ? 'PIT STOP' : c.pitLimiter ? 'PIT LIMITER' : 'PIT EXIT') : c.pitRequest ? 'BOX THIS LAP' : '';
+      const pit = c.pit ? (c.pit.phase === 'stop' ? (c.pit.done ? 'GAS TO GO' : 'PIT STOP') : c.pitLimiter ? 'PIT LIMITER' : 'PIT EXIT') : c.pitRequest ? 'BOX THIS LAP' : '';
       // active aero: straight mode chip, overtake mode (ready / on with seconds left) and its button (BUTTON setting)
       setOnce('aeroOn', !!race.activeAero && c.aeroOpen > 0.5, v => $('aeroTag').classList.toggle('on', v));
       const boost = c.boostOn ? `OVERTAKE ${c.boostLeft.toFixed(1)} s` : c.boostLeft > 0 ? (c.boostAuto ? 'OVERTAKE READY' : 'OVERTAKE READY · X') : '';

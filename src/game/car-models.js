@@ -207,10 +207,11 @@ export const CarModels = (() => {
         tyreMesh.userData.tyre = true;
         spin.add(tyreMesh, rimMesh); pivot.position.set(w.pos[0], w.pos[1], w.pos[2]); pivot.add(spin); root.add(pivot);
         wheelGeos.push(tg, rg); pivots.push(pivot); wheels.push(spin); if (w.front) fronts.push(pivot);
+        pivot.userData.z = w.pos[2];
       }
       placeScreen(); showView(); markShadows(root, castsShadow); shadow.castShadow = shadow.receiveShadow = false;
     }
-    let castsShadow = true;
+    let castsShadow = true, service = null;
     rebuild(design);
 
     return {
@@ -232,6 +233,8 @@ export const CarModels = (() => {
       setShadows(on) { castsShadow = on; shadow.visible = on; markShadows(root, on); shadow.castShadow = shadow.receiveShadow = false; },
       useCockpitView(on) { if (on !== cockpitView) { cockpitView = on; showView(); } },
       setPedals(thr, brk) { pedals[0] = thr; pedals[1] = brk; },
+      // a pit stop (pit-crew.js): { lift (m, on the jacks), outs: m each wheel is off sideways } or null
+      setService(s) { service = s; },
       mountScreen(mesh) { screen = mesh; placeScreen(); showView(); },
       place(x, z, h) { root.position.set(x, 0, z); root.rotation.y = -h; },
       setVisible(on) { root.visible = on; },
@@ -239,6 +242,8 @@ export const CarModels = (() => {
       // copy the car state onto the mesh at `pose` (pose.js: interpolated x/z/h); brake lights fade in and out over ~0.1 s
       sync(car, pose, dt = 1 / 60) {
         this.place(pose.x, pose.z, pose.h);
+        root.position.y = service?.lift ?? 0;
+        pivots.forEach((p, i) => { const z = p.userData.z; p.position.z = z + Math.sign(z) * (service?.outs[i] ?? 0); });
         for (const w of wheels) w.rotation.z = -car.roll;
         for (const p of fronts) p.rotation.y = -car.steer * FRONT_STEER;
         for (const m of movers) m.mesh.rotation.z = m.open * (car.aeroOpen || 0);   // straight mode: the flaps flatten
