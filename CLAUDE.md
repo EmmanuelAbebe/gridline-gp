@@ -343,6 +343,15 @@ Tunables live in data tables (config modules), not inline in the logic.
      the main render (`Display.renderTo`) only in cockpit view or with the camera within 18 m; Performance mode: half
      resolution, one mirror per frame. Rebuilt with the car design and on graphics-mode change. Showroom `?mirrors=1`
      adds red (left) / blue (right) markers behind the car. Tests: tests/mirrors.test.js.
+   - Shadows (2026-10-20; user: "improve the shadow of the car and anything else that casts shadow"): Quality mode =
+     sun shadow map (`GFX_PROFILES.quality.shadows` {size 4096, range 110 m}; display.js: PCF soft, a box around where the
+     camera looks, snapped to whole texels, drawn once per frame, the mirrors reuse it; sun 44° up, hemisphere 0.68 / sun
+     1.08); Performance mode none. `shadows.js`: `markWorldShadows` (everything solid receives, things > 0.3 m tall cast;
+     also gives InstancedMesh geometry a bounding sphere around all instances: r128 culled them by the origin),
+     `markShadows` for cars / driver (see-through meshes and the ghost car don't). Every car keeps a soft contact shadow
+     texture underneath (car-models.js `contactShadow`: footprint, floor, four tyre patches), lighter with sun shadows on.
+     Garage: the key light casts on the floor. Design v11: floor and diffuser parts finish `rubber` (gloss paint mirrored
+     the sky: a white glow under the car).
    - `CameraRig` (reads `Design.data.cameras` live), `createMinimap` (cached track canvas, dots at 30 Hz),
      `Hud` (cached DOM writes), `Screens` (overlays + start-menu controls).
    - Design tools: `DESIGN_DEFAULTS` (cameras, car parts/wheels/steering wheel, HUD theme + layouts) → `Design`
@@ -355,7 +364,7 @@ Tunables live in data tables (config modules), not inline in the logic.
      `car.screen` are positioned relative to the wheel centre; `car.steering` = { pivot (centre in car space),
      rot [x,y,z]°, scale [x,y,z], lock° }. Model: root → mount (pivot/rot/scale) → steering mesh (turns with
      input) → screen (always fixed to the wheel). Panel shows wheel width/height in metres via
-     `CarModels.measure` (natural size × scale). Design format v10; `migrate()` converts v1 (car-space steer
+     `CarModels.measure` (natural size × scale). Design format v11; `migrate()` converts v1 (car-space steer
      parts), v2 (tilt/uniform scale/screen.steer) and v3/v4 (body parts and wheels replaced by the new defaults, the
      player's steering-wheel parts and settings kept; an untouched wheel x 0.45 moves to 0.18). Parts named "… R" get a mirrored "… L" twin (`withMirrors`).
      Shapes: box, rounded (extruded rounded rectangle, `radius`), sphere, cylinder, torus, loft, wing, rod, decal, body, tube (oval section along `path` [x, y, z, halfW?, halfH?], `section`, `up`); optional `finish`.
@@ -389,7 +398,8 @@ Tunables live in data tables (config modules), not inline in the logic.
   modified apart), localStorage `gridline.garage` / `gridline.records`. `garage.js` (`Garage`: own Three.js studio scene
   rendered with `Display.renderWith` instead of the race scene while open; a separate car model; tabs Look / Setup /
   Open mods with live stats vs stock, presets, double-click a slider = stock; view buttons 3/4 FRONT SIDE REAR TOP,
-  auto-turn after 4 s idle), `orbit-camera.js` (pure state + `attachOrbit`: drag = turn (yaw unlimited, pitch to just
+  STILL by default, TURNING = auto-turn after 4 s idle), `orbit-camera.js` (pure state + `attachOrbit`: drag = turn, the car
+  following the finger (2026-10-20: it was inverted; tested against a Three.js camera's screen-right) (yaw unlimited, pitch to just
   above the floor .. top), wheel / pinch = zoom 2.2–16 m, right / shift drag or two fingers = pan, arrow keys).
   CarModels: `setLivery(l)` (colours, number decal, finish material per car in Quality mode, rim colour role 'rim'),
   `object` = root. Start menu GARAGE button (menu only); setup + mods apply at newRace (`player.spec`), looks at once.

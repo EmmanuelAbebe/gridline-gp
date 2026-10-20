@@ -3,6 +3,7 @@ import { SIM } from '../sim/index.js';
 import { CONFIG, COLORS, GFX_PROFILES, THEMES } from './config.js';
 import { hexCss } from './util.js';
 import { buildScenery } from './scenery.js';
+import { markWorldShadows } from './shadows.js';
 
 // Static track and scenery, all under one group. Returns handles for what graphics profiles and the start lights
 // change, and dispose() to take it out of the scene (switching circuits).
@@ -244,6 +245,7 @@ export function buildWorld(parent, track, drivers) {
   }
 
   const scenery = buildScenery(scene, track, theme, { lambert, canvasTexture, placeAlong });
+  markWorldShadows(scene);
 
   return {
     applyProfile(p) {

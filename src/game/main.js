@@ -80,7 +80,7 @@ const isRunning = () => !!game.race && game.phase !== PHASE.MENU && !game.paused
 const recorder = createRecorder();
 const haptics = createHaptics();       // force feedback for the phone wheel
 const ghostModel = CarModels.create(Display.scene, playerDriver(game.garage), Design.data.car);   // the see-through car
-ghostModel.setMaterials(CarModels.ghostMaterials()); ghostModel.setVisible(false);
+ghostModel.setMaterials(CarModels.ghostMaterials()); ghostModel.setShadows(false); ghostModel.setVisible(false);
 const saveGhosts = () => Settings.set(CONFIG.storageKeys.ghosts, JSON.stringify(game.ghosts));
 const saveLoadedGhosts = () => Settings.set(CONFIG.storageKeys.ghostsLoaded, JSON.stringify(game.loadedGhosts));
 const carModified = () => SIM.isModified(game.garage.mods);

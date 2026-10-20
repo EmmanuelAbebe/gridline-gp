@@ -19,11 +19,13 @@ export function orbitPosition(s) {
   const c = Math.cos(s.pitch) * s.dist;
   return [s.target[0] + Math.cos(s.yaw) * c, s.target[1] + Math.sin(s.pitch) * s.dist, s.target[2] + Math.sin(s.yaw) * c];
 }
-export const turn = (s, dx, dy) => { s.yaw -= dx * ORBIT.turnPerPx; s.pitch += dy * ORBIT.turnPerPx; return clampOrbit(s); };
+// drag right = the car turns to the right with the finger (the camera goes the other way round), drag down = see it
+// from higher up
+export const turn = (s, dx, dy) => { s.yaw += dx * ORBIT.turnPerPx; s.pitch += dy * ORBIT.turnPerPx; return clampOrbit(s); };
 export const zoom = (s, factor) => { s.dist *= factor; return clampOrbit(s); };
 // move the target in the view plane by screen pixels (scaled with the distance, so it feels the same at any zoom)
 export function pan(s, dx, dy) {
-  const k = s.dist * 0.0016, rx = -Math.sin(s.yaw), rz = Math.cos(s.yaw);       // screen-right in the ground plane
+  const k = s.dist * 0.0016, rx = Math.sin(s.yaw), rz = -Math.cos(s.yaw);       // screen-right in the ground plane
   s.target[0] -= rx * dx * k; s.target[2] -= rz * dx * k;
   s.target[1] += dy * k;
   return clampOrbit(s);

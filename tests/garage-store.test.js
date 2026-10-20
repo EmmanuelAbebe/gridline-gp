@@ -1,6 +1,7 @@
 // The garage's data and camera math (src/game/garage-store.js, orbit-camera.js): pure, so tested in Node.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import * as THREE from 'three';
 import { SIM as S } from '../src/sim/index.js';
 import { loadGarage, validLivery, colourOf, hexOf, LIVERY_DEFAULTS, playerDriver, playerSpec, loadRecords, recordLap } from '../src/game/garage-store.js';
 import { orbitState, orbitPosition, turn, zoom, pan, clampOrbit, ORBIT } from '../src/game/orbit-camera.js';
@@ -42,11 +43,20 @@ test('lap records: per circuit, stock and modified apart, only improvements', ()
 test('orbit camera: turns all the way round, stays above the floor, zoom and pan are bounded', () => {
   const s = orbitState();
   for (let i = 0; i < 100; i++) turn(s, 50, 0);
-  assert.ok(Math.abs(s.yaw - (Math.PI / 4 - 100 * 50 * ORBIT.turnPerPx)) < 1e-9, 'yaw has no limit');
+  assert.ok(Math.abs(s.yaw - (Math.PI / 4 + 100 * 50 * ORBIT.turnPerPx)) < 1e-9, 'yaw has no limit');
   turn(s, 0, 10000); assert.equal(s.pitch, ORBIT.maxPitch);
   turn(s, 0, -10000); assert.equal(s.pitch, ORBIT.minPitch);
   zoom(s, 100); assert.equal(s.dist, ORBIT.maxDist); zoom(s, 0.0001); assert.equal(s.dist, ORBIT.minDist);
   pan(s, 1e6, -1e6); assert.ok(Math.abs(s.target[0]) <= ORBIT.panLimit && Math.abs(s.target[2]) <= ORBIT.panLimit && s.target[1] >= 0.05);
+  // drag right = the car turns with the finger: the camera moves to the screen's left, a pan drags the car right
+  const s2 = orbitState(), cam = new THREE.PerspectiveCamera();
+  cam.position.set(...orbitPosition(s2)); cam.lookAt(...s2.target); cam.updateMatrixWorld();
+  const right = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0), before = orbitPosition(s2), t0 = [...s2.target];
+  turn(s2, 20, 0);
+  assert.ok(new THREE.Vector3(...orbitPosition(s2)).sub(new THREE.Vector3(...before)).dot(right) < 0, 'camera goes left = car turns right');
+  turn(s2, -20, 0); pan(s2, 20, 0);
+  assert.ok(new THREE.Vector3(...s2.target).sub(new THREE.Vector3(...t0)).dot(right) < 0, 'view centre goes left = car moves right');
+  const p0 = orbitPosition(s2)[1]; turn(s2, 0, 20); assert.ok(orbitPosition(s2)[1] > p0, 'drag down = from higher up');
   const front = clampOrbit({ yaw: 0, pitch: 0, dist: 5, target: [0, 0.5, 0] });
   assert.deepEqual(orbitPosition(front).map(v => +v.toFixed(9)), [5, 0.5, 0], 'yaw 0 = in front of the nose (+x)');
   const top = orbitPosition({ yaw: 0, pitch: ORBIT.maxPitch, dist: 5, target: [0, 0.5, 0] });

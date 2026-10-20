@@ -80,6 +80,10 @@ export const Design = (() => {
       const fresh = /^(rear wing main|rear wing flap|beam wing|beam wing flap)$/;
       s.car.parts = s.car.parts.map(p => isObj(p) && fresh.test(p.name) ? clone(DESIGN_DEFAULTS.car.parts.find(d => d.name === p.name)) : p);
     }
+    if (v < 11 && isObj(s.car) && Array.isArray(s.car.parts)) {
+      // v11: floor and diffuser in a matte finish (gloss reflected the sky: a white glow under the car)
+      for (const p of s.car.parts) if (isObj(p) && !p.finish && /^(floor|diffuser (fence|fence 2|wall) [RL])$/.test(p.name)) p.finish = 'rubber';
+    }
     s.version = DESIGN_DEFAULTS.version;
     return s;
   }

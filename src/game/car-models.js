@@ -4,6 +4,7 @@ import { SHAPES, SIGNED_SIZE, OWN_UV, tyreGeometry } from './car-shapes.js';
 import { BODY_ROLES } from './car-body.js';
 import { createDriverBody } from './driver-body.js';
 import { carbonTexture, tyreTexture, skyEnvironment, glowTexture, numberTexture } from './car-textures.js';
+import { markShadows } from './shadows.js';
 
 // Built from Design.data.car. Per car: fixed parts merged into one mesh with a group per finish (paint, carbon,
 // rubber, metal, light, decal), parts that turn with the steering in a second mesh, one mesh per wheel, brake-light
@@ -39,8 +40,23 @@ export const CarModels = (() => {
   };
   const LIGHT_OFF = new THREE.Color(0x3a0806), LIGHT_ON = new THREE.Color(0xff2a18);
   const GLOW_GEO = new THREE.PlaneGeometry(1, 1).rotateY(-Math.PI / 2);   // faces -x (backwards)
-  const SHADOW_GEO = new THREE.PlaneGeometry(5.8, 2.4).rotateX(-Math.PI/2);
-  const SHADOW_MAT = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.32, depthWrite: false });
+  // contact shadow: the soft darkening right under the car (ambient light blocked by the floor, darkest between the
+  // wheels and at the four tyre patches); the sun's shadow comes on top in Quality mode (display.js, shadows.js)
+  const SHADOW_GEO = new THREE.PlaneGeometry(6.2, 2.8).rotateX(-Math.PI/2);
+  const SHADOW_MAT = new THREE.MeshBasicMaterial({ map: contactShadow(), color: 0x000000, transparent: true, opacity: 0.75, depthWrite: false,
+    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+  function contactShadow() {
+    const W = 512, H = 232, c = document.createElement('canvas'); c.width = W; c.height = H;   // 6.2 × 2.8 m
+    const g = c.getContext('2d'), m = W / 6.2, X = x => W / 2 + x * m, Y = z => H / 2 + z * m;
+    const blob = (x0, z0, x1, z1, r, blur, a) => {
+      g.filter = `blur(${blur * m}px)`; g.fillStyle = `rgba(0,0,0,${a})`;
+      g.beginPath(); g.roundRect(X(x0), Y(z0), (x1 - x0) * m, (z1 - z0) * m, r * m); g.fill();
+    };
+    blob(-2.55, -0.85, 2.45, 0.85, 0.5, 0.32, 0.55);       // the whole footprint, very soft
+    blob(-1.9, -0.55, 1.6, 0.55, 0.3, 0.18, 0.6);          // the floor, between the wheels
+    for (const x of [-1.75, 1.6]) for (const z of [-0.8, 0.8]) blob(x - 0.36, z - 0.22, x + 0.36, z + 0.22, 0.12, 0.07, 0.85);   // tyres
+    const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t;
+  }
   const FRONT_STEER = 0.32;   // radians of front-wheel angle at full lock
   const CARBON_UV = 3;        // weave repeats per metre
   const DEG = Math.PI / 180;
@@ -134,7 +150,7 @@ export const CarModels = (() => {
       body.geometry = cockpitView ? geo.cockpit : geo.outside;
       steering.geometry = cockpitView ? geo.steerCockpit : geo.steerOutside;
       for (const s of glows) s.visible = !cockpitView && lit > 0.02;
-      if (cockpitView && !driverBody) { driverBody = createDriverBody(driver); root.add(driverBody.group); }
+      if (cockpitView && !driverBody) { driverBody = createDriverBody(driver); root.add(driverBody.group); markShadows(driverBody.group, castsShadow); }
       if (driverBody) driverBody.group.visible = cockpitView;
       for (const m of movers) m.mesh.visible = m.show === 'always' || m.show === (cockpitView ? 'cockpit' : 'outside');
       if (screen) screen.visible = screenSpec.show === 'always' || screenSpec.show === (cockpitView ? 'cockpit' : 'outside');
@@ -192,8 +208,9 @@ export const CarModels = (() => {
         spin.add(tyreMesh, rimMesh); pivot.position.set(w.pos[0], w.pos[1], w.pos[2]); pivot.add(spin); root.add(pivot);
         wheelGeos.push(tg, rg); pivots.push(pivot); wheels.push(spin); if (w.front) fronts.push(pivot);
       }
-      placeScreen(); showView();
+      placeScreen(); showView(); markShadows(root, castsShadow); shadow.castShadow = shadow.receiveShadow = false;
     }
+    let castsShadow = true;
     rebuild(design);
 
     return {
@@ -211,6 +228,8 @@ export const CarModels = (() => {
         for (const m of movers) m.mesh.material = matList();
         for (const w of wheels) for (const m of w.children) m.material = m.userData.tyre ? set.tyre : matList();
       },
+      // the ghost car (see-through) casts no shadow and has no contact shadow
+      setShadows(on) { castsShadow = on; shadow.visible = on; markShadows(root, on); shadow.castShadow = shadow.receiveShadow = false; },
       useCockpitView(on) { if (on !== cockpitView) { cockpitView = on; showView(); } },
       setPedals(thr, brk) { pedals[0] = thr; pedals[1] = brk; },
       mountScreen(mesh) { screen = mesh; placeScreen(); showView(); },
@@ -253,5 +272,8 @@ export const CarModels = (() => {
     }
     return ghostSet;
   }
-  return { create, measure, ghostMaterials, applyProfile(models, p) { const set = p.lambertCars ? MATS.fast : MATS.quality; for (const m of models) m.setMaterials(set); } };
+  return { create, measure, ghostMaterials, applyProfile(models, p) {
+    const set = p.lambertCars ? MATS.fast : MATS.quality; for (const m of models) m.setMaterials(set);
+    SHADOW_MAT.opacity = p.shadows ? 0.6 : 0.8;        // with sun shadows on, the contact shadow is only the ambient part
+  } };
 })();

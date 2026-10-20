@@ -8,7 +8,8 @@ import { Input } from './input.js';
 
 export function installDebug(setTrack, current, player = () => null, toMenu = () => {}, loadGhost = () => {}) {
   window.gridlineDebug = { soundReady: () => Sound.ready,
-    toMenu, loadGhost,                                                 // back to the start menu; load a ghost file's text (smoke test)
+    toMenu, loadGhost,
+    shadows: () => Display.shadowInfo(),                                // sun shadows on? map size, casters                                                 // back to the start menu; load a ghost file's text (smoke test)
     input: () => ({ ...Input.drive, device: Input.pad.label, kind: Input.pad.kind }),   // what drives the car right now
     // the player's car: speed (km/h), wings open (active aero), overtake mode
     car: () => { const c = player(); return c && { kmh: Math.round(SIM.speedOf(c) * 3.6), aeroOpen: c.aeroOpen, boostLeft: c.boostLeft, boostOn: c.boostOn }; },

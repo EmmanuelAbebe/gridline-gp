@@ -260,7 +260,7 @@ async function trackShots(win) {
       fs.writeFileSync(path.join(shotsDir, `${id}-${name}.png`), (await win.webContents.capturePage()).toPNG());
     }
   }
-  console.log('track shots in ' + shotsDir);
+  console.log('track shots in ' + shotsDir, JSON.stringify(await js(`gridlineDebug.shadows()`)));
   app.exit(0);
 }
 

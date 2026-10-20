@@ -59,13 +59,15 @@ export const GFX_PROFILES = Object.freeze({
     label: 'Quality mode', antialias: true,
     renderScales: [2, 1.75, 1.5, 1.25, 1, 0.85, 0.7].filter(v => v <= Math.max(1, DPR) + 0.01), startScale: Math.min(DPR, 1.5),
     lambertCars: false, treeFraction: 1, crowd: 1500, stripes: true, hills: true, fog: [220, 1500], far: 3000,
+    shadows: { size: 4096, range: 110 },   // sun shadow map: texels, half-width (m) of the box around the view (display.js)
     note: weakGpu => weakGpu ? 'Performance mode is recommended for this GPU.' : 'Full detail.',
   },
   perf: {
     label: 'Performance mode', antialias: false,
     renderScales: [1, 0.85, 0.75, 0.65, 0.55, 0.5], startScale: 1,
     lambertCars: true, treeFraction: 0.4, crowd: 450, stripes: false, hills: false, fog: [160, 850], far: 950,
-    note: () => 'No edge smoothing, lower resolution, lighter scenery.',
+    shadows: null,                          // the cars' soft contact shadows only
+    note: () => 'No edge smoothing, lower resolution, lighter scenery, no sun shadows.',
   },
 });
 

@@ -41,7 +41,7 @@ function seg(options, current, onpick) {
 
 export const Garage = (() => {
   const root = $('garageOv'), stage = $('garStage'), tabsEl = $('garTabs'), body = $('garBody'), events = createEmitter();
-  let isOpen = false, garage = null, tab = 'look', scene = null, cam = null, model = null, autoTurn = true, idle = 0, statsQueued = false;
+  let isOpen = false, garage = null, tab = 'look', scene = null, cam = null, model = null, autoTurn = false, idle = 0, statsQueued = false;
   const orbit = orbitState();
   const STOCK_STATS = SIM.specStats(SIM.STOCK);
 
@@ -61,9 +61,13 @@ export const Garage = (() => {
     scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x1a1e24, 0.75));
     for (const [color, k, pos] of [[0xffffff, 1.0, [5, 9, 6]], [0x9fc4ff, 0.55, [-6, 4, -5]], [0xffe2c4, 0.35, [-4, 2.5, 6]]]) {
       const l = new THREE.DirectionalLight(color, k); l.position.set(...pos); scene.add(l);
+      if (k === 1.0) {          // the key light casts the car's shadow on the floor (in Quality mode: display.js shadows)
+        l.castShadow = true; l.shadow.mapSize.set(2048, 2048); l.shadow.bias = -0.0003; l.shadow.normalBias = 0.02; l.shadow.radius = 3;
+        Object.assign(l.shadow.camera, { left: -4.5, right: 4.5, top: 4.5, bottom: -4.5, near: 4, far: 26 }); l.shadow.camera.updateProjectionMatrix();
+      }
     }
     const floor = new THREE.Mesh(new THREE.CircleGeometry(10, 72), new THREE.MeshStandardMaterial({ map: floorTexture(), roughness: 0.55, metalness: 0.1 }));
-    floor.rotation.x = -Math.PI / 2; scene.add(floor);
+    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
     const ring = new THREE.Mesh(new THREE.RingGeometry(3.55, 3.62, 120), new THREE.MeshBasicMaterial({ color: 0xffc21a, transparent: true, opacity: 0.35 }));
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.005; scene.add(ring);
     cam = new THREE.PerspectiveCamera(38, 1, 0.1, 200);

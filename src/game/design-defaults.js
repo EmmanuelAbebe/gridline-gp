@@ -10,7 +10,7 @@ const mirrorZ = p => ({ ...p, name: p.name.replace(/R(\d?)$/, 'L$1'), pos: [p.po
 const withMirrors = parts => parts.flatMap(p => /R\d?$/.test(p.name) && !p.steer ? [p, mirrorZ(p)] : [p]);
 
 export const DESIGN_DEFAULTS = {
-  version: 10,
+  version: 11,
   // Camera modes, cycled with C / Y. back/side/height/ahead/lookY are metres relative to the car.
   // k = follow stiffness, rigid = no smoothing, cockpitBody = player car shows its cockpit-view parts.
   cameras: [
@@ -57,16 +57,16 @@ export const DESIGN_DEFAULTS = {
         [-0.95, 0.95, 0.008, 0.06, 6], [-1.3, 0.86, 0.01, 0.1, 6], [-1.7, 0.78, 0.01, 0.12, 6], [-1.98, 0.72, 0.008, 0.1, 6]] },
       { name: 'camera pod', shape: 'rounded', size: [0.16, 0.05, 0.11], radius: 0.02, pos: [-0.62, 1.16, 0], color: 'accent' },
       // floor: one plate from the nose to the diffuser, which kicks up behind the rear axle; fences and side walls
-      // under the ramp
-      { name: 'floor', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', sections: [
+      // under the ramp (matte: in gloss paint the plate reflected the sky and glowed white under the car)
+      { name: 'floor', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', finish: 'rubber', sections: [
         [1.35, 0.075, 0.26, 0.018, 8], [0.85, 0.075, 0.6, 0.018, 10], [0.2, 0.075, 0.8, 0.018, 10], [-0.75, 0.075, 0.78, 0.018, 10],
         [-1.15, 0.075, 0.6, 0.018, 10], [-1.6, 0.08, 0.56, 0.018, 10], [-1.9, 0.095, 0.53, 0.016, 10], [-2.15, 0.16, 0.5, 0.014, 10],
         [-2.4, 0.25, 0.48, 0.014, 10]] },
-      { name: 'diffuser fence R', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', sections: [
+      { name: 'diffuser fence R', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', finish: 'rubber', sections: [
         [-1.85, 0.085, 0.006, 0.012, 6, 0.18], [-2.15, 0.12, 0.006, 0.05, 6, 0.18], [-2.4, 0.18, 0.006, 0.075, 6, 0.18]] },
-      { name: 'diffuser fence 2 R', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', sections: [
+      { name: 'diffuser fence 2 R', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', finish: 'rubber', sections: [
         [-1.85, 0.085, 0.006, 0.012, 6, 0.34], [-2.15, 0.12, 0.006, 0.05, 6, 0.34], [-2.4, 0.18, 0.006, 0.075, 6, 0.34]] },
-      { name: 'diffuser wall R', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', sections: [
+      { name: 'diffuser wall R', shape: 'loft', size: [1, 1, 1], pos: [0, 0, 0], color: 'dark', finish: 'rubber', sections: [
         [-1.8, 0.09, 0.008, 0.02, 6, 0.49], [-2.15, 0.14, 0.008, 0.07, 6, 0.48], [-2.4, 0.2, 0.008, 0.1, 6, 0.47]] },
       // front wing (2026 style, 1.8 m): every element flat across the neutral middle under the nose and curling up and
       // back toward the endplates; the two flaps flatten in straight mode (active aero, `open`). stations: [z, rise,
