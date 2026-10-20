@@ -14,9 +14,25 @@ export const AppShell = (() => {
   if (app) { app.onFullscreen(label); app.isFullscreen().then(label); }
   else document.addEventListener('fullscreenchange', () => label(!!document.fullscreenElement));
   if (!supported) $('fullBtn').hidden = $('fullStartBtn').hidden = true;
-  for (const b of document.querySelectorAll('[data-quit]')) { b.hidden = !app; b.onclick = () => app.quit(); }
+  // Quit asks first (the Quit buttons, and Alt+F4 / closing the window: the app asks the page, desktop/main.cjs)
+  const ask = $('quitOv'), listeners = [];
+  let lastFocus = null;
+  function askQuit() {
+    if (!app || !ask.hidden) return;
+    lastFocus = document.activeElement; ask.hidden = false; $('quitStayBtn').focus();
+    listeners.forEach(fn => fn());
+  }
+  function cancelQuit() { if (ask.hidden) return; ask.hidden = true; lastFocus?.focus?.(); }
+  $('quitStayBtn').onclick = cancelQuit;
+  $('quitYesBtn').onclick = () => app.quit();
+  ask.addEventListener('click', e => { if (e.target === ask) cancelQuit(); });      // a click beside the card = stay
+  for (const b of document.querySelectorAll('[data-quit]')) { b.hidden = !app; b.onclick = askQuit; }
+  app?.onAskQuit?.(askQuit);
   return {
     isApp: !!app,
+    get quitOpen() { return !ask.hidden; },
+    askQuit, cancelQuit,
+    onAskQuit(fn) { listeners.push(fn); },        // (main.js pauses a running race)
     toggleFullscreen() {
       if (app) { app.toggleFullscreen().then(label); return; }
       if (!supported) return;

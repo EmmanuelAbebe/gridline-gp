@@ -52,6 +52,56 @@ export function buildWorld(parent, track, drivers) {
     const m = new THREE.Mesh(g, mat || lambert(decal(layer, { vertexColors: true, side: THREE.DoubleSide })));
     scene.add(m); return m;
   }
+  // A strip along the track with a texture running along it (v = metres / repeat) and a per-sample alpha (0..1, the
+  // vertex alpha): the racing line's tyre marks. The texture's alpha is the mark, black on the road.
+  function markStrip(o1, o2, y, map, repeat, alphaFn, layer) {
+    const pos = [], col = [], uv = [];
+    let dist = 0;
+    for (let i = 0; i < N; i++) {
+      const j = (i + 1) % N, a1 = val(o1, i), a2 = val(o2, i), b1 = val(o1, j), b2 = val(o2, j);
+      const step = Math.hypot(PX[j] - PX[i], PZ[j] - PZ[i]), v0 = dist / repeat, v1 = (dist + step) / repeat; dist += step;
+      const al = alphaFn(i), bl = alphaFn(j);
+      if (al < 0.01 && bl < 0.01) continue;
+      const ax = PX[i]+NX[i]*a1, az = PZ[i]+NZ[i]*a1, bx = PX[i]+NX[i]*a2, bz = PZ[i]+NZ[i]*a2;
+      const qx = PX[j]+NX[j]*b1, qz = PZ[j]+NZ[j]*b1, dx = PX[j]+NX[j]*b2, dz = PZ[j]+NZ[j]*b2;
+      pos.push(ax,y,az, bx,y,bz, qx,y,qz, bx,y,bz, dx,y,dz, qx,y,qz);
+      uv.push(0,v0, 1,v0, 0,v1, 1,v0, 1,v1, 0,v1);
+      for (const a of [al, al, bl, al, bl, bl]) col.push(1, 1, 1, a);
+    }
+    if (!pos.length) return null;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 4));
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial(decal(layer, { map, color: 0x000000, vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide })));
+    scene.add(m); return m;
+  }
+  // Tyre streaks (texture: across = the strip's width, the wheel tracks at ¼ and ¾; along = repeat metres): thin dark
+  // lines, broken and fading along their length, spread around both tracks; `heavy` = fewer, wider, darker (locking)
+  function tyreStreaks(seed, heavy = false) {
+    let r = seed * 9301 + 49297; const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
+    const W = 128, H = 512, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const x = cv.getContext('2d');
+    for (let n = 0; n < (heavy ? 14 : 46); n++) {
+      const track = rnd() < 0.5 ? 0.25 : 0.75, spread = heavy ? 0.035 : 0.09;
+      let u = (track + (rnd() + rnd() + rnd() - 1.5) * spread * 2) * W;
+      const w = heavy ? 3 + rnd() * 5 : 0.6 + rnd() * 2.2;
+      let v = rnd() * H;
+      const runs = heavy ? 2 : 3 + (rnd() * 4 | 0);
+      for (let k = 0; k < runs; k++) {
+        const len = (heavy ? 0.25 : 0.08) * H + rnd() * 0.35 * H, a = (heavy ? 0.35 : 0.12) + rnd() * (heavy ? 0.4 : 0.35);
+        const grad = x.createLinearGradient(0, v, 0, v + len);
+        grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(0.25, `rgba(0,0,0,${a})`); grad.addColorStop(0.75, `rgba(0,0,0,${a})`); grad.addColorStop(1, 'rgba(0,0,0,0)');
+        x.strokeStyle = grad; x.lineWidth = w; x.beginPath();
+        for (let t = 0; t <= 8; t++) { const yy = v + len * t / 8; const uu = u + Math.sin((yy + n * 40) * 0.02) * (heavy ? 1.5 : 1); t ? x.lineTo(uu, yy) : x.moveTo(uu, yy); }
+        x.stroke();
+        // the same line carries on further along (wrapping), slightly moved: tyre marks are long and broken
+        v = (v + len + rnd() * 0.2 * H) % H; u += (rnd() - 0.5) * 2;
+      }
+    }
+    const t = new THREE.CanvasTexture(cv); t.wrapS = THREE.ClampToEdgeWrapping; t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
+    return t;
+  }
   // a strip on one side (0 = left, 1 = right) between distances a..b from the centre line
   const sideStrip = (side, a, b, y, colorFn, layer, mat) => side
     ? strip(a, b, y, colorFn, layer, mat) : strip(i => -val(b, i), i => -val(a, i), y, colorFn, layer, mat);
@@ -118,12 +168,17 @@ export function buildWorld(parent, track, drivers) {
   strip(-HW, HW, 0.03, i => COLORS.asphalt[i % 40 < 20 ? 0 : 1]);
   strip(-HW+0.25, -HW+0.55, 0.06, () => COLORS.paint, 3);
   strip(HW-0.55, HW-0.25, 0.06, () => COLORS.paint, 3);
-  { const { RO, VP } = track, overlay = opacity => new THREE.MeshBasicMaterial(decal(2, { color: 0x000000, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide }));
-    // rubbered-in racing line: darker where the cars run
-    strip(i => RO[i] - 1.1, i => RO[i] + 1.1, 0.04, () => 0, 1.5, overlay(0.16));
-    // skid marks where the cars brake hardest (the speed profile falls fast): two tyre tracks, fading in
+  // the racing line, rubbered in (2026-10-20): many thin, broken tyre streaks along the two wheel tracks of the line,
+  // darker where the cars brake and corner (they slide and scrub there), faint on the straights; two layers with
+  // different repeat lengths so the pattern doesn't show
+  { const { RO, VP, LK } = track;
     const braking = i => { const d = VP[i] - VP[(i + 8) % N]; return d > 4 ? Math.min(1, (d - 4) / 8) : 0; };
-    for (const o of [-0.8, 0.8]) strip(i => RO[i] + o - 0.2 + Math.sin(i * 0.7) * 0.05, i => RO[i] + o + 0.2, 0.045, i => braking(i) > 0.15 ? 0 : null, 1.6, overlay(0.22)); }
+    const corner = i => Math.min(1, Math.abs(LK[i]) * 45);
+    const rubber = i => 0.28 + 0.4 * corner(i) + 0.5 * braking(i);
+    for (const [repeat, seed, k] of [[23, 1, 0.75], [37, 2, 0.55]])
+      markStrip(i => RO[i] - 1.6, i => RO[i] + 1.6, 0.04 + seed * 0.002, tyreStreaks(seed), repeat, i => Math.min(1, rubber(i) * k), 2);
+    // the braking zones: the darker tracks of locking tyres, fading in
+    markStrip(i => RO[i] - 1.4, i => RO[i] + 1.4, 0.045, tyreStreaks(3, true), 17, i => braking(i) * 0.9, 2); }
 
   // ---- beside the road, from the run-off layout ----
   for (const side of [0, 1]) {

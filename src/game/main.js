@@ -42,6 +42,7 @@ import { installDebug } from './debug.js';
 import { PhoneWheel } from './phone-wheel.js';
 import { createHaptics } from './haptics.js';
 import { createPitCrews } from './pit-crew.js';
+import { createTyreMarks } from './tyre-marks.js';
 import { Garage } from './garage.js';
 import { loadGarage, loadRecords, recordLap, playerSpec, playerDriver } from './garage-store.js';
 
@@ -81,6 +82,7 @@ const isRunning = () => !!game.race && game.phase !== PHASE.MENU && !game.paused
 const recorder = createRecorder();
 const haptics = createHaptics();       // force feedback for the phone wheel
 const crews = createPitCrews(Display.scene);   // the people in the pit lane (built per race)
+const marks = createTyreMarks(Display.scene);  // rubber laid by sliding / locking / spinning tyres (cleared per race)
 const ghostModel = CarModels.create(Display.scene, playerDriver(game.garage), Design.data.car);   // the see-through car
 ghostModel.setMaterials(CarModels.ghostMaterials()); ghostModel.setShadows(false); ghostModel.setVisible(false);
 const saveGhosts = () => Settings.set(CONFIG.storageKeys.ghosts, JSON.stringify(game.ghosts));
@@ -157,7 +159,7 @@ function newRace() {
   player.boostAuto = s.overtake === 'auto';
   game.trial = s.type === 'trial'; game.ghost = game.trial ? activeGhost(player.spec.modified) : null; recorder.stop();
   Hud.setDelta(null, game.trial); ghostModel.setVisible(false);
-  crews.build(race, Design.data.car);
+  crews.build(race, Design.data.car); marks.clear();
   if (game.ghost) ghostModel.setLivery({ ...game.garage.livery, ...(game.ghost.livery || {}) });
   Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, pendingBoost: false, autoShiftHinted: false, queueHinted: false,
     resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
@@ -262,7 +264,8 @@ function simStep(dt) {
   if (game.phase === PHASE.LIGHTS) { stepStartLights(dt); return; }
   race.t += dt;
   for (const c of race.cars) {
-    if (c.player && !c.finished) { SIM.drivePlayer(race, c, { ...Input.drive, steerRate: game.steerRate, calm: game.prefs.calm / 100, shift: game.pendingShift, boost: game.pendingBoost }, dt); game.pendingShift = 0; game.pendingBoost = false; }
+    if (c.player && !c.finished && game.autopilot) SIM.driveAI(race, c, dt, game.autopilot);   // (gridlineDebug.autopilot: screenshots)
+    else if (c.player && !c.finished) { SIM.drivePlayer(race, c, { ...Input.drive, steerRate: game.steerRate, calm: game.prefs.calm / 100, shift: game.pendingShift, boost: game.pendingBoost }, dt); game.pendingShift = 0; game.pendingBoost = false; }
     else SIM.driveAI(race, c, dt, c.finished ? CONFIG.finishedAiSkill : 0);
   }
   SIM.collide(race);
@@ -290,6 +293,7 @@ function shift(dir) {
   if (!game.autoShiftHinted) { game.autoShiftHinted = true; showMessage(SAY.autoShift); }
 }
 function confirm() {                                   // pad A
+  if (AppShell.quitOpen) { AppShell.cancelQuit(); return; }   // (A never quits: the safe answer)
   if (SettingsScreen.open || InputMonitor.open) return;
   if (game.phase === PHASE.MENU) startFromMenu();
   else if (game.resultsShown) newRace();
@@ -306,8 +310,10 @@ function toggleLayout() {
   else if ($('hud').hidden) showMessage(SAY.noHud);
   else LayoutEditor.enter(CameraRig.mode);
 }
-const escape = () => Garage.open ? Garage.close() : InputMonitor.open ? InputMonitor.toggle(false) : SoundStudio.open ? SoundStudio.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
+const escape = () => AppShell.quitOpen ? AppShell.cancelQuit() : Garage.open ? Garage.close() : InputMonitor.open ? InputMonitor.toggle(false) : SoundStudio.open ? SoundStudio.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
   : LayoutEditor.active ? LayoutEditor.exit() : togglePause();
+// "Quit the game?" (Alt+F4 mid-race too): the race pauses behind it
+AppShell.onAskQuit(() => { if (isRunning() && !game.paused) togglePause(); });
 function setPref(key, value) {
   game.prefs[key] = value; savePrefs(); applyPrefs();
   if (key === 'smoothing') game.steerRate = steerRate(game.prefs);
@@ -426,6 +432,7 @@ function dashGear(p, onLights, thr) {
 function renderFrame(dt) {
   const { race, player } = game, cam = CameraRig.mode;
   crews.update(race, dt, Display.camera.position);
+  if (isRunning()) marks.update(race, Design.data.car);
   for (const c of race.cars) modelOf.get(c.code).setService(crews.serviceOf(c));
   CameraRig.setShot(game.prefs.pitCam ? pitShot(race, player) : null);
   const cockpit = !!cam.cockpitBody && !CameraRig.onShot;          // the pit camera shows the car from outside
@@ -454,7 +461,7 @@ function renderFrame(dt) {
   Hud.updateCar(race, player);
   WheelScreen.update(dt, { gear: gi.gear, kmh: Math.round(SIM.speedOf(player) * 3.6), revs: gi.revs });
   raceAudio.frame(dt, { race, player, cam, running: isRunning(), onLights, thr: player.finished ? 0 : player.pit ? player.thr : drive.thr, brk: player.finished ? 0 : drive.brk, prefs: game.prefs });
-  if (onLights) wakes.hideAll(); else wakes.update(race, player);
+  if (onLights) wakes.hideAll(); else wakes.update(race, player, dt);
   if ((game.towerT -= dt) <= 0) {
     game.towerT = CONFIG.towerInterval;
     Hud.updateTower(race, player, !onLights);
@@ -509,7 +516,7 @@ function frame(now) {
 function setTrack(id) {
   if (track && track.id === id) return track;
   track = trackOf(id);
-  if (game.race) { game.race = null; game.player = null; wakes.hideAll(); crews.dispose(); }    // the last race was on the old circuit
+  if (game.race) { game.race = null; game.player = null; wakes.hideAll(); crews.dispose(); marks.clear(); }    // the last race was on the old circuit
   drawOutline($('trackPreview'), track); describeRecord();
   world?.dispose();
   world = buildWorld(Display.scene, track, SIM.DRIVERS);
@@ -525,7 +532,7 @@ function setTrack(id) {
 }
 
 // ---- boot ----
-installDebug(setTrack, () => track, () => game.player, () => { game.paused = false; toMenu(); }, loadGhostText);
+installDebug(setTrack, () => track, () => game.player, () => { game.paused = false; toMenu(); }, loadGhostText, skill => { game.autopilot = skill; });
 setTrack(game.setup.track);
 { const saved = Settings.get(CONFIG.storageKeys.gfx);
   setGfx(Object.hasOwn(GFX_PROFILES, saved || '') ? saved : (Display.gpu.weak ? 'perf' : 'quality'), false); }

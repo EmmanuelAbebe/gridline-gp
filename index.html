@@ -124,6 +124,14 @@
   </div>
 </div>
 
+<div id="quitOv" class="overlay quit-ask" hidden role="dialog" aria-modal="true" aria-labelledby="quitTitle">
+  <div class="card">
+    <p class="verdict" id="quitTitle">Quit the game?</p>
+    <p class="gpu" id="quitNote">Your settings, records and ghosts are saved.</p>
+    <div class="btns"><button class="btn" id="quitStayBtn" type="button">Keep playing</button><button class="btn ghost danger" id="quitYesBtn" type="button">Quit</button></div>
+  </div>
+</div>
+
 <div id="garageOv" class="garage" hidden>
   <div class="gar-stage" id="garStage" aria-label="Car view: drag to turn, scroll to zoom, right-drag to move"></div>
   <div class="gar-top"><p class="verdict">Garage</p><span class="gar-car" id="garCar"></span><div class="gar-views" id="garViews"></div><button class="btn small" id="garClose" type="button">Done</button></div>

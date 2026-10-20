@@ -123,3 +123,8 @@ table.res i{display:inline-block;width:4px;height:14px;vertical-align:-2px;margi
 .ghost-ctl{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .ghost-ctl output{font-size:13px;color:var(--muted);margin-right:4px}
 .ghost-ctl .iconbtn[disabled]{opacity:.4;cursor:default}
+
+/* "Quit the game?": above every other screen (app-shell.js) */
+.overlay.quit-ask{z-index:60}
+.btn.danger{border-color:#c8463c;color:#ff8a80}
+.btn.danger:hover,.btn.danger:focus-visible{background:#c8463c;color:#fff}

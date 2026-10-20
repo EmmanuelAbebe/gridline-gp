@@ -45,6 +45,8 @@ function createWindow() {
     if (input.key === 'F5' || (input.control && input.key.toLowerCase() === 'r')) { win.webContents.reload(); e.preventDefault(); }
     if (input.control && input.shift && input.key.toLowerCase() === 'i') { win.webContents.toggleDevTools(); e.preventDefault(); }
   });
+  // closing the window (Alt+F4, the window manager) asks the page first; its Quit button then really quits
+  win.on('close', e => { if (!quitting && !smokeOut && !shotsDir && !win.webContents.isCrashed()) { e.preventDefault(); win.webContents.send('app:ask-quit'); } });
   const sendFullscreen = () => win.webContents.send('app:fullscreen', win.isFullScreen());
   win.on('enter-full-screen', sendFullscreen);
   win.on('leave-full-screen', () => { if (!win.isMaximized()) win.maximize(); sendFullscreen(); });
@@ -54,7 +56,8 @@ function createWindow() {
   return win;
 }
 
-ipcMain.on('app:quit', () => app.quit());
+let quitting = false;
+ipcMain.on('app:quit', () => { quitting = true; app.quit(); });
 ipcMain.handle('app:toggle-fullscreen', e => {
   const win = BrowserWindow.fromWebContents(e.sender);
   const next = !win.isFullScreen();
@@ -229,9 +232,18 @@ async function smokeTest(win) {
   await new Promise(r => setTimeout(r, 1500));
   info.fullscreenAfterClick = win.isFullScreen();
   info.fullLabel = await win.webContents.executeJavaScript(`document.getElementById('fullStartBtn').textContent`);
+  // quit asks first: "Keep playing" closes the question, "Quit" ends the app
+  const q = id => win.webContents.executeJavaScript(`document.getElementById('${id}')${id === 'quitOv' ? '.hidden' : '.click()'}`);
+  await win.webContents.executeJavaScript(`document.querySelector('#startOv [data-quit]').click()`);
+  await new Promise(r => setTimeout(r, 300));
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-quit.png'), (await win.webContents.capturePage()).toPNG());
+  info.quitAsks = (await q('quitOv')) === false;
+  await q('quitStayBtn'); info.quitStay = (await q('quitOv')) === true && !win.isDestroyed();
   console.log(JSON.stringify({ ...info, gpu2d: app.getGPUFeatureStatus().gpu_compositing, webgl: app.getGPUFeatureStatus().webgl2, errors }));
   app.on('will-quit', () => console.log('quit via in-game button'));
   await win.webContents.executeJavaScript(`document.querySelector('#pauseOv [data-quit]').click()`);
+  await new Promise(r => setTimeout(r, 200));
+  await q('quitYesBtn');
   setTimeout(() => { console.log('quit button did NOT close the app'); app.exit(1); }, 4000);
 }
 

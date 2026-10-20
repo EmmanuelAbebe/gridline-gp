@@ -289,7 +289,18 @@ Tunables live in data tables (config modules), not inline in the logic.
    - Gearbox: Settings → Driving AUTO / SEMI-AUTO / MANUAL (`game.setup.gearbox` → `setGearbox`: car.autoShift, car.autoDown = semi: player shifts up, the car's automatic downshift rule also runs). Shift: Q/E, pad LB/RB, and pad A/B (phone buttons
      1/2) = down/up while racing (A still confirms in menus). Paddles in auto mode show a one-time hint.
    - `slipstream-fx.js`: fuzzy band on the road behind each car ahead of the player (≤160 m), built from the car's
-     trail + `SIM.wakeHalfWidth`, brighter for the wake the player is in. HUD `#slipTag` chip above the speedo.
+     trail + `SIM.wakeHalfWidth`, brighter for the wake the player is in (fainter since 2026-10-20). HUD `#slipTag` chip
+     above the speedo. In a tow, GTA-like air streaks (2026-10-20, `STREAKS`): a pool of white additive line segments
+     flowing back along the leader's trail past your car, alpha per vertex, count/brightness ∝ player.slip.
+   - Tyre marks (2026-10-20): world.js racing line = `markStrip` (UV along the track, per-sample vertex alpha) with
+     `tyreStreaks` canvas textures (many thin broken streaks on both wheel tracks; two layers, 23 / 37 m repeats; a
+     heavier layer in braking zones), darker with corner curvature and braking. `tyre-marks.js` `createTyreMarks`:
+     live marks from every car (sliding / locked fronts / spinning rears, ruts off track; colour per surface), one
+     ring-buffer mesh of `MARKS.max` quads, cleared per race. Debug: `gridlineDebug.autopilot(skill)` lets the AI drive
+     your car (screenshots), `playerState()`.
+   - Quit asks first (2026-10-20): `#quitOv` "Quit the game?" (AppShell `askQuit`; Keep playing focused, Esc / pad A
+     = stay, a click beside it = stay); Alt+F4 / window close: main.cjs `close` → `app:ask-quit` → the same question,
+     a running race pauses behind it; `app:quit` sets `quitting` so the close goes through.
    - `input-monitor.js` (I, start-menu TEST CONTROLS, pause menu): live inputs graph, controller reports/s via
      `Gamepad.timestamp`, stalls (pause with steering moving across it), pedal ramp time, advice.
    - Circuit switching (main.js `setTrack`, start-menu Circuit stepper + outline `drawOutline` + blurb; `game.setup.track`):
