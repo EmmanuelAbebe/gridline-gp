@@ -99,9 +99,10 @@
       <span class="lbl">Race type</span>
       <div class="seg" id="typeSeg"></div>
     </div>
-    <div class="row" id="ghostRow" hidden>
+    <div class="row ghost-row" id="ghostRow" hidden>
       <span class="lbl">Ghost</span>
-      <div class="ghost-ctl"><output id="ghostVal">–</output><button class="iconbtn" id="ghostExport" type="button" title="Save your best lap here to a file, to send to a friend">EXPORT</button><button class="iconbtn" id="ghostLoad" type="button" title="Race a lap from a file (a friend's)">LOAD</button><button class="iconbtn" id="ghostClear" type="button" title="Back to your own best">MINE</button><input type="file" id="ghostFile" accept=".json,application/json" hidden></div>
+      <div class="ghost-ctl"><button class="iconbtn" id="ghostExport" type="button" title="Save your best lap here to a file, to send to a friend">EXPORT</button><button class="iconbtn" id="ghostLoad" type="button" title="Race a lap from a file (a friend's)">LOAD</button><button class="iconbtn" id="ghostClear" type="button" title="Forget the lap loaded from a file">REMOVE LOADED</button><input type="file" id="ghostFile" accept=".json,application/json" hidden></div>
+      <div class="ghost-list" id="ghostList" role="radiogroup" aria-label="Ghost to race"></div>
     </div>
     <div class="row" id="amountRow">
       <span class="lbl" id="amountLbl">Laps</span>

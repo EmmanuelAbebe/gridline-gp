@@ -558,7 +558,13 @@ started at lights out and at every crossing), `ghostPose`, `ghostDelta`, store p
 `ghostFile` / `readGhostFile` (`gridlineGhost: 1` JSON). Race type TIME TRIAL (`setup.type 'trial'`): you alone,
 unlimited laps, no wear; start menu ghost row (shown ghost, EXPORT your best as a file, LOAD a friend's, MINE = back to
 yours); in the race a see-through car (CarModels.ghostMaterials) at the same time into its lap and the HUD "Ghost" delta
-(from the first crossing). Every race records your laps (a new best becomes your ghost). Smoke test: TIME TRIAL row and a
+(from the first crossing). Every race records your laps (a new best becomes your ghost). AI ghosts (2026-10-20, user: "add the ALIEN or the best driver for the ghost and a list of the AIs and their times"):
+`ai-ghosts.js` (pure, tests/ai-ghosts.test.js) drives the fastest AI driver (VOS) alone at each level for 3 laps (fixed seed, the
+trial's active-aero setting) and keeps the best clean flying lap as a ghost (~50 ms of sim per level, cached per circuit ×
+aero for the session, made 30 ms after the list first shows). Start menu ghost row = a list (`#ghostList`): Your best /
+Loaded / ROOKIE..ALIEN with lap times and the gap to your best; the pick is `game.setup.ghost` (RACE_SETUP.choices.ghost;
+a loaded file selects 'loaded'). AI ghosts are flying laps (`flying: true`): shown from your first crossing of the line.
+The smoke test screenshots the list (`out-trial-menu.png`) and races the ALIEN's lap (autopilot over the line, `out-ghost.png`). Smoke test: TIME TRIAL row and a
 solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-ghost.png`.
 
 ## Ideas not done yet

@@ -213,14 +213,21 @@ async function smokeTest(win) {
     document.querySelector('#typeSeg [data-t="trial"]').click()`);
   // (GRIDLINE_SMOKE_GHOST=file: race that ghost lap, loaded the way the LOAD button does)
   if (process.env.GRIDLINE_SMOKE_GHOST) await win.webContents.executeJavaScript(`gridlineDebug.loadGhost(${JSON.stringify(fs.readFileSync(process.env.GRIDLINE_SMOKE_GHOST, 'utf8'))})`);
-  await new Promise(r => setTimeout(r, 300));
-  info.trial = await win.webContents.executeJavaScript(`({ ghostRow: !document.getElementById('ghostRow').hidden, ghost: document.getElementById('ghostVal').textContent,
+  // the ghost list: yours + every AI level timed (made in the background), then race the ALIEN's lap
+  await new Promise(r => setTimeout(r, 1500));
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-trial-menu.png'), (await win.webContents.capturePage()).toPNG());
+  info.trial = await win.webContents.executeJavaScript(`({ ghostRow: !document.getElementById('ghostRow').hidden,
+    ghosts: [...document.querySelectorAll('#ghostList .ghost-pick')].map(b => b.textContent),
     carsHidden: document.getElementById('carsStep').closest('.row').hidden })`);
+  if (!process.env.GRIDLINE_SMOKE_GHOST) await win.webContents.executeJavaScript(`document.querySelector('#ghostList [data-ghost="alien"]').click()`);
   await win.webContents.executeJavaScript(`document.getElementById('startBtn').click()`);
-  if (process.env.GRIDLINE_SMOKE_GHOST) {      // high camera, just after the start: the ghost pulling away
-    await win.webContents.executeJavaScript(`document.getElementById('camBtn').click()`);
-    await new Promise(r => setTimeout(r, 7600));
+  {                                             // high camera, just after the start: the ghost (ALIEN, or the file's) pulling away
+    await win.webContents.executeJavaScript(`document.getElementById('camBtn').click(); gridlineDebug.autopilot(0.9)`);
+    // (the AI drives your car over the line: an AI ghost's flying lap starts there)
+    for (let i = 0; i < 40 && !(await win.webContents.executeJavaScript(`gridlineDebug.playerState().lap >= 1`)); i++) await new Promise(r => setTimeout(r, 250));
+    await new Promise(r => setTimeout(r, 400));
     fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-ghost.png'), (await win.webContents.capturePage()).toPNG());
+    await win.webContents.executeJavaScript(`gridlineDebug.autopilot(0)`);
   }
   await new Promise(r => setTimeout(r, 9000));
   Object.assign(info.trial, await win.webContents.executeJavaScript(`({ cars: document.querySelectorAll('#towerList > *').length,

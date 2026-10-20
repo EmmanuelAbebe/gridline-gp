@@ -88,7 +88,7 @@ const AI_LEVELS = {
   alien:  { pace: 1.0, follow: 6, alien: true, note: 'Faster than a great lap, and they hunt you down: they sit in your tow and pull out late (Northfold: about 0:59.1, Elkmoor 29.1 s).' },
 };
 export const RACE_SETUP = Object.freeze({
-  defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10, gearbox: 'auto', assists: 'medium', ai: 'pro', fuel: 'normal', tyres: 'normal', damage: 'on', aero: 'on', overtake: 'auto' },
+  defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10, gearbox: 'auto', assists: 'medium', ai: 'pro', fuel: 'normal', tyres: 'normal', damage: 'on', aero: 'on', overtake: 'auto', ghost: 'mine' },
   aiLevels: AI_LEVELS,
   // Every setup choice that is one of a list: [value, button label]. The saved setup is checked against these (an
   // unknown value falls back to the default), the Settings screen and the start menu draw their buttons from them,
@@ -103,6 +103,8 @@ export const RACE_SETUP = Object.freeze({
     damage: levels(['off', 'on']),
     aero: levels(['off', 'on']),
     overtake: [['auto', 'AUTO'], ['button', 'BUTTON'], ['off', 'OFF']],
+    // time trial ghost: your best, a loaded file's lap, or the fastest AI driver's lap at a level (ai-ghosts.js)
+    ghost: [['mine', 'YOUR BEST'], ['loaded', 'LOADED'], ...levels(Object.keys(AI_LEVELS))],
   },
   assistNotes: {
     off: 'No help: the car can spin, lock its brakes and spin its wheels.',

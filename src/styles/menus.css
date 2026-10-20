@@ -121,7 +121,15 @@ table.res i{display:inline-block;width:4px;height:14px;vertical-align:-2px;margi
 
 /* time trial: the ghost row on the start menu */
 .ghost-ctl{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.ghost-ctl output{font-size:13px;color:var(--muted);margin-right:4px}
+.ghost-list{flex-basis:100%;display:grid;gap:3px}
+.ghost-pick{display:grid;grid-template-columns:1fr auto 64px;gap:10px;align-items:baseline;text-align:left;padding:5px 10px;border:1px solid transparent;border-radius:3px;background:rgba(255,255,255,.04);color:inherit;font:inherit;cursor:pointer}
+.ghost-pick:hover,.ghost-pick:focus-visible{border-color:rgba(255,255,255,.25);outline:none}
+.ghost-pick[aria-checked="true"]{border-color:var(--amber);background:rgba(255,194,26,.09)}
+.ghost-pick b{font-family:var(--display);font-weight:600;letter-spacing:.06em;font-size:13px}
+.ghost-pick b small{font-weight:400;color:var(--muted);letter-spacing:.02em;margin-left:8px;font-size:12px}
+.ghost-pick span{font-family:var(--display);font-size:14px;font-variant-numeric:tabular-nums}
+.ghost-pick i{font-style:normal;font-size:12px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.ghost-pick i.up{color:var(--green)} .ghost-pick i.down{color:var(--red)}
 .ghost-ctl .iconbtn[disabled]{opacity:.4;cursor:default}
 
 /* "Quit the game?": above every other screen (app-shell.js) */

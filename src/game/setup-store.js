@@ -26,6 +26,7 @@ export function loadSetup(json) {
     damage: oneOf('damage'),
     aero: oneOf('aero'),
     overtake: oneOf('overtake'),
+    ghost: oneOf('ghost'),
     track: Object.hasOwn(SIM.CIRCUITS, s.track || '') ? s.track : SIM.track.id,
   };
 }
