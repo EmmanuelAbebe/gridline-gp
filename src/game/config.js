@@ -83,7 +83,9 @@ const AI_LEVELS = {
   club:   { pace: 0.86, note: 'Quick club drivers (Elkmoor: about 33.1 s).' },
   pro:    { pace: 0.93, note: 'Racing drivers (Elkmoor: about 32.0 s).' },
   legend: { pace: 1.0,  note: 'On the limit everywhere, and they defend (Elkmoor: about 31.1 s).' },
-  alien:  { pace: 1.0, follow: 6, note: 'The fastest line, every lap (Elkmoor: about 30.6 s, Northfold 1:02.2).' },
+  // 2026-10-20 (user: ALIEN "not as interesting as I had hoped: a car that overtakes me even if I drive well"): its own
+  // line, pace per circuit and attack (SIM AI.alien, race aiAlien); pace here is replaced by AI.alien.pace
+  alien:  { pace: 1.0, follow: 6, alien: true, note: 'Faster than a great lap, and they hunt you down: they sit in your tow and pull out late (Northfold: about 0:59.1, Elkmoor 29.1 s).' },
 };
 export const RACE_SETUP = Object.freeze({
   defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10, gearbox: 'auto', assists: 'medium', ai: 'pro', fuel: 'normal', tyres: 'normal', damage: 'on', aero: 'on', overtake: 'auto' },

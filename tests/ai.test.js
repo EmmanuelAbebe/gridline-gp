@@ -86,3 +86,20 @@ test('recovery: pointing the wrong way, the AI turns round and carries on', () =
   assert.ok(Math.cos(c.h - S.headingAt(T, c.idx)) > 0.9, 'facing along the track');
   assert.ok(c.v > 30, `moving at ${c.v.toFixed(1)} m/s`);
 });
+
+test('ALIEN: faster than a great lap, clean, and it hunts down a car at that pace', () => {
+  // its own line and profile exist on every circuit; on Northfold the fastest driver laps well under the user's best
+  // (59.975 s), every lap valid, no walls
+  for (const T2 of Object.entries(S.CIRCUITS).map(([id, c]) => S.buildTrack({ ...c, id }))) assert.ok(T2.alien, `${T2.id}: ALIEN line`);
+  const NF = S.buildTrack({ ...S.CIRCUITS.northfold, id: 'northfold' });
+  const solo = S.createRace(3, { track: NF, drivers: field(['VOS']), activeAero: true, aiFollow: 6, aiAlien: true, seed: 3 }), seen = race(solo, 300);
+  const v = solo.cars[0];
+  assert.ok(v.finished && v.bestLap < 59.6, `ALIEN lap ${v.bestLap.toFixed(2)}`);
+  assert.ok(!seen.get(v)[S.EV.WALL] && !seen.get(v)[S.EV.CUT], 'clean');
+  // the player's car (driven here at a fixed pace, ~60 s, about the user's best) starts ahead: the ALIEN hunts it down,
+  // gets past and finishes ahead, without hard contact
+  const chase = S.createRace(4, { track: NF, drivers: field(['YOU', 'VOS']), activeAero: true, aiFollow: 6, aiAlien: true, seed: 1 });
+  const [m, a] = chase.cars, seen2 = race(chase, 330, { YOU: 0.975 * 1.09 });
+  assert.ok(m.bestLap > 60 && a.finished && a.finishTime < m.finishTime, `stand-in ${m.bestLap.toFixed(2)}, ALIEN ahead`);
+  assert.ok(hard(chase, seen2) === 0, 'no hard contact');
+});

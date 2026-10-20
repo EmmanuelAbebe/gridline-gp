@@ -522,8 +522,22 @@ leaves ~8 s on the table, relevant to the parked smarter-AI plan.
 - Active aero hold fix: wings open at ≥ 0.85 throttle, then stay open down to `holdThr` 0.3 (a car held up behind
   another used to keep them shut on the straights).
 - Levels (config AI_LEVELS): ROOKIE 0.79, CLUB 0.86, PRO 0.93, LEGEND 1.0 (old lap times kept within ~±0.6 s per
-  circuit), ALIEN pace 1.0 + `follow: 6` → createRace `aiFollow`: the line followed 6× more tightly in clean air only
-  (Elkmoor ~30.6, Northfold ~62.2 s vs the user's 61.675). ALIEN-only fields are rough (~130 hard contacts / 40 races).
+  circuit), ALIEN (`alien: true` → createRace `aiAlien`, + aiFollow 6).
+- ALIEN rebuilt 2026-10-20 (user: "not as interesting as I had hoped: a car that overtakes me even if I drive well";
+  ALIEN only, LEGEND and below untouched: sim-trace identical). `AI.alien` in tuning.js. Own line `track.alien` (RO/LK/VP/
+  APEX/BRK): racing-lines.js `ALIEN_LINES` (lap-optimum `--margin=0.8 --write-alien`; Cobalt 1.5), car centre allowed to
+  0.6 m from the edge, profile braking on the friction circle (track.js lineProfile `circle`), brakeLook 120. In clean
+  air: exactly on its line (snap within 1 m), the lap-optimum bot's pedals, no mistakes, pace `AI.alien.pace` per
+  circuit (createRace replaces aiPace: 1.16, Marrow 1.12, Cobalt 1.08: the most that stays clean every lap) and the
+  drivers' gaps to the fastest × (1 + spread 1.5) (`race.aiTop`). Solo VOS: Elkmoor 29.1, Harrow 49.5, Cobalt 51.6,
+  Marrow 38.6, Northfold 59.05 (user's best 59.975). In traffic with AI cars (`c.alienK`, drops in 0.15 s, recovers in
+  0.5 s): chase 0.9 / side by side or deep in a wake 0.84 × that pace and the regular pedals (a whole ALIEN field on the
+  bot's pedals: ~4× the hard contacts). Hunting the player (within huntLat 7 m, alongside .. towRange 40 m ahead): full
+  pace + bot pedals, never closing on the car directly ahead (followCap), on straights sits in the tow and pulls out
+  18 m behind to the inside of the next corner. Measured with a stand-in "player" at ~60.0 on pole: VOS passes it on
+  lap 1 at Northfold/Harrow, the others don't; 0–1.5 hard contacts with it per race. A late-braking inside dive was
+  tried (2× passes, 2.5× contacts) and dropped. Bugs found on the way: the AI never moved toward its line once more
+  than `snap` away (if/else split by an inserted block).
 - Tests: ai/pit/limits updated (pit: an extra stop for a broken wing is allowed). sim-trace hashes changed (new AI).
 
 ## Time trial and ghosts (2026-10-19)

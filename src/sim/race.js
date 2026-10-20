@@ -1,5 +1,5 @@
 // Race formats, lap counting, the chequered flag, timing checkpoints and classification.
-import { EV, CP, LAP_ZONE, LIMITS } from './tuning.js';
+import { EV, CP, LAP_ZONE, LIMITS, AI } from './tuning.js';
 import { DRIVERS } from './drivers.js';
 import { DEFAULT_TRACK } from './track.js';
 import { createCar } from './car.js';
@@ -21,10 +21,13 @@ function normalizeFormat(f) {
 }
 // aiPace scales every AI driver's skill (difficulty, 1 = their own). wear = { fuel, tyres, damage } (pit.js setupWear).
 // seed: the race's random numbers (AI line biases and mistakes: race.rng); the same seed and inputs = the same race.
-export function createRace(format, { track = DEFAULT_TRACK, drivers = DRIVERS, aiPace = 1, wear = {}, seed = randomSeed(), activeAero = false, overtake = activeAero, aiFollow = 1 } = {}) {
+export function createRace(format, { track = DEFAULT_TRACK, drivers = DRIVERS, aiPace = 1, wear = {}, seed = randomSeed(), activeAero = false, overtake = activeAero, aiFollow = 1, aiAlien = false } = {}) {
   const fmt = normalizeFormat(format), rng = mulberry32(seed);
   // aiFollow: how tightly the AI follows its line (× lineSlope / lineSpeed, driving.js): ALIEN drives it closer
-  const race = { track, format: fmt, aiPace, aiFollow, seed, rng, activeAero, overtake,   // active-aero.js
+  // aiAlien: the ALIEN level (driving.js): its own line, pedals and attack, at its own pace per circuit
+  if (aiAlien) aiPace = AI.alien.pace[track.id] ?? AI.alien.pace.default;
+  const aiTop = Math.max(0, ...drivers.filter(d => !d.player).map(d => d.skill));   // the fastest AI driver (ALIEN spread)
+  const race = { track, format: fmt, aiPace, aiFollow, aiAlien, aiTop, seed, rng, activeAero, overtake,   // active-aero.js
     laps: fmt.type === 'laps' ? fmt.laps : Infinity,               // distance; Infinity for timed / unlimited
     duration: fmt.type === 'timed' ? fmt.minutes * 60 : Infinity,  // seconds; the clock starts at lights out
     chequered: false, t: 0, fastest: Infinity, fastestBy: /** @type {Car} */ (null), wear: /** @type {Wear} */ (null), cars: drivers.map((d, slot) => createCar(track, d, slot, rng)) };

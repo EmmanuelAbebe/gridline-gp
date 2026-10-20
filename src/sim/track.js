@@ -1,11 +1,12 @@
 // Track construction: a circuit's control points → closed centripetal Catmull-Rom → N equal-length samples with
 // tangents, right-hand normals, signed curvature, bounds, and the AI's speed profile and racing line.
-import { AI, TRACK_DEFAULTS, GRID, LIMITS, TUNING } from './tuning.js';
+import { AI, TRACK_DEFAULTS, GRID, LIMITS, TUNING, CAR, CHASSIS } from './tuning.js';
+import { STOCK } from './spec.js';
 import { cornerSpeed, brakeLimit } from './vehicle.js';
 import { buildRunoff } from './runoff.js';
 import { buildPitLane } from './pit.js';
 import { buildAeroZones } from './active-aero.js';
-import { RACING_LINES } from './racing-lines.js';
+import { RACING_LINES, ALIEN_LINES } from './racing-lines.js';
 import { CIRCUITS } from './circuits.js';
 import { clamp, wrapA, wrapIdx } from './math.js';
 /** @typedef {import('./types.js').Track} Track */
@@ -48,10 +49,11 @@ function resampleClosed(dense, N) {
 // downforce from the line's own curvature, then braking look-back). Straights are V_CAP: the engine and drag decide.
 // The time-optimal line stored for this circuit (racing-lines.js, made by tools/lap-optimum.mjs), as offsets per
 // sample, or null when there is none or the circuit changed since (other sample count).
-function storedLine(id, N, HW) {
-  const L = RACING_LINES[id];
+/** @param {string} id @param {number} N @param {number} HW @param {Record<string, any>} [table] @param {number} [edge] */
+function storedLine(id, N, HW, table = RACING_LINES, edge = AI.lineEdge) {
+  const L = table[id];
   if (!L || L.N !== N) return null;
-  const C = L.offsets, M = C.length, RO = new Float64Array(N), lim = HW - AI.lineEdge;
+  const C = L.offsets, M = C.length, RO = new Float64Array(N), lim = HW - edge;
   const cat = (a, b, c, d, t) => 0.5 * (2*b + (c - a)*t + (2*a - 5*b + 4*c - d)*t*t + (3*b - a - 3*c + d)*t*t*t);
   for (let i = 0; i < N; i++) {
     const s = i / L.step, m = Math.floor(s), at = k => C[((m + k) % M + M) % M];
@@ -61,7 +63,6 @@ function storedLine(id, N, HW) {
 }
 
 function buildAiProfile({ id, N, HW, ds, K, PX, PZ, NX, NZ }) {
-  const { grip, brake } = AI;
   // the line: a minimum-curvature path within the road (outside → apex → outside). Each point moves to where it best
   // straightens the line with its neighbours `s` and 2·s samples away (least squared second difference), first on a
   // coarse set of points, then finer, filling in between.
@@ -78,6 +79,18 @@ function buildAiProfile({ id, N, HW, ds, K, PX, PZ, NX, NZ }) {
   // blend with the stored time-optimal line: AI.lineBlend 0 = minimum curvature (gentle, leaves room in traffic),
   // 1 = the time-optimal line (fastest alone, but its edge-to-edge sweeps make side-by-side racing messy)
   if (stored) for (let i = 0; i < N; i++) RO[i] += (stored[i] - RO[i]) * AI.lineBlend;
+  const main = lineProfile({ N, ds, PX, PZ, NX, NZ }, RO);
+  // ALIEN (race.aiAlien): its own time-optimal line closer to the edges (ALIEN_LINES; else the full stored line),
+  // with its own speed profile
+  const own = storedLine(id, N, HW, ALIEN_LINES, AI.alien.lineEdge) || stored;
+  const alien = own ? lineProfile({ N, ds, PX, PZ, NX, NZ }, Float64Array.from(own), 1, true) : null;
+  return { ...main, alien };
+}
+
+// A line's curvature (LK) and speed profile (VP), and per sample the next corner's apex and braking zone (APEX, BRK)
+/** @param {any} geo @param {Float64Array} RO @param {number} [brake] @param {boolean} [circle] */
+function lineProfile({ N, ds, PX, PZ, NX, NZ }, RO, brake = AI.brake, circle = false) {
+  const { grip } = AI;
   // the line: segment lengths and headings, curvature over ±W samples (same window as K)
   const LS = new Float32Array(N), LH = new Float32Array(N), LK = new Float32Array(N), W = 5;
   for (let i = 0; i < N; i++) {
@@ -91,7 +104,17 @@ function buildAiProfile({ id, N, HW, ds, K, PX, PZ, NX, NZ }) {
   }
   const VP = new Float32Array(N);
   for (let i = 0; i < N; i++) VP[i] = cornerSpeed(Math.abs(LK[i]), grip);
-  for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) {
+  if (circle) {
+    // ALIEN: braking as tools/lap-optimum.mjs's bot plans it: the grip the corner uses leaves less for braking
+    // (friction circle), drag, rolling and engine braking help
+    const S = STOCK, G = 9.81;
+    for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) {
+      const j = (i+1)%N, u = VP[j], df = S.dfK * u * u, latMax = S.grip * (G + df), lat = u * u * Math.abs(LK[j]);
+      const f = Math.sqrt(Math.max(0, 1 - (lat / latMax) ** 2));
+      const dec = Math.min(CHASSIS.brakeSystem, S.grip * CHASSIS.longGrip * (G + df)) * f + S.dragK * u * u + CAR.aero.rolling + CAR.engine.engineBrake * 0.8;
+      VP[i] = Math.min(VP[i], Math.sqrt(u * u + 2 * dec * LS[i]));
+    }
+  } else for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) {
     const j = (i+1)%N; VP[i] = Math.min(VP[i], Math.sqrt(VP[j]*VP[j] + 2*brakeLimit(VP[j])*brake*LS[i]));
   }
   // per sample: the next corner's apex (lowest point of the profile in a braking zone) and how many samples away its

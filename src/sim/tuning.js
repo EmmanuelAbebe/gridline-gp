@@ -51,6 +51,39 @@ export const AI = Object.freeze({
     defendMargin: 2.2,  // the defensive line keeps this far inside the road edge
   }),
   assists: 'medium',    // the AI drives with the same assists the game defaults to
+  // ALIEN (createRace aiAlien; the top rival level only): its own line and pace, no mistakes, and attack racecraft
+  alien: Object.freeze({
+    lineEdge: 0.6,      // m: its line (racing-lines.js ALIEN_LINES, made with --margin=0.8) never closer to the edge
+    edge: 0.6,          // m: its car's centre may come this close to the edge: its whole line (the others 1.5)
+    // its speed profile brakes as the lap-optimum bot plans it (friction circle, drag: track.js), checked brakeLook
+    // samples ahead (the others AI.brakeLook: short at 350 km/h)
+    brakeLook: 120,
+    // pedals in clean air (the lap-optimum bot's): full throttle until over the target (− thrGain per m/s over); brake
+    // once the deceleration needed passes brakeAt × 0.97 × the tyres' limit (or overBrake m/s too fast), pedal =
+    // need / (limit × brakeScale) + over × brakeGain
+    snap: 1,          // m: in clean air, once this close to its line it drives exactly on it (no mistakes either)
+    steerRate: 40,      // turns the wheel this fast (the others AI.steerRate)
+    thrGain: 0.8, brakeAt: 0.92, overBrake: 0.8, brakeScale: 1.15, brakeGain: 0.3,   // (× 0.97 of the limit)
+    // pace (createRace aiPace for an ALIEN race): × the drivers' skill on its profile; the most each circuit's line
+    // takes without spins or cuts (2026-10-20, solo laps of the fastest driver: Elkmoor 29.0, Harrow 49.3, Cobalt
+    // 50.4, Marrow 38.0, Northfold 59.1 s; the user's best there 59.975)
+    pace: Object.freeze({ default: 1.16, cobalt: 1.08, marrow: 1.12 }),
+    // in traffic (a car ahead in its lane, alongside, or in a wake) its pace eases to `traffic` × that
+    // over trafficTime s: the full push only works on the line in clean air (it put cars into walls in traffic)
+    // clean air (no car in its lane or alongside, slip < cleanSlip) = 1; deep in a wake (slip > wakeSlip) or alongside
+    // = `traffic`; following = `chase` (more ran wide / into walls)
+    traffic: 0.84, chase: 0.9, trafficDrop: 0.15, trafficTime: 0.5, cleanSlip: 0.05, wakeSlip: 0.3,   // s to ease down / up
+    // attack (m): a car ahead within towRange on a straight (more than `straight` m to the next braking zone): sit in
+    // its wake, close to followGap, pull out at pullOut (to the inside of the next corner when it fits). (A late-braking
+    // dive down the inside was tried: twice the passes, but also 2.5× the hard contacts.)
+    // Hunting the player (within huntLat m sideways, from alongside to towRange ahead): pace `hunt` and the bot's pedals
+    // (only against the player: a whole field of ALIENs racing each other like that wrecked itself)
+    attack: Object.freeze({ towRange: 40, straight: 120, followGap: 8, pullOut: 18, huntLat: 7 }),
+    hunt: 1,
+    // the field: a driver's skill gap to the fastest one × (1 + spread) (VOS 0.975 → 59.1 s on Northfold; MAR, OKA
+    // just faster than a great lap; the rest about the user's 59.975 and slower): not the whole field past you
+    spread: 1.5,
+  }),
 });
 
 // The car: one performance model for every car (player and AI). Accelerations are m/s² per unit mass.
