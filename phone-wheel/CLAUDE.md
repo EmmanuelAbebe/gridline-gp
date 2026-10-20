@@ -30,6 +30,11 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   --experimental-strip-types, in the root `npm test`). Both servers serve `web/dist/index.html` at `/` when built
   (assets at `/assets/`), else the previous Preact page (`controller.html` + `static/`, no build step), which also
   stays at `/v1`; the single-file one at `/classic`.
+- Driving screen (2026-10-20, from the user's sketch): brake | UPSHIFT | middle (Settings, wheel = tap to centre, extra
+  buttons, Reconnect) | DOWNSHIFT | gas, connection status + full screen along the bottom of the middle three; pedals
+  and shift keys are a face on a base that sinks when pressed. Shift keys send `flick.up` / `flick.down` (engine.tap),
+  `layout.shiftButtons` / `layout.swapShift` (upshift beside the brake by default, as sketched). Quick sliders are gone
+  from the screen (`layout.quickSliders` kept for old profiles); new profiles have one extra button, BOX (X).
 - PC → phone also `{fx: {k, kh, o, s, h?, g?}}` = Gridline GP's force feedback (src/game/haptics.js), played by
   `web/src/engine/haptics.ts` `planFeedback` (pure, test/haptics.test.ts): a motor is only on/off, so strength = pulse
   width; kerbs = regular ripple kept in phase when renewed, gravel/grass = uneven rumble, slides = fine buzz, hits /

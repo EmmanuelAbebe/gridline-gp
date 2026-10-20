@@ -49,7 +49,7 @@ export function App() {
 
   return (
     <>
-      <Drive cfg={cfg} update={update} openSettings={() => setSettingsOpen(true)} preview={preview} />
+      <Drive cfg={cfg} openSettings={() => setSettingsOpen(true)} preview={preview} />
       {started && !settingsOpen && !preview && <RotateHint />}
       {!started && <StartScreen onStart={start} warn={warn} openSettings={() => setSettingsOpen(true)} preview={preview} />}
       {settingsOpen && <Settings store={store} setStore={setStore} cfg={cfg} update={update} close={() => setSettingsOpen(false)} />}

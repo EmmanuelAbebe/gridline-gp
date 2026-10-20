@@ -1,0 +1,11 @@
+/* Same build as a pedal (Pedal.css): base + face, the face sinks while pressed. */
+.shift { position: relative; border-radius: var(--radius-l); background: color-mix(in srgb, var(--shift) 22%, var(--bg)); touch-action: none; color: var(--shift); }
+.shift .face {
+  position: absolute; inset: 0 0 var(--shift-depth) 0; border-radius: var(--radius-l);
+  background: var(--panel); border: var(--pedal-border) solid var(--line);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  transition: transform .04s linear;
+}
+.shift.pressed .face { transform: translateY(var(--shift-depth)); border-color: currentColor; background: color-mix(in srgb, var(--shift) 18%, var(--panel)); }
+.shift .arrow { font-size: var(--shift-arrow); line-height: 1; }
+.shift .word { font-size: var(--text-s); font-weight: 800; letter-spacing: .1em; }

@@ -11,10 +11,11 @@ phone server (`desktop/phone-link.cjs`) and `server.py` serve at `/` (the previo
   | Screen part | Files |
   |---|---|
   | start screen | `ui/StartScreen.tsx` / `.css` |
-  | driving screen layout | `ui/Drive.tsx` / `.css` |
-  | pedals | `ui/Pedal.tsx` / `.css` |
-  | middle column (wheel, readout, Center, quick sliders) | `ui/Center.tsx`, `ui/Wheel.tsx` (the SVG) |
-  | status bar (connection, link quality, reconnect, full screen, Settings) | `ui/StatusBar.tsx` / `.css` (icons: `react-icons/ri`, size `--icon-size`) |
+  | driving screen layout (brake · upshift · middle · downshift · gas, status along the bottom) | `ui/Drive.tsx` / `.css` (column widths `--pedal-fr` `--shift-fr` `--center-fr` in theme.css) |
+  | pedals (a face sinking into its base, `--pedal-depth`) | `ui/Pedal.tsx` / `.css` |
+  | UPSHIFT / DOWNSHIFT keys | `ui/ShiftButton.tsx` / `.css` |
+  | middle column (Settings, wheel = tap to centre, extra buttons, Reconnect) | `ui/Center.tsx` (in `Drive.css`), `ui/Wheel.tsx` (the SVG) |
+  | status line (connection, link quality, full screen) | `ui/StatusLine.tsx` / `.css` (icons: `react-icons/ri`, size `--icon-size`) |
   | on-screen buttons | `ui/AuxButton.tsx` / `.css` |
   | "turn sideways" prompt | `ui/RotateHint.tsx` |
   | settings (tabs, rows, sliders) | `ui/settings/*` (`controls.tsx` = the row building blocks, `Settings.css`) |

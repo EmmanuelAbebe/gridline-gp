@@ -1,14 +1,18 @@
-.pedal {
-  position: relative; margin: var(--pedal-margin); border-radius: var(--radius-l); overflow: hidden;
+/* A pedal = a base (its colour, dark) with a raised face on it. The base shows below the face as the pedal's
+   thickness, --pedal-depth; pressing sinks the face by --press (0..1, set from Pedal.tsx) of that depth. */
+.pedal { position: relative; border-radius: var(--radius-l); background: var(--pedal-base); touch-action: none; }
+.pedal.brake { --c: var(--brake); } .pedal.gas { --c: var(--gas); }
+.pedal { color: var(--c); --pedal-base: color-mix(in srgb, var(--c) 22%, var(--bg)); }
+.pedal .face {
+  position: absolute; inset: 0 0 var(--pedal-depth) 0; border-radius: var(--radius-l); overflow: hidden;
   background: var(--panel); border: var(--pedal-border) solid var(--line);
   display: flex; align-items: center; justify-content: center;
+  transform: translateY(calc(var(--pedal-depth) * var(--press, 0))); transition: transform .04s linear;
 }
-.pedal .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0%; opacity: var(--pedal-fill-opacity); transition: height .04s linear; }
+.pedal.active .face { border-color: currentColor; }
+.pedal .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0%; opacity: var(--pedal-fill-opacity); background: var(--c); transition: height .04s linear; }
 .pedal .label { position: relative; font-weight: 800; font-size: var(--pedal-label); letter-spacing: .12em; }
 .pedal .hint { position: absolute; bottom: 14px; font-size: var(--text-s); color: var(--muted); text-align: center; }
-.pedal.active { border-color: currentColor; }
-.pedal.brake { color: var(--brake); } .pedal.brake .fill { background: var(--brake); }
-.pedal.gas { color: var(--gas); } .pedal.gas .fill { background: var(--gas); }
 /* flick to shift: a big arrow that flashes on the pedal */
 .pedal .shiftmark { position: absolute; top: 18%; font-size: 64px; font-weight: 800; opacity: 0; pointer-events: none; }
 .pedal .shiftmark.show { animation: shiftflash .35s ease-out; }

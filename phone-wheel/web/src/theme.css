@@ -35,8 +35,17 @@
   --gap: 8px;
   --pedal-margin: 14px;
 
-  /* driving screen */
-  --wheel-size: min(36vh, 26vw);
+  /* driving screen: brake | upshift | middle | downshift | gas (widths as shares; pedals × the Pedal width setting) */
+  --shift: var(--accent);   /* shift key colour */
+  --shift-fr: 1fr;
+  --center-fr: .8fr;
+  --drive-gap: 10px;        /* between the columns */
+  --pedal-depth: 12px;      /* how thick a pedal looks = how far its face sinks at full press */
+  --shift-depth: 8px;
+  --shift-arrow: 34px;
+  --round-size: 44px;       /* settings / reconnect buttons */
+  --wheel-size: min(30vh, 11vw);
+  --wheel-size-crowded: min(20vh, 8vw);   /* with more than one extra button in the middle */
   --pedal-fill-opacity: .35;
   --aux-size-s: 38px;       /* on-screen button height (width = 1.2×) per size setting */
   --aux-size-m: 48px;

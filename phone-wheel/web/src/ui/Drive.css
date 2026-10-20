@@ -1,9 +1,28 @@
-.drive { position: fixed; inset: 0; display: grid; }
-.center {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--gap);
-  padding: var(--gap) 0; min-width: 0;
+/* The grid: pedals full height on the outside, shift keys and the middle column above the status line. */
+.drive {
+  position: fixed; inset: 0; display: grid; gap: var(--drive-gap); padding: var(--pedal-margin);
+  grid-template-columns: var(--pedal-fr) var(--shift-fr) var(--center-fr) var(--shift-fr) var(--pedal-fr);
+  grid-template-rows: 1fr auto;
+  grid-template-areas: "p1 s1 mid s2 p2" "p1 st st st p2";
 }
-.readout { font-variant-numeric: tabular-nums; font-size: var(--text-m); color: var(--muted); }
-label.quick { font-size: var(--text-s); color: var(--muted); display: flex; align-items: center; gap: var(--gap); }
-label.quick input[type=range] { width: 120px; }
-.wheel { width: var(--wheel-size); height: var(--wheel-size); color: var(--text); transition: transform .03s linear; }
+.drive.no-shift { grid-template-columns: var(--pedal-fr) calc(var(--center-fr) + 2 * var(--shift-fr)) var(--pedal-fr); grid-template-areas: "p1 mid p2" "p1 st p2"; }
+.drive > .pedal.left { grid-area: p1; }
+.drive > .shift.left { grid-area: s1; } .drive > .shift.right { grid-area: s2; }
+.drive > .center { grid-area: mid; }
+.drive > .statusline { grid-area: st; }
+.drive > .pedal.right { grid-area: p2; }
+
+/* the middle column: settings at the top, the wheel (tap = centre) and any extra buttons, reconnect at the bottom */
+.center { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; justify-items: center; gap: var(--gap); min-width: 0; min-height: 0; }
+.center .mid { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--gap); min-height: 0; overflow: hidden; }
+/* more than one extra button: a smaller wheel, small buttons two to a row */
+.center.crowded { --wheel-size: var(--wheel-size-crowded); }
+.center.crowded .aux { display: grid; grid-template-columns: repeat(2, auto); }
+.center.crowded .auxbtn { height: var(--aux-size-s); width: calc(var(--aux-size-s) * 1.2); font-size: 15px; }
+.center button.round { width: var(--round-size); height: var(--round-size); border-radius: 50%; padding: 0; font-size: var(--icon-size);
+  display: grid; place-items: center; flex-shrink: 0; }
+.center button.round svg { vertical-align: 0; }
+.wheel-btn { background: none; border: none; padding: 0; border-radius: 50%; }
+.wheel { width: var(--wheel-size); height: var(--wheel-size); color: var(--text); transition: transform .03s linear; display: block; }
+.wheel-btn.centred .wheel { color: var(--accent); }
+.readout { font-variant-numeric: tabular-nums; font-size: var(--text-s); color: var(--muted); }

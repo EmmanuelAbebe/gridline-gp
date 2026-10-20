@@ -23,7 +23,9 @@ export interface SteerCfg { sensitivity: number; smoothing: number; deadzone: nu
 export interface ButtonCfg { label: string; bind: ButtonId; toggle: boolean }
 export interface FlickCfg { on: boolean; distance: number; time: number; down: ButtonId; up: ButtonId }
 export type ButtonSize = 's' | 'm' | 'l';
-export interface LayoutCfg { swapPedals: boolean; pedalSize: number; buttonSize: ButtonSize; showWheel: boolean; quickSliders: boolean; haptics: boolean }
+// shiftButtons: the UPSHIFT / DOWNSHIFT keys beside the pedals (they send flick.up / flick.down); swapShift puts
+// upshift beside the gas instead of the brake. quickSliders is no longer shown (kept so old profiles round-trip).
+export interface LayoutCfg { swapPedals: boolean; pedalSize: number; buttonSize: ButtonSize; showWheel: boolean; quickSliders: boolean; haptics: boolean; shiftButtons: boolean; swapShift: boolean }
 // force feedback from the game (engine/haptics.ts): strength × every effect, and which effects play
 export interface FeedbackCfg { on: boolean; strength: number; hits: boolean; kerbs: boolean; offTrack: boolean; slides: boolean; shifts: boolean }
 export interface Config { steer: SteerCfg; gas: PedalCfg; brake: PedalCfg; buttons: ButtonCfg[]; flick: FlickCfg; layout: LayoutCfg; feedback: FeedbackCfg }
@@ -33,15 +35,11 @@ export const DEFAULTS: Config = {
   steer: { sensitivity: 40, smoothing: 20, deadzone: 0, curve: 1, invert: false },
   gas: { mode: 'ramp', rampTime: 1.5, min: 0.2, curve: 1, max: 1 },
   brake: { mode: 'ramp', rampTime: 1.5, min: 0.2, curve: 1, max: 1 },
-  buttons: [
-    { label: '1', bind: 'A', toggle: false },
-    { label: '2', bind: 'B', toggle: false },
-    { label: '3', bind: 'X', toggle: false },
-  ],
+  buttons: [{ label: 'BOX', bind: 'X', toggle: false }],   // Gridline GP: X = box this lap (shifting has its own keys)
   // flick a thumb sideways toward the screen centre while on a pedal to shift: brake = down, gas = up
   // (`distance` px within `time` ms, mostly sideways); each flick taps the bound button once
   flick: { on: true, distance: 40, time: 160, down: 'LB', up: 'RB' },
-  layout: { swapPedals: false, pedalSize: 1, buttonSize: 'm', showWheel: true, quickSliders: true, haptics: true },
+  layout: { swapPedals: false, pedalSize: 1, buttonSize: 'm', showWheel: true, quickSliders: true, haptics: true, shiftButtons: true, swapShift: false },
   feedback: { on: true, strength: 1, hits: true, kerbs: true, offTrack: true, slides: true, shifts: false },
 };
 
@@ -96,6 +94,8 @@ export function sanitize(input: unknown): Config {
       showWheel: bool(l.showWheel, D.layout.showWheel),
       quickSliders: bool(l.quickSliders, D.layout.quickSliders),
       haptics: bool(l.haptics, D.layout.haptics),
+      shiftButtons: bool(l.shiftButtons, D.layout.shiftButtons),
+      swapShift: bool(l.swapShift, D.layout.swapShift),
     },
     feedback: {
       on: bool(fb.on, D.feedback.on),

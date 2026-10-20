@@ -26,24 +26,24 @@ export function PedalsTab({ cfg, update }: TabProps) {
     </>}
     <Slider label="Maximum" hint="cap the pedal below full" min={0.1} max={1} step={0.05} value={p.max}
       onChange={(v) => update((c) => { c[which].max = v; })} fmt={(v) => Math.round(v * 100) + '%'} />
-    <h2>Flick to shift</h2>
-    <Toggle label="Flick to shift" hint="while on a pedal, flick your thumb toward the middle: brake = shift down, gas = shift up"
+        <Toggle label="Flick to shift" hint="while on a pedal, flick your thumb toward the middle: brake = shift down, gas = shift up"
       value={f.on} onChange={(v) => update((c) => { c.flick.on = v; })} />
     {f.on && <>
       <Slider label="Flick distance" hint="how far the thumb must move; more = fewer accidental shifts" min={15} max={120} value={f.distance}
         onChange={(v) => update((c) => { c.flick.distance = v; })} fmt={(v) => v + ' px'} />
       <Slider label="Flick speed" hint="the distance has to happen within this time" min={80} max={400} step={10} value={f.time}
         onChange={(v) => update((c) => { c.flick.time = v; })} fmt={(v) => v + ' ms'} />
-      <BindSelect label="Shift down sends" value={f.down} onChange={(v) => update((c) => { c.flick.down = v; })} />
-      <BindSelect label="Shift up sends" value={f.up} onChange={(v) => update((c) => { c.flick.up = v; })} />
     </>}
+    <h2>Shifting</h2>
+    <BindSelect label="Shift down sends" value={f.down} onChange={(v) => update((c) => { c.flick.down = v; })} />
+    <BindSelect label="Shift up sends" value={f.up} onChange={(v) => update((c) => { c.flick.up = v; })} />
   </>;
 }
 
 export function BindSelect({ label, value, onChange }: { label: string; value: ButtonId; onChange: (v: ButtonId) => void }) {
   return (
     <label className="field">
-      <span className="name">{label}<small>Gridline GP shifts on LB / RB (or A / B)</small></span>
+      <span className="name">{label}<small>the shift keys and flicks; Gridline GP shifts on LB / RB (or A / B)</small></span>
       <select value={value} onChange={(e) => onChange(e.target.value as ButtonId)}>
         {BUTTONS.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
       </select>

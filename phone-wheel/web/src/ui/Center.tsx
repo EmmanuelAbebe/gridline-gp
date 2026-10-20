@@ -1,41 +1,40 @@
-// The middle column of the driving screen: status bar, wheel, live readout, the on-screen buttons, Center, quick sliders.
-import { useRef } from 'react';
+// The middle column: Settings at the top, the wheel (turns with the steering; tap it to set straight ahead) with the
+// extra on-screen buttons under it, Reconnect at the bottom.
+import { useRef, useState } from 'react';
+import { RiRefreshLine, RiSettings3Fill } from 'react-icons/ri';
 import * as engine from '../engine/engine.ts';
 import type { Config } from '../settings/settings.ts';
-import type { Update } from './App.tsx';
-import { useFrame } from './hooks.ts';
+import { useFrame, useStatus } from './hooks.ts';
 import { buzz } from './screen.ts';
-import { StatusBar } from './StatusBar.tsx';
 import { Wheel } from './Wheel.tsx';
 import { AuxButton } from './AuxButton.tsx';
 
-export function Center({ cfg, update, openSettings, preview }: { cfg: Config; update: Update; openSettings: () => void; preview: boolean }) {
+export function Center({ cfg, openSettings }: { cfg: Config; openSettings: () => void }) {
   const wheel = useRef<SVGSVGElement>(null), readout = useRef<HTMLDivElement>(null);
+  const [centred, setCentred] = useState(false);
+  const status = useStatus(), trouble = status.phase === 'lost' || status.phase === 'unpaired';
   useFrame(() => {
     const s = engine.state.steer;
     if (wheel.current) wheel.current.style.transform = `rotate(${s * 90}deg)`;
-    if (readout.current) readout.current.textContent = `steer ${s >= 0 ? '+' : ''}${s.toFixed(2)}`;
+    if (readout.current) readout.current.textContent = `${s >= 0 ? '+' : ''}${s.toFixed(2)}`;
   });
+  const centre = () => { engine.center(); buzz(30); setCentred(true); setTimeout(() => setCentred(false), 300); };
   const L = cfg.layout;
   return (
-    <div className="center">
-      <StatusBar openSettings={openSettings} preview={preview} />
-      {L.showWheel && <Wheel ref={wheel} />}
-      <div className="readout" ref={readout}>steer +0.00</div>
-      {cfg.buttons.length > 0 && (
-        <div className={`aux size-${L.buttonSize}`}>
-          {cfg.buttons.map((b, i) => <AuxButton key={`${i}-${b.bind}-${b.toggle}`} index={i} btn={b} />)}
-        </div>
-      )}
-      <div className="row"><button onClick={() => { engine.center(); buzz(30); }}>Center</button></div>
-      {L.quickSliders && <>
-        <label className="quick">Sensitivity
-          <input type="range" min={-35} max={70} value={cfg.steer.sensitivity} onChange={(e) => update((c) => { c.steer.sensitivity = +e.target.value; })} />
-        </label>
-        <label className="quick">Smoothing
-          <input type="range" min={0} max={90} value={cfg.steer.smoothing} onChange={(e) => update((c) => { c.steer.smoothing = +e.target.value; })} />
-        </label>
-      </>}
+    <div className={`center ${cfg.buttons.length > 1 ? 'crowded' : ''}`}>
+      <button className="round" onClick={openSettings} title="Settings" aria-label="Settings"><RiSettings3Fill /></button>
+      <div className="mid">
+        {L.showWheel
+          ? <button className={`wheel-btn ${centred ? 'centred' : ''}`} onClick={centre} title="Tap: this is straight ahead" aria-label="Centre the steering"><Wheel ref={wheel} /></button>
+          : <button onClick={centre}>Center</button>}
+        <div className="readout" ref={readout}>+0.00</div>
+        {cfg.buttons.length > 0 && (
+          <div className={`aux size-${L.buttonSize}`}>
+            {cfg.buttons.map((b, i) => <AuxButton key={`${i}-${b.bind}-${b.toggle}`} index={i} btn={b} />)}
+          </div>
+        )}
+      </div>
+      <button className={`round ${trouble ? 'primary' : ''}`} onClick={() => { engine.reconnect(); buzz(20); }} title="Reconnect to the PC now" aria-label="Reconnect"><RiRefreshLine /></button>
     </div>
   );
 }

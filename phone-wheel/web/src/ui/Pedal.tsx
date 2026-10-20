@@ -1,4 +1,4 @@
-// A pedal: hold to build pressure (ramp), slide the thumb up (slide) or on / off (instant), plus flick to shift
+// A pedal (a raised face on a base: it sinks as it is pressed): hold to build pressure (ramp), slide the thumb up (slide) or on / off (instant), plus flick to shift
 // (a quick sideways flick toward the screen centre taps the shift button). Writes engine.state.gas / brake directly,
 // every animation frame while pressed, without React re-rendering.
 import { useEffect, useRef } from 'react';
@@ -29,6 +29,7 @@ export function Pedal({ kind, cfg, flick, toCenter }: { kind: 'gas' | 'brake'; c
   const put = (v: number) => {
     engine.state[kind] = v;
     if (fill.current) fill.current.style.height = v * 100 + '%';
+    el.current?.style.setProperty('--press', String(v));     // the face sinks into its base (Pedal.css)
   };
   const progress = () => {
     const c = cfgRef.current, s = st.current;
@@ -65,11 +66,13 @@ export function Pedal({ kind, cfg, flick, toCenter }: { kind: 'gas' | 'brake'; c
   const up = (e: React.PointerEvent) => { if (e.pointerId === st.current.pid) release(); };
 
   return (
-    <div className={`pedal ${kind}`} ref={el} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
-      <div className="fill" ref={fill} />
-      <div className="label">{kind === 'gas' ? 'GAS' : 'BRAKE'}</div>
-      <div className="hint">{HINT[cfg.mode]}{flick.on && <><br />flick {toCenter > 0 ? '→' : '←'} = shift {shift}</>}</div>
-      <div className="shiftmark" ref={mark}>{shift === 'up' ? '▲' : '▼'}</div>
+    <div className={`pedal ${kind} ${toCenter > 0 ? 'left' : 'right'}`} ref={el} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+      <div className="face">
+        <div className="fill" ref={fill} />
+        <div className="label">{kind === 'gas' ? 'GAS' : 'BRAKE'}</div>
+        <div className="hint">{HINT[cfg.mode]}{flick.on && <><br />flick {toCenter > 0 ? '→' : '←'} = shift {shift}</>}</div>
+        <div className="shiftmark" ref={mark}>{shift === 'up' ? '▲' : '▼'}</div>
+      </div>
     </div>
   );
 }
