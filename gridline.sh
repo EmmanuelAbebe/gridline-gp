@@ -36,6 +36,11 @@ DESK
     if [ ! -f "$BUILT" ] || [ -n "$(find "$DIR/src" "$DIR/index.html" "$DIR/public" -newer "$BUILT" -print -quit)" ]; then
       echo "Gridline GP: building..."; (cd "$DIR" && "$DIR/node_modules/.bin/vite" build --logLevel warn)
     fi
+    # the phone page (phone-wheel/web) has its own build
+    PHONE="$DIR/phone-wheel/web/dist/index.html"
+    if [ ! -f "$PHONE" ] || [ -n "$(find "$DIR/phone-wheel/web/src" "$DIR/phone-wheel/web/index.html" -newer "$PHONE" -print -quit)" ]; then
+      echo "Gridline GP: building the phone page..."; (cd "$DIR" && "$DIR/node_modules/.bin/vite" build --config phone-wheel/web/vite.config.ts --logLevel warn)
+    fi
     [ "${1:-}" = "--vulkan" ] && export GRIDLINE_GPU=vulkan
     exec "$ELECTRON" "$DIR" $([ "${1:-}" = "--windowed" ] && echo --windowed) ;;
   *)
