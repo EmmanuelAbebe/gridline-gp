@@ -1,5 +1,6 @@
 // Top of the driving screen: connection state, link quality, and the Reconnect / Full screen / Settings buttons.
 import { useRef } from 'react';
+import { RiFullscreenExitFill, RiFullscreenFill, RiRefreshLine, RiSettings3Fill } from 'react-icons/ri';
 import * as engine from '../engine/engine.ts';
 import { useFrame, useFullscreen, useStatus } from './hooks.ts';
 import { buzz, toggleFullscreen } from './screen.ts';
@@ -32,9 +33,9 @@ export function StatusBar({ openSettings, preview }: { openSettings: () => void;
     <div className="topbar">
       <div className={`status ${ok ? 'ok' : trouble ? 'bad' : ''}`}><i />{preview && !ok ? 'preview (no PC)' : TEXT[status.phase]}</div>
       <div className="linkq" ref={linkEl} />
-      <button className={`icon ${trouble ? 'primary' : ''}`} onClick={() => { engine.reconnect(); buzz(20); }} title="Reconnect to the PC now" aria-label="Reconnect">↻</button>
-      <button className="icon" onClick={() => toggleFullscreen()} title={full ? 'Leave full screen' : 'Full screen, locked sideways'} aria-label="Full screen">{full ? '🗗' : '⛶'}</button>
-      <button className="small" onClick={openSettings}>⚙ Settings</button>
+      <button className={`icon ${trouble ? 'primary' : ''}`} onClick={() => { engine.reconnect(); buzz(20); }} title="Reconnect to the PC now" aria-label="Reconnect"><RiRefreshLine /></button>
+      <button className="icon" onClick={() => toggleFullscreen()} title={full ? 'Leave full screen' : 'Full screen, locked sideways'} aria-label="Full screen">{full ? <RiFullscreenExitFill /> : <RiFullscreenFill />}</button>
+      <button className="small" onClick={openSettings}><RiSettings3Fill /> Settings</button>
     </div>
   );
 }

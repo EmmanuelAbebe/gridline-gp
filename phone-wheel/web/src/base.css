@@ -14,6 +14,9 @@ button.primary { background: var(--accent); color: var(--accent-ink); border-col
 button.danger { color: var(--brake); border-color: color-mix(in srgb, var(--brake) 45%, var(--line)); }
 button.small { padding: 5px 10px; font-size: 13px; }
 button.big { font-size: var(--text-l); padding: 14px 30px; }
-button.icon { padding: 5px 9px; font-size: 15px; line-height: 1; }
+button.icon { padding: 5px 9px; font-size: var(--icon-size); line-height: 1; }
+/* react-icons draw an inline svg sized 1em: line it up with the text next to it */
+button svg { vertical-align: -0.15em; }
+button.small svg { margin-right: 3px; }
 .row { display: flex; gap: var(--gap); flex-wrap: wrap; justify-content: center; }
 input[type=range] { accent-color: var(--accent); }

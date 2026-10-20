@@ -22,6 +22,7 @@
   --text-m: 14px;
   --text-l: 20px;
   --pedal-label: 26px;
+  --icon-size: 17px;        /* status bar icons (react-icons, Remix set) */
 
   /* shapes */
   --radius-s: 10px;
