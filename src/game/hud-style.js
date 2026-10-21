@@ -5,7 +5,7 @@ import { $ } from './util.js';
 // their stylesheet position, including the phone layout).
 export const HudStyle = (() => {
   const PANELS = { posPanel: 'Position & times', tower: 'Timing tower', map: 'Minimap', speedo: 'Speed & gear',
-    hudBtns: 'Top buttons', lights: 'Start lights', msg: 'Big messages', toast: 'Lap toasts' };
+    hudBtns: 'Top buttons', teleBox: 'Ghost inputs', lights: 'Start lights', msg: 'Big messages', toast: 'Lap toasts' };
   const GENERIC_FONTS = ['system-ui', 'monospace', 'serif', 'sans-serif'];
   const rgba = (hex, a) => { const n = parseInt(String(hex).slice(1), 16) || 0; return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
   function applyTheme(t) {

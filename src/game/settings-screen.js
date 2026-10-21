@@ -55,6 +55,12 @@ const TABS = [
       ? 'Hits break the front wing (understeer), the floor (less downforce) or the suspension (the car pulls). Repaired in the pits.'
       : 'Hits never damage the car.'),
     // active aero and overtake mode (applies from the next race; the overtake trigger at once)
+    // driving aids on screen (prefs: at once)
+    seg('racingLine', 'Racing line', [['full', 'FULL'], ['braking', 'BRAKING'], ['off', 'OFF']], v => ({
+      full: 'The fastest line (the ALIEN rival\'s best lap) on the road: green on the gas, amber lifting, red braking (darker = harder).',
+      braking: 'Only the braking zones of the fastest line, fading in before each one.',
+      off: 'No line on the road.' })[v]),
+    seg('ghostInputs', 'Ghost inputs', ON_OFF, v => v ? 'Time trial against an AI ghost: its steering, gas and brake as live charts, with yours on top.' : 'No input charts.'),
     seg('aero', 'Active aero', C.aero, v => v === 'on'
       ? 'Every car opens its wing flaps on the straights (straight mode: less drag, about 350 km/h) and closes them to brake and turn (corner mode). The zones are marked on the minimap.'
       : 'Wings stay in corner mode: about 330 km/h.'),

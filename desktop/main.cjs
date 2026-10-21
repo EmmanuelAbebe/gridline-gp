@@ -262,7 +262,7 @@ async function trackShots(win) {
   fs.mkdirSync(shotsDir, { recursive: true });
   await js(`for (const o of document.querySelectorAll('.overlay, #startOv')) o.hidden = true`);
   for (const id of ['elkmoor', 'harrow', 'cobalt', 'marrow', 'northfold']) {
-    await js(`gridlineDebug.view('${id}', 0, 0, 1, 1)`); await wait(800);
+    await js(`gridlineDebug.view('${id}', 0, 0, 1, 1); gridlineDebug.showLine()`); await wait(800);
     const corners = (await js(`gridlineDebug.corners()`)).slice(0, 3);
     const views = [['aerial', `gridlineDebug.view('${id}', ${corners[0] ?? 0.3}, -60, 70, 40)`],
       ['pits', `gridlineDebug.view('${id}', 0.975, -3, 5, 40, 12)`]];

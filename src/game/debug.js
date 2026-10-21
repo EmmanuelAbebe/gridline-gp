@@ -6,11 +6,11 @@ import { Display } from './display.js';
 import { Sound } from './sound.js';
 import { Input } from './input.js';
 
-export function installDebug(setTrack, current, player = () => null, toMenu = () => {}, loadGhost = () => {}, autopilot = () => {}) {
+export function installDebug(setTrack, current, player = () => null, toMenu = () => {}, loadGhost = () => {}, autopilot = () => {}, showLine = () => {}) {
   window.gridlineDebug = { soundReady: () => Sound.ready,
     autopilot,                                                         // autopilot(skill): the AI drives your car (0 = you)
     playerState: () => { const c = player(); return c && { slip: +c.slip.toFixed(2), slideR: +c.slideR.toFixed(2), lockF: c.lockF, kmh: Math.round(c.v * 3.6), idx: c.idx, lap: c.lap }; },
-    toMenu, loadGhost,
+    toMenu, loadGhost, showLine,                                       // (showLine: the racing line on this circuit, no race needed)
     shadows: () => Display.shadowInfo(),                                // sun shadows on? map size, casters                                                 // back to the start menu; load a ghost file's text (smoke test)
     input: () => ({ ...Input.drive, device: Input.pad.label, kind: Input.pad.kind }),   // what drives the car right now
     // the player's car: speed (km/h), wings open (active aero), overtake mode

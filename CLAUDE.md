@@ -558,13 +558,25 @@ started at lights out and at every crossing), `ghostPose`, `ghostDelta`, store p
 `ghostFile` / `readGhostFile` (`gridlineGhost: 1` JSON). Race type TIME TRIAL (`setup.type 'trial'`): you alone,
 unlimited laps, no wear; start menu ghost row (shown ghost, EXPORT your best as a file, LOAD a friend's, MINE = back to
 yours); in the race a see-through car (CarModels.ghostMaterials) at the same time into its lap and the HUD "Ghost" delta
-(from the first crossing). Every race records your laps (a new best becomes your ghost). AI ghosts (2026-10-20, user: "add the ALIEN or the best driver for the ghost and a list of the AIs and their times"):
-`ai-ghosts.js` (pure, tests/ai-ghosts.test.js) drives the fastest AI driver (VOS) alone at each level for 3 laps (fixed seed, the
-trial's active-aero setting) and keeps the best clean flying lap as a ghost (~50 ms of sim per level, cached per circuit ×
-aero for the session, made 30 ms after the list first shows). Start menu ghost row = a list (`#ghostList`): Your best /
-Loaded / ROOKIE..ALIEN with lap times and the gap to your best; the pick is `game.setup.ghost` (RACE_SETUP.choices.ghost;
-a loaded file selects 'loaded'). An AI ghost = its best flying lap + `standing` (its lap 1 from lights out on the same grid slot): your lap 1 races the standing one (you both launch from 0), later laps the flying one.
-The smoke test screenshots the list (`out-trial-menu.png`) and races the ALIEN's lap (autopilot, `out-ghost.png`). Smoke test: TIME TRIAL row and a
+(from the first crossing). Every race records your laps (a new best becomes your ghost). AI ghosts (2026-10-20, user: "add the ALIEN or the best driver for the ghost and a list of the AIs and their times";
+then: an AI ghost must be the best driver really driving, continuously, no contact): `ai-ghosts.js` (pure,
+tests/ai-ghosts.test.js). Start menu ghost row = a list (`#ghostList`): Your best / Loaded / ROOKIE..ALIEN with lap
+times and the gap to your best; the pick is `game.setup.ghost` (RACE_SETUP.choices.ghost; a loaded file selects
+'loaded'). The times: `aiLap(track, id, level, aero)` = the fastest AI driver (VOS) alone at that level, fixed seed, best
+clean flying lap of 3 (~50 ms of sim, cached per circuit × level × aero, made 30 ms after the list first shows), plus its
+`line` (x, z, kmh, thr, brk per track sample). An AI pick races `game.rival` = `createRival`: that car in a race of its
+own, stepped in lockstep with yours from lights out (simStep; its poses saved/interpolated with yours), so it never
+sees or touches you and drives the very laps the list timed (test). Drawn with the see-through ghost model synced to
+the real car (wheels, steering, brake lights, wings); HUD Ghost = `rivalGap` (time since the car ahead passed the
+other's spot, from both cars' trailT). Recorded ghosts (yours / a file's) are unchanged.
+Ghost inputs (`ghost-inputs.js`, HUD `#teleBox`, layout panel "Ghost inputs", pref `ghostInputs`, Settings → Driving):
+rolling 6 s charts of the AI ghost's steering / gas / brake with yours in amber, speed + gear of both.
+Racing line (`racing-line.js`, pref `racingLine` full / braking / off, Settings → Driving, every race type): the ALIEN's
+`aiLap` line on the race's active-aero setting as a 0.9 m ribbon of forward chevrons; colour from `lineColours`: red
+where it decelerates > 5 m/s² (darker up to 35; from the speed, since the bot's brake pedal pulses), else amber → green
+by its throttle. Braking mode = only the braking zones, fading in 45 m before. `gridlineDebug.showLine()` draws it
+without a race (the --track-shots views use it).
+The smoke test screenshots the list (`out-trial-menu.png`) and races the live ALIEN ghost (autopilot, `out-ghost.png`). Smoke test: TIME TRIAL row and a
 solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-ghost.png`.
 
 ## Ideas not done yet

@@ -95,6 +95,13 @@
 #touch .grp{display:flex;gap:10px;pointer-events:auto}
 #touch button{width:76px;height:76px;border-radius:50%;border:1px solid var(--rule);background:rgba(10,13,17,.55);color:var(--text);font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.06em;touch-action:none}
 #touch button.on{background:rgba(255,194,26,.35);border-color:var(--amber)}
+/* the AI ghost's inputs (ghost-inputs.js) */
+#teleBox{position:fixed;left:12px;top:calc(244px + env(safe-area-inset-top,0px));width:280px;padding:8px 10px;display:grid;gap:4px}
+#teleChart{width:100%;height:auto;display:block}
+.tele-head,.tele-foot{display:flex;justify-content:space-between;align-items:center;font-family:var(--display);font-size:12px;letter-spacing:.06em}
+.tele-key{color:var(--muted)} .tele-key i{display:inline-block;width:10px;height:3px;margin:0 4px 2px 8px;vertical-align:middle}
+.tele-key i.g{background:#e8edf2} .tele-key i.y{background:var(--amber)}
+.tele-foot span:first-child{color:var(--text)} .tele-foot span:last-child{color:var(--amber)}
 @media (pointer:coarse){
   #touch{display:flex}
   #speedo{bottom:auto;top:calc(12px + env(safe-area-inset-top,0px));right:12px;min-width:0;padding:8px 10px}
@@ -105,6 +112,7 @@
   #hudBtns{top:auto;bottom:calc(100px + env(safe-area-inset-bottom,0px))}
 }
 @media (max-width:640px){
+  #teleBox{display:none}
   #tower{display:none}
   #posPanel{min-width:0;padding:8px 10px}
   .bigpos{font-size:36px}
