@@ -1,5 +1,5 @@
 // The phone wheel inside the desktop app (roadmap step 3; replaces running phone-wheel/server.py next to the game).
-// Serves the phone page (phone-wheel/controller.html + static/) and takes its input over a WebSocket: JSON
+// Serves the phone page (phone-wheel/web/dist, the React build) and takes its input over a WebSocket: JSON
 // { s, g, b, k } at ~60 Hz (steer -1..1, gas 0..1, brake 0..1, button bits in BUTTONS order) plus link probes { p, r }
 // answered at once with { pong, hz, gap }; feedback(fx) sends the game's force feedback { fx } to the phones. The input goes straight to the game (onInput); there is no virtual
 // controller. Phones only give tilt data to https pages, so it makes a self-signed certificate for this PC's address
@@ -19,7 +19,7 @@ const { WebSocketServer } = require('ws');
 const QRCode = require('qrcode');
 const pn = require('./phone-net.cjs');
 
-// Bit i of the phone's `k` = BUTTONS[i] (phone-wheel/static/settings.js, phonewheel/protocol.py)
+// Bit i of the phone's `k` = BUTTONS[i] (phone-wheel/web/src/settings/settings.ts, phonewheel/protocol.py)
 const BUTTONS = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'BACK', 'START', 'GUIDE', 'LS', 'RS', 'UP', 'DOWN', 'LEFT', 'RIGHT'];
 const MASK = (1 << BUTTONS.length) - 1;
 const WATCHDOG = 400;            // ms without a message → everything released (screen off, link drop)
@@ -90,9 +90,9 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
     });
   }
   const paired = url => { const t = url.searchParams.get('t') || ''; return t.length === token.length && crypto.timingSafeEqual(Buffer.from(t), Buffer.from(token)); };
-  // the page: the React build (phone-wheel/web/dist, npm run phone:build) at /, else the previous page; that one stays
-  // at /v1 (and the single-file one at /classic)
+  // the page: the React build (phone-wheel/web/dist, made by npm run build / phone:build)
   const webDist = path.join(pagesDir, 'web', 'dist');
+  const NOT_BUILT = 'The phone page is not built yet: run npm run phone:build (or npm run build) in Gridline GP.';
   function serveUnder(res, root, rel) {
     const file = path.normalize(path.join(root, decodeURIComponent(rel)));
     if (!file.startsWith(root + path.sep)) { res.writeHead(403).end(); return; }
@@ -100,16 +100,16 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
   }
   function onRequest(req, res) {
     const url = new URL(req.url, 'http://x');
-    if (url.pathname === '/') return serveFile(res, fs.existsSync(path.join(webDist, 'index.html')) ? path.join(webDist, 'index.html') : path.join(pagesDir, 'controller.html'));
-    if (url.pathname === '/v1') return serveFile(res, path.join(pagesDir, 'controller.html'));
+    if (url.pathname === '/') {
+      if (fs.existsSync(path.join(webDist, 'index.html'))) return serveFile(res, path.join(webDist, 'index.html'));
+      res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' }).end(NOT_BUILT); return;
+    }
     if (url.pathname.startsWith('/assets/')) return serveUnder(res, path.join(webDist, 'assets'), url.pathname.slice(8));
-    if (url.pathname === '/classic') return serveFile(res, path.join(pagesDir, 'static', 'classic.html'));
     if (url.pathname === '/check') {   // lets the phone tell "wrong pairing code" apart from "PC not reachable"
       const ok = paired(url);
       res.writeHead(ok ? 200 : 403, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify({ paired: ok }));
       return;
     }
-    if (url.pathname.startsWith('/static/')) return serveUnder(res, path.join(pagesDir, 'static'), url.pathname.slice(8));
     res.writeHead(404).end('not found');
   }
 

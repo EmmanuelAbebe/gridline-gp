@@ -82,7 +82,7 @@ export const Hud = (() => {
       const W = race.wear, on = !!(W && (W.fuelLaps || W.tyreLaps || W.damage));
       setOnce('carOn', on, v => { $('carState').hidden = !v; });
       if (on) {
-        const showRow = (id, v) => { $(id).hidden = !v; $(id + 'Lbl').hidden = !v; };
+        const showRow = (id, v) => { $(id).hidden = !v; $(id + 'Lbl').hidden = !v; };   // (fuelLbl, tyresLbl, dmgLbl)
         setOnce('fuelOn', !!W.fuelLaps, v => showRow('fuel', v)); setOnce('tyresOn', !!W.tyreLaps, v => showRow('tyres', v)); setOnce('dmgOn', W.damage, v => showRow('dmg', v));
         if (W.fuelLaps) {
           const left = SIM.fuelLaps(race, c), short = left < SIM.lapsToGo(race, c);

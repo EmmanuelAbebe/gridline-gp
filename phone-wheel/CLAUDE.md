@@ -16,7 +16,7 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   also runs them): tests/test_pure.py (parsing, certs/token in a temp dir, Bluetooth parsers, keyboard pulses) and
   tests/test_web.py (pairing, WebSocket → output, link probe, release on disconnect + watchdog, QR page
   localhost-only). Keep new logic in pure functions so it can be tested the same way.
-- `server.py` (Python, aiohttp) serves `controller.html` + `static/` to the phone over **HTTPS** on port 8443,
+- `server.py` (Python, aiohttp) serves the phone page (`web/dist`, the React build) over **HTTPS** on port 8443,
   using a self-signed cert it generates for the PC's LAN IP. HTTPS is required because Chrome
   on Android only provides `devicemotion` tilt data to secure pages.
 - Phone UI (2026-10-19, user wanted it easier to restyle; prefers React / TS): `web/` = React 19 + TypeScript, built by
@@ -25,16 +25,17 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   CSS per screen part). `web/src/engine/engine.ts` = the hot path (tilt, pedals, 60 Hz feed, link probes, connection
   phases idle/connecting/connected/lost/unpaired, `reconnect()`), `settings/settings.ts` = defaults, sanitize,
   profiles (same `pw-store` key: old profiles load), curves, flick; `engine/preview.ts` = mouse / arrow-key tilt on a
-  PC. New vs the old page: ↻ reconnect and ⛶ full screen (+ landscape lock) in the status bar, a full-screen /
+  PC. Since the first pages: ↻ reconnect and ⛶ full screen (+ landscape lock) in the status bar, a full-screen /
   sideways prompt when the phone is upright while driving, a vibration test. Tests: `web/test/*.test.ts` (node
-  --experimental-strip-types, in the root `npm test`). Both servers serve `web/dist/index.html` at `/` when built
-  (assets at `/assets/`), else the previous Preact page (`controller.html` + `static/`, no build step), which also
-  stays at `/v1`; the single-file one at `/classic`.
+  --experimental-strip-types, in the root `npm test`). Both servers serve `web/dist/index.html` at `/` (assets at
+  `/assets/`), or a 503 "not built yet: npm run phone:build". (The earlier Preact page `controller.html` + `static/`,
+  the single-file `/classic`, its Playwright check `tools/browser-test.mjs` and this folder's GitHub workflow, which
+  never ran from a subfolder, were removed 2026-10-21 as unused.)
 - Driving screen (2026-10-20, from the user's sketch): brake | UPSHIFT | middle (Settings, wheel = tap to centre, extra
   buttons, Reconnect) | DOWNSHIFT | gas, connection status + full screen along the bottom of the middle three; pedals
   and shift keys are a face on a base that sinks when pressed. Shift keys send `flick.up` / `flick.down` (engine.tap),
   `layout.shiftButtons` / `layout.swapShift` (upshift beside the brake by default, as sketched). Quick sliders are gone
-  from the screen (`layout.quickSliders` kept for old profiles); new profiles have one extra button, BOX (X).
+  from the screen (and `layout.quickSliders` from the profile, 2026-10-21); new profiles have one extra button, BOX (X).
 - PC → phone also `{fx: {k, kh, o, s, h?, g?}}` = Gridline GP's force feedback (src/game/haptics.js), played by
   `web/src/engine/haptics.ts` `planFeedback` (pure, test/haptics.test.ts): a motor is only on/off, so strength = pulse
   width; kerbs = regular ripple kept in phase when renewed, gravel/grass = uneven rumble, slides = fine buzz, hits /
@@ -47,11 +48,10 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   when put down (`layout.putDown`); desktop preview: P. Force feedback `l` / `ls` = full steering lock (knock + light
   buzz, Feedback → Full lock); the wheel drawing turns red at full input.
 - The phone sends `{s, g, b, k}` (steer -1..1, gas 0..1, brake 0..1, button bitmask) over a WebSocket at ~60 Hz.
-  Bit i of `k` = `BUTTON_NAMES[i]` in phonewheel/protocol.py = `BUTTONS[i]` in web/src/settings/settings.ts (and static/settings.js) (A B X Y LB RB BACK START GUIDE LS RS UP DOWN LEFT RIGHT).
+  Bit i of `k` = `BUTTON_NAMES[i]` in phonewheel/protocol.py = `BUTTONS[i]` in web/src/settings/settings.ts (A B X Y LB RB BACK START GUIDE LS RS UP DOWN LEFT RIGHT).
 - Flick to shift (`settings.js` `flick` + `createFlick`, `Pedal` in app.js): a thumb on a pedal flicked toward the
   screen centre (≥ distance px within time ms, ≥ 2× sideways) taps a button via `engine.tap(id)` (held 80 ms, repeats
   spaced 50 ms apart): brake = down (LB), gas = up (RB), which Gridline GP uses as paddles. Pedal value is unaffected.
-- Browser check: `tools/browser-test.mjs` (Playwright vs `server.py --dry-run --port 8450`, steps in its header).
 - Output backends in `phonewheel/outputs.py`:
   - `GamepadOut` (default on Windows): virtual Xbox 360 pad through `vgamepad`/ViGEmBus.
     Left stick X = steer, RT = gas, LT = brake.
@@ -74,7 +74,7 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
 
 ## Status
 - Works end to end on the user's Linux PC (X11, Flatpak Chrome) as of 2026-10-04:
-  user confirmed it drives slowroads perfectly, including the Preact settings UI and QR pairing.
+  user confirmed it drives slowroads perfectly, including the (then Preact) settings UI and QR pairing.
 - Not yet run: the GitHub Actions Windows/macOS builds (project isn't a git repo yet).
 - Linux gamepad mode = `LinuxGamepadOut` (uinput via python-evdev, Xbox 360 layout). Needs
   writable `/dev/uinput` (udev rule in README) and, for Flatpak Chrome,

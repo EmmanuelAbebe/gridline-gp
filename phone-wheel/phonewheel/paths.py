@@ -5,7 +5,7 @@ import os
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent.parent   # the project folder (server.py, controller.html, static/, pc/)
+HERE = Path(__file__).resolve().parent.parent   # the project folder (server.py, web/dist, pc/)
 FROZEN = getattr(sys, "frozen", False)
 # Read-only files (web pages) live next to the script, or inside the bundle when packaged.
 RES = Path(getattr(sys, "_MEIPASS", HERE))

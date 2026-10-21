@@ -24,19 +24,14 @@ def build_app(out, token, status):
     def paired(req):
         return hmac.compare_digest(req.query.get("t", ""), token)
 
-    # The page: the React build (web/dist, `npm run phone:build` in Gridline GP) at /, else the previous page, which
-    # stays at /v1 (and the single-file one at /classic).
+    # The page: the React build (web/dist, `npm run phone:build` in Gridline GP).
     web_dist = RES / "web" / "dist"
 
     async def index(_req):
         built = web_dist / "index.html"
-        return web.FileResponse(built if built.exists() else RES / "controller.html")
-
-    async def v1(_req):
-        return web.FileResponse(RES / "controller.html")
-
-    async def classic(_req):
-        return web.FileResponse(RES / "static" / "classic.html")
+        if built.exists():
+            return web.FileResponse(built)
+        return web.Response(status=503, text="The phone page is not built yet: run npm run phone:build in Gridline GP.")
 
     async def check(req):
         # Lets the phone tell "wrong pairing code" apart from "PC not reachable".
@@ -107,11 +102,8 @@ def build_app(out, token, status):
 
     app = web.Application(middlewares=[no_cache])
     app.router.add_get("/", index)
-    app.router.add_get("/v1", v1)
-    app.router.add_get("/classic", classic)
     app.router.add_get("/check", check)
     app.router.add_get("/ws", ws_handler)
-    app.router.add_static("/static/", RES / "static")
     if (web_dist / "assets").is_dir():
         app.router.add_static("/assets/", web_dist / "assets")
     app.on_startup.append(start_bg)

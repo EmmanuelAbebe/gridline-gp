@@ -461,7 +461,7 @@ Tunables live in data tables (config modules), not inline in the logic.
 ## gamepads / joysticks / wheels later)
 - Electron main runs the phone server itself: `desktop/phone-link.cjs` (`createPhoneLink({ dataDir, pagesDir, onInput,
   onStatus })`, `start({ link, port, renewCode })`): https on 8443 (next free up to +10) with a front door that sends TLS to
-  https and anything else to a redirect; serves phone-wheel/controller.html + static/ (the same phone page), `/check`,
+  https and anything else to a redirect; serves the phone page (phone-wheel/web/dist), `/check`,
   WebSocket `/ws` (`ws` package): `{s,g,b,k}` → onInput, link probes answered `{pong, hz, gap}`, heartbeat, release on
   close and by a 0.4 s watchdog. Self-signed cert made with node-forge (SAN = every address it was needed for, ≤ 8),
   pairing code `phone-token`; both in `<userData>/phone-wheel/`. QR = SVG (`qrcode`). `desktop/phone-net.cjs`: links
@@ -489,13 +489,13 @@ Tunables live in data tables (config modules), not inline in the logic.
 - In a plain browser there is no phone server: run phone-wheel/server.py as before (its uinput pad is a controller).
 - The phone page itself (2026-10-19): `phone-wheel/web/` (React + TypeScript + Vite; see phone-wheel/web/README.md and
   phone-wheel/CLAUDE.md). `npm run build` also builds it (`phone:build`; `phone:dev` = PC preview with fake tilt,
-  `phone:watch`); phone-link.cjs serves `web/dist` at `/` + `/assets/`, the previous page at `/v1`. `npm run typecheck`
+  `phone:watch`); phone-link.cjs serves `web/dist` at `/` + `/assets/` (the old Preact page and `/v1`, `/classic` were removed 2026-10-21). `npm run typecheck`
   includes it (strict TS), `npm test` runs its tests (`node --experimental-strip-types`).
 
 ## Phone wheel notes (standalone project, now in phone-wheel/)
 - Project: `phone-wheel/` in this repo since 2026-10-19 (imported with `git subtree` from ~/Downloads/Phone-wheel-main,
   github.com/EmmanuelAbebe/Phone-wheel, history kept; its own `phone-wheel/CLAUDE.md` has the details; its GitHub
-  workflow in `phone-wheel/.github` doesn't run from a subfolder). aiohttp `server.py` (entry point; code in `phone-wheel/phonewheel/`,
+  workflow, which never ran from a subfolder, was removed 2026-10-21). aiohttp `server.py` (entry point; code in `phone-wheel/phonewheel/`,
   tests `python -m unittest` in phone-wheel/) serves the
   phone page over HTTPS :8443; phone sends `{s, g, b, k}` over a WebSocket at ~60 Hz. Links: Wi-Fi, `--usb` (adb),
   `--bluetooth` (phone's Bluetooth tethering; see phone-wheel/README.md). Python deps: the old checkout's venv

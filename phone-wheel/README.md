@@ -20,8 +20,8 @@ The same options as below work on it, e.g. `PhoneWheel --keyboard`.
 
 ### Building the app
 
-PyInstaller can't cross-compile, so build on each OS (or let GitHub do all three with
-`.github/workflows/build.yml`, from the Actions tab):
+PyInstaller can't cross-compile, so build on each OS. Build the phone page first (`npm run phone:build` in the
+Gridline GP folder): the app bundles `web/dist`.
 
 ```
 pip install pyinstaller aiohttp cryptography qrcode pynput   # + vgamepad (Windows) or evdev python-xlib (Linux)
@@ -70,10 +70,9 @@ Settings (saved on the phone, per profile):
 - **Pedals**, separately for gas and brake: *Hold to build* (pressure grows the longer you hold),
   *Slide* (thumb higher = harder) or *On / off*, plus ramp time, start value, curve and maximum.
 - **Buttons**: up to 8, each with a label, a controller button, and hold or toggle.
-- **Layout**: swap pedals, pedal width, button size, show wheel, quick sliders, vibration.
+- **Layout**: swap pedals, pedal width, button size, shift keys, show wheel, vibration, pause when put down.
 - **Profiles**: save, switch, reset, and export/import as text to move settings between phones.
 
-The old single-file page is still at `/classic` if you ever need it.
 
 ## Modes
 

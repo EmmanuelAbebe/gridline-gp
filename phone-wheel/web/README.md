@@ -1,7 +1,7 @@
 # Phone Wheel page (React + TypeScript)
 
 The page the phone opens: tilt steering, pedals, buttons, settings. Built with Vite into `web/dist`, which the game's
-phone server (`desktop/phone-link.cjs`) and `server.py` serve at `/` (the previous page is still at `/v1`).
+phone server (`desktop/phone-link.cjs`) and `server.py` serve at `/`.
 
 ## Changing how it looks
 - **`src/theme.css`**: every colour, font, size, radius and spacing. Start here: change a variable, everything follows.

@@ -2,7 +2,7 @@
 optional link probe {p, r} (sequence number, last round trip ms)."""
 import json
 
-# Bit i of the phone's `k` field = BUTTON_NAMES[i] (same order as static/settings.js).
+# Bit i of the phone's `k` field = BUTTON_NAMES[i] (same order as web/src/settings/settings.ts BUTTONS).
 BUTTON_NAMES = ["A", "B", "X", "Y", "LB", "RB", "BACK", "START", "GUIDE", "LS", "RS",
                 "UP", "DOWN", "LEFT", "RIGHT"]
 BUTTON_MASK = (1 << len(BUTTON_NAMES)) - 1

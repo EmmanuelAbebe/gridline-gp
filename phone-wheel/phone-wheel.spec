@@ -6,7 +6,8 @@
 import sys
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
-datas = [("controller.html", "."), ("static", "static"), ("pc", "pc")]
+# (the phone page is the React build: run `npm run phone:build` in Gridline GP first)
+datas = [("web/dist", "web/dist"), ("pc", "pc")]
 binaries = []
 # pynput picks its backend (xorg / win32 / darwin) at runtime, so PyInstaller can't see it.
 hiddenimports = collect_submodules("pynput")

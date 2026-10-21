@@ -1,6 +1,5 @@
 // Settings: defaults, saving them on this phone (profiles), and the curve math they drive. Pure (localStorage only in
-// loadStore / saveStore), tested in test/settings.test.ts. Same storage key and shape as the old page, so profiles
-// made there load here.
+// loadStore / saveStore), tested in test/settings.test.ts. (Same storage key as the first pages: their profiles load.)
 
 // Bit order is the wire protocol: bit i of `k` = BUTTONS[i] (phonewheel/protocol.py BUTTON_NAMES and
 // desktop/phone-link.cjs BUTTONS use the same order).
@@ -24,9 +23,9 @@ export interface ButtonCfg { label: string; bind: ButtonId; toggle: boolean }
 export interface FlickCfg { on: boolean; distance: number; time: number; down: ButtonId; up: ButtonId }
 export type ButtonSize = 's' | 'm' | 'l';
 // shiftButtons: the UPSHIFT / DOWNSHIFT keys beside the pedals (they send flick.up / flick.down); swapShift puts
-// upshift beside the gas instead of the brake. quickSliders is no longer shown (kept so old profiles round-trip).
+// upshift beside the gas instead of the brake.
 // putDown: stop sending and ask "are you there?" when the phone is put down flat or dropped (engine/presence.ts)
-export interface LayoutCfg { swapPedals: boolean; pedalSize: number; buttonSize: ButtonSize; showWheel: boolean; quickSliders: boolean; haptics: boolean; shiftButtons: boolean; swapShift: boolean; putDown: boolean }
+export interface LayoutCfg { swapPedals: boolean; pedalSize: number; buttonSize: ButtonSize; showWheel: boolean; haptics: boolean; shiftButtons: boolean; swapShift: boolean; putDown: boolean }
 // force feedback from the game (engine/haptics.ts): strength × every effect, and which effects play
 export interface FeedbackCfg { on: boolean; strength: number; hits: boolean; kerbs: boolean; offTrack: boolean; slides: boolean; shifts: boolean; lock: boolean }
 export interface Config { steer: SteerCfg; gas: PedalCfg; brake: PedalCfg; buttons: ButtonCfg[]; flick: FlickCfg; layout: LayoutCfg; feedback: FeedbackCfg }
@@ -43,7 +42,7 @@ export const DEFAULTS: Config = {
   // flick a thumb sideways toward the screen centre while on a pedal to shift: brake = down, gas = up
   // (`distance` px within `time` ms, mostly sideways); each flick taps the bound button once
   flick: { on: true, distance: 40, time: 160, down: 'LB', up: 'RB' },
-  layout: { swapPedals: false, pedalSize: 1, buttonSize: 'm', showWheel: true, quickSliders: true, haptics: true, shiftButtons: true, swapShift: false, putDown: true },
+  layout: { swapPedals: false, pedalSize: 1, buttonSize: 'm', showWheel: true, haptics: true, shiftButtons: true, swapShift: false, putDown: true },
   feedback: { on: true, strength: 1, hits: true, kerbs: true, offTrack: true, slides: true, shifts: false, lock: true },
 };
 
@@ -96,7 +95,6 @@ export function sanitize(input: unknown): Config {
       pedalSize: num(l.pedalSize, D.layout.pedalSize, 0.6, 1.6),
       buttonSize: pick(l.buttonSize, ['s', 'm', 'l'] as const, D.layout.buttonSize),
       showWheel: bool(l.showWheel, D.layout.showWheel),
-      quickSliders: bool(l.quickSliders, D.layout.quickSliders),
       haptics: bool(l.haptics, D.layout.haptics),
       shiftButtons: bool(l.shiftButtons, D.layout.shiftButtons),
       swapShift: bool(l.swapShift, D.layout.swapShift),

@@ -71,10 +71,11 @@ test('phone link server: pages, redirect, pairing, input, probes, release', asyn
     assert.ok(st.running && st.port > 0 && !st.error, JSON.stringify(st));
     const token = new URL(st.url).searchParams.get('t'), base = `https://127.0.0.1:${st.port}`;
     assert.match(st.qr, /^<svg/);
-    const page = await get(base + '/');
-    assert.equal(page.status, 200); assert.match(page.body, /<html/i); assert.equal(page.headers['cache-control'], 'no-cache');
-    assert.equal((await get(base + '/static/engine.js')).headers['content-type'], 'text/javascript');
-    assert.equal((await get(base + '/static/../../package.json')).status, 404, 'no way out of static/');
+    const page = await get(base + '/'), built = fs.existsSync(path.join(ROOT, 'phone-wheel', 'web', 'dist', 'index.html'));
+    if (built) { assert.equal(page.status, 200); assert.match(page.body, /<html/i); assert.equal(page.headers['cache-control'], 'no-cache'); }
+    else { assert.equal(page.status, 503); assert.match(page.body, /phone:build/); }   // (npm test runs before the build in a fresh clone)
+    assert.equal((await get(base + '/assets/../../../package.json')).status, 404, 'no way out of assets/');
+    assert.equal((await get(base + '/static/engine.js')).status, 404, 'the old page is gone');
     const plain = await get(`http://127.0.0.1:${st.port}/`);
     assert.equal(plain.status, 301); assert.equal(plain.headers.location, `https://127.0.0.1:${st.port}/`);
     assert.equal((await get(`${base}/check?t=${token}`)).status, 200);
