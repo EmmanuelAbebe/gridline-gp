@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SIM as S } from '../src/sim/index.js';
-import { createRecorder, ghostPose, ghostDelta, loadGhosts, keepGhost, ghostOf, dropGhost, ghostFile, readGhostFile, GHOST } from '../src/game/ghost.js';
+import { createRecorder, ghostPose, ghostDelta, loadGhosts, keepGhost, ghostOf, dropGhost, ghostFile, readGhostFile, GHOST, storeJson, compactGhost, expandGhost, packGhost, unpackGhost } from '../src/game/ghost.js';
 import { DT } from './helpers.js';
 
 // one flying lap of the best AI on Elkmoor, recorded like the game does (start at the line, sample every step)
@@ -39,6 +39,29 @@ test('a recorded lap plays back along the track and gives the live delta', () =>
   assert.ok(Math.abs(ghostDelta(g, idx, g.splits[k] + 0.4) - 0.4) < 1e-9, '+ = slower');
 });
 
+// the compact form keeps every pose exactly and the splits to the millisecond
+function same(a, b) {
+  const { frames, splits, ...meta } = b;
+  assert.ok(a); assert.deepEqual(a.frames, frames);
+  assert.equal(a.splits.length, splits.length);
+  a.splits.forEach((t, i) => assert.ok(Math.abs(t - splits[i]) <= 5e-4 + 1e-9, `split ${i}`));
+  for (const k in meta) assert.deepEqual(a[k], meta[k], k);
+}
+
+test('compact and gzipped laps round-trip, and are much smaller', async () => {
+  const { ghost: g } = recordLap();
+  const c = compactGhost(g);
+  same(expandGhost(JSON.parse(JSON.stringify(c))), g);
+  assert.ok(c.d.every(Number.isInteger) && c.ds.every(Number.isInteger));
+  const plain = JSON.stringify({ gridlineGhost: 1, ...g }).length, small = ghostFile(g).length, bytes = await packGhost(g);
+  assert.ok(small < plain * 0.6, `compact ${small} vs ${plain}`);
+  assert.ok(bytes.length < plain * 0.15, `gzipped ${bytes.length} vs ${plain}`);
+  same(await unpackGhost(bytes, S.CIRCUITS), g);
+  same(await unpackGhost(new TextEncoder().encode(JSON.stringify({ gridlineGhost: 1, ...g })), S.CIRCUITS), g);   // an old .json
+  assert.equal(await unpackGhost(new Uint8Array([0x1f, 0x8b, 1, 2, 3]), S.CIRCUITS), null, 'broken gzip');
+  assert.equal(expandGhost({ ...c, d: [1, 2] }), null);
+});
+
 test('the store keeps the best per circuit and class; files round-trip; broken data is ignored', () => {
   const { ghost: g } = recordLap(), store = {};
   assert.ok(keepGhost(store, g));
@@ -46,11 +69,12 @@ test('the store keeps the best per circuit and class; files round-trip; broken d
   assert.ok(keepGhost(store, { ...g, time: g.time - 1 }), 'a faster one replaces it');
   assert.ok(keepGhost(store, { ...g, modified: true }), 'modified cars apart');
   assert.equal(ghostOf(store, g.circuit, false).time, g.time - 1);
-  const back = loadGhosts(JSON.stringify(store), S.CIRCUITS);
+  const back = loadGhosts(storeJson(store), S.CIRCUITS);
   assert.equal(ghostOf(back, g.circuit, true).time, g.time);
   dropGhost(back, g.circuit, true); assert.equal(ghostOf(back, g.circuit, true), null);
-  const file = readGhostFile(ghostFile(g), S.CIRCUITS);
-  assert.deepEqual(file, g);
+  same(readGhostFile(ghostFile(g), S.CIRCUITS), g);
+  same(readGhostFile(JSON.stringify({ gridlineGhost: 1, ...g }), S.CIRCUITS), g);       // an old plain file
+  assert.deepEqual(loadGhosts(JSON.stringify(store), S.CIRCUITS)[g.circuit].stock, store[g.circuit].stock, 'old plain saves load');
   for (const bad of ['nope', '{}', JSON.stringify({ gridlineGhost: 1, ...g, circuit: 'mars' }), JSON.stringify({ gridlineGhost: 1, ...g, frames: [1, 2] })])
     assert.equal(readGhostFile(bad, S.CIRCUITS), null);
   assert.deepEqual(loadGhosts('{"elkmoor": {"stock": {"v": 1}}}', S.CIRCUITS), {});

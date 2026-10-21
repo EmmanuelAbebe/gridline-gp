@@ -27,7 +27,7 @@ import { createMirrors } from './mirrors.js';
 import { aiLap, aiLapReady, ghostDriver, createRival, rivalGap } from './ai-ghosts.js';
 import { createRacingLine } from './racing-line.js';
 import { createGhostInputs } from './ghost-inputs.js';
-import { createRecorder, ghostPose, ghostDelta, loadGhosts, keepGhost, ghostOf, dropGhost, ghostFile, readGhostFile } from './ghost.js';
+import { createRecorder, ghostPose, ghostDelta, loadGhosts, keepGhost, ghostOf, dropGhost, readGhostFile, storeJson, packGhost, unpackGhost } from './ghost.js';
 import { HudStyle } from './hud-style.js';
 import { LayoutEditor } from './layout-editor.js';
 import { TweakPanel } from './tweak-panel.js';
@@ -88,8 +88,8 @@ const crews = createPitCrews(Display.scene);   // the people in the pit lane (bu
 const marks = createTyreMarks(Display.scene);  // rubber laid by sliding / locking / spinning tyres (cleared per race)
 const ghostModel = CarModels.create(Display.scene, playerDriver(game.garage), Design.data.car);   // the see-through car
 ghostModel.setMaterials(CarModels.ghostMaterials()); ghostModel.setShadows(false); ghostModel.setVisible(false);
-const saveGhosts = () => Settings.set(CONFIG.storageKeys.ghosts, JSON.stringify(game.ghosts));
-const saveLoadedGhosts = () => Settings.set(CONFIG.storageKeys.ghostsLoaded, JSON.stringify(game.loadedGhosts));
+const saveGhosts = () => Settings.set(CONFIG.storageKeys.ghosts, storeJson(game.ghosts));
+const saveLoadedGhosts = () => Settings.set(CONFIG.storageKeys.ghostsLoaded, storeJson(game.loadedGhosts));
 const carModified = () => SIM.isModified(game.garage.mods);
 const racingLine = createRacingLine(Display.scene);   // the ALIEN's line, colour by its pedals (pref racingLine)
 const ghostInputs = createGhostInputs();             // the AI ghost's steering / gas / brake charts (pref ghostInputs)
@@ -131,21 +131,23 @@ function renderGhostRow() {
   }));
   $('ghostExport').disabled = !mine; $('ghostClear').hidden = !loaded;
 }
-$('ghostExport').onclick = () => {
+// EXPORT: your best here as a small gzipped file (compact JSON inside: ghost.js packGhost), to send to a friend
+$('ghostExport').onclick = async () => {
   const g = ghostOf(game.ghosts, track.id, carModified()); if (!g) return;
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([ghostFile(g)], { type: 'application/json' }));
-  a.download = `gridline-ghost-${track.id}-${fmtTime(g.time).replace(/[:.]/g, '-')}.json`;
+  a.href = URL.createObjectURL(new Blob([await packGhost(g)], { type: 'application/gzip' }));
+  a.download = `gridline-ghost-${track.id}-${fmtTime(g.time).replace(/[:.]/g, '-')}.json.gz`;
   a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
 $('ghostLoad').onclick = () => $('ghostFile').click();
 $('ghostFile').onchange = e => {
   const f = e.target.files[0]; e.target.value = '';
-  if (f) f.text().then(loadGhostText);
+  if (f) f.arrayBuffer().then(b => unpackGhost(new Uint8Array(b), SIM.CIRCUITS)).then(loadGhost);   // .json.gz, or an old .json
 };
-// a ghost file's text (LOAD button): kept as the loaded ghost for its circuit and class, and that circuit picked
-function loadGhostText(text) {
-  const g = readGhostFile(text, SIM.CIRCUITS);
+// a ghost file's text (smoke test)
+const loadGhostText = text => loadGhost(readGhostFile(text, SIM.CIRCUITS));
+// a loaded ghost (LOAD button): kept as the loaded ghost for its circuit and class, and that circuit picked
+function loadGhost(g) {
   if (!g) { Hud.toast('That file is not a Gridline ghost lap'); return; }
   (game.loadedGhosts[g.circuit] ||= {})[g.modified ? 'modified' : 'stock'] = g; saveLoadedGhosts();
   if (g.circuit !== track.id) { game.setup.track = g.circuit; setTrack(g.circuit); renderSetup(); saveSetup(); }

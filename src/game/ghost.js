@@ -47,7 +47,33 @@ export function ghostDelta(g, idx, lapTime) {
   return Number.isFinite(at) && k > 0 ? lapTime - at : null;
 }
 
-// ---- storage: { [circuit]: { stock?: ghost, modified?: ghost } }, the same for the loaded ones ----
+// ---- compact form (2026-10-20, user: smaller laps, to put players' best laps online): what is saved and sent ----
+// The pose is already rounded (x, z to 1 cm, h to 1 mrad), so it is kept in whole units as the change of each frame's
+// step from the last one (second differences: the car's speed changes slowly, so these are small integers, mostly
+// under ±75, which gzip packs well; `d` = d²x, d²z, d²h, ... after the first pose `p0`), and the splits as whole-
+// millisecond steps (`ds`). Lossless for the pose; splits within 0.5 ms. In memory a ghost stays the plain form.
+// (First differences were tried first: gzipped laps 1.8× bigger.)
+const POSE_UNITS = [100, 100, 1000];
+export function compactGhost(g) {
+  const { frames, splits, ...meta } = g, d = new Array(frames.length - 3);
+  const q = frames.map((v, i) => Math.round(v * POSE_UNITS[i % 3]));
+  for (let i = 3; i < q.length; i++) d[i - 3] = q[i] - q[i - 3] - (i >= 6 ? q[i - 3] - q[i - 6] : 0);
+  let last = 0;
+  const ds = splits.map(t => { if (!Number.isFinite(t)) return null; const ms = Math.round(t * 1000), step = ms - last; last = ms; return step; });
+  return { ...meta, enc: 'delta2', p0: q.slice(0, 3), d, ds };
+}
+export function expandGhost(c) {
+  if (!c || c.enc !== 'delta2') return c;          // already plain (old saves and files)
+  const { p0, d, ds, ...meta } = c; delete meta.enc;
+  if (!Array.isArray(p0) || p0.length !== 3 || !Array.isArray(d) || d.length % 3 || !Array.isArray(ds)) return null;
+  const q = p0.slice(), step = [0, 0, 0], frames = p0.map((v, i) => v / POSE_UNITS[i]);
+  for (let i = 0; i < d.length; i++) { const k = i % 3; step[k] += d[i]; q[k] += step[k]; frames.push(q[k] / POSE_UNITS[k] + 0); }
+  let ms = 0;
+  const splits = ds.map(step => step === null ? undefined : (ms += step) / 1000);
+  return { ...meta, frames, splits };
+}
+
+// ---- storage: { [circuit]: { stock?: ghost, modified?: ghost } }, the same for the loaded ones (compact JSON) ----
 export function validGhost(g, circuits) {
   if (!g || typeof g !== 'object' || g.v !== GHOST.version || !(g.time > 0) || !Object.hasOwn(circuits, g.circuit)) return false;
   if (!Array.isArray(g.frames) || g.frames.length % 3 || g.frames.length < 9 || !g.frames.every(Number.isFinite)) return false;
@@ -56,10 +82,13 @@ export function validGhost(g, circuits) {
 export function loadGhosts(json, circuits) {
   let s; try { s = JSON.parse(json); } catch (e) { return {}; }
   const out = {};
-  if (s && typeof s === 'object') for (const [id, r] of Object.entries(s)) for (const k of ['stock', 'modified'])
-    if (r && validGhost(r[k], circuits) && r[k].circuit === id) (out[id] ||= {})[k] = r[k];
+  if (s && typeof s === 'object') for (const [id, r] of Object.entries(s)) for (const k of ['stock', 'modified']) {
+    const g = r && expandGhost(r[k]);
+    if (validGhost(g, circuits) && g.circuit === id) (out[id] ||= {})[k] = g;
+  }
   return out;
 }
+export const storeJson = store => JSON.stringify(store, (k, v) => v && v.frames && v.splits ? compactGhost(v) : v);
 const cls = modified => modified ? 'modified' : 'stock';
 export const ghostOf = (store, circuit, modified) => store[circuit]?.[cls(modified)] ?? null;
 // keeps `g` when it is the first or faster; true when it was kept
@@ -71,11 +100,25 @@ export function keepGhost(store, g) {
 }
 export function dropGhost(store, circuit, modified) { if (store[circuit]) delete store[circuit][cls(modified)]; }
 
-// ---- files (export / import a ghost: send your lap to a friend) ----
-export const ghostFile = g => JSON.stringify({ gridlineGhost: GHOST.version, ...g });
+// ---- files (export / import a ghost: send your lap to a friend; the same bytes would go to a server) ----
+// ghostFile = compact JSON text; packGhost = that, gzipped (the browser's own CompressionStream: no library).
+// readGhostFile reads the compact text and the old plain files (gridlineGhost: 1); unpackGhost reads either, gzipped
+// or not (a .json file from before).
+export const FILE_VERSION = 2;
+export const ghostFile = g => JSON.stringify({ gridlineGhost: FILE_VERSION, ...compactGhost(g) });
 export function readGhostFile(text, circuits) {
   let g; try { g = JSON.parse(text); } catch (e) { return null; }
-  if (!g || g.gridlineGhost !== GHOST.version) return null;
+  if (!g || (g.gridlineGhost !== 1 && g.gridlineGhost !== FILE_VERSION)) return null;
   delete g.gridlineGhost;
+  g = expandGhost(g);
   return validGhost(g, circuits) ? g : null;
+}
+const pipe = async (bytes, stream) => new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
+export const packGhost = g => pipe(new TextEncoder().encode(ghostFile(g)), new CompressionStream('gzip'));
+export async function unpackGhost(bytes, circuits) {
+  try {
+    const gz = bytes[0] === 0x1f && bytes[1] === 0x8b;
+    const text = new TextDecoder().decode(gz ? await pipe(bytes, new DecompressionStream('gzip')) : bytes);
+    return readGhostFile(text, circuits);
+  } catch (e) { return null; }
 }

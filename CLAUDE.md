@@ -555,7 +555,12 @@ leaves ~8 s on the table, relevant to the parked smarter-AI plan.
 `ghost.js` (pure, tests/ghost.test.js): `createRecorder` (pose x/z/h at 20 Hz + lap time every 20 samples = splits;
 started at lights out and at every crossing), `ghostPose`, `ghostDelta`, store per circuit × stock/modified
 (`keepGhost` = your best valid lap, localStorage `gridline.ghosts`; files loaded = `gridline.ghosts-loaded`),
-`ghostFile` / `readGhostFile` (`gridlineGhost: 1` JSON). Race type TIME TRIAL (`setup.type 'trial'`): you alone,
+`ghostFile` / `readGhostFile` (JSON). Compact form (2026-10-20; user wants players' best laps online later):
+`compactGhost` / `expandGhost` = pose as whole-unit second differences (cm, cm, mrad: lossless) + splits as ms steps
+(`enc: 'delta2'`); localStorage saves it (`storeJson`; old plain saves still load); EXPORT = `packGhost` (gzip via
+CompressionStream, `.json.gz`, `gridlineGhost: 2`), LOAD = `unpackGhost` (gzip or an old plain .json).
+`npm run ghost-bench` (tools/ghost-bench.mjs): a lap per circuit in every format: old JSON 14–29 KB → gzipped compact
+1.6–2.7 KB (~10×), all five 109 → 11 KB, < 1 ms to pack or unpack. Race type TIME TRIAL (`setup.type 'trial'`): you alone,
 unlimited laps, no wear; start menu ghost row (shown ghost, EXPORT your best as a file, LOAD a friend's, MINE = back to
 yours); in the race a see-through car (CarModels.ghostMaterials) at the same time into its lap and the HUD "Ghost" delta
 (from the first crossing). Every race records your laps (a new best becomes your ghost). AI ghosts (2026-10-20, user: "add the ALIEN or the best driver for the ghost and a list of the AIs and their times";
