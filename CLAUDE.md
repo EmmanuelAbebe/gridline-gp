@@ -585,6 +585,8 @@ The smoke test screenshots the list (`out-trial-menu.png`) and races the live AL
 solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-ghost.png`.
 
 ## Ideas not done yet
+- Online leaderboard with replay validation: planned 2026-10-20 in `docs/leaderboard-plan.md` (not started; the user
+  asked to be reminded). First step: deterministic sim math across JS engines + an input recorder / Node replay.
 - Smarter AI: started 2026-10-19 (see "LEGEND AI and racecraft"); still open: rivals that learn the player's lines.
   (Earlier notes:) parked 2026-10-19 by the user "for later once better game mechanics are made". User beat Northfold in
   1:02.275 (fastest AI solo 67.6 s) with other lines through turns 2–3 and 5–6; LEGEND "feels fair: rewards good tries,
