@@ -117,6 +117,7 @@ const TABS = [
   { id: 'tools', label: 'Tools', items: [
     buttons(['Design tools', 'tweak'], ['HUD layout', 'layout'], ['Input monitor', 'inputs']),
     { type: 'html', html: '<p class="note">Design tools (T) edit the car, cameras and HUD look. HUD layout (L) moves the race panels; start a race first.</p>' },
+    seg('updateCheck', 'Check for updates', ON_OFF, v => v ? 'At start the game looks on GitHub for a newer version and tells you on the start menu. It downloads nothing by itself and sends nothing about you.' : 'The game never goes online on its own.'),
     { type: 'html', html: '<p class="lbl" style="margin:4px 0 0">Report a bug</p>' },
     buttons(['Open log folder', 'logs']),
     { type: 'html', html: '<p class="note">Found a bug? Report it at github.com/EmmanuelAbebe/gridline-gp/issues and attach gridline.log (and gridline-previous.log if the game crashed and you restarted it) from this folder. Desktop app only.</p>' },

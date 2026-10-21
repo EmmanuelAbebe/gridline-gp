@@ -1,7 +1,7 @@
 {
   "name": "gridline-gp",
   "productName": "Gridline GP",
-  "version": "1.0.0",
+  "version": "0.1.0-alpha.1",
   "description": "F1-style racing game, played with a phone tilt wheel.",
   "private": true,
   "main": "desktop/main.cjs",
@@ -49,6 +49,7 @@
     "ws": "8.22.0"
   },
   "type": "module",
+  "license": "UNLICENSED",
   "author": {
     "name": "EmmanuelAbebe"
   },
@@ -96,7 +97,8 @@
       ],
       "category": "public.app-category.racing-games",
       "icon": "public/icons/icon-512.png",
-      "identity": null
+      "identity": "-",
+      "hardenedRuntime": false
     }
   },
   "desktopName": "gridline-gp.desktop"

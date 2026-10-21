@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('gridlineApp', {
   isFullscreen: () => ipcRenderer.invoke('app:is-fullscreen'),
   onFullscreen: fn => ipcRenderer.on('app:fullscreen', (_e, on) => fn(on)),
   onAskQuit: fn => ipcRenderer.on('app:ask-quit', () => fn()),   // Alt+F4 / window close: the page asks "Quit?" first
+  checkUpdate: () => ipcRenderer.invoke('app:check-update'),      // → { version, url, name } | null (update-check.cjs)
+  openRelease: url => ipcRenderer.send('app:open-release', url),  // only this game's GitHub releases pages
   openLogs: () => ipcRenderer.invoke('app:open-logs'),            // shows gridline.log (desktop/log.cjs) in the file manager
   debug: ipcRenderer.sendSync('app:debug'),                       // test runs only: the page installs window.gridlineDebug
   // phone wheel server in the app (desktop/phone-link.cjs): start({ link, port, renewCode }) → status

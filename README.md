@@ -1,5 +1,7 @@
 # Gridline GP
 
+> **Alpha**: an early test version. Expect rough edges, and please [report bugs](#report-a-bug).
+
 An F1-style racing game for Windows, macOS and Linux. Race up to nine AI rivals or chase ghost laps on five invented
 circuits. The car runs on a real tyre-and-downforce physics model, with a pit lane, fuel, tyre wear and damage.
 Play it with a keyboard or a controller, or turn your phone into a steering wheel: tilt it to steer, and it vibrates
@@ -12,19 +14,19 @@ when you hit a kerb.
 
 ## Install
 
-Download the file for your computer from the
-[**latest release**](https://github.com/EmmanuelAbebe/gridline-gp/releases/latest):
+Download the file for your computer from the newest version on the
+[**Releases page**](https://github.com/EmmanuelAbebe/gridline-gp/releases):
 
 | Your computer | File | How |
 |---|---|---|
 | Windows 10 / 11 | `…-win-x64.exe` | Run it and follow the installer. Windows may say "Windows protected your PC": click *More info* → *Run anyway*. |
-| Mac (M1 or newer) | `…-mac-arm64.dmg` | Open it and drag Gridline GP into Applications. The first time, right-click the app → *Open* → *Open*. |
+| Mac (M1 or newer) | `…-mac-arm64.dmg` | Open it and drag Gridline GP into Applications. The first time macOS blocks it: click *Done*, then System Settings → Privacy & Security → *Open Anyway*. |
 | Mac (Intel) | `…-mac-x64.dmg` | The same as above. |
 | Ubuntu, Mint, Debian | `…-linux-amd64.deb` | Double-click it to install, or run `sudo apt install ./Gridline-GP-*.deb`. |
 | Other Linux | `…-linux-x86_64.AppImage` | Make it executable (right-click → Properties → Allow executing), then double-click it. |
 
-The warnings appear because the game isn't code-signed yet. Then start **Gridline GP** from the Start menu,
-Launchpad or applications menu.
+The warnings appear because the game isn't code-signed by Apple or Microsoft yet. Then start **Gridline GP** from the
+Start menu, Launchpad or applications menu. When a new version is out, the game says so on its start menu.
 
 ## Play
 
@@ -57,6 +59,8 @@ If the game doesn't start at all, the log folder is:
 - macOS: `~/Library/Logs/Gridline GP`
 - Linux: `~/.config/Gridline GP/logs`
 
+Ideas, or feedback on how it drives? Post them in [Discussions](https://github.com/EmmanuelAbebe/gridline-gp/discussions).
+
 ## Build from source
 
 You need [Node.js](https://nodejs.org) 22 or newer.
@@ -73,11 +77,17 @@ The code layout and design notes are in [CLAUDE.md](CLAUDE.md).
 
 ### Make a release
 
-Set the version in `package.json`, commit, then push a tag with the same version:
+Set the version in `package.json` (e.g. `0.1.0-alpha.2`), commit, then push a tag with the same version:
 
 ```sh
-git tag v1.0.1 && git push origin v1.0.1
+git tag v0.1.0-alpha.2 && git push origin v0.1.0-alpha.2
 ```
 
 GitHub Actions then builds the installers on Windows, macOS and Linux. It installs each one, plays a test race with
-it, and publishes a release with all the installers once every OS passes.
+it, and publishes a release with all the installers once every OS passes. A version with a dash (`-alpha.2`,
+`-beta.1`) becomes a pre-release.
+
+## Licence
+
+All rights reserved: you may download and play the released game for free, but not copy, change or redistribute it.
+See [LICENSE](LICENSE).

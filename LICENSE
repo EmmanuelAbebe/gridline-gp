@@ -1,0 +1,11 @@
+Copyright (c) 2026 EmmanuelAbebe (github.com/EmmanuelAbebe). All rights reserved.
+
+Gridline GP, including its source code, artwork and sound design, is not open source.
+
+You may download the released builds from https://github.com/EmmanuelAbebe/gridline-gp/releases and play them
+for free, for your own use. You may read the source code here and suggest changes.
+
+You may not copy, modify, redistribute, sell or publish the game, its code or any part of it, or builds made from it,
+without written permission from the author.
+
+The bundled third-party libraries (Three.js, fonts and others listed in package.json) keep their own licences.

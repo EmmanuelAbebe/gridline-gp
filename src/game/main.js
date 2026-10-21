@@ -513,6 +513,7 @@ setTrack(game.setup.track);
   setGfx(Object.hasOwn(GFX_PROFILES, saved || '') ? saved : (Display.gpu.weak ? 'perf' : 'quality'), false); }
 applyPrefs(); game.steerRate = steerRate(game.prefs);
 playerModel().setLivery(game.garage.livery);
+if (game.prefs.updateCheck) AppShell.checkUpdate();                                                 // Settings → Tools
 if (PhoneWheel.available && game.prefs.phoneAuto) PhoneWheel.start({ link: game.prefs.phoneLink });   // Settings → Controller
 Hud.setPad(false, Input.gamepadAllowed);
 HudStyle.apply(CameraRig.mode.id);

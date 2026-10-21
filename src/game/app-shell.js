@@ -1,5 +1,6 @@
 import { Hud } from './hud.js';
 import { $ } from './util.js';
+import { VERSION, stageLabel } from './version.js';
 
 // Full screen and quit. In the desktop app (desktop/main.js exposes window.gridlineApp) full screen switches the
 // app window between full screen and a maximised frameless window, and the quit buttons close the app.
@@ -28,10 +29,22 @@ export const AppShell = (() => {
   ask.addEventListener('click', e => { if (e.target === ask) cancelQuit(); });      // a click beside the card = stay
   for (const b of document.querySelectorAll('[data-quit]')) { b.hidden = !app; b.onclick = askQuit; }
   app?.onAskQuit?.(askQuit);
+  $('versionTag').textContent = stageLabel(VERSION); $('versionTag').title = 'Version ' + VERSION;
+  // a newer release on GitHub (desktop app only, desktop/update-check.cjs): a bar on the start menu, DOWNLOAD opens
+  // its page; ✕ hides it until the next start
+  function checkUpdate() {
+    app?.checkUpdate?.().then(r => {
+      if (!r) return;
+      $('updateText').textContent = `Gridline GP ${r.version} is out (you have ${VERSION})`;
+      $('updateBtn').onclick = () => app.openRelease(r.url);
+      $('updateHide').onclick = () => { $('updateBar').hidden = true; };
+      $('updateBar').hidden = false;
+    }).catch(() => {});
+  }
   return {
     isApp: !!app,
     get quitOpen() { return !ask.hidden; },
-    askQuit, cancelQuit,
+    askQuit, cancelQuit, checkUpdate,
     onAskQuit(fn) { listeners.push(fn); },        // (main.js pauses a running race)
     toggleFullscreen() {
       if (app) { app.toggleFullscreen().then(label); return; }

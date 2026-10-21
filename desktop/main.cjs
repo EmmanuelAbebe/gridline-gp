@@ -30,6 +30,16 @@ if (smokeOut || shotsDir) {
 }
 // the log file for bug reports (log.cjs): Settings → Tools → Open log folder
 const log = require('./log.cjs').createLog(app);
+// a newer release on GitHub? (update-check.cjs; the start menu asks once if Settings → Tools → Check for updates is on).
+// Only the installed game: a source copy or a test run never asks (GRIDLINE_UPDATE_TEST=1 tries it from the source,
+// GRIDLINE_UPDATE_TEST=0.1.0-alpha.0 as if this were that version).
+const updates = require('./update-check.cjs'), UPDATE_TEST = process.env.GRIDLINE_UPDATE_TEST || '';
+ipcMain.handle('app:check-update', async () => {
+  if ((!app.isPackaged && !UPDATE_TEST) || smokeOut || shotsDir) return null;
+  try { const r = await updates.checkForUpdate(UPDATE_TEST && UPDATE_TEST !== '1' ? UPDATE_TEST : require('../package.json').version); if (r) log.write('info', 'update available:', r.version); return r; }
+  catch (e) { log.write('warn', 'update check failed:', String(e.message || e)); return null; }
+});
+ipcMain.on('app:open-release', (_e, url) => { if (updates.isReleaseUrl(url)) shell.openExternal(url); });
 ipcMain.handle('app:open-logs', () => { shell.showItemInFolder(log.file); return log.file; });
 // GPU: Chromium's default path renders correctly on the current PC (Radeon RX 9060 XT, Mesa). The old Intel HD 520
 // laptop needed hardware WebGL through ANGLE on Vulkan, which corrupts the picture on the Radeon, so that setup is

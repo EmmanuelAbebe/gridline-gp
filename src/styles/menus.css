@@ -5,6 +5,9 @@
 .brand{display:grid;gap:4px}
 .brand h1{margin:0;font-family:var(--display);font-weight:800;font-size:56px;line-height:.9;letter-spacing:-.01em;text-wrap:balance}
 .brand h1 em{font-style:normal;color:var(--amber)}
+.brand h1 .build-tag{font-size:13px;font-weight:700;letter-spacing:.14em;vertical-align:top;color:var(--amber);border:1px solid var(--amber);border-radius:var(--radius);padding:2px 6px;margin-left:6px}
+.update-bar{display:flex;align-items:center;gap:8px;padding:8px 10px;border-left:3px solid var(--amber);background:rgba(255,194,26,.12);border-radius:var(--radius)}
+.update-bar span{flex:1;font-weight:600}
 .brand p,.card p{margin:0;color:var(--muted);line-height:1.5}
 .stripe{height:6px;background:repeating-linear-gradient(90deg,var(--text) 0 12px,var(--ink) 12px 24px);opacity:.85;border-radius:1px}
 .keys{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px;align-items:center}

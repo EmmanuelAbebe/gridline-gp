@@ -100,6 +100,11 @@ jobs:
           hdiutil attach "$dmg" -nobrowse -mountpoint /Volumes/gridline
           cp -R "/Volumes/gridline/Gridline GP.app" /Applications/
           hdiutil detach /Volumes/gridline
+          # ad-hoc signed (package.json mac.identity "-"): without a valid signature Apple silicon calls a downloaded app
+          # "damaged"; mark it downloaded (quarantine) like a browser does and check the signature holds
+          xattr -w com.apple.quarantine "0083;$(printf %x $(date +%s));Safari;" "/Applications/Gridline GP.app"
+          codesign --verify --deep --strict --verbose=2 "/Applications/Gridline GP.app"
+          codesign -dv "/Applications/Gridline GP.app" 2>&1 | grep -E 'Signature|Identifier'
           "/Applications/Gridline GP.app/Contents/MacOS/Gridline GP" --smoke-test=$PWD/smoke/mac.png > smoke/mac.log 2>&1 || true
           node tools/check-smoke.mjs smoke/mac.log
 
@@ -144,4 +149,5 @@ jobs:
           if [ "${{ github.ref_type }}" = tag ]; then tag="${{ github.ref_name }}"; flags=""
             [ "$tag" = "v$version" ] || echo "::warning::tag $tag but package.json says $version (the installers are named $version)"
           else tag="v$version-draft-${{ github.run_number }}"; flags="--draft --target ${{ github.sha }}"; fi
+          case "$tag" in *-*) flags="$flags --prerelease";; esac       # v0.1.0-alpha.1: a pre-release (alpha / beta)
           gh release create "$tag" release/* $flags --title "Gridline GP ${tag#v}" --notes-file .github/release-notes.md

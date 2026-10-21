@@ -144,7 +144,8 @@ export const PREFS = Object.freeze({
     racingLine: 'full',  // the racing line on the road (racing-line.js): full / braking (zones only) / off
     ghostInputs: true,   // time trial against an AI ghost: its steering / gas / brake charts (ghost-inputs.js)
     hudMirror: false,    // a rear-view mirror strip at the top of the screen (hud-mirror.js)
-    pauseOnBlur: true,   // the race pauses when the game window loses focus (alt-tab) or is hidden
+    pauseOnBlur: true,
+    updateCheck: true,   // the start menu says when a newer version is on GitHub (desktop app only; desktop/update-check.cjs)   // the race pauses when the game window loses focus (alt-tab) or is hidden
     controller: 'auto',  // the device that drives: 'auto' (phone, then a standard pad, then any) or a device key (controllers.js)
     phoneLink: 'wifi',   // how the phone wheel connects (desktop app): wifi / bluetooth / usb (desktop/phone-net.cjs)
     phoneAuto: false,    // start the phone wheel with the game

@@ -52,6 +52,15 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
   car; their data was moved to the Dev profile). Smoke / track-shot runs: a throwaway temp profile.
 - HUD default layout = the user's own (2026-10-21, design-defaults.js `hud.layouts`): map + tower top left, position
   panel under the map, ghost inputs bottom left, buttons at 75%, no speedo in the cockpit view. Theme stays yellow.
+- Alpha (2026-10-21): version `0.1.0-alpha.1` (package.json; `src/game/version.js` → start-menu tag "ALPHA 0.1.0").
+  A tag with a dash = a GitHub pre-release. LICENSE = all rights reserved (free to download and play the releases;
+  package.json `license` UNLICENSED). macOS builds are ad-hoc signed (`mac.identity "-"`, `hardenedRuntime false`):
+  unsigned arm64 apps from a download show "damaged"; CI quarantines the installed app and runs codesign --verify.
+  Release notes (.github/release-notes.md) carry the known issues: update them per release.
+- Update check (`desktop/update-check.cjs`, tests/update-check.test.js): installed app only, once per start if pref
+  `updateCheck` (Settings → Tools, default ON): GET the public GitHub releases list; alpha/beta builds see pre-releases,
+  drafts never; start-menu `#updateBar` with DOWNLOAD (opens only this repo's releases pages). From the source:
+  `GRIDLINE_UPDATE_TEST=1` or `=<version>` to pretend to be that version.
 - Log file (`desktop/log.cjs`, 2026-10-21): `gridline.log` in app.getPath('logs') (Linux ~/.config/Gridline GP/logs,
   Windows %APPDATA%\Gridline GP\logs, macOS ~/Library/Logs/Gridline GP); each start renames the last one to
   gridline-previous.log; versions / OS / CPU / GPU feature status, page warnings + errors, page / GPU process crashes,
