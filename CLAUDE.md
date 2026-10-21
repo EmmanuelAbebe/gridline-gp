@@ -245,7 +245,7 @@ Tunables live in data tables (config modules), not inline in the logic.
      `race-messages.js` (pure: `EVENT_MESSAGES` player event → `{ toast, kind, secs }` | `{ radio, secs }` built from
      the event's details, `SAY` = the other race messages; main.js `showMessage` displays one; sounds/shake/flow
      stay in main.js `onPlayerEvent`), `settings-binding.js` (`bindSettings(game, act)`: SettingsScreen get/set/
-     note/actions + open over the start/pause menu), `debug.js` (`window.gridlineDebug`). Both pure modules are tested
+     note/actions + open over the start/pause menu), `debug.js` (`window.gridlineDebug`: only in the Vite dev server or when desktop/main.cjs runs a test (`--smoke-test`, `--track-shots`, `GRIDLINE_DEBUG=1`): preload `gridlineApp.debug`; never in a player's game), `time-trial.js` (2026-10-21 split: ghost list, recording / EXPORT / LOAD, the see-through car, the live AI rival and delta; `createTimeTrial(ctx)`), `away.js` ("are you there?" overlay + countdown, pause on focus loss). Both pure modules are tested
      in tests/setup-store.test.js (config.js loads in Node: `globalThis.devicePixelRatio`). Add a race message to
      race-messages.js, not inline. main.js keeps state, race flow, commands/buttons, frame loop, circuit switching.
    - `Settings` (try/catch localStorage, key `gridline.gfx`), `createTimers` (race-time delayed callbacks,

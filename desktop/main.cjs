@@ -12,6 +12,10 @@ const ROOT = path.join(__dirname, '..');
 const arg = name => { const a = process.argv.find(x => x === `--${name}` || x.startsWith(`--${name}=`)); return a && (a.split('=')[1] ?? true); };
 const smokeOut = arg('smoke-test'), shotsDir = arg('track-shots');
 const DEV_URL = process.env.GRIDLINE_DEV_URL || '';
+// window.gridlineDebug (src/game/debug.js: autopilot, camera views, settings...) only for the app's own test runs, the
+// dev server or GRIDLINE_DEBUG=1: never in a player's game (2026-10-21, before lap times go online)
+const DEBUG = !!(smokeOut || shotsDir || DEV_URL || process.env.GRIDLINE_DEBUG === '1');
+ipcMain.on('app:debug', e => { e.returnValue = DEBUG; });
 
 app.setName('Gridline GP');
 // the smoke test gets a fresh, throwaway profile: default race setup, and the player's saved settings stay untouched

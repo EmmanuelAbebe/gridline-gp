@@ -24,12 +24,11 @@ import { Hud } from './hud.js';
 import { Screens } from './screens.js';
 import { WheelScreen } from './wheel-screen.js';
 import { createMirrors } from './mirrors.js';
-import { aiLap, aiLapReady, ghostDriver, createRival, rivalGap } from './ai-ghosts.js';
 import { createRacingLine } from './racing-line.js';
-import { createGhostInputs } from './ghost-inputs.js';
-import { createPresence } from './presence.js';
+import { createAway } from './away.js';
 import { createHudMirror } from './hud-mirror.js';
-import { createRecorder, ghostPose, ghostDelta, loadGhosts, keepGhost, ghostOf, dropGhost, readGhostFile, storeJson, packGhost, unpackGhost } from './ghost.js';
+import { loadGhosts } from './ghost.js';
+import { createTimeTrial } from './time-trial.js';
 import { HudStyle } from './hud-style.js';
 import { LayoutEditor } from './layout-editor.js';
 import { TweakPanel } from './tweak-panel.js';
@@ -83,88 +82,14 @@ const game = {
 };
 const isRunning = () => !!game.race && game.phase !== PHASE.MENU && !game.paused && !game.frozen;
 
-// ---- ghost laps and time trial (ghost.js) ----
-const recorder = createRecorder();
 const haptics = createHaptics();       // force feedback for the phone wheel
 const crews = createPitCrews(Display.scene);   // the people in the pit lane (built per race)
 const marks = createTyreMarks(Display.scene);  // rubber laid by sliding / locking / spinning tyres (cleared per race)
-const ghostModel = CarModels.create(Display.scene, playerDriver(game.garage), Design.data.car);   // the see-through car
-ghostModel.setMaterials(CarModels.ghostMaterials()); ghostModel.setShadows(false); ghostModel.setVisible(false);
-const saveGhosts = () => Settings.set(CONFIG.storageKeys.ghosts, storeJson(game.ghosts));
-const saveLoadedGhosts = () => Settings.set(CONFIG.storageKeys.ghostsLoaded, storeJson(game.loadedGhosts));
-const carModified = () => SIM.isModified(game.garage.mods);
 const racingLine = createRacingLine(Display.scene);   // the ALIEN's line, colour by its pedals (pref racingLine)
 const hudMirror = createHudMirror(Display);        // the rear-view strip on the HUD (pref hudMirror)
-const ghostInputs = createGhostInputs();             // the AI ghost's steering / gas / brake charts (pref ghostInputs)
-// AI laps (ai-ghosts.js): the fastest AI driver alone at each level, made once per circuit and active-aero setting
-const LEVELS = RACE_SETUP.aiLevels, aiPick = () => Object.hasOwn(LEVELS, game.setup.ghost) ? game.setup.ghost : null;
-const aiLapsReady = aero => Object.keys(LEVELS).every(id => aiLapReady(track, id, aero));
-const aiLapOf = (id, aero = raceAero(game.setup).activeAero) => aiLap(track, id, LEVELS[id], aero);
-// the recorded ghost to race on this circuit in this car class (game.setup.ghost): the one loaded from a file (else
-// your best), or your best; start = the standing-start lap (your lap 1 from the grid), else the flying lap. (An AI
-// pick races a live car instead: game.rival.)
-function activeGhost(modified = carModified(), start = false) {
-  if (game.setup.ghost === 'loaded' && ghostOf(game.loadedGhosts, track.id, modified)) return ghostOf(game.loadedGhosts, track.id, modified, start);
-  return ghostOf(game.ghosts, track.id, modified, start);
-}
-const showGhostLivery = g => { if (g) ghostModel.setLivery({ ...game.garage.livery, ...(g.livery || {}) }); };
-// the list of ghosts on the start menu (time trial): yours, the loaded one, every AI level with its lap time and the
-// gap to your best. The AI laps take ~0.3 s to make the first time on a circuit: the list says so and fills in after.
-let aiPending = false;
-function renderGhostRow() {
-  if (game.setup.type !== 'trial') return;          // (the row is only shown for a time trial)
-  const mod = carModified(), mine = ghostOf(game.ghosts, track.id, mod), loaded = ghostOf(game.loadedGhosts, track.id, mod);
-  const aero = raceAero(game.setup).activeAero, ready = aiLapsReady(aero);
-  if (!ready && !aiPending) { aiPending = true; setTimeout(() => { for (const id in LEVELS) aiLapOf(id, aero); aiPending = false; renderGhostRow(); }, 30); }
-  const ai = ready ? Object.fromEntries(Object.keys(LEVELS).map(id => [id, aiLapOf(id, aero)])) : {}, D = ghostDriver(), pick = game.setup.ghost;
-  const mineStart = ghostOf(game.ghosts, track.id, mod, true);
-  const rows = [['mine', 'Your best', [mod ? 'modified car' : '', mineStart ? 'lap 1 from the grid ' + fmtTime(mineStart.time) : ''].filter(Boolean).join(' · '), mine,
-    'No lap yet: your first clean lap']];
-  if (loaded) rows.push(['loaded', 'Loaded', loaded.driver && loaded.driver !== 'You' ? loaded.driver : 'from a file', loaded, '']);
-  for (const [id, label] of RACE_SETUP.choices.ai) rows.push([id, label, D.name, ai[id], ready ? 'no clean lap' : 'timing…']);
-  const sel = pick === 'loaded' && !loaded ? 'mine' : pick;
-  $('ghostList').replaceChildren(...rows.map(([id, name, sub, g, none]) => {
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'ghost-pick'; b.dataset.ghost = id;
-    b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(id === sel));
-    const t = document.createElement('span'); t.textContent = g ? fmtTime(g.time) : none;
-    const gap = document.createElement('i');
-    if (g && mine && g !== mine && id !== 'mine') { const d = g.time - mine.time; gap.textContent = (d >= 0 ? '+' : '−') + Math.abs(d).toFixed(2); gap.className = d >= 0 ? 'up' : 'down';
-      gap.title = d >= 0 ? 'slower than your best' : 'faster than your best'; }
-    const n = document.createElement('b'); n.textContent = name;
-    if (sub) { const sm = document.createElement('small'); sm.textContent = sub; n.append(sm); }
-    b.append(n, t, gap);
-    b.onclick = () => { game.setup.ghost = id; saveSetup(); };
-    return b;
-  }));
-  $('ghostExport').disabled = !mine; $('ghostClear').hidden = !loaded;
-}
-// EXPORT: your best here as a small gzipped file (compact JSON inside: ghost.js packGhost), to send to a friend
-$('ghostExport').onclick = async () => {
-  const mod = carModified(), g = ghostOf(game.ghosts, track.id, mod); if (!g) return;
-  const a = document.createElement('a');   // (your standing-start lap goes with it, for your friend's lap 1)
-  a.href = URL.createObjectURL(new Blob([await packGhost(g, ghostOf(game.ghosts, track.id, mod, true))], { type: 'application/gzip' }));
-  a.download = `gridline-ghost-${track.id}-${fmtTime(g.time).replace(/[:.]/g, '-')}.json.gz`;
-  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-};
-$('ghostLoad').onclick = () => $('ghostFile').click();
-$('ghostFile').onchange = e => {
-  const f = e.target.files[0]; e.target.value = '';
-  if (f) f.arrayBuffer().then(b => unpackGhost(new Uint8Array(b), SIM.CIRCUITS)).then(loadGhost);   // .json.gz, or an old .json
-};
-// a ghost file's text (smoke test)
-const loadGhostText = text => loadGhost(readGhostFile(text, SIM.CIRCUITS));
-// a loaded ghost (LOAD button): kept as the loaded ghost for its circuit and class, and that circuit picked
-function loadGhost(g) {
-  if (!g) { Hud.toast('That file is not a Gridline ghost lap'); return; }
-  const { standing, ...lap } = g;
-  dropGhost(game.loadedGhosts, g.circuit, g.modified);        // one friend's laps at a time per class
-  for (const x of [lap, standing]) if (x) keepGhost(game.loadedGhosts, x);
-  saveLoadedGhosts();
-  if (g.circuit !== track.id) { game.setup.track = g.circuit; setTrack(g.circuit); renderSetup(); saveSetup(); }
-  game.setup.ghost = 'loaded'; saveSetup();
-  Hud.toast(`Ghost loaded: ${fmtTime(g.time)} on ${SIM.CIRCUITS[g.circuit].name}`);
-}
-$('ghostClear').onclick = () => { dropGhost(game.loadedGhosts, track.id, carModified()); saveLoadedGhosts(); renderGhostRow(); };
+// ---- time trial and ghosts (time-trial.js) ----
+const trial = createTimeTrial({ game, track: () => track, saveSetup: () => saveSetup(),
+  switchTrack: id => { game.setup.track = id; setTrack(id); renderSetup(); saveSetup(); } });
 
 // ---- race setup and prefs (setup-store.js: loading, validation, what they mean for a race) ----
 const savePrefs = () => Settings.set(CONFIG.storageKeys.prefs, JSON.stringify(game.prefs));
@@ -172,7 +97,7 @@ const savePrefs = () => Settings.set(CONFIG.storageKeys.prefs, JSON.stringify(ga
 function applyPrefs() {
   const p = game.prefs;
   Input.setConfig(p); Sound.setMuted(p.muted); racingLine.setMode(p.racingLine); hudMirror.setOn(p.hudMirror);
-  ghostInputs.show(!!game.rival && p.ghostInputs, game.rival ? `${game.rival.driver.code} · ${game.rival.levelId.toUpperCase()}` : '');
+  trial.applyPrefs();
   Sound.setVolumes({ master: p.volume / 100, engine: p.engineVol / 100, fx: p.fxVol / 100, ambience: p.ambVol / 100 }); Hud.setMuted(p.muted); Hud.showFps(p.showFps);
 }
 
@@ -205,18 +130,9 @@ function newRace() {
   player.assists = assistsOf(game.setup);
   player.spec = playerSpec(game.garage);             // the garage's setup + open mods (the rivals race SIM.STOCK)
   player.boostAuto = s.overtake === 'auto';
-  game.trial = s.type === 'trial'; recorder.stop();
-  // time trial: an AI pick = a live rival in a race of its own (no contact), else a recorded ghost lap
-  const pick = game.trial ? aiPick() : null;
-  game.rival = pick ? createRival(track, pick, LEVELS[pick], { activeAero: race.activeAero }) : null;
-  game.ghost = game.trial && !pick ? activeGhost(player.spec.modified) : null;            // laps 2..
-  game.ghostStart = game.trial && !pick ? activeGhost(player.spec.modified, true) : null; // lap 1, from the grid
-  Hud.setDelta(null, game.trial); ghostModel.setVisible(false);
-  if (game.rival) { const d = game.rival.driver; ghostModel.setLivery({ ...game.garage.livery, color: d.color, accent: d.accent }); }
-  ghostInputs.show(!!game.rival && game.prefs.ghostInputs, game.rival ? `${game.rival.driver.code} · ${pick.toUpperCase()}` : '');
-  racingLine.set(track, aiLapOf('alien', race.activeAero)?.line);
+  trial.start(race, player);
+  racingLine.set(track, trial.aiLapOf('alien', race.activeAero)?.line);
   crews.build(race, Design.data.car); marks.clear();
-  showGhostLivery(game.ghostStart || game.ghost);
   Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, pendingBoost: false, autoShiftHinted: false, queueHinted: false,
     resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
     lights: { t: 0, lit: 0, hold: L.holdMin + Math.random() * L.holdRand } });
@@ -235,7 +151,7 @@ function stepStartLights(dt) {
 
 function lightsOut() {
   game.phase = PHASE.RACE; game.race.t = 0;
-  recorder.start(0);                         // the first lap runs from lights out (lapStart 0)
+  trial.lightsOut();
   setStartLights(0); Hud.flash('GO', 0.8); Sound.beep(...SFX.go);
   timers.after(CONFIG.lights.hideAfterGo, () => Hud.showLights(false));
 }
@@ -249,15 +165,7 @@ function onPlayerEvent(c, e) {
   switch (e.type) {
     case EV.LAP: {
       Hud.setLapTimes(e.time, c.bestLap, e.invalid);
-      // the ghost: keep the lap when it is your best valid one here (in this car class); in a time trial race it next
-      // (c.lap 2 = lap 1 just done: from the grid at lights out, a standing start)
-      const g = recorder.lap(e.time, { circuit: race.track.id, modified: c.spec.modified, driver: 'You', date: Date.now(), start: c.lap === 2,
-        livery: { color: game.garage.livery.color, accent: game.garage.livery.accent } });
-      recorder.start(c.lapStart);
-      if (!e.invalid && g && keepGhost(game.ghosts, g)) {
-        saveGhosts();
-        if (game.trial && !game.rival && activeGhost(c.spec.modified, g.start) === g) { game[g.start ? 'ghostStart' : 'ghost'] = g; showGhostLivery(g); }
-      }
+      trial.onLap(race, c, e);                // the ghost: a new best lap becomes yours
       if (!e.invalid && recordLap(game.records, race.track.id, c.spec.modified, e.time)) {
         Settings.set(CONFIG.storageKeys.records, JSON.stringify(game.records)); describeRecord();
         showMessage({ toast: `New lap record${c.spec.modified ? ' (modified car)' : ''}  ${fmtTime(e.time)}`, kind: 'purple' });
@@ -316,18 +224,18 @@ function showResults() {
 function simStep(dt) {
   const race = game.race;
   if (game.ended) return;                     // ended from the pause menu: the field stays where it stopped
-  savePoses(race.cars); if (game.rival) savePoses(game.rival.race.cars);
+  savePoses(race.cars); trial.savePoses();
   timers.tick(dt);
   if (game.phase === PHASE.LIGHTS) { stepStartLights(dt); return; }
   race.t += dt;
-  if (game.rival) game.rival.step(dt);        // the AI ghost's own race, in step with yours from lights out
+  trial.stepRival(dt);                       // the AI ghost's own race, in step with yours from lights out
   for (const c of race.cars) {
     if (c.player && !c.finished && game.autopilot) SIM.driveAI(race, c, dt, game.autopilot);   // (gridlineDebug.autopilot: screenshots)
     else if (c.player && !c.finished) { SIM.drivePlayer(race, c, { ...Input.drive, steerRate: game.steerRate, calm: game.prefs.calm / 100, speedSteer: game.prefs.speedSteer === 'on' ? SIM.ASSISTS.medium.steer : 0, shift: game.pendingShift, boost: game.pendingBoost }, dt); game.pendingShift = 0; game.pendingBoost = false; }
     else SIM.driveAI(race, c, dt, c.finished ? CONFIG.finishedAiSkill : 0);
   }
   SIM.collide(race);
-  if (!game.player.finished) recorder.sample(game.player, race.t); else recorder.stop();
+  trial.step(dt, game.player, race.t);
   for (const c of race.cars) drainEvents(c);
   watchRace(race);
   if (game.resultsAt > 0 && race.t >= game.resultsAt && !game.resultsShown) showResults();
@@ -353,7 +261,7 @@ function shift(dir) {
 function confirm() {                                   // pad A
   if (AppShell.quitOpen) { AppShell.cancelQuit(); return; }   // (A never quits: the safe answer)
   if (SettingsScreen.open || InputMonitor.open) return;
-  if (away) { if (away.reason !== 'phone') backFromAway(); return; }
+  if (away.open) { away.confirm(); return; }
   if (game.phase === PHASE.MENU) startFromMenu();
   else if (game.resultsShown) newRace();
   else if (game.paused) togglePause();
@@ -369,53 +277,10 @@ function toggleLayout() {
   else if ($('hud').hidden) showMessage(SAY.noHud);
   else LayoutEditor.enter(CameraRig.mode);
 }
-// ---- "are you there?" (presence.js): the phone put down, a pad untouched, the controller gone → the race pauses ----
-const presence = createPresence();
-const AWAY = {
-  phone: ['Phone wheel put down', "Pick the phone up and tap I'm here on it: the race carries on after a 3 second count."],
-  idle: ['Are you there?', "Your controller hasn't moved for a while. Press A, Enter or I'm here to carry on."],
-  lost: ['Controller disconnected', 'Connect it again to carry on, or continue with the keyboard.'],
-};
-let away = null;                 // { reason, counting } while the overlay is up
-function goAway(reason) {
-  away = { reason, counting: false, key: presence.lastKey };
-  game.paused = true;
-  const [title, note] = AWAY[reason];
-  $('awayTitle').textContent = title; $('awayNote').textContent = note;
-  $('awayBtn').textContent = reason === 'phone' ? 'Waiting for the phone…' : reason === 'lost' ? 'Continue' : "I'm here";
-  $('awayBtn').disabled = reason === 'phone';
-  Screens.show('away', reason === 'phone' ? 'awayMenuBtn' : 'awayBtn');
-}
-// back: a 3-2-1 count on the overlay, then the race runs (so the car doesn't jerk on the first input)
-function backFromAway() {
-  if (!away || away.counting) return;
-  away.counting = true; $('awayBtn').disabled = true;
-  let n = 3;
-  const tick = () => {
-    if (!away) return;                                  // went to the pause menu meanwhile
-    if (n === 0) { away = null; Screens.show(null); game.paused = false; presence.reset(); return; }
-    $('awayTitle').textContent = String(n); $('awayNote').textContent = 'Get ready'; Sound.beep(...SFX.light);
-    n--; setTimeout(tick, 700);
-  };
-  tick();
-}
-function watchPresence(dt) {
-  if (away) {
-    if (away.reason === 'phone' && !PhoneWheel.away) backFromAway();                 // tapped "I'm here" on the phone
-    if (away.reason === 'lost' && Input.device && Input.device.key === away.key) backFromAway();   // it's back
-    return;
-  }
-  const why = presence.update(dt, { racing: racing() && !game.autopilot, pad: Input.device, phoneAway: PhoneWheel.away });
-  if (why) goAway(why);
-}
-$('awayBtn').onclick = () => backFromAway();
-$('awayMenuBtn').onclick = () => { away = null; Screens.show('pause', 'resumeBtn'); };
-// pause when the window loses focus or is hidden (pref pauseOnBlur)
-const leave = () => { if (game.prefs.pauseOnBlur && racing()) togglePause(); };
-addEventListener('blur', leave);
-document.addEventListener('visibilitychange', () => { if (document.hidden) leave(); });
+// ---- "are you there?" (away.js) ----
+const away = createAway({ game, racing: () => racing(), togglePause: () => togglePause() });
 
-const escape = () => away ? (away = null, Screens.show('pause', 'resumeBtn')) : AppShell.quitOpen ? AppShell.cancelQuit() : Garage.open ? Garage.close() : InputMonitor.open ? InputMonitor.toggle(false) : SoundStudio.open ? SoundStudio.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
+const escape = () => away.open ? away.toPauseMenu() : AppShell.quitOpen ? AppShell.cancelQuit() : Garage.open ? Garage.close() : InputMonitor.open ? InputMonitor.toggle(false) : SoundStudio.open ? SoundStudio.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
   : LayoutEditor.active ? LayoutEditor.exit() : togglePause();
 // "Quit the game?" (Alt+F4 mid-race too): the race pauses behind it
 AppShell.onAskQuit(() => { if (isRunning() && !game.paused) togglePause(); });
@@ -451,7 +316,7 @@ function describeRecord() {
   if (r.stock) parts.push('record ' + fmtTime(r.stock));
   if (r.modified) parts.push('modified ' + fmtTime(r.modified));
   Screens.trackInfo(track, SIM.CIRCUITS[track.id].blurb, parts.join(' · '));
-  renderGhostRow();
+  trial.renderRow();
 }
 
 // ---- garage (garage.js): looks go on your race car at once, setup and mods from the next race ----
@@ -522,7 +387,7 @@ function saveSetup() {
   Settings.set(CONFIG.storageKeys.race, JSON.stringify(game.setup));
   describeEvent();
   describeSetup();
-  renderGhostRow();                // (the time trial's ghost list: the type, circuit or active aero changed)
+  trial.renderRow();                // (the time trial's ghost list: the type, circuit or active aero changed)
 }
 const renderSetup = Screens.bindSetup(game.setup, SIM.DRIVERS.length, Object.values(SIM.CIRCUITS), saveSetup);
 
@@ -547,21 +412,7 @@ function renderFrame(dt) {
   modelOf.get(player.code).setPedals(player.finished ? 0 : Input.drive.thr, player.finished ? 0 : Input.drive.brk);
   for (const c of race.cars) modelOf.get(c.code).sync(c, poseOf(c), dt);
   CameraRig.update(dt, player, !isRunning());
-  const lapT = race.t - player.lapStart;
-  if (game.rival) {
-    // an AI ghost: a live car of its own race (wheels, steering, brake lights, wings: the real car), the live gap
-    const rc = game.rival.car;
-    ghostModel.setVisible(!player.finished); ghostModel.sync(rc, poseOf(rc), dt);
-    if (game.phase === PHASE.RACE) { Hud.setDelta(rivalGap(player, race.t, game.rival), true); ghostInputs.update(rc, player, dt); }
-  } else {
-    // a recorded ghost lap (yours or a file's) at the same time into its lap as you are into yours, and the live delta;
-    // your lap 1 (from the grid) against its standing-start lap, later laps against its flying lap
-    const g = player.lap <= 1 ? game.ghostStart : game.ghost, gp = g && game.phase === PHASE.RACE && !player.finished ? ghostPose(g, lapT) : null;
-    ghostModel.setVisible(!!gp);
-    if (gp) ghostModel.sync({ roll: lapT * 60, steer: 0, brake: 0, aeroOpen: 0 }, gp, dt);
-    // (the delta from the first crossing of the line on: from the grid, behind the line, the split would be the lap's last)
-    if (game.trial) Hud.setDelta(gp && player.lap >= 1 ? ghostDelta(g, player.idx, lapT) : null, true);
-  }
+  trial.frame(race, player, dt);
   const eye = Design.data.cameras.find(c => c.id === 'cockpit') || cam;
   mirrors.update([-eye.back, eye.height, eye.side || 0], cockpit ? 'cockpit' : 'outside', Display.camera.position);
   Display.render();
@@ -616,17 +467,17 @@ function frame(now) {
   const dt = Math.min(CONFIG.maxFrameDt, (now - last) / 1000), STEP = CONFIG.physicsStep;
   last = now;
   Input.poll();
-  watchPresence(dt);
+  away.watch(dt);
   InputMonitor.sample(dt, Input.drive, Input.pad);
   SettingsScreen.tick(Input.pad, Input.shapeSteer(Input.pad.steerRaw));
-  if (game.carsDirty) { game.carsDirty = false; for (const m of carModels) m.rebuild(Design.data.car); ghostModel.rebuild(Design.data.car); mirrors.build(playerModel0.object, Design.data.car.parts); }
+  if (game.carsDirty) { game.carsDirty = false; for (const m of carModels) m.rebuild(Design.data.car); trial.model.rebuild(Design.data.car); mirrors.build(playerModel0.object, Design.data.car.parts); }
   const running = isRunning();
   if (running) { game.acc += dt; while (game.acc >= STEP) { simStep(STEP); game.acc -= STEP; } }
   else game.acc = 0;
   if (Garage.open) Garage.frame(dt);
   else if (game.race) {
     interpolatePoses(game.race.cars, running ? game.acc / STEP : 1);
-    if (game.rival) interpolatePoses(game.rival.race.cars, running ? game.acc / STEP : 1);
+    trial.interpolate(running ? game.acc / STEP : 1);
     renderFrame(dt);
   }
   else Display.render();
@@ -638,7 +489,7 @@ function frame(now) {
 function setTrack(id) {
   if (track && track.id === id) return track;
   track = trackOf(id);
-  if (game.race) { game.race = null; game.player = null; game.rival = null; wakes.hideAll(); crews.dispose(); marks.clear(); racingLine.set(track, null); ghostInputs.show(false); }    // the last race was on the old circuit
+  if (game.race) { game.race = null; game.player = null; trial.reset(); wakes.hideAll(); crews.dispose(); marks.clear(); racingLine.set(track, null); }    // the last race was on the old circuit
   drawOutline($('trackPreview'), track); describeRecord();
   world?.dispose();
   world = buildWorld(Display.scene, track, SIM.DRIVERS);
@@ -654,8 +505,9 @@ function setTrack(id) {
 }
 
 // ---- boot ----
-installDebug(setTrack, () => track, () => game.player, () => { game.paused = false; toMenu(); }, loadGhostText, skill => { game.autopilot = skill; },
-  () => racingLine.set(track, aiLapOf('alien', true)?.line), setPref);
+// the test hooks: the dev server, or the desktop app's own test runs (smoke test, track shots: main.cjs DEBUG)
+if (import.meta.env.DEV || window.gridlineApp?.debug) installDebug(setTrack, () => track, () => game.player, () => { game.paused = false; toMenu(); }, trial.loadText, skill => { game.autopilot = skill; },
+  () => racingLine.set(track, trial.aiLapOf('alien', true)?.line), setPref);
 setTrack(game.setup.track);
 { const saved = Settings.get(CONFIG.storageKeys.gfx);
   setGfx(Object.hasOwn(GFX_PROFILES, saved || '') ? saved : (Display.gpu.weak ? 'perf' : 'quality'), false); }

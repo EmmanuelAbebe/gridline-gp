@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('gridlineApp', {
   isFullscreen: () => ipcRenderer.invoke('app:is-fullscreen'),
   onFullscreen: fn => ipcRenderer.on('app:fullscreen', (_e, on) => fn(on)),
   onAskQuit: fn => ipcRenderer.on('app:ask-quit', () => fn()),   // Alt+F4 / window close: the page asks "Quit?" first
+  debug: ipcRenderer.sendSync('app:debug'),                       // test runs only: the page installs window.gridlineDebug
   // phone wheel server in the app (desktop/phone-link.cjs): start({ link, port, renewCode }) → status
   phone: {
     start: opts => ipcRenderer.invoke('phone:start', opts),
