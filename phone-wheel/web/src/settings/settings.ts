@@ -29,13 +29,16 @@ export interface LayoutCfg { swapPedals: boolean; pedalSize: number; buttonSize:
 // force feedback from the game (engine/haptics.ts): strength × every effect, and which effects play
 export interface FeedbackCfg { on: boolean; strength: number; hits: boolean; kerbs: boolean; offTrack: boolean; slides: boolean; shifts: boolean }
 export interface Config { steer: SteerCfg; gas: PedalCfg; brake: PedalCfg; buttons: ButtonCfg[]; flick: FlickCfg; layout: LayoutCfg; feedback: FeedbackCfg }
-export interface Store { active: string; profiles: Record<string, Config> }
+// v: store format; 2 (2026-10-21) = profiles have been given the REAR (look back) button once
+export interface Store { active: string; profiles: Record<string, Config>; v?: number }
+export const STORE_VERSION = 2;
 
 export const DEFAULTS: Config = {
   steer: { sensitivity: 40, smoothing: 20, deadzone: 0, curve: 1, invert: false },
   gas: { mode: 'ramp', rampTime: 1.5, min: 0.2, curve: 1, max: 1 },
   brake: { mode: 'ramp', rampTime: 1.5, min: 0.2, curve: 1, max: 1 },
-  buttons: [{ label: 'BOX', bind: 'X', toggle: false }],   // Gridline GP: X = box this lap (shifting has its own keys)
+  // Gridline GP: X = box this lap, RS (held) = look back (shifting has its own keys)
+  buttons: [{ label: 'BOX', bind: 'X', toggle: false }, { label: 'REAR', bind: 'RS', toggle: false }],
   // flick a thumb sideways toward the screen centre while on a pedal to shift: brake = down, gas = up
   // (`distance` px within `time` ms, mostly sideways); each flick taps the bound button once
   flick: { on: true, distance: 40, time: 160, down: 'LB', up: 'RB' },
@@ -118,9 +121,12 @@ export function loadStore(raw: string | null = readStorage(STORE_KEY)): Store {
   try { data = raw ? JSON.parse(raw) : null; } catch { data = null; }
   const profiles: Record<string, Config> = {};
   for (const [name, p] of Object.entries(obj(data?.profiles))) profiles[name] = sanitize(p);
+  // older stores: add the REAR button to every profile that has room and doesn't use RS yet (once; removing it sticks)
+  if (!(Number(data?.v) >= 2)) for (const c of Object.values(profiles))
+    if (c.buttons.length < MAX_BUTTONS && !c.buttons.some((b) => b.bind === 'RS')) c.buttons.push({ label: 'REAR', bind: 'RS', toggle: false });
   const names = Object.keys(profiles);
-  if (names.length) return { active: typeof data?.active === 'string' && profiles[data.active] ? data.active : names[0], profiles };
-  return { active: 'Default', profiles: { Default: sanitize(clone(DEFAULTS)) } };
+  if (names.length) return { active: typeof data?.active === 'string' && profiles[data.active] ? data.active : names[0], profiles, v: STORE_VERSION };
+  return { active: 'Default', profiles: { Default: sanitize(clone(DEFAULTS)) }, v: STORE_VERSION };
 }
 export function saveStore(store: Store) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch { /* private mode: not saved */ }

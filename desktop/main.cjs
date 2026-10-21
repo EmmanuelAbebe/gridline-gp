@@ -153,6 +153,11 @@ async function smokeTest(win) {
   await new Promise(r => setTimeout(r, 700));
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-cockpit.png'), (await win.webContents.capturePage()).toPNG());
   await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyD', key: 'd' }))`);
+  // look back (R held) from the cockpit: the rear view, then back to the cockpit
+  await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyR', key: 'r' }))`);
+  await new Promise(r => setTimeout(r, 300));
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-lookback.png'), (await win.webContents.capturePage()).toPNG());
+  await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyR', key: 'r' }))`);
   await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click()`);
   // settings from the pause menu, Controller tab (screenshot), then Done returns to the pause menu
   await win.webContents.executeJavaScript(`document.getElementById('pauseSettingsBtn').click();

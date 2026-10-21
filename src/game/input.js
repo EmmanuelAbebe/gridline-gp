@@ -6,17 +6,20 @@ import { Controllers } from './controllers.js';
 // Xbox layout), chosen by prefs.controller.
 // Exposes `drive` (read by the sim) and emits: 'action' (name), 'padchange' (connected), 'gesture' (for audio unlock).
 export const Input = (() => {
-  const KEY_DRIVE = { ArrowUp:'up', KeyW:'up', ArrowDown:'down', KeyS:'down', ArrowLeft:'left', KeyA:'left', ArrowRight:'right', KeyD:'right' };
+  const KEY_DRIVE = { ArrowUp:'up', KeyW:'up', ArrowDown:'down', KeyS:'down', ArrowLeft:'left', KeyA:'left', ArrowRight:'right', KeyD:'right', KeyR:'back' };
   const KEY_ACTIONS = { KeyC:'camera', KeyM:'mute', KeyP:'pause', Escape:'pause', KeyF:'fps', KeyG:'graphics', KeyT:'tweak', KeyL:'layout', KeyV:'fullscreen', KeyI:'inputs', KeyO:'settings',
     KeyQ:'shiftDown', KeyE:'shiftUp', KeyB:'box', KeyX:'boost' };
-  const PAD = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, BACK: 8, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
+  const PAD = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, BACK: 8, START: 9, LS: 10, RS: 11, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
   // A / B are the phone wheel's buttons 1 and 2: confirm in menus, shift down / up while racing (the game decides)
   const PAD_ACTIONS = [[PAD.A, 'primary'], [PAD.B, 'secondary'], [PAD.LB, 'shiftDown'], [PAD.RB, 'shiftUp'],
     [PAD.START, 'pause'], [PAD.Y, 'camera'], [PAD.X, 'box'], [PAD.BACK, 'boost']];
   const TOUCH = { tLeft: 'left', tRight: 'right', tBrake: 'down', tGas: 'up' };
 
   const events = createEmitter();
-  const held = { up: false, down: false, left: false, right: false };
+  const held = { up: false, down: false, left: false, right: false, back: false };
+  // looking around (camera only): back = held R / pad right-stick click / the phone's REAR button; side = the pad's right
+  // stick left / right (−1..1)
+  const look = { back: false, side: 0 };
   const drive = { steer: 0, thr: 0, brk: 0, analog: false };
   // the connected controller as the browser reports it, for the input monitor: id, mapping, and `timestamp`,
   // which the browser bumps every time the device sends new data (so its change rate = the controller's update rate)
@@ -78,10 +81,12 @@ export const Input = (() => {
       padPrev = p.buttons.map((b, i) => pressed(p, i));
     }
     drive.steer = steer; drive.thr = thr; drive.brk = brk; drive.analog = analog;
+    const rx = p ? p.axes[2] || 0 : 0;
+    look.back = held.back || (!!p && pressed(p, PAD.RS)); look.side = Math.abs(rx) > 0.5 ? Math.sign(rx) : 0;
   }
   addEventListener('gamepadconnected', poll);
   addEventListener('gamepaddisconnected', poll);
 
-  return { drive, pad, poll, on: events.on, gamepadAllowed, setConfig, shapeSteer };
+  return { drive, look, pad, poll, on: events.on, gamepadAllowed, setConfig, shapeSteer };
 })();
 

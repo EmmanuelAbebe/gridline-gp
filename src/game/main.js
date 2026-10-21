@@ -491,7 +491,8 @@ function renderFrame(dt) {
   if (isRunning()) marks.update(race, Design.data.car);
   for (const c of race.cars) modelOf.get(c.code).setService(crews.serviceOf(c));
   CameraRig.setShot(game.prefs.pitCam ? pitShot(race, player) : null);
-  const cockpit = !!cam.cockpitBody && !CameraRig.onShot;          // the pit camera shows the car from outside
+  CameraRig.setLook(isRunning() ? Input.look : { back: false, side: 0 });
+  const cockpit = !!cam.cockpitBody && !CameraRig.onShot && !CameraRig.lookingBack;   // the pit camera / rear view show the car from outside
   modelOf.get(player.code).useCockpitView(cockpit);
   modelOf.get(player.code).setPedals(player.finished ? 0 : Input.drive.thr, player.finished ? 0 : Input.drive.brk);
   for (const c of race.cars) modelOf.get(c.code).sync(c, poseOf(c), dt);

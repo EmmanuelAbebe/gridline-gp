@@ -49,3 +49,12 @@ test('tilt: level = 0°, the steering angle follows the roll in landscape either
   assert.ok(Math.abs(tiltDegrees(Math.cos(r), Math.sin(r), 90) - 20) < 1e-6);
   assert.ok(Math.abs(tiltDegrees(-Math.cos(r), -Math.sin(r), 270) - 20) < 1e-6, 'turned the other way');
 });
+
+test('older stores get the REAR (look back) button once; removing it sticks', () => {
+  const old = JSON.stringify({ active: 'A', profiles: { A: { buttons: [{ label: 'BOX', bind: 'X' }] } } });
+  const s = loadStore(old);
+  assert.deepEqual(s.profiles.A.buttons.map((b) => b.bind), ['X', 'RS']);
+  s.profiles.A.buttons.pop();
+  assert.deepEqual(loadStore(JSON.stringify(s)).profiles.A.buttons.map((b) => b.bind), ['X'], 'not added again');
+  assert.deepEqual(loadStore(null).profiles.Default.buttons.map((b) => b.label), ['BOX', 'REAR']);
+});
