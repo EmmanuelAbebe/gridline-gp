@@ -1,7 +1,7 @@
 // SIM: track geometry, driving model and race rules.
 // Pure JS (no DOM, no Three.js) so it also runs headless in Node: tools/sim-test.mjs, tests/.
 // Units are SI throughout: metres, seconds, m/s, m/s².
-import { TUNING, AI, CONTACT, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, EV, SURFACES, OFFTRACK, WALLS, RUNOFF, BARRIER, BARRIERS, ZONE, PIT, WEAR, SETUP, MODS, ACTIVE_AERO, OVERTAKE } from './tuning.js';
+import { TUNING, AI, CONTACT, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, EV, SURFACES, OFFTRACK, WALLS, RUNOFF, BARRIER, BARRIERS, ZONE, PIT, WEAR, SETUP, MODS, ACTIVE_AERO, OVERTAKE, HANDBRAKE } from './tuning.js';
 import { carSpec, STOCK, validSetup, validMods, isModified } from './spec.js';
 import { specStats, balanceAt } from './spec-stats.js';
 import { surfaceAt } from './runoff.js';
@@ -17,7 +17,7 @@ import { collide, carGap } from './collide.js';
 import { gapAhead } from './active-aero.js';
 import { rpmAt, cornerSpeed, lateralGrip, brakeLimit, wakeHalfWidth, VEHICLE_INFO } from './vehicle.js';
 
-export const SIM = Object.freeze({ TUNING, AI, CONTACT, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, CIRCUITS,
+export const SIM = Object.freeze({ TUNING, AI, CONTACT, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, HANDBRAKE, CIRCUITS,
   SURFACES, OFFTRACK, WALLS, RUNOFF, BARRIER, BARRIERS, ZONE, surfaceAt, PIT, WEAR, fuelLaps, lapsToGo, carCondition, laneCentre, serviceSteps,
   steerLock, tyreCurve, driftAngle, DRIVERS, EV, track: DEFAULT_TRACK,
   SETUP, MODS, ACTIVE_AERO, OVERTAKE, gapAhead, carSpec, STOCK, validSetup, validMods, isModified, specStats, balanceAt,

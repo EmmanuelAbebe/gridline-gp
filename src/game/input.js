@@ -6,7 +6,7 @@ import { Controllers } from './controllers.js';
 // Xbox layout), chosen by prefs.controller.
 // Exposes `drive` (read by the sim) and emits: 'action' (name), 'padchange' (connected), 'gesture' (for audio unlock).
 export const Input = (() => {
-  const KEY_DRIVE = { ArrowUp:'up', KeyW:'up', ArrowDown:'down', KeyS:'down', ArrowLeft:'left', KeyA:'left', ArrowRight:'right', KeyD:'right', KeyR:'back' };
+  const KEY_DRIVE = { ArrowUp:'up', KeyW:'up', ArrowDown:'down', KeyS:'down', ArrowLeft:'left', KeyA:'left', ArrowRight:'right', KeyD:'right', KeyR:'back', Space:'hb' };
   const KEY_ACTIONS = { KeyC:'camera', KeyM:'mute', KeyP:'pause', Escape:'pause', KeyF:'fps', KeyG:'graphics', KeyT:'tweak', KeyL:'layout', KeyV:'fullscreen', KeyI:'inputs', KeyO:'settings',
     KeyQ:'shiftDown', KeyE:'shiftUp', KeyB:'box', KeyX:'boost' };
   const PAD = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, BACK: 8, START: 9, LS: 10, RS: 11, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
@@ -16,11 +16,11 @@ export const Input = (() => {
   const TOUCH = { tLeft: 'left', tRight: 'right', tBrake: 'down', tGas: 'up' };
 
   const events = createEmitter();
-  const held = { up: false, down: false, left: false, right: false, back: false };
+  const held = { up: false, down: false, left: false, right: false, back: false, hb: false };
   // looking around (camera only): back = held R / pad right-stick click / the phone's REAR button; side = the pad's right
   // stick left / right (−1..1)
   const look = { back: false, side: 0 };
-  const drive = { steer: 0, thr: 0, brk: 0, analog: false };
+  const drive = { steer: 0, thr: 0, brk: 0, analog: false, hb: 0 };   // hb: handbrake (Space, pad left-stick click)
   // the connected controller as the browser reports it, for the input monitor: id, mapping, and `timestamp`,
   // which the browser bumps every time the device sends new data (so its change rate = the controller's update rate)
   const pad = { connected: false, key: '', kind: '', label: '', id: '', mapping: '', timestamp: 0, steerRaw: 0 };
@@ -38,7 +38,8 @@ export const Input = (() => {
   addEventListener('keydown', e => {
     if (typing(e)) return;
     const k = KEY_DRIVE[e.code];
-    if (k) { held[k] = true; e.preventDefault(); }
+    // (Space on a menu's focused button still presses it; while driving it is only the handbrake)
+    if (k) { held[k] = true; if (!(e.code === 'Space' && e.target instanceof Element && e.target.closest('.overlay'))) e.preventDefault(); }
     if (!e.repeat && KEY_ACTIONS[e.code]) events.emit('action', KEY_ACTIONS[e.code]);
   });
   addEventListener('keyup', e => { const k = KEY_DRIVE[e.code]; if (k) { held[k] = false; e.preventDefault(); } });
@@ -83,7 +84,8 @@ export const Input = (() => {
     }
     drive.steer = steer; drive.thr = thr; drive.brk = brk; drive.analog = analog;
     const rx = p ? p.axes[2] || 0 : 0;
-    look.back = held.back || (!!p && pressed(p, PAD.RS)); look.side = Math.abs(rx) > 0.5 ? Math.sign(rx) : 0;
+    look.back = held.back || (!!p && pressed(p, PAD.RS));
+    drive.hb = held.hb || (!!p && pressed(p, PAD.LS)) ? 1 : 0; look.side = Math.abs(rx) > 0.5 ? Math.sign(rx) : 0;
   }
   addEventListener('gamepadconnected', poll);
   addEventListener('gamepaddisconnected', poll);

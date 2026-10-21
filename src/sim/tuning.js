@@ -135,6 +135,14 @@ export const MODS = Object.freeze({
   brakes:    { min: 50, max: 250, step: 5, def: 100 },   // % brake system force (the tyres still limit it)
 });
 
+// Handbrake (2026-10-21, player only: inp.hb 0..1 in drivePlayer): locks the rear wheels (sliding friction, no ABS),
+// cuts the drive to them, and the stability assist lets the car rotate meanwhile. For hairpins on low assists.
+// Nothing changes while it is off (sim-trace identical).
+export const HANDBRAKE = Object.freeze({
+  lock: 2,              // rear braking asked = this × the rear axle's grip: well past it, so the wheels lock
+  crawl: 8,             // m/s² of braking at walking pace (the kinematic low-speed branch)
+});
+
 export const CHASSIS = Object.freeze({
   wheelbase: 3.6, frontWeight: 0.45,   // static weight on the front axle
   aeroFront: 0.45,      // share of the downforce on the front axle (more = more oversteer)

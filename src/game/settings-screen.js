@@ -25,13 +25,14 @@ const KEYS = `<div class="keys">
   <span><kbd>B</kbd> <kbd>X</kbd></span><span>Box this lap, overtake mode (when set to BUTTON)</span>
   <span><kbd>C</kbd></span><span>Camera</span>
   <span><kbd>R</kbd></span><span>Look back (hold)</span>
+  <span><kbd>Space</kbd></span><span>Handbrake (hold): locks the rear wheels, for hairpins</span>
   <span><kbd>P</kbd> <kbd>Esc</kbd></span><span>Pause</span>
   <span><kbd>O</kbd></span><span>Settings</span>
   <span><kbd>M</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>V</kbd></span><span>Sound, FPS counter, graphics mode, full screen</span>
   <span><kbd>T</kbd> <kbd>L</kbd> <kbd>I</kbd></span><span>Design tools, HUD layout, input monitor</span>
 </div>
 <p class="note">Controller: right trigger gas, left trigger brake, LB / RB or A / B (phone buttons 1 / 2) shift down / up
-while racing, A confirms in menus, START pauses, Y changes camera, right-stick click (phone: REAR) looks back while held, the right stick looks left / right, X boxes, View (Back) switches overtake mode on.</p>`;
+while racing, A confirms in menus, START pauses, Y changes camera, right-stick click (phone: REAR) looks back while held, the right stick looks left / right, left-stick click is the handbrake (on the phone: add a button bound to Left stick click), X boxes, View (Back) switches overtake mode on.</p>`;
 
 const TABS = [
   { id: 'driving', label: 'Driving', items: [

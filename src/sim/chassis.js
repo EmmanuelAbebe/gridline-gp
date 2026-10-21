@@ -6,7 +6,7 @@
 //
 // State on the car: v (forward speed), vy (sideways speed, + = right), yawRate (rad/s, + = turning right), ax.
 // Everything is per unit mass, so forces read as accelerations (m/s²).
-import { TUNING, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT, ACTIVE_AERO } from './tuning.js';
+import { TUNING, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT, ACTIVE_AERO, HANDBRAKE } from './tuning.js';
 import { clamp, speedOf } from './math.js';
 import { lateralGrip, brakeMax, drivetrain } from './vehicle.js';
 import { STOCK } from './spec.js';
@@ -85,6 +85,7 @@ export function stepChassis(race, c, inp, dt) {
       let a = -d.resist - surfaceDrag(surf, v);
       if (d.reverse) { a += v > 0 ? -CH.brakeSystem * 0.4 * inp.brk : -TUNING.REVERSE_ACC * inp.brk; if (inp.thr > 0 && v < 0) a += 20 * inp.thr; }
       else { a += Math.min(d.drive, S.grip * surf.grip * dirt * G * (1 - CH.frontWeight) * CH.longGrip) * dug; if (v > 0) a -= 20 * inp.brk * surf.grip; }
+      if (inp.hb && v > 0) a -= HANDBRAKE.crawl * inp.hb;
       const v0 = c.v; c.v = clamp(c.v + a * h, -TUNING.REVERSE_MAX, TUNING.V_CAP);
       if (!d.reverse && v0 >= 0 && c.v < 0) c.v = 0;
       // the rear axle rolls straight: sideways speed at the centre of mass is B_REAR × yaw rate (no tyre slip)
@@ -119,12 +120,14 @@ export function stepChassis(race, c, inp, dt) {
     // any ABS keeps the rears from locking (a locked rear turning in spins the car); partial ABS only lets the fronts lock a little
     const rearBrakeLimit = absLimit === null ? null : Math.min(0.97, absLimit) * (1 - CH.rearBrakeMargin * A.stability);
     const braking = brake * (1 - bias) > d.drive;   // which limit applies: ABS while braking, traction control on the throttle
-    const rear = axle(Dr, alphaR, CH.rearPeakSlip, rearLong, braking ? rearBrakeLimit : tcLimit);
+    // handbrake: the rears locked (no drive, no ABS); written as its own branch so nothing changes without it
+    const rear = inp.hb ? axle(Dr, alphaR, CH.rearPeakSlip, -Dr * CH.longGrip * HANDBRAKE.lock * inp.hb * back, null)
+      : axle(Dr, alphaR, CH.rearPeakSlip, rearLong, braking ? rearBrakeLimit : tcLimit);
     // how far past the grip limit each axle is: 0 = gripping, 1 = fully sliding (locked, spinning or past peak slip)
     slideF = Math.max(slideF, front.over - 1, Math.abs(alphaF) / CH.peakSlip - 1);
     slideR = Math.max(slideR, rear.over - 1, Math.abs(alphaR) / CH.rearPeakSlip - 1);
     if (front.over > 1 && brake > 0) lockF = true;
-    if (rear.over > 1 && !braking && d.drive > 0) spinR = true;
+    if (rear.over > 1 && !braking && d.drive > 0 && !inp.hb) spinR = true;
     // equations of motion in the car's frame
     const cosD = Math.cos(delta), sinD = Math.sin(delta);
     // the surface drags against the car's whole motion (a car sliding sideways through gravel is slowed too)
@@ -134,7 +137,7 @@ export function stepChassis(race, c, inp, dt) {
     let dw = (A_FRONT * (front.fy * cosD + front.fx * sinD) - B_REAR * rear.fy) / K2;
     // stability assist: when the rear slides, pull the yaw rate back toward what the steering asks for
     // damping assist: always, gently, toward that same yaw rate
-    if (A.stability > 0 || A.damping > 0) {
+    if ((A.stability > 0 || A.damping > 0) && !inp.hb) {               // (the handbrake asks for the rotation)
       const wGrip = lateralGrip(sp, S) / sp, wRef = clamp(v * Math.tan(delta) / L, -wGrip, wGrip);
       const rearSliding = clamp((Math.abs(alphaR) - 0.4 * CH.rearPeakSlip) / (0.6 * CH.rearPeakSlip), 0, 1);
       dw -= (A.stability * CH.stabilityGain * rearSliding + (A.damping || 0) * CH.dampingGain) * (w - wRef);

@@ -137,3 +137,26 @@ test('trail braking: on OFF and LOW, braking while turning in stays controllable
   assert.ok(trail('off', 120, 1, 0).lock, 'full pedal locks without ABS');
 });
 
+
+// the handbrake (inp.hb, player only): locks the rears, so a car turning at hairpin speed rotates much more
+test('handbrake: the rears lock and the car rotates in a turn; it stops a crawling car; off changes nothing', () => {
+  const turn = (hb, assists = 'low') => {
+    const { race, c } = solo(assists);
+    c.v = 60 / 3.6;
+    let maxYaw = 0, slid = 0;
+    for (let i = 0; i < 120; i++) {
+      race.t += DT;
+      S.drivePlayer(race, c, { thr: 0, brk: 0, steer: 0.6, analog: true, steerRate: Infinity, hb: i > 20 && i < 80 ? hb : 0 }, DT);
+      maxYaw = Math.max(maxYaw, Math.abs(c.yawRate)); slid = Math.max(slid, c.slideR);
+    }
+    return { maxYaw, slid, h: c.h };
+  };
+  const plain = turn(0), pulled = turn(1);
+  assert.ok(pulled.slid > 0.9 && plain.slid < 0.5, `rear slide ${pulled.slid.toFixed(2)} vs ${plain.slid.toFixed(2)}`);
+  assert.ok(pulled.maxYaw > plain.maxYaw * 1.3, `yaw ${pulled.maxYaw.toFixed(2)} vs ${plain.maxYaw.toFixed(2)} rad/s`);
+  assert.equal(turn(undefined).h, plain.h, 'no hb field = hb 0');
+  const { race, c } = solo('medium');
+  c.v = 1.5;
+  for (let i = 0; i < 120; i++) { race.t += DT; S.drivePlayer(race, c, { thr: 0, brk: 0, steer: 0, hb: 1 }, DT); }
+  assert.ok(Math.abs(c.v) < 0.01, `crawl stopped: ${c.v}`);
+});
