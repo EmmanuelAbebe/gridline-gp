@@ -41,6 +41,11 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   shifts = one pulse that takes the motor; each vibrate() covers 400 ms, so a silent PC stops it. Not while Settings is
   open; a touch buzz (screen.ts) pauses it. Settings → Feedback (`feedback` in the profile). Status bar icons:
   react-icons (Remix set, `react-icons/ri`).
+- 2026-10-21: default buttons BOX (X) + REAR (RS = Gridline GP look back; `loadStore` adds REAR once to stores
+  older than v 2). `engine/presence.ts` (pure, test/presence.test.ts): lying flat + still 1.5 s or dropped / thrown →
+  `state.away` 1 / 2: the feed sends `{s:0,g:0,b:0,k:0,a}` and AwayScreen shows I'M HERE (re-centres); Layout → Pause
+  when put down (`layout.putDown`); desktop preview: P. Force feedback `l` / `ls` = full steering lock (knock + light
+  buzz, Feedback → Full lock); the wheel drawing turns red at full input.
 - The phone sends `{s, g, b, k}` (steer -1..1, gas 0..1, brake 0..1, button bitmask) over a WebSocket at ~60 Hz.
   Bit i of `k` = `BUTTON_NAMES[i]` in phonewheel/protocol.py = `BUTTONS[i]` in web/src/settings/settings.ts (and static/settings.js) (A B X Y LB RB BACK START GUIDE LS RS UP DOWN LEFT RIGHT).
 - Flick to shift (`settings.js` `flick` + `createFlick`, `Pedal` in app.js): a thumb on a pedal flicked toward the
