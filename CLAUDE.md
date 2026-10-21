@@ -37,7 +37,11 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
   arm64 + x64 on their own OS; no code signing yet, so Windows SmartScreen / macOS Gatekeeper warn). `.github/workflows/
   installers.yml` builds all three on GitHub's runners, installs each like a player (silent NSIS, dmg → /Applications,
   apt-installed .deb, the AppImage) and plays `--smoke-test` from the installed copy (SwiftShader: no GPU there),
-  checked by `tools/check-smoke.mjs`; installers + screenshots as artifacts. `release/` is excluded via
+  checked by `tools/check-smoke.mjs`; installers + screenshots as artifacts. First green run 2026-10-21 (run 39580702811):
+  Windows (NSIS silent install → AppData\Local\Programs\Gridline GP), macOS arm64 (.dmg → /Applications; virtual
+  Metal GPU, no SwiftShader flags: they need Vulkan, which hung the first try), Linux (.deb in /opt/Gridline GP, the
+  AppImage with and without --no-sandbox) all pass the full run; ~25–46 fps in software rendering. The AI ghost lap
+  times came out identical to the last millisecond on all three (same V8): good news for leaderboard replays. `release/` is excluded via
   .git/info/exclude (the user's .gitignore has uncommitted edits of their own).
 - `gridline.sh`: launches the app, rebuilding first when src/index.html/public is newer than dist
   (`--windowed`, `--vulkan`); `--install`/`--uninstall` manage ~/.local/share/applications/gridline-gp.desktop.
