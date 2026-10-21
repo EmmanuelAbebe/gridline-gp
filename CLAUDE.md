@@ -47,6 +47,11 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
   installer (`gh release create`, notes from `.github/release-notes.md`); a manual run with `draft` ticked makes a draft
   release (`v<version>-draft-<run>`) to check first. README.md = the player-facing page (about, install per OS, controls,
   phone wheel, bug reports, building, releasing). Bug reports: `.github/ISSUE_TEMPLATE/bug_report.yml` asks for the logs.
+- Profiles: the installed app uses userData `Gridline GP`; a copy run from the source (npm start, gridline.sh,
+  dev:app: `!app.isPackaged`) uses `Gridline GP Dev` (2026-10-21: the release showed the user's records, ghosts and
+  car; their data was moved to the Dev profile). Smoke / track-shot runs: a throwaway temp profile.
+- HUD default layout = the user's own (2026-10-21, design-defaults.js `hud.layouts`): map + tower top left, position
+  panel under the map, ghost inputs bottom left, buttons at 75%, no speedo in the cockpit view. Theme stays yellow.
 - Log file (`desktop/log.cjs`, 2026-10-21): `gridline.log` in app.getPath('logs') (Linux ~/.config/Gridline GP/logs,
   Windows %APPDATA%\Gridline GP\logs, macOS ~/Library/Logs/Gridline GP); each start renames the last one to
   gridline-previous.log; versions / OS / CPU / GPU feature status, page warnings + errors, page / GPU process crashes,

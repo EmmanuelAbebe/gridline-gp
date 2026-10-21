@@ -22,6 +22,11 @@ app.setName('Gridline GP');
 if (smokeOut || shotsDir) {
   app.setPath('userData', fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'gridline-smoke-')));
   app.setAppLogsPath(path.join(app.getPath('userData'), 'logs'));
+} else if (!app.isPackaged) {
+  // a copy run from the source (npm start, gridline.sh, dev:app) keeps its own profile, so the installed game starts
+  // clean: no developer's lap records, ghosts, setup or settings in it (2026-10-21: they showed up in the release)
+  app.setPath('userData', path.join(app.getPath('appData'), 'Gridline GP Dev'));
+  app.setAppLogsPath(path.join(app.getPath('userData'), 'logs'));
 }
 // the log file for bug reports (log.cjs): Settings → Tools → Open log folder
 const log = require('./log.cjs').createLog(app);

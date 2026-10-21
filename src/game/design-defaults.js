@@ -170,6 +170,23 @@ export const DESIGN_DEFAULTS = {
     theme: { accent: '#ffc21a', panel: '#0a0d11', panelOpacity: 0.86, text: '#f2f3f0', muted: '#959ca5', radius: 3, font: 'Saira Condensed' },
     // per-panel overrides: { [panelId]: { anchor: 'tl'|'tc'|'tr'|'cl'|'cc'|'cr'|'bl'|'bc'|'br', x, y, scale, hidden } }
     // `all` applies to every camera; a camera id key (e.g. `cockpit`) overrides it for that view only
-    layouts: { all: {} },
+    // (the developer's own layout, 2026-10-21: map + tower top left, position panel under the map, ghost inputs bottom
+    // left, smaller buttons; no speedo in the cockpit view: the wheel's screen shows it)
+    layouts: {
+      all: {
+        speedo:   { anchor: 'bc', x: -10, y: 15, scale: 1, hidden: false },
+        map:      { anchor: 'tl', x: 19, y: 20, scale: 1.1, hidden: false },
+        tower:    { anchor: 'tl', x: 240, y: 22, scale: 1, hidden: false },
+        toast:    { anchor: 'cc', x: -5, y: -52, scale: 1, hidden: false },
+        msg:      { anchor: 'cc', x: -10, y: -64, scale: 1, hidden: false },
+        lights:   { anchor: 'cc', x: -16, y: -51, scale: 1, hidden: false },
+        posPanel: { anchor: 'tl', x: 20, y: 238, scale: 1, hidden: false },
+        teleBox:  { anchor: 'bl', x: 21, y: 33, scale: 1, hidden: false },
+        hudBtns:  { anchor: 'tc', x: 0, y: 12, scale: 0.75, hidden: false },
+      },
+      cockpit: {
+        speedo:   { anchor: 'bc', x: -10, y: 15, scale: 1, hidden: true },
+      },
+    },
   },
 };
