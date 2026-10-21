@@ -3,7 +3,8 @@
 # time trial, quit) from the installed copy; tools/check-smoke.mjs fails the job if anything went wrong.
 # Runs on version tags (v1.0.0), by hand (Actions → Installers → Run workflow), and when the desktop app's files change.
 # The installers and the run's screenshots are kept as artifacts (Actions → the run → Artifacts).
-# CI machines have no GPU: the game renders through SwiftShader there (GPU flags below; players don't need them).
+# Linux / Windows CI machines have no GPU: the game renders through SwiftShader there (GPU_FLAGS; players don't need
+# them). macOS runners have a virtual Metal GPU, and SwiftShader there needs Vulkan, which Macs lack: no flags.
 name: Installers
 
 on:
@@ -20,7 +21,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 40
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'     # no code-signing certificate (yet)
       GPU_FLAGS: --use-angle=swiftshader --enable-unsafe-swiftshader
@@ -91,7 +92,7 @@ jobs:
           hdiutil attach "$dmg" -nobrowse -mountpoint /Volumes/gridline
           cp -R "/Volumes/gridline/Gridline GP.app" /Applications/
           hdiutil detach /Volumes/gridline
-          "/Applications/Gridline GP.app/Contents/MacOS/Gridline GP" $GPU_FLAGS --smoke-test=$PWD/smoke/mac.png > smoke/mac.log 2>&1 || true
+          "/Applications/Gridline GP.app/Contents/MacOS/Gridline GP" --smoke-test=$PWD/smoke/mac.png > smoke/mac.log 2>&1 || true
           node tools/check-smoke.mjs smoke/mac.log
 
       - uses: actions/upload-artifact@v4

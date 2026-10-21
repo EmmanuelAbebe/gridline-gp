@@ -7,6 +7,8 @@ import { readFileSync } from 'node:fs';
 const log = readFileSync(process.argv[2], 'utf8');
 const line = log.split('\n').reverse().find(l => l.startsWith('{') && l.includes('"race"'));
 const fail = msg => { console.error(`smoke test FAILED: ${msg}\n--- log ---\n${log.slice(-4000)}`); process.exit(1); };
+const failed = log.split('\n').find(l => l.startsWith('{"smokeFailed"'));
+if (failed) fail(`a step failed: ${JSON.parse(failed).smokeFailed}`);
 if (!line) fail('no report (the app crashed or hung)');
 const r = JSON.parse(line);
 const checks = [

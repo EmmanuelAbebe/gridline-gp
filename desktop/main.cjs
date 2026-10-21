@@ -84,6 +84,10 @@ app.on('will-quit', () => { phone.close(); });
 
 async function smokeTest(win) {
   const errors = [];
+  // fail fast with a report rather than hang (a CI machine has no one to close it): any error in a step, or 8 minutes
+  const bail = why => { console.log(JSON.stringify({ smokeFailed: String(why && why.stack || why), errors })); app.exit(1); };
+  process.on('unhandledRejection', bail);
+  setTimeout(() => bail('timed out after 8 minutes'), 8 * 60000).unref();
   win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) errors.push(message); });
   await new Promise(r => win.webContents.once('did-finish-load', r));
   await new Promise(r => setTimeout(r, 6000));
@@ -131,7 +135,9 @@ async function smokeTest(win) {
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-circuit.png'), (await win.webContents.capturePage()).toPNG());
   // start a race: lights take about 5-7 s, so after 9 s the race clock must be running; second screenshot in-race
   await win.webContents.executeJavaScript(`document.getElementById('startBtn').click()`);
+  // lights out takes ~5-7 s; on a slow machine (CI: software rendering) longer, so wait for the race clock (≤ 60 s)
   await new Promise(r => setTimeout(r, 9000));
+  for (let i = 0; i < 100 && (await win.webContents.executeJavaScript(`document.getElementById('tCur').textContent`)) === '0:00.000'; i++) await new Promise(r => setTimeout(r, 500));
   info.race = await win.webContents.executeJavaScript(`({ hud: !document.getElementById('hud').hidden,
     lapTime: document.getElementById('tCur').textContent, position: document.getElementById('pos').textContent,
     cars: document.querySelectorAll('#towerList > *').length, sound: window.gridlineDebug.soundReady() })`);
