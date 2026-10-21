@@ -1,0 +1,34 @@
+name: Bug report
+description: Something in Gridline GP went wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead. A screenshot or a short video helps a lot.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Game version and computer
+      placeholder: e.g. 1.0.0 on Windows 11, or macOS 15 on an M2
+    validations:
+      required: true
+  - type: dropdown
+    id: controller
+    attributes:
+      label: What were you driving with?
+      options: [Keyboard, Phone wheel, Xbox / PlayStation controller, Racing wheel or joystick, Touch screen]
+  - type: textarea
+    id: log
+    attributes:
+      label: Log files
+      description: |
+        In the game: Settings → Tools → **Open log folder**. Drag `gridline.log` into this box
+        (and `gridline-previous.log` too if the game crashed and you started it again).
+        Can't open the game? The folder is:
+        - Windows: `%APPDATA%\Gridline GP\logs`
+        - macOS: `~/Library/Logs/Gridline GP`
+        - Linux: `~/.config/Gridline GP/logs`

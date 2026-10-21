@@ -39,6 +39,7 @@ export function bindSettings(game, act) {
       else if (name === 'fullscreen') AppShell.toggleFullscreen();
       else if (name === 'tweak') { SettingsScreen.close(); TweakPanel.toggle(); }
       else if (name === 'layout') { SettingsScreen.close(); act.toggleLayout(); }
+      else if (name === 'logs') window.gridlineApp?.openLogs?.();
     },
   });
 

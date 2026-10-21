@@ -19,7 +19,13 @@ ipcMain.on('app:debug', e => { e.returnValue = DEBUG; });
 
 app.setName('Gridline GP');
 // the smoke test gets a fresh, throwaway profile: default race setup, and the player's saved settings stay untouched
-if (smokeOut || shotsDir) app.setPath('userData', fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'gridline-smoke-')));
+if (smokeOut || shotsDir) {
+  app.setPath('userData', fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'gridline-smoke-')));
+  app.setAppLogsPath(path.join(app.getPath('userData'), 'logs'));
+}
+// the log file for bug reports (log.cjs): Settings → Tools → Open log folder
+const log = require('./log.cjs').createLog(app);
+ipcMain.handle('app:open-logs', () => { shell.showItemInFolder(log.file); return log.file; });
 // GPU: Chromium's default path renders correctly on the current PC (Radeon RX 9060 XT, Mesa). The old Intel HD 520
 // laptop needed hardware WebGL through ANGLE on Vulkan, which corrupts the picture on the Radeon, so that setup is
 // opt-in: GRIDLINE_GPU=vulkan (./gridline.sh --vulkan).
@@ -37,6 +43,7 @@ function createWindow() {
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: true, backgroundThrottling: false, offscreen: !!(smokeOut || shotsDir) },
   });
   win.removeMenu();
+  log.watch(win);
   if (arg('windowed')) win.maximize();
   if (!smokeOut && !shotsDir) win.once('ready-to-show', () => win.show());
 
@@ -61,7 +68,7 @@ function createWindow() {
 }
 
 let quitting = false;
-ipcMain.on('app:quit', () => { quitting = true; app.quit(); });
+ipcMain.on('app:quit', () => { quitting = true; log.write('info', 'quit'); app.quit(); });
 ipcMain.handle('app:toggle-fullscreen', e => {
   const win = BrowserWindow.fromWebContents(e.sender);
   const next = !win.isFullScreen();
@@ -277,6 +284,7 @@ async function smokeTest(win) {
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-quit.png'), (await win.webContents.capturePage()).toPNG());
   info.quitAsks = (await q('quitOv')) === false;
   await q('quitStayBtn'); info.quitStay = (await q('quitOv')) === true && !win.isDestroyed();
+  info.logFile = fs.existsSync(log.file) && fs.readFileSync(log.file, 'utf8').startsWith(new Date().getFullYear() + '');
   console.log(JSON.stringify({ ...info, gpu2d: app.getGPUFeatureStatus().gpu_compositing, webgl: app.getGPUFeatureStatus().webgl2, errors }));
   app.on('will-quit', () => console.log('quit via in-game button'));
   await win.webContents.executeJavaScript(`document.querySelector('#pauseOv [data-quit]').click()`);

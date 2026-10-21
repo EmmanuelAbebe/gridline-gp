@@ -3,12 +3,20 @@
 # time trial, quit) from the installed copy; tools/check-smoke.mjs fails the job if anything went wrong.
 # Runs on version tags (v1.0.0), by hand (Actions → Installers → Run workflow), and when the desktop app's files change.
 # The installers and the run's screenshots are kept as artifacts (Actions → the run → Artifacts).
+# Release: a version tag (git tag v1.0.1 && git push origin v1.0.1; package.json "version" should match) publishes a
+# GitHub Release with every installer once all three OSes passed. A manual run with "draft release" ticked makes a
+# draft release instead (only visible to the repo's owner) to check it first.
 # Linux / Windows CI machines have no GPU: the game renders through SwiftShader there (GPU_FLAGS; players don't need
 # them). macOS runners have a virtual Metal GPU, and SwiftShader there needs Vulkan, which Macs lack: no flags.
 name: Installers
 
 on:
   workflow_dispatch:
+    inputs:
+      draft:
+        description: 'Also make a draft release (only visible to you) from this run'
+        type: boolean
+        default: false
   push:
     tags: ['v*']
     branches: [main, foundation]
@@ -112,3 +120,28 @@ jobs:
           name: smoke-${{ runner.os }}
           retention-days: 14
           path: smoke/
+
+  # every OS passed: the installers go on a GitHub Release (the Releases page, where players download them)
+  release:
+    needs: installers
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.draft
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installers-*
+          path: release
+          merge-multiple: true
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la release
+          version=$(node -p "require('./package.json').version")
+          if [ "${{ github.ref_type }}" = tag ]; then tag="${{ github.ref_name }}"; flags=""
+            [ "$tag" = "v$version" ] || echo "::warning::tag $tag but package.json says $version (the installers are named $version)"
+          else tag="v$version-draft-${{ github.run_number }}"; flags="--draft --target ${{ github.sha }}"; fi
+          gh release create "$tag" release/* $flags --title "Gridline GP ${tag#v}" --notes-file .github/release-notes.md

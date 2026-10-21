@@ -43,6 +43,15 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
   AppImage with and without --no-sandbox) all pass the full run; ~25–46 fps in software rendering. The AI ghost lap
   times came out identical to the last millisecond on all three (same V8): good news for leaderboard replays. `release/` is excluded via
   .git/info/exclude (the user's .gitignore has uncommitted edits of their own).
+  Releases (2026-10-21): a `v*` tag runs the same jobs, then a `release` job publishes a GitHub Release with every
+  installer (`gh release create`, notes from `.github/release-notes.md`); a manual run with `draft` ticked makes a draft
+  release (`v<version>-draft-<run>`) to check first. README.md = the player-facing page (about, install per OS, controls,
+  phone wheel, bug reports, building, releasing). Bug reports: `.github/ISSUE_TEMPLATE/bug_report.yml` asks for the logs.
+- Log file (`desktop/log.cjs`, 2026-10-21): `gridline.log` in app.getPath('logs') (Linux ~/.config/Gridline GP/logs,
+  Windows %APPDATA%\Gridline GP\logs, macOS ~/Library/Logs/Gridline GP); each start renames the last one to
+  gridline-previous.log; versions / OS / CPU / GPU feature status, page warnings + errors, page / GPU process crashes,
+  hangs; capped 2 MB. Settings → Tools → Open log folder (preload `openLogs` → `app:open-logs`). Smoke runs log into
+  their throwaway profile; check-smoke.mjs checks the log was written.
 - `gridline.sh`: launches the app, rebuilding first when src/index.html/public is newer than dist
   (`--windowed`, `--vulkan`); `--install`/`--uninstall` manage ~/.local/share/applications/gridline-gp.desktop.
 - `public/sw.js`: network-first offline cache of index.html + icons (only over http(s)). Bump `CACHE` if rules change.
