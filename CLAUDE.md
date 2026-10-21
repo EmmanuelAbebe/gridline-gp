@@ -320,8 +320,9 @@ Tunables live in data tables (config modules), not inline in the logic.
      turns the head, chase cameras swing round). Full-lock feedback: haptics.js `l` (held) + `ls` (the moment it gets
      there) at |steer| ≥ 0.98 → phone knock + light buzz (Feedback → Full lock), HUD steer bar red with an end marker,
      phone wheel red. "Are you there?" (`presence.js`, pure, tests/presence.test.js): the phone's own `a` (web
-     engine/presence.ts: flat + still 1.5 s = put down, free fall / 3 g / 720°/s = dropped; it then sends zeros + a and
-     shows I'M HERE; Layout → Pause when put down), a pad with no change at all for 20 s, the driving controller gone
+     engine/presence.ts: flat + still, or stiller than a hand in any position, for 10 s (a "dropped / thrown" check was
+     removed: spinning the phone set it off); it then sends zeros + a and shows I'M HERE; Layout → Pause when put down),
+     a pad with no change at all for 10 s, the driving controller gone
      1 s → `#awayOv`, race paused; back = the phone's I'M HERE / A / Enter / the controller returning → 3-2-1, then it
      runs. Pause on focus loss (pref pauseOnBlur). Rear-view mirror strip on the HUD (pref hudMirror, off by default;
      `hud-mirror.js`: render target from over the cockpit, drawn flipped into `#rearMirror`'s place via

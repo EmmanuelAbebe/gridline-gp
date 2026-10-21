@@ -1,14 +1,14 @@
 // Is the driver still there? (pure: no DOM; tests/presence.test.js). 2026-10-21, user: detect an idle phone wheel or
 // gamepad and ask "are you there?". Each frame while racing it looks at the controller that drives and says why the race
 // should stop, or null:
-//   'phone'  the phone wheel says it was put down or dropped (the phone decides: it has the motion sensors; it sends
+//   'phone'  the phone wheel says it is on a table or was left alone for 10 s (the phone decides: it has the motion sensors; it sends
 //            neutral inputs with `a` > 0 and shows its own "I'm here" button)
 //   'idle'   a gamepad / wheel / joystick whose every axis and button stayed exactly the same for PRESENCE.idleAfter s
 //            (a held pad always moves a little; one put down doesn't)
 //   'lost'   the controller that was driving disconnected (or the phone's link dropped) for PRESENCE.lostAfter s
 // Keyboard-only driving never counts as idle.
 export const PRESENCE = Object.freeze({
-  idleAfter: 20,        // s without any change on a pad
+  idleAfter: 10,        // s without any change on a pad (2026-10-21, user: 10 s, as the phone)
   lostAfter: 1,         // s gone before it counts (a phone's Wi-Fi blip reconnects within that)
   axisStep: 0.004,      // an axis must move more than this to count as a change (some pads repeat tiny noise)
 });

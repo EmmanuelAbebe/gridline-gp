@@ -2,7 +2,7 @@
 // purpose: the UI reads `state` / `link` every animation frame and writes pedals and buttons, so rendering can never
 // delay an input. The wire protocol is unchanged from the old page (desktop/phone-link.cjs, phonewheel/webapp.py):
 //   phone → PC  {s, g, b, k} at ~60 Hz (steer −1..1, gas 0..1, brake 0..1, button bitmask), every 500 ms plus
-//               p (probe sequence) and r (our last round trip); a = away (presence.ts: 1 put down, 2 dropped), sent with
+//               p (probe sequence) and r (our last round trip); a = 1 away (presence.ts: on a table / left alone 10 s), sent with
 //               everything else at 0 until the driver taps "I'm here"
 //   PC → phone  {pong, hz, gap} for each probe, and {fx} = force feedback (haptics.ts);  GET /check?t= tells a refused socket "wrong pairing code" apart
 import { steerCurve, bitOf, type Config, type ButtonId } from '../settings/settings.ts';
@@ -139,7 +139,7 @@ function onOrientation(e: DeviceOrientationEvent) {
   const R = Math.PI / 180, b = e.beta * R, c = e.gamma * R;      // "up" in phone axes from the beta / gamma angles
   steerFromDegrees(tiltDegrees(-Math.cos(b) * Math.sin(c), Math.sin(b)), follow);
 }
-// ---------- put down / dropped (presence.ts): stop sending inputs and ask "are you there?"
+// ---------- put down (presence.ts): stop sending inputs and ask "are you there?"
 const presence = createPresence();
 const awayListeners = new Set<(a: Away) => void>();
 export function onAway(fn: (a: Away) => void) { awayListeners.add(fn); return () => { awayListeners.delete(fn); }; }

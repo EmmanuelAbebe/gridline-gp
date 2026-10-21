@@ -34,7 +34,7 @@ function parseMessage(text) {
   const num = (v, def = 0) => { if (v === undefined) return def; const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? +v : NaN; return n; };
   const s = num(d.s), g = num(d.g), b = num(d.b), k = num(d.k);
   if (![s, g, b, k].every(Number.isFinite)) return null;
-  // a = the phone's "away" reason (0 there, 1 put down, 2 dropped / thrown: web/src/engine/presence.ts)
+  // a = the phone's "away" flag (0 there, 1 put down: web/src/engine/presence.ts; 2 was "dropped", kept for old pages)
   const a = Number.isFinite(num(d.a)) ? clamp(Math.trunc(num(d.a)), 0, 2) : 0;
   return { msg: d, input: { s: clamp(s, -1, 1), g: clamp(g, 0, 1), b: clamp(b, 0, 1), k: Math.trunc(k) & MASK, a } };
 }
