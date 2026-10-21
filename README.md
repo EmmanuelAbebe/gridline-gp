@@ -89,5 +89,7 @@ it, and publishes a release with all the installers once every OS passes. A vers
 
 ## Licence
 
-All rights reserved: you may download and play the released game for free, but not copy, change or redistribute it.
-See [LICENSE](LICENSE).
+[PolyForm Noncommercial 1.0.0](LICENSE): you may play, change and share the game and its code for free, for any
+noncommercial purpose, as long as the licence and its copyright notice go with every copy. Selling it, or any other
+commercial use, needs the author's permission: ask in [Discussions](https://github.com/EmmanuelAbebe/gridline-gp/discussions).
+Streaming and videos of the game are welcome, monetised ones too.

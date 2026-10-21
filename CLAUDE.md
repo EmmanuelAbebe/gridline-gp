@@ -53,8 +53,9 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
 - HUD default layout = the user's own (2026-10-21, design-defaults.js `hud.layouts`): map + tower top left, position
   panel under the map, ghost inputs bottom left, buttons at 75%, no speedo in the cockpit view. Theme stays yellow.
 - Alpha (2026-10-21): version `0.1.0-alpha.1` (package.json; `src/game/version.js` → start-menu tag "ALPHA 0.1.0").
-  A tag with a dash = a GitHub pre-release. LICENSE = all rights reserved (free to download and play the releases;
-  package.json `license` UNLICENSED). macOS builds are ad-hoc signed (`mac.identity "-"`, `hardenedRuntime false`):
+  A tag with a dash = a GitHub pre-release. LICENSE = PolyForm Noncommercial 1.0.0 (2026-10-21, user: anyone may change
+  the code, no selling without permission) + a plain-words summary, the Required Notice line and an extra permission
+  for streams / videos; package.json `license` PolyForm-Noncommercial-1.0.0. macOS builds are ad-hoc signed (`mac.identity "-"`, `hardenedRuntime false`):
   unsigned arm64 apps from a download show "damaged"; CI quarantines the installed app and runs codesign --verify.
   Release notes (.github/release-notes.md) carry the known issues: update them per release.
 - Update check (`desktop/update-check.cjs`, tests/update-check.test.js): installed app only, once per start if pref
