@@ -563,7 +563,11 @@ CompressionStream, `.json.gz`, `gridlineGhost: 2`), LOAD = `unpackGhost` (gzip o
 1.6–2.7 KB (~10×), all five 109 → 11 KB, < 1 ms to pack or unpack. Race type TIME TRIAL (`setup.type 'trial'`): you alone,
 unlimited laps, no wear; start menu ghost row (shown ghost, EXPORT your best as a file, LOAD a friend's, MINE = back to
 yours); in the race a see-through car (CarModels.ghostMaterials) at the same time into its lap and the HUD "Ghost" delta
-(from the first crossing). Every race records your laps (a new best becomes your ghost). AI ghosts (2026-10-20, user: "add the ALIEN or the best driver for the ghost and a list of the AIs and their times";
+(from the first crossing). Every race records your laps (a new best becomes your ghost). Two bests per circuit × class (2026-10-21, user: their
+own ghost started out of step): a standing-start lap (lap 1 from the grid at lights out, `start: true`; store slot
+'stock:start' / 'modified:start') and a flying lap; in a time trial your lap 1 races the standing one (`game.ghostStart`),
+later laps the flying one (`game.ghost`). Old saves without the flag are sorted by their first frames (still = from the
+grid). EXPORT sends your flying lap with your standing lap inside (`standing`); LOAD keeps both. AI ghosts (2026-10-20, user: "add the ALIEN or the best driver for the ghost and a list of the AIs and their times";
 then: an AI ghost must be the best driver really driving, continuously, no contact): `ai-ghosts.js` (pure,
 tests/ai-ghosts.test.js). Start menu ghost row = a list (`#ghostList`): Your best / Loaded / ROOKIE..ALIEN with lap
 times and the gap to your best; the pick is `game.setup.ghost` (RACE_SETUP.choices.ghost; a loaded file selects

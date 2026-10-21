@@ -62,6 +62,38 @@ test('compact and gzipped laps round-trip, and are much smaller', async () => {
   assert.equal(expandGhost({ ...c, d: [1, 2] }), null);
 });
 
+// laps 1 and 2 recorded the way the game does (from lights out, then at every crossing): a standing and a flying lap
+function recordTwo() {
+  const T = S.track, r = S.createRace({ type: 'unlimited' }, { track: T, drivers: [S.DRIVERS[0]], seed: 2 }), c = r.cars[0], rec = createRecorder(), laps = [];
+  rec.start(0);
+  for (let s = 0; s < 120 * 120 && laps.length < 2; s++) {
+    r.t += DT; S.driveAI(r, c, DT, 1); rec.sample(c, r.t);
+    for (const e of c.events) if (e.type === S.EV.LAP) { laps.push(rec.lap(e.time, { circuit: T.id, modified: false, driver: 'You', start: c.lap === 2 })); rec.start(c.lapStart); }
+    c.events.length = 0;
+  }
+  return laps;
+}
+
+test('standing-start and flying laps are kept apart; old saves are sorted; a file carries both', async () => {
+  const [st, fl] = recordTwo(), store = {};
+  assert.ok(st.start && !fl.start && st.time > fl.time, `${st.time} standing vs ${fl.time} flying`);
+  assert.ok(keepGhost(store, st) && keepGhost(store, fl), 'both kept: different slots');
+  assert.equal(ghostOf(store, st.circuit, false).time, fl.time);
+  assert.equal(ghostOf(store, st.circuit, false, true).time, st.time);
+  const back = loadGhosts(storeJson(store), S.CIRCUITS);
+  assert.equal(ghostOf(back, st.circuit, false, true).time, st.time);
+  // a save from before the flag: one lap in the flying slot, from the grid → moved to the standing slot
+  const { start, ...old } = st; void start;
+  const moved = loadGhosts(JSON.stringify({ [st.circuit]: { stock: old } }), S.CIRCUITS);
+  assert.equal(ghostOf(moved, st.circuit, false), null);
+  assert.equal(ghostOf(moved, st.circuit, false, true).time, st.time);
+  // a file: the flying lap with the standing one inside
+  const read = await unpackGhost(await packGhost(fl, st), S.CIRCUITS);
+  assert.equal(read.time, fl.time); assert.equal(read.standing.time, st.time); assert.ok(read.standing.start && !read.start);
+  dropGhost(back, st.circuit, false);
+  assert.equal(ghostOf(back, st.circuit, false, true), null, 'drop clears both');
+});
+
 test('the store keeps the best per circuit and class; files round-trip; broken data is ignored', () => {
   const { ghost: g } = recordLap(), store = {};
   assert.ok(keepGhost(store, g));
@@ -74,7 +106,7 @@ test('the store keeps the best per circuit and class; files round-trip; broken d
   dropGhost(back, g.circuit, true); assert.equal(ghostOf(back, g.circuit, true), null);
   same(readGhostFile(ghostFile(g), S.CIRCUITS), g);
   same(readGhostFile(JSON.stringify({ gridlineGhost: 1, ...g }), S.CIRCUITS), g);       // an old plain file
-  assert.deepEqual(loadGhosts(JSON.stringify(store), S.CIRCUITS)[g.circuit].stock, store[g.circuit].stock, 'old plain saves load');
+  assert.deepEqual(loadGhosts(JSON.stringify(store), S.CIRCUITS)[g.circuit].stock, { ...store[g.circuit].stock, start: false }, 'old plain saves load (a flying lap)');
   for (const bad of ['nope', '{}', JSON.stringify({ gridlineGhost: 1, ...g, circuit: 'mars' }), JSON.stringify({ gridlineGhost: 1, ...g, frames: [1, 2] })])
     assert.equal(readGhostFile(bad, S.CIRCUITS), null);
   assert.deepEqual(loadGhosts('{"elkmoor": {"stock": {"v": 1}}}', S.CIRCUITS), {});
