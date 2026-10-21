@@ -34,7 +34,6 @@ export function loadGarage(json) {
   const s = parse(json);
   return { livery: validLivery(s.livery), setup: SIM.validSetup(s.setup), mods: SIM.validMods(s.mods) };
 }
-export const garageDefaults = () => loadGarage(null);
 // the player's car for the race: their driver entry with the livery on it, and the spec from setup + mods
 export const playerDriver = g => ({ ...PLAYER, color: g.livery.color, accent: g.livery.accent, number: g.livery.number });
 export const playerSpec = g => SIM.carSpec(g.setup, g.mods);

@@ -1,12 +1,12 @@
 // Headless race check for Gridline GP: prints track stats, a full AI race, a scripted player lap and race formats.
-// Usage: node tools/sim-test.mjs [old.html | path/to/sim/index.js]   (default: the source modules in src/sim)
+// Usage: node tools/sim-test.mjs [path/to/sim/index.js]   (default: the source modules in src/sim)
 import { loadSim } from './load-sim.mjs';
 import { centreProfile } from '../tests/helpers.js';
 
 const S = await loadSim(process.argv[2]);
-const T = S.track, { N, PX, PZ, K, ds, WALL, VP } = T;
-const CP = S.cornerSpeed ? centreProfile(S, T) : VP;   // the scripted lap drives the centre line
-const countWalls = c => { const n = c.events.filter(e => (e.type ?? e) === S.EV.WALL).length; c.events.length = 0; return n; };
+const T = S.track, { N, PX, PZ, K, ds, WALL } = T;
+const CP = centreProfile(S, T);   // the scripted lap drives the centre line
+const countWalls = c => { const n = c.events.filter(e => e.type === S.EV.WALL).length; c.events.length = 0; return n; };
 
 console.log(`${T.name}: track length ${T.L.toFixed(0)} m, sample spacing ${ds.toFixed(2)} m`);
 let maxK = 0; for (let i = 0; i < N; i++) maxK = Math.max(maxK, Math.abs(K[i]));

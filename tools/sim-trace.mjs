@@ -2,7 +2,7 @@
 // hashes every car's state after every step. Two sources that print the same hashes behave identically, so use it
 // to check that a refactor did not change the physics. Races take their default seed from the seeded Math.random
 // (since 2026-10-19 each race has its own race.rng; older builds used Math.random directly, which this also covers).
-// Usage: node tools/sim-trace.mjs [old.html | path/to/sim/index.js]
+// Usage: node tools/sim-trace.mjs [path/to/sim/index.js]   (e.g. from a worktree of an older commit)
 import { createHash } from 'node:crypto';
 import { loadSim } from './load-sim.mjs';
 
@@ -23,7 +23,7 @@ function trace(name, makeRace, seconds, drive) {
     S.collide(race);
     for (const c of race.cars) {
       buf.set([c.x, c.z, c.h, c.v, c.lap, c.steer]); h.update(new Uint8Array(buf.buffer));
-      h.update(c.events.map(e => e.type ?? e).join(',')); c.events.length = 0;   // ?? e: older builds pushed bare strings
+      h.update(c.events.map(e => e.type).join(',')); c.events.length = 0;
     }
   }
   Math.random = realRandom;
@@ -50,5 +50,5 @@ if (S.CIRCUITS && S.WEAR) {
     const track = S.buildTrack(S.CIRCUITS[id]);
     trace(id.slice(0, 10), () => S.createRace(2, { track, drivers: S.DRIVERS.slice(0, 6) }), 300, drivePlayerScript);
   }
-  trace('pits', () => S.createRace(6, { track: S.buildTrack(S.CIRCUITS.marrow ?? Object.values(S.CIRCUITS)[1]), wear }), 400, driveAll);
+  trace('pits', () => S.createRace(6, { track: S.buildTrack(S.CIRCUITS.marrow), wear }), 400, driveAll);
 }

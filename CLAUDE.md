@@ -40,8 +40,8 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
   seeded hashes of every car's state per step: identical hashes = identical physics (use it to prove a refactor
   changed nothing). Since 2026-10-19 it also traces every other circuit and a 6-lap Marrow race with fuel/tyres/damage on
   (pit stops), so run-off and pit code are covered. Note: reordering a float expression (e.g. replacing
-  `(1 − f)·s·s·(3 − 2s)` with `(1 − f)·smoothstep(s)`) changes the last bit and the hashes. Both take an optional old single-file `.html` (`git show <rev>:gridline.html`) via
-  `tools/load-sim.mjs`.
+  `(1 − f)·s·s·(3 − 2s)` with `(1 − f)·smoothstep(s)`) changes the last bit and the hashes. Both take an optional other copy of `src/sim/index.js` (e.g. a worktree of an older commit) via
+  `tools/load-sim.mjs` (the old single-file `.html` loader was removed 2026-10-21).
 
 ## Architecture
 Tunables live in data tables (config modules), not inline in the logic.
