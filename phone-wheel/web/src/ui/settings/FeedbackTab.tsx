@@ -5,7 +5,7 @@ import type { TabProps } from './Settings.tsx';
 
 // what each test button plays: the same messages the game sends (src/game/haptics.js)
 const TESTS: [string, Fx][] = [
-  ['Hit', { h: 0.8 }], ['Kerb', { k: 0.6, kh: 12 }], ['Gravel', { o: 0.7 }], ['Grass', { o: 0.4 }], ['Slide', { s: 0.7 }], ['Shift', { g: 1 }],
+  ['Hit', { h: 0.8 }], ['Kerb', { k: 0.6, kh: 12 }], ['Gravel', { o: 0.7 }], ['Grass', { o: 0.4 }], ['Slide', { s: 0.7 }], ['Shift', { g: 1 }], ['Lock', { l: 1 }],
 ];
 
 export function FeedbackTab({ cfg, update }: TabProps) {
@@ -22,6 +22,7 @@ export function FeedbackTab({ cfg, update }: TabProps) {
       <Toggle label="Off the track" hint="gravel and grass rumble" value={F.offTrack} onChange={(v) => update((c) => { c.feedback.offTrack = v; })} />
       <Toggle label="Slides" hint="tyres sliding, locking or spinning" value={F.slides} onChange={(v) => update((c) => { c.feedback.slides = v; })} />
       <Toggle label="Gear shifts" hint="a short tick on every shift" value={F.shifts} onChange={(v) => update((c) => { c.feedback.shifts = v; })} />
+      <Toggle label="Full lock" hint="a knock when the steering reaches full lock, then a light buzz while you hold it" value={F.lock} onChange={(v) => update((c) => { c.feedback.lock = v; })} />
       <Field label="Try it" hint="nothing? Check the phone's own vibration setting">
         <div className="seg">{TESTS.map(([name, fx]) => <button key={name} onClick={() => engine.testFeedback(fx)}>{name}</button>)}</div>
       </Field>

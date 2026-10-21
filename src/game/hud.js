@@ -65,6 +65,7 @@ export const Hud = (() => {
       setOnce('dirtOn', dirt > 0.05, on => $('dirtTag').classList.toggle('on', on));   // dirty tyres after an off
       setOnce('slip', Math.round(slip * 40), q => { fill.slip.style.transform = `scaleX(${q / 40})`; });
       setOnce('steer', Math.round(steer * 100), q => { fill.steer.style.transform = `translateX(${q < 0 ? q : 0}%) scaleX(${Math.abs(q) / 100})`; });
+      setOnce('steerLock', Math.abs(steer) >= 0.98 ? Math.sign(steer) : 0, l => { const m = $('steerMeter'); m.classList.toggle('lock-l', l < 0); m.classList.toggle('lock-r', l > 0); });   // full lock
       setOnce('thr', Math.round(thr * 50), q => { fill.thr.style.transform = `scaleX(${q / 50})`; });
       setOnce('brk', Math.round(brk * 50), q => { fill.brk.style.transform = `scaleX(${q / 50})`; });
       setText('tCur', lapTime);

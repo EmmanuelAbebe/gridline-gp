@@ -27,7 +27,7 @@ export type ButtonSize = 's' | 'm' | 'l';
 // upshift beside the gas instead of the brake. quickSliders is no longer shown (kept so old profiles round-trip).
 export interface LayoutCfg { swapPedals: boolean; pedalSize: number; buttonSize: ButtonSize; showWheel: boolean; quickSliders: boolean; haptics: boolean; shiftButtons: boolean; swapShift: boolean }
 // force feedback from the game (engine/haptics.ts): strength × every effect, and which effects play
-export interface FeedbackCfg { on: boolean; strength: number; hits: boolean; kerbs: boolean; offTrack: boolean; slides: boolean; shifts: boolean }
+export interface FeedbackCfg { on: boolean; strength: number; hits: boolean; kerbs: boolean; offTrack: boolean; slides: boolean; shifts: boolean; lock: boolean }
 export interface Config { steer: SteerCfg; gas: PedalCfg; brake: PedalCfg; buttons: ButtonCfg[]; flick: FlickCfg; layout: LayoutCfg; feedback: FeedbackCfg }
 // v: store format; 2 (2026-10-21) = profiles have been given the REAR (look back) button once
 export interface Store { active: string; profiles: Record<string, Config>; v?: number }
@@ -43,7 +43,7 @@ export const DEFAULTS: Config = {
   // (`distance` px within `time` ms, mostly sideways); each flick taps the bound button once
   flick: { on: true, distance: 40, time: 160, down: 'LB', up: 'RB' },
   layout: { swapPedals: false, pedalSize: 1, buttonSize: 'm', showWheel: true, quickSliders: true, haptics: true, shiftButtons: true, swapShift: false },
-  feedback: { on: true, strength: 1, hits: true, kerbs: true, offTrack: true, slides: true, shifts: false },
+  feedback: { on: true, strength: 1, hits: true, kerbs: true, offTrack: true, slides: true, shifts: false, lock: true },
 };
 
 export const clone = <T>(o: T): T => JSON.parse(JSON.stringify(o));
@@ -108,6 +108,7 @@ export function sanitize(input: unknown): Config {
       offTrack: bool(fb.offTrack, D.feedback.offTrack),
       slides: bool(fb.slides, D.feedback.slides),
       shifts: bool(fb.shifts, D.feedback.shifts),
+      lock: bool(fb.lock, D.feedback.lock),
     },
   };
 }

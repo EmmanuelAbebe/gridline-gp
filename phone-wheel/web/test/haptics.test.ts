@@ -58,3 +58,14 @@ test('feedback settings are sanitized; old profiles get the defaults', () => {
   const s = sanitize({ feedback: { strength: 9, kerbs: 'no', on: false } }).feedback;
   assert.equal(s.strength, 2); assert.equal(s.kerbs, true); assert.equal(s.on, false);
 });
+
+test('full lock: a knock on reaching it, a light buzz while held (under anything stronger), off with its toggle', () => {
+  const knock = planFeedback({ l: 1, ls: 1 }, cfg(), 0, idlePlan());
+  assert.equal(knock.pattern?.length, 1); assert.ok(knock.pattern![0] >= 20 && knock.pattern![0] <= 60);
+  const held = planFeedback({ l: 1 }, cfg(), 1000, idlePlan());
+  assert.ok(held.state.key.startsWith('l') && held.pattern!.length > 4);
+  assert.equal(planFeedback({ l: 1 }, cfg(), 1100, held.state).pattern, null, 'renewed only near its end');
+  assert.ok(planFeedback({ l: 1, s: 0.8 }, cfg(), 2000, idlePlan()).state.key.startsWith('s'), 'a slide wins');
+  const off = { ...cfg(), lock: false };
+  assert.equal(planFeedback({ l: 1, ls: 1 }, off, 3000, idlePlan()).pattern, null);
+});

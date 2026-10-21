@@ -15,7 +15,7 @@ export function Center({ cfg, openSettings }: { cfg: Config; openSettings: () =>
   const status = useStatus(), trouble = status.phase === 'lost' || status.phase === 'unpaired';
   useFrame(() => {
     const s = engine.state.steer;
-    if (wheel.current) wheel.current.style.transform = `rotate(${s * 90}deg)`;
+    if (wheel.current) { wheel.current.style.transform = `rotate(${s * 90}deg)`; wheel.current.classList.toggle('lock', Math.abs(s) >= 0.98); }   // full lock: red
     if (readout.current) readout.current.textContent = `${s >= 0 ? '+' : ''}${s.toFixed(2)}`;
   });
   const centre = () => { engine.center(); buzz(30); setCentred(true); setTimeout(() => setCentred(false), 300); };

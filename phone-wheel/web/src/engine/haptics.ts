@@ -5,7 +5,8 @@
 // planFeedback() says what to play; the engine calls navigator.vibrate with it.
 import type { FeedbackCfg } from '../settings/settings.ts';
 
-export interface Fx { k?: number; kh?: number; o?: number; s?: number; h?: number; g?: number }
+// l = at full steering lock (held), ls = it just got there (a knock)
+export interface Fx { k?: number; kh?: number; o?: number; s?: number; h?: number; g?: number; l?: number; ls?: number }
 export interface Plan { key: string; start: number; until: number; busyUntil: number }
 export const idlePlan = (): Plan => ({ key: '', start: 0, until: 0, busyUntil: 0 });
 
@@ -16,6 +17,8 @@ export const FFB = {
   floor: 0.05,                        // below this nothing plays
   hit: { base: 40, per: 170, max: 260 },  // a hit: base + per × strength ms
   shift: 16,                          // a gear change: one short tick
+  lockKnock: 34,                      // reaching full lock: one knock, like a wheel's end stop
+  lock: { period: 70, on: 9 },        // held at full lock: a light, slow buzz (only when nothing stronger plays)
   kerb: { duty: 0.25, perLevel: 0.45 },
   slide: { period: 45, on: 6, perLevel: 24 },
   rough: { min: 35, max: 90, duty: 0.25, perLevel: 0.5 },
@@ -34,6 +37,10 @@ export function planFeedback(fx: Fx, cfg: FeedbackCfg, now: number, prev: Plan, 
     const ms = Math.round(Math.min(FFB.hit.max, FFB.hit.base + FFB.hit.per * clamp((fx.h ?? 0) * k, 0, 1)));
     return { pattern: [ms], state: { ...idlePlan(), busyUntil: now + ms } };
   }
+  if (fx.ls && cfg.lock && now >= prev.busyUntil) {
+    const ms = Math.round(Math.min(FFB.hit.max, FFB.lockKnock * clamp(k, 0.5, 1.5)));
+    return { pattern: [ms], state: { ...idlePlan(), busyUntil: now + ms } };
+  }
   if (fx.g && cfg.shifts && now >= prev.busyUntil) return { pattern: [FFB.shift], state: { ...idlePlan(), busyUntil: now + FFB.shift } };
   if (now < prev.busyUntil) return { pattern: null, state: prev };
 
@@ -41,6 +48,13 @@ export function planFeedback(fx: Fx, cfg: FeedbackCfg, now: number, prev: Plan, 
   const rough = cfg.offTrack ? clamp((fx.o ?? 0) * k, 0, 1) : 0;
   const slide = cfg.slides ? clamp((fx.s ?? 0) * k, 0, 1) : 0;
   const top = Math.max(kerb, rough, slide);
+  if (top < FFB.floor && (fx.l ?? 0) > 0 && cfg.lock) {                // only the end stop: its own light rhythm
+    const period = FFB.lock.period, on = Math.round(clamp(FFB.lock.on * k, FFB.minOn, period - FFB.minOff)), key = `l${on}`;
+    if (key === prev.key && now < prev.until - FFB.renew) return { pattern: null, state: prev };
+    const pattern: number[] = []; let total = 0;
+    while (total < FFB.span) { pattern.push(on, period - on); total += period; }
+    return { pattern, state: { key, start: now, until: now + total, busyUntil: 0 } };
+  }
   if (top < FFB.floor) return stop();
 
   // the strongest effect sets the rhythm

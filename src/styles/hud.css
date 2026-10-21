@@ -47,6 +47,10 @@
 #map{width:180px;height:180px}
 #steerMeter{grid-column:1/-1;position:relative;height:6px;background:rgba(255,255,255,.1);border-radius:3px;margin-bottom:4px}
 #steerMeter b{position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:var(--muted)}
+#steerMeter.lock-l,#steerMeter.lock-r{box-shadow:0 0 0 1px rgba(255,43,43,.5)}
+#steerMeter.lock-l i,#steerMeter.lock-r i{background:var(--red)}
+#steerMeter.lock-l::before,#steerMeter.lock-r::before{content:'';position:absolute;top:-3px;bottom:-3px;width:4px;border-radius:2px;background:var(--red)}
+#steerMeter.lock-l::before{left:-2px} #steerMeter.lock-r::before{right:-2px}
 #steerMeter i{position:absolute;top:0;bottom:0;left:50%;width:50%;background:var(--amber);border-radius:3px;transform-origin:0 50%;transform:scaleX(0);will-change:transform}
 #pedals{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr auto 1fr;gap:6px;align-items:center;margin-bottom:6px}
 #pedals i{height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}
