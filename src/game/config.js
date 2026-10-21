@@ -134,6 +134,7 @@ export const PREFS = Object.freeze({
     range: 100,          // % of the controller's travel that gives full lock
     curve: 1,            // steering response exponent: 1 = linear, more = finer near the centre
     calm: 100,           // % calm steering at speed (SIM drivePlayer calm): small tilts as gentle as the original game
+    speedSteer: 'on',    // speed-sensitive steering (SIM SPEED_STEER): the controller's travel matches the grip at every speed, with any assists
     pedalDeadZone: 0,    // % of trigger travel ignored at rest
     volume: 80, muted: false, showFps: true,
     engineVol: 100, fxVol: 100, ambVol: 100,   // % per sound bus
@@ -149,7 +150,7 @@ export const PREFS = Object.freeze({
     phoneAuto: false,    // start the phone wheel with the game
   },
   // text prefs with a fixed set of values (others keep any string)
-  options: { phoneLink: ['wifi', 'bluetooth', 'usb'], racingLine: ['full', 'braking', 'off'] },
+  options: { phoneLink: ['wifi', 'bluetooth', 'usb'], racingLine: ['full', 'braking', 'off'], speedSteer: ['on', 'off'] },
   smoothingRate: 40,     // smoothing level n: the steering moves at most 40/n of full lock per second
   limits: { smoothing: [0, 10, 1], deadZone: [0, 20, 0.5], range: [40, 100, 5], curve: [1, 3, 0.1], calm: [0, 100, 10], pedalDeadZone: [0, 20, 1], volume: [0, 100, 5],
     engineVol: [0, 150, 5], fxVol: [0, 150, 5], ambVol: [0, 150, 5], shake: [0, 150, 10] },

@@ -1,6 +1,6 @@
 // The player's and the AI's driving. Every car is the same car (vehicle.js engine/gearbox/aero, chassis.js tyres);
 // the player and the AI only decide steering, throttle, brake and shifts.
-import { AI, ASSISTS, CHASSIS, TUNING, PIT } from './tuning.js';
+import { AI, ASSISTS, CHASSIS, TUNING, PIT, SPEED_STEER } from './tuning.js';
 import { STOCK } from './spec.js';
 import { clamp, wrapA, wrapIdx } from './math.js';
 import { progress } from './race.js';
@@ -26,11 +26,22 @@ export function drivePlayer(race, c, inp, dt) {
   c.steerIn ??= c.steer;
   c.steerIn += clamp(clamp(inp.steer, -1, 1) - c.steerIn, -dt*rate, dt*rate);
   c.steer = inp.analog && inp.calm ? calmSteer(c.steerIn, c.v, inp.calm, c.spec) : c.steerIn;
+  if (inp.speedSteer) c.steer = speedSteer(c.steer, c.v, inp.speedSteer, (c.assists || ASSISTS.medium).steer, c.spec);
   c.brake = inp.brk; c.thr = inp.thr;
   updateWear(race, c, inp.thr, dt);
   slipstream(race, c, progress);
   stepChassis(race, c, inp, dt);
   afterMove(race, c);
+}
+
+// Speed-sensitive steering (SPEED_STEER): the controller's share s → the share of the car's own lock (steerLock with
+// its assist) that gives the angle of a lock shrunk by `k` (up to catchFrom of the travel), then on to the full lock.
+/** @param {number} s @param {number} v @param {number} k @param {number} assist @param {import('./spec.js').Spec} [spec] */
+export function speedSteer(s, v, k, assist, spec = STOCK) {
+  if (!(k > assist)) return s;
+  const own = steerLock(v, assist, spec), mapped = steerLock(v, k, spec), a = Math.abs(s), knee = SPEED_STEER.catchFrom;
+  const angle = a <= knee ? a / knee * mapped : mapped + (a - knee) / (1 - knee) * (own - mapped);
+  return Math.sign(s) * angle / own;
 }
 
 // s' = k·s + (1 − k)·s³: slope k at the centre, 1 at full tilt

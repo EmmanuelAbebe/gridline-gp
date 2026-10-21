@@ -142,6 +142,10 @@ export function stepChassis(race, c, inp, dt) {
       const rearSliding = clamp((Math.abs(alphaR) - 0.4 * CH.rearPeakSlip) / (0.6 * CH.rearPeakSlip), 0, 1);
       dw -= (A.stability * CH.stabilityGain * rearSliding + (A.damping || 0) * CH.dampingGain) * (w - wRef);
     }
+    // aero yaw stability: the car's side area behind the centre of mass (sidepods, engine cover fin, endplates) turns
+    // the nose toward where it is going, ∝ dynamic pressure × slip angle (gone once the car is sideways: yawAero)
+    // (the slip angle there, aeroArm m behind: so it also damps the rotation, like the rear tyres)
+    dw += CH.aeroYaw * v * Math.abs(v) * Math.atan2(vy - CH.aeroArm * w, Math.max(Math.abs(v), 1)) * yawAero;
     c.ax = ax;
     const v0 = c.v;
     c.v += (ax + vy * w) * h;

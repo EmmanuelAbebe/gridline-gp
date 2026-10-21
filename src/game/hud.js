@@ -56,7 +56,7 @@ export const Hud = (() => {
     setLapTimes(last, best, lastInvalid = false) { $('tLast').textContent = fmtTime(last); $('tLast').classList.toggle('invalid', lastInvalid); $('tBest').textContent = fmtTime(best); },
     // revs: rev-light fraction 0..1 (all lit = shift); slip: slipstream strength 0..1; dirt: tyre dirt 0..1
     // gearNext: the gear a waiting manual downshift will drop to (shown in the gear label), or null
-    updateDash({ kmh, gear, gearNext = null, revs, steer, thr, brk, lapTime, slip = 0, lapInvalid = false, dirt = 0 }) {
+    updateDash({ kmh, gear, gearNext = null, revs, steer, steerIn, thr, brk, lapTime, slip = 0, lapInvalid = false, dirt = 0 }) {
       setText('spd', kmh);
       setText('gear', gear);
       setOnce('gearNext', gearNext, n => { $('gearLbl').textContent = n ? '▼ ' + n : 'Gear'; $('gearLbl').classList.toggle('queued', !!n); });
@@ -65,7 +65,7 @@ export const Hud = (() => {
       setOnce('dirtOn', dirt > 0.05, on => $('dirtTag').classList.toggle('on', on));   // dirty tyres after an off
       setOnce('slip', Math.round(slip * 40), q => { fill.slip.style.transform = `scaleX(${q / 40})`; });
       setOnce('steer', Math.round(steer * 100), q => { fill.steer.style.transform = `translateX(${q < 0 ? q : 0}%) scaleX(${Math.abs(q) / 100})`; });
-      setOnce('steerLock', Math.abs(steer) >= 0.98 ? Math.sign(steer) : 0, l => { const m = $('steerMeter'); m.classList.toggle('lock-l', l < 0); m.classList.toggle('lock-r', l > 0); });   // full lock
+      setOnce('steerLock', Math.abs(steerIn ?? steer) >= 0.98 ? Math.sign(steerIn ?? steer) : 0, l => { const m = $('steerMeter'); m.classList.toggle('lock-l', l < 0); m.classList.toggle('lock-r', l > 0); });   // full lock
       setOnce('thr', Math.round(thr * 50), q => { fill.thr.style.transform = `scaleX(${q / 50})`; });
       setOnce('brk', Math.round(brk * 50), q => { fill.brk.style.transform = `scaleX(${q / 50})`; });
       setText('tCur', lapTime);

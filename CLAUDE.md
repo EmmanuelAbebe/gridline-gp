@@ -90,6 +90,18 @@ Tunables live in data tables (config modules), not inline in the logic.
      `damping` (high only) = always-on yaw damping for on/off keys, `tc`, `abs`. Car state adds `vy`, `yawRate`,
      `slideF/slideR` (0..1 past the limit), `lockF`, `spinR`. Tuned against bots in tests/chassis.test.js:
      proportional (tilt) and key-tapping drivers lap clean on medium; full-lock keyboard needs high.
+   - Assists-off feel (2026-10-21; user drives with assists OFF, "the car behaves violently", wants the real thing,
+     no driving aids): measured on an endless-tarmac skidpad, the chassis itself is stable and understeers at the limit;
+     the violence came from (1) the steering: without Steering help full tilt is always the 17° lock (at 300 km/h only
+     ~20% of the travel is within the grip) → `speedSteer` (driving.js, `SPEED_STEER`, Settings → Controller
+     Speed-sensitive steering, pref, default ON): a controller mapping, not a car change: up to 85% of the travel
+     reaches medium's speed-scaled lock, the rest the full lock (opposite lock for slides); (2) lift-off / trail-
+     braking oversteer at 200+ km/h snapping quicker than a real F1 car → `CHASSIS.aeroYaw` 0.0025 (+ `aeroArm` 1.5 m:
+     the side area behind the centre of mass turns the nose toward the direction of travel ∝ v² × the slip angle there,
+     so it also damps the rotation; without the arm term it made the bang-bang keyboard driver spin): a 220 km/h lift at
+     the limit is now caught by a driver who counter-steers within 0.15 s (spun before), a passive one still spins, 120
+     km/h unchanged, steady grip unchanged; AI laps within ±0.2 s (LEGEND Northfold −0.8 s). Tools: none kept; the
+     skidpad = stepChassis without afterMove.
    - Off track (2026-10-18; user: "the grass is too punishing", then approved a researched plan, beaching included).
      Before, grass/sand braked at up to 22/30 m/s² down to 60 km/h. Now (`SURFACES`, chassis.js `surfaceDrag` acts
      against the whole motion, sideways slides too): grass grip 0.35 + 2.2 m/s² (keeps the speed, can't brake or turn:

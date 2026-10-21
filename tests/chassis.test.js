@@ -11,7 +11,7 @@ const solo = assists => { const race = S.createRace(1, { drivers: S.DRIVERS.filt
 // A test driver: aims at the centre line 12 samples ahead, brakes to a centre-line speed profile.
 //   analog: proportional steering (phone tilt), tap: keyboard tapping (key held for a share of each 0.12 s),
 //   bang: full lock whenever the error passes 0.02 rad (the crudest keyboard driving)
-function lap(assists, style, steerRate, calm) {
+function lap(assists, style, steerRate, calm, speedSteer) {
   const { race, c } = solo(assists);
   let step = 0;
   const seen = run(S, race, 120, (r, car) => {
@@ -19,7 +19,7 @@ function lap(assists, style, steerRate, calm) {
     const steer = style === 'analog' ? want : style === 'tap' ? ((step % 14) / 14 < Math.abs(want) ? Math.sign(want) : 0)
       : diff < -0.02 ? -1 : diff > 0.02 ? 1 : 0;
     const slow = car.v > VP[(car.idx + 4) % N];
-    S.drivePlayer(r, car, { thr: slow ? 0 : 1, brk: slow ? 1 : 0, steer, analog: style === 'analog', steerRate, calm }, DT);
+    S.drivePlayer(r, car, { thr: slow ? 0 : 1, brk: slow ? 1 : 0, steer, analog: style === 'analog', steerRate, calm, speedSteer }, DT);
     step++;
   });
   return { c, walls: seen.get(c)[S.EV.WALL] || 0 };
@@ -159,4 +159,19 @@ test('handbrake: the rears lock and the car rotates in a turn; it stops a crawli
   c.v = 1.5;
   for (let i = 0; i < 120; i++) { race.t += DT; S.drivePlayer(race, c, { thr: 0, brk: 0, steer: 0, hb: 1 }, DT); }
   assert.ok(Math.abs(c.v) < 0.01, `crawl stopped: ${c.v}`);
+});
+
+// speed-sensitive steering (a controller mapping, SPEED_STEER): with assists OFF the tilt range matches the grip at
+// every speed, the last part of the travel still reaches the full lock, and it does nothing when the car's own
+// steering help is already as strong
+test('speed-sensitive steering: with it, LOW assists lap as clean as medium for a tilt driver; full travel = full lock; no effect on medium', () => {
+  const k = S.ASSISTS.medium.steer;
+  const { c, walls } = lap('low', 'analog', Infinity, 1, k);
+  assert.ok(c.finished && c.finishTime < 42 && walls === 0, `lap ${c.finishTime?.toFixed(2)} s, ${walls} wall hits`);
+  const v = 300 / 3.6, raw = S.steerLock(v, 0), use = S.steerLock(v, k);
+  assert.ok(Math.abs(S.speedSteer(S.SPEED_STEER.catchFrom, v, k, 0) * raw - use) < 1e-9, 'the usable angle at catchFrom of the travel');
+  assert.equal(S.speedSteer(1, v, k, 0), 1, 'full travel = full lock (opposite lock for slides)');
+  assert.equal(S.speedSteer(-1, v, k, 0), -1);
+  assert.equal(S.speedSteer(0.5, v, k, k), 0.5, 'medium already has it');
+  assert.ok(Math.abs(S.speedSteer(0.5, 5, k, 0) - 0.5 / S.SPEED_STEER.catchFrom) < 0.05, 'little change at walking pace');
 });

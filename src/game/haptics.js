@@ -36,7 +36,7 @@ export function createHaptics() {
       const v = SIM.speedOf(c), K = HAPTICS.kerb, R = HAPTICS.rough, S = HAPTICS.slide;
       const out = { k: 0, kh: 0, o: 0, s: 0, l: 0 };
       if (c.pit) return out;
-      out.l = Math.abs(c.steer) >= HAPTICS.lock ? 1 : 0;                // the end stop: at any speed
+      out.l = Math.abs(c.steerIn ?? c.steer) >= HAPTICS.lock ? 1 : 0;   // the end stop of the controller's travel (speed-sensitive steering maps it to less lock)
       if (v < HAPTICS.minSpeed) return out;
       if (c.onKerb) {
         out.k = c.surface === 'sausage' ? K.sausage : K.base + K.perSpeed * v;

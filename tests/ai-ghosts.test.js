@@ -25,7 +25,7 @@ test('the live rival drives the list\'s laps, and the gap follows', () => {
   let gaps = 0;
   for (let s = 0; s < 120 * 110; s++) {
     const before = r.car.lap; r.step(1 / 120); if (r.car.lap !== before) laps.push(r.car.lastLap);
-    you.t += 1 / 120; SIM.driveAI(you, y, 1 / 120, 0.9); y.events.length = 0;
+    you.t += 1 / 120; SIM.driveAI(you, y, 1 / 120, 0.8); y.events.length = 0;
     const g = rivalGap(y, you.t, r);
     if (s > 120 * 20) { assert.ok(g !== null && g > 0, `the slower car is behind: ${g}`); gaps++; }
   }

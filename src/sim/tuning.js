@@ -135,6 +135,14 @@ export const MODS = Object.freeze({
   brakes:    { min: 50, max: 250, step: 5, def: 100 },   // % brake system force (the tyres still limit it)
 });
 
+// Speed-sensitive steering (2026-10-21; user drives with assists OFF and found it violent: a phone's whole tilt range
+// is the car's full 17° lock at any speed, while at 300 km/h only ~3.5° is usable). A controller mapping, not a car
+// assist (the car and its tyres are unchanged): drivePlayer inp.speedSteer = how much the lock shrinks with speed (the
+// steering help's scale: 0.85 = medium's), applied only when the car's own steering help is lower. Up to `catchFrom`
+// of the travel the controller reaches that speed's usable angle; the rest of the travel reaches the full lock, so a
+// big slide can still be caught with opposite lock.
+export const SPEED_STEER = Object.freeze({ catchFrom: 0.85 });
+
 // Handbrake (2026-10-21, player only: inp.hb 0..1 in drivePlayer): locks the rear wheels (sliding friction, no ABS),
 // cuts the drive to them, and the stability assist lets the car rotate meanwhile. For hairpins on low assists.
 // Nothing changes while it is off (sim-trace identical).
@@ -145,6 +153,12 @@ export const HANDBRAKE = Object.freeze({
 
 export const CHASSIS = Object.freeze({
   wheelbase: 3.6, frontWeight: 0.45,   // static weight on the front axle
+  // aero yaw stability (2026-10-21; user, assists off: "the car behaves violently"): yaw acceleration per (m/s)² per rad
+  // of slip angle. From a side force of ~1.5 m² × 1.5 /rad × dynamic pressure acting ~1.5 m behind the centre of mass:
+  // ~0.002–0.004. With it a lift-off at the limit at 220 km/h is caught by a driver who counter-steers in 0.15 s (it
+  // spun at 52° without it); one who doesn't still spins; at 120 km/h nothing changes. Steady grip unchanged.
+  aeroYaw: 0.0025,
+  aeroArm: 1.5,         // m behind the centre of mass where that side force acts
   aeroFront: 0.45,      // share of the downforce on the front axle (more = more oversteer)
   cgHeight: 0.25,       // m: longitudinal load transfer = accel × cgHeight / wheelbase
   gyration: 1.2,        // m: yaw inertia = mass × gyration²

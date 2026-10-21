@@ -78,6 +78,9 @@ const TABS = [
     slider('smoothing', 'Steering smoothing', v => v ? String(v) : 'OFF',
       v => v ? `The steering takes ${Math.round(1000 * v / PREFS.smoothingRate)} ms from centre to full lock.`
         : 'Off: the car gets your controller\'s steering exactly as it arrives. Smoothing on the phone wheel is set in its own app.'),
+    seg('speedSteer', 'Speed-sensitive steering', [['on', 'ON'], ['off', 'OFF']], v => v === 'on'
+      ? 'Your controller\'s travel matches what the tyres can use at every speed (like a wheel with a quicker ratio when slow), even with assists off; the last 15 % reaches full lock for catching slides. The car itself is unchanged.'
+      : 'Off: full travel is always the full 17° lock (unless Steering help is on). At 300 km/h only the first ~20 % of the travel is within the grip.'),
     slider('calm', 'Steering at speed', v => v ? v + ' % calm' : 'DIRECT', v => v
       ? 'Small tilts turn the car gently at any speed, like the first versions; full tilt still uses all the grip.'
       : 'Direct: the same tilt asks for the same share of grip, so at high speed (lots of downforce) a small tilt turns hard.'),
