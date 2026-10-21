@@ -19,8 +19,10 @@ const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'gridline-phone-'));
 
 test('phone messages: clamped, masked, bad ones ignored', () => {
-  assert.deepEqual(parseMessage(JSON.stringify({ s: -3, g: 0.5, b: 2, k: (1 << 20) | 5, p: 7 })).input, { s: -1, g: 0.5, b: 1, k: 5 });
-  assert.deepEqual(parseMessage('{}').input, { s: 0, g: 0, b: 0, k: 0 });
+  assert.deepEqual(parseMessage(JSON.stringify({ s: -3, g: 0.5, b: 2, k: (1 << 20) | 5, p: 7 })).input, { s: -1, g: 0.5, b: 1, k: 5, a: 0 });
+  assert.deepEqual(parseMessage('{}').input, { s: 0, g: 0, b: 0, k: 0, a: 0 });
+  assert.equal(parseMessage('{"a": 1}').input.a, 1, 'the phone was put down');
+  assert.equal(parseMessage('{"a": 9}').input.a, 2);
   assert.equal(parseMessage('{"p": 4}').msg.p, 4);
   for (const bad of ['not json', '{"s": "left"}', '{"k": null}', '[1, 2]', '42', 'null']) assert.equal(parseMessage(bad), null, bad);
 });
@@ -90,7 +92,7 @@ test('phone link server: pages, redirect, pairing, input, probes, release', asyn
     ws.send(JSON.stringify({ s: 0.5, g: 0, b: 0.5, k: 0, p: 3, r: 21.5 }));
     const p = await pong;
     assert.equal(p.pong, 3); assert.ok(p.hz >= 2);
-    assert.deepEqual(inputs.slice(-2), [{ s: 0.25, g: 1, b: 0, k: 16 }, { s: 0.5, g: 0, b: 0.5, k: 0 }]);
+    assert.deepEqual(inputs.slice(-2), [{ s: 0.25, g: 1, b: 0, k: 16, a: 0 }, { s: 0.5, g: 0, b: 0.5, k: 0, a: 0 }]);
     assert.equal(link.status().rtt, 21.5);
     const fx = new Promise(r => ws.once('message', m => r(JSON.parse(m))));   // force feedback reaches the phone
     link.feedback({ k: 0.5, kh: 12, o: 0, s: 0, h: 1 });
@@ -100,7 +102,7 @@ test('phone link server: pages, redirect, pairing, input, probes, release', asyn
     await until(() => inputs.at(-1).s === 1);
     ws.close();
     await until(() => link.status().phones === 0);
-    assert.deepEqual(inputs.at(-1), { s: 0, g: 0, b: 0, k: 0 }, 'disconnect releases everything');
+    assert.deepEqual(inputs.at(-1), { s: 0, g: 0, b: 0, k: 0, a: 0 }, 'disconnect releases everything');
     assert.ok(statuses.some(s => s.phones === 1));
   } finally {
     await link.close();

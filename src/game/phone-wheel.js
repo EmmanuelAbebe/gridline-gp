@@ -11,7 +11,7 @@ const LT = 6, RT = 7;
 export const PhoneWheel = (() => {
   const api = globalThis.window?.gridlineApp?.phone ?? null, events = createEmitter();
   let status = { running: false, phones: 0, url: '', qr: '', link: null, note: '', error: '' };
-  const input = { s: 0, g: 0, b: 0, k: 0, t: 0 };
+  const input = { s: 0, g: 0, b: 0, k: 0, a: 0, t: 0 };   // a: the phone says it was put down (1) or dropped (2)
   const buttons = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }));
   const snapshot = { kind: 'phone', key: 'phone', label: 'Phone wheel', id: 'Phone wheel', mapping: 'standard', connected: true,
     timestamp: 0, axes: [0, 0, 0, 0], buttons };
@@ -23,6 +23,7 @@ export const PhoneWheel = (() => {
   return {
     available: !!api,
     get status() { return status; },
+    get away() { return status.phones ? input.a || 0 : 0; },
     on: events.on,
     start: opts => api ? api.start(opts) : Promise.resolve(status),
     stop: () => api ? api.stop() : Promise.resolve(status),

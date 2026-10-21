@@ -32,7 +32,7 @@ export const Input = (() => {
   }
   setConfig(PREFS.defaults);
   const gamepadAllowed = !(document.featurePolicy && document.featurePolicy.allowsFeature && !document.featurePolicy.allowsFeature('gamepad'));
-  let padPrev = [], padKey = '';
+  let padPrev = [], padKey = '', device = null;   // device: the controller snapshot that drives (presence.js)
 
   const typing = e => e.target instanceof Element && e.target.matches('input, select, textarea');   // design-tool fields
   addEventListener('keydown', e => {
@@ -60,6 +60,7 @@ export const Input = (() => {
   // Called once per frame: merges every source into `drive` and fires button actions on press edges.
   function poll() {
     const p = Controllers.pick(cfg.controller);
+    device = p;
     if ((p?.key ?? '') !== padKey) { padKey = p?.key ?? ''; events.emit('padchange', !!p, p?.label ?? ''); }   // connected, or another device
     let steer = (held.right ? 1 : 0) - (held.left ? 1 : 0), thr = held.up ? 1 : 0, brk = held.down ? 1 : 0, analog = false;
     pad.connected = !!p;
@@ -87,6 +88,6 @@ export const Input = (() => {
   addEventListener('gamepadconnected', poll);
   addEventListener('gamepaddisconnected', poll);
 
-  return { drive, look, pad, poll, on: events.on, gamepadAllowed, setConfig, shapeSteer };
+  return { drive, look, pad, get device() { return device; }, poll, on: events.on, gamepadAllowed, setConfig, shapeSteer };
 })();
 

@@ -15,6 +15,8 @@ export function LayoutTab({ cfg, update }: TabProps) {
       value={L.shiftButtons} onChange={(v) => update((c) => { c.layout.shiftButtons = v; })} />
     {L.shiftButtons && <Toggle label="Upshift beside the gas" hint="off: upshift beside the brake, downshift beside the gas" value={L.swapShift}
       onChange={(v) => update((c) => { c.layout.swapShift = v; })} />}
+    <Toggle label="Pause when put down" hint="lying flat on a table, or dropped: the phone stops sending and the game pauses until you tap I'M HERE"
+      value={L.putDown} onChange={(v) => update((c) => { c.layout.putDown = v; })} />
     <Toggle label="Show wheel" hint="tap the wheel to set straight ahead" value={L.showWheel} onChange={(v) => update((c) => { c.layout.showWheel = v; })} />
     <Toggle label="Touch vibration" hint="buzz when you press a pedal or button (game feedback: Feedback tab)" value={L.haptics} onChange={(v) => update((c) => { c.layout.haptics = v; })} />
     {L.haptics && <Field label="Test vibration" hint="nothing? Check the phone's own vibration setting"><button onClick={() => buzz([60, 60, 120])}>Buzz</button></Field>}

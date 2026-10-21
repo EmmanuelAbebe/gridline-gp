@@ -3,7 +3,7 @@ import { $, ordinal, NUMBER_WORDS, ORDINAL_WORDS } from './util.js';
 
 // Overlays (start / pause / results) and the start-menu controls.
 export const Screens = (() => {
-  const overlays = { start: $('startOv'), pause: $('pauseOv'), results: $('resOv') };
+  const overlays = { start: $('startOv'), pause: $('pauseOv'), results: $('resOv'), away: $('awayOv') };
   const markSeg = (seg, attr, value) => { for (const b of seg.children) b.setAttribute('aria-pressed', b.dataset[attr] === String(value) ? 'true' : 'false'); };
   // a segmented control's buttons from a choices list ([value, label], config.js RACE_SETUP.choices)
   const fillSeg = (seg, attr, list) => seg.replaceChildren(...list.map(([v, label]) => {

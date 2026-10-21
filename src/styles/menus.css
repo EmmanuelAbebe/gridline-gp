@@ -136,3 +136,4 @@ table.res i{display:inline-block;width:4px;height:14px;vertical-align:-2px;margi
 .overlay.quit-ask{z-index:60}
 .btn.danger{border-color:#c8463c;color:#ff8a80}
 .btn.danger:hover,.btn.danger:focus-visible{background:#c8463c;color:#fff}
+.btn[disabled]{opacity:.6;cursor:default;pointer-events:none}

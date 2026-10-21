@@ -191,6 +191,17 @@ async function smokeTest(win) {
     const steerHard = setInterval(() => ws.send(JSON.stringify({ s: 1, g: 1, b: 0, k: 0 })), 16);
     await new Promise(r => setTimeout(r, 3000));
     clearInterval(steerHard);
+    // the phone says it was put down: the race pauses behind "Phone wheel put down" (screenshot); "I'm here" on the
+    // phone (a back to 0) → a 3-2-1 count, then the race runs again
+    const awaySend = a => () => ws.send(JSON.stringify({ s: 0, g: 0, b: 0, k: 0, a }));
+    let feedAway = setInterval(awaySend(1), 16);
+    await new Promise(r => setTimeout(r, 400));
+    const awayShown = await win.webContents.executeJavaScript(`({ shown: !document.getElementById('awayOv').hidden, title: document.getElementById('awayTitle').textContent })`);
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-away.png'), (await win.webContents.capturePage()).toPNG());
+    clearInterval(feedAway); feedAway = setInterval(awaySend(0), 16);
+    await new Promise(r => setTimeout(r, 2800));
+    clearInterval(feedAway);
+    const awayBack = await win.webContents.executeJavaScript(`({ hidden: document.getElementById('awayOv').hidden, running: !document.getElementById('hud').hidden && document.getElementById('pauseOv').hidden })`);
     await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click(); document.getElementById('pauseSettingsBtn').click();
       [...document.querySelectorAll('#setTabs button')].find(b => b.textContent === 'Controller').click()`);
     await new Promise(r => setTimeout(r, 300));          // paused: the rumble's last message (all 0) arrives
@@ -199,7 +210,7 @@ async function smokeTest(win) {
     const after = await win.webContents.executeJavaScript(`gridlineDebug.input()`);
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('#setBody button')].find(b => b.textContent === 'Stop').click()`);
     await new Promise(r => setTimeout(r, 400));
-    return { link: st.link, port: st.port, qr: st.qr.startsWith('<svg'), seen, releasedSteer: after.steer, stopped: !phone.status().running,
+    return { link: st.link, port: st.port, qr: st.qr.startsWith('<svg'), seen, releasedSteer: after.steer, stopped: !phone.status().running, away: { ...awayShown, back: awayBack },
       feedback: { messages: fx.length, felt: [...new Set(fx.flatMap(f => Object.keys(f).filter(k => k !== 'kh' && f[k] > 0)))], endsAtZero: !!fx.length && !fx.at(-1).k && !fx.at(-1).o && !fx.at(-1).s } };
   })();
   await win.webContents.executeJavaScript(`document.getElementById('setClose').click()`);

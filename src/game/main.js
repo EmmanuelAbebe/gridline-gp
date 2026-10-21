@@ -27,6 +27,7 @@ import { createMirrors } from './mirrors.js';
 import { aiLap, aiLapReady, ghostDriver, createRival, rivalGap } from './ai-ghosts.js';
 import { createRacingLine } from './racing-line.js';
 import { createGhostInputs } from './ghost-inputs.js';
+import { createPresence } from './presence.js';
 import { createRecorder, ghostPose, ghostDelta, loadGhosts, keepGhost, ghostOf, dropGhost, readGhostFile, storeJson, packGhost, unpackGhost } from './ghost.js';
 import { HudStyle } from './hud-style.js';
 import { LayoutEditor } from './layout-editor.js';
@@ -350,6 +351,7 @@ function shift(dir) {
 function confirm() {                                   // pad A
   if (AppShell.quitOpen) { AppShell.cancelQuit(); return; }   // (A never quits: the safe answer)
   if (SettingsScreen.open || InputMonitor.open) return;
+  if (away) { if (away.reason !== 'phone') backFromAway(); return; }
   if (game.phase === PHASE.MENU) startFromMenu();
   else if (game.resultsShown) newRace();
   else if (game.paused) togglePause();
@@ -365,7 +367,53 @@ function toggleLayout() {
   else if ($('hud').hidden) showMessage(SAY.noHud);
   else LayoutEditor.enter(CameraRig.mode);
 }
-const escape = () => AppShell.quitOpen ? AppShell.cancelQuit() : Garage.open ? Garage.close() : InputMonitor.open ? InputMonitor.toggle(false) : SoundStudio.open ? SoundStudio.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
+// ---- "are you there?" (presence.js): the phone put down, a pad untouched, the controller gone → the race pauses ----
+const presence = createPresence();
+const AWAY = {
+  phone: ['Phone wheel put down', "Pick the phone up and tap I'm here on it: the race carries on after a 3 second count."],
+  idle: ['Are you there?', "Your controller hasn't moved for a while. Press A, Enter or I'm here to carry on."],
+  lost: ['Controller disconnected', 'Connect it again to carry on, or continue with the keyboard.'],
+};
+let away = null;                 // { reason, counting } while the overlay is up
+function goAway(reason) {
+  away = { reason, counting: false, key: presence.lastKey };
+  game.paused = true;
+  const [title, note] = AWAY[reason];
+  $('awayTitle').textContent = title; $('awayNote').textContent = note;
+  $('awayBtn').textContent = reason === 'phone' ? 'Waiting for the phone…' : reason === 'lost' ? 'Continue' : "I'm here";
+  $('awayBtn').disabled = reason === 'phone';
+  Screens.show('away', reason === 'phone' ? 'awayMenuBtn' : 'awayBtn');
+}
+// back: a 3-2-1 count on the overlay, then the race runs (so the car doesn't jerk on the first input)
+function backFromAway() {
+  if (!away || away.counting) return;
+  away.counting = true; $('awayBtn').disabled = true;
+  let n = 3;
+  const tick = () => {
+    if (!away) return;                                  // went to the pause menu meanwhile
+    if (n === 0) { away = null; Screens.show(null); game.paused = false; presence.reset(); return; }
+    $('awayTitle').textContent = String(n); $('awayNote').textContent = 'Get ready'; Sound.beep(...SFX.light);
+    n--; setTimeout(tick, 700);
+  };
+  tick();
+}
+function watchPresence(dt) {
+  if (away) {
+    if (away.reason === 'phone' && !PhoneWheel.away) backFromAway();                 // tapped "I'm here" on the phone
+    if (away.reason === 'lost' && Input.device && Input.device.key === away.key) backFromAway();   // it's back
+    return;
+  }
+  const why = presence.update(dt, { racing: racing() && !game.autopilot, pad: Input.device, phoneAway: PhoneWheel.away });
+  if (why) goAway(why);
+}
+$('awayBtn').onclick = () => backFromAway();
+$('awayMenuBtn').onclick = () => { away = null; Screens.show('pause', 'resumeBtn'); };
+// pause when the window loses focus or is hidden (pref pauseOnBlur)
+const leave = () => { if (game.prefs.pauseOnBlur && racing()) togglePause(); };
+addEventListener('blur', leave);
+document.addEventListener('visibilitychange', () => { if (document.hidden) leave(); });
+
+const escape = () => away ? (away = null, Screens.show('pause', 'resumeBtn')) : AppShell.quitOpen ? AppShell.cancelQuit() : Garage.open ? Garage.close() : InputMonitor.open ? InputMonitor.toggle(false) : SoundStudio.open ? SoundStudio.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
   : LayoutEditor.active ? LayoutEditor.exit() : togglePause();
 // "Quit the game?" (Alt+F4 mid-race too): the race pauses behind it
 AppShell.onAskQuit(() => { if (isRunning() && !game.paused) togglePause(); });
@@ -565,6 +613,7 @@ function frame(now) {
   const dt = Math.min(CONFIG.maxFrameDt, (now - last) / 1000), STEP = CONFIG.physicsStep;
   last = now;
   Input.poll();
+  watchPresence(dt);
   InputMonitor.sample(dt, Input.drive, Input.pad);
   SettingsScreen.tick(Input.pad, Input.shapeSteer(Input.pad.steerRaw));
   if (game.carsDirty) { game.carsDirty = false; for (const m of carModels) m.rebuild(Design.data.car); ghostModel.rebuild(Design.data.car); mirrors.build(playerModel0.object, Design.data.car.parts); }

@@ -142,6 +142,7 @@ export const PREFS = Object.freeze({
     pitCam: true,        // TV shot of your pit stop (main.js pitShot)
     racingLine: 'full',  // the racing line on the road (racing-line.js): full / braking (zones only) / off
     ghostInputs: true,   // time trial against an AI ghost: its steering / gas / brake charts (ghost-inputs.js)
+    pauseOnBlur: true,   // the race pauses when the game window loses focus (alt-tab) or is hidden
     controller: 'auto',  // the device that drives: 'auto' (phone, then a standard pad, then any) or a device key (controllers.js)
     phoneLink: 'wifi',   // how the phone wheel connects (desktop app): wifi / bluetooth / usb (desktop/phone-net.cjs)
     phoneAuto: false,    // start the phone wheel with the game

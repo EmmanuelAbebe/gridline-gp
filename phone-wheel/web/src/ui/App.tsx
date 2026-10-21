@@ -7,6 +7,7 @@ import { enterFullscreen, keepAwake, setHaptics } from './screen.ts';
 import { StartScreen } from './StartScreen.tsx';
 import { Drive } from './Drive.tsx';
 import { RotateHint } from './RotateHint.tsx';
+import { AwayScreen } from './AwayScreen.tsx';
 import { Settings } from './settings/Settings.tsx';
 
 // edits the active profile: update(c => { c.steer.smoothing = 30 })
@@ -52,6 +53,7 @@ export function App() {
       <Drive cfg={cfg} openSettings={() => setSettingsOpen(true)} preview={preview} />
       {started && !settingsOpen && !preview && <RotateHint />}
       {!started && <StartScreen onStart={start} warn={warn} openSettings={() => setSettingsOpen(true)} preview={preview} />}
+      {started && !settingsOpen && <AwayScreen />}
       {settingsOpen && <Settings store={store} setStore={setStore} cfg={cfg} update={update} close={() => setSettingsOpen(false)} />}
     </>
   );

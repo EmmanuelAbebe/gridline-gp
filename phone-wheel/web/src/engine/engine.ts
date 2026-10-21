@@ -2,15 +2,17 @@
 // purpose: the UI reads `state` / `link` every animation frame and writes pedals and buttons, so rendering can never
 // delay an input. The wire protocol is unchanged from the old page (desktop/phone-link.cjs, phonewheel/webapp.py):
 //   phone → PC  {s, g, b, k} at ~60 Hz (steer −1..1, gas 0..1, brake 0..1, button bitmask), every 500 ms plus
-//               p (probe sequence) and r (our last round trip)
+//               p (probe sequence) and r (our last round trip); a = away (presence.ts: 1 put down, 2 dropped), sent with
+//               everything else at 0 until the driver taps "I'm here"
 //   PC → phone  {pong, hz, gap} for each probe, and {fx} = force feedback (haptics.ts);  GET /check?t= tells a refused socket "wrong pairing code" apart
 import { steerCurve, bitOf, type Config, type ButtonId } from '../settings/settings.ts';
 import { idlePlan, planFeedback, type Fx } from './haptics.ts';
+import { createPresence, type Away } from './presence.ts';
 
 export type Phase = 'idle' | 'connecting' | 'connected' | 'lost' | 'unpaired';
 export interface Status { phase: Phase; retryAt: number; attempts: number }
 
-export const state = { steer: 0, gas: 0, brake: 0, gotMotion: false, paused: false, preview: false };
+export const state = { steer: 0, gas: 0, brake: 0, gotMotion: false, paused: false, preview: false, away: 0 as Away };
 export const link = { rtt: null as number | null, rttMax: null as number | null, hz: 0, gap: 0, sendGap: 0, quality: '' as '' | 'good' | 'fair' | 'poor' | 'stalled' };
 let status: Status = { phase: 'idle', retryAt: 0, attempts: 0 };
 export const getStatus = () => status;
@@ -137,7 +139,24 @@ function onOrientation(e: DeviceOrientationEvent) {
   const R = Math.PI / 180, b = e.beta * R, c = e.gamma * R;      // "up" in phone axes from the beta / gamma angles
   steerFromDegrees(tiltDegrees(-Math.cos(b) * Math.sin(c), Math.sin(b)), follow);
 }
+// ---------- put down / dropped (presence.ts): stop sending inputs and ask "are you there?"
+const presence = createPresence();
+const awayListeners = new Set<(a: Away) => void>();
+export function onAway(fn: (a: Away) => void) { awayListeners.add(fn); return () => { awayListeners.delete(fn); }; }
+function watchPresence(e: DeviceMotionEvent) {
+  const g = e.accelerationIncludingGravity, r = e.rotationRate;
+  if (!g || g.x == null || g.y == null || g.z == null || state.paused || state.preview || !cfg?.layout.putDown) return;
+  const before = state.away;
+  state.away = presence.sample({ ax: g.x, ay: g.y, az: g.z, rate: r ? Math.hypot(r.alpha ?? 0, r.beta ?? 0, r.gamma ?? 0) : 0 }, performance.now());
+  if (state.away && !before) { held.clear(); pulses = []; try { navigator.vibrate?.([120, 80, 120]); } catch { /* no motor */ } awayListeners.forEach((fn) => fn(state.away)); }
+}
+// "I'm here": straight ahead is where the phone is now, and the inputs flow again
+// Settings → Layout preview of the screen (and the desktop preview, which has no sensors)
+export function testAway() { state.away = 1; held.clear(); awayListeners.forEach((fn) => fn(1)); }
+export function back() { presence.back(); state.away = 0; center(); awayListeners.forEach((fn) => fn(0)); }
+
 function onMotion(e: DeviceMotionEvent) {
+  watchPresence(e);
   if (state.preview || performance.now() - lastOrientation < 250) return;   // fused data is flowing: use that
   const g = e.accelerationIncludingGravity;
   if (!g || g.x == null || g.y == null) return;
@@ -222,8 +241,9 @@ export function start() {
   setInterval(() => {
     if (!ws || ws.readyState !== 1) return;
     const p = state.paused;                     // settings open: pedals and buttons let go, steering stays live
-    const now = performance.now();
-    const msg: Record<string, number> = { s: +state.steer.toFixed(3), g: p ? 0 : +state.gas.toFixed(3), b: p ? 0 : +state.brake.toFixed(3), k: p ? 0 : keys() };
+    const now = performance.now(), a = state.away;
+    const msg: Record<string, number> = a ? { s: 0, g: 0, b: 0, k: 0, a }   // put down / dropped: nothing but the reason
+      : { s: +state.steer.toFixed(3), g: p ? 0 : +state.gas.toFixed(3), b: p ? 0 : +state.brake.toFixed(3), k: p ? 0 : keys() };
     if (now - lastPing >= PING_EVERY) {
       msg.p = ++pingSeq; pingSent.set(pingSeq, now); lastPing = now;
       if (link.rtt !== null) msg.r = link.rtt;
