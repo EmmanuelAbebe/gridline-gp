@@ -32,6 +32,13 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
   never touches the player's saved settings), screenshots the menu, a running race
   (`out-race.png`), the cockpit view steering right (`out-cockpit.png`) and Settings → Controller from the pause menu (`out-settings.png`), checks the race clock, clicks full screen + quit, prints JSON. Window class `gridline-gp`.
   Electron's localStorage is separate from Chrome's (export/import designs to move them).
+- Installers (2026-10-21): electron-builder 26.17.0, config in package.json `build` (files: desktop, dist, public/icons,
+  phone-wheel/web/dist; asar): `npm run dist` → `release/` (Linux AppImage + .deb here; Windows NSIS .exe, macOS .dmg
+  arm64 + x64 on their own OS; no code signing yet, so Windows SmartScreen / macOS Gatekeeper warn). `.github/workflows/
+  installers.yml` builds all three on GitHub's runners, installs each like a player (silent NSIS, dmg → /Applications,
+  apt-installed .deb, the AppImage) and plays `--smoke-test` from the installed copy (SwiftShader: no GPU there),
+  checked by `tools/check-smoke.mjs`; installers + screenshots as artifacts. `release/` is excluded via
+  .git/info/exclude (the user's .gitignore has uncommitted edits of their own).
 - `gridline.sh`: launches the app, rebuilding first when src/index.html/public is newer than dist
   (`--windowed`, `--vulkan`); `--install`/`--uninstall` manage ~/.local/share/applications/gridline-gp.desktop.
 - `public/sw.js`: network-first offline cache of index.html + icons (only over http(s)). Bump `CACHE` if rules change.

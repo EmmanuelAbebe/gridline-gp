@@ -1,0 +1,113 @@
+# Installers for every OS (electron-builder, config in package.json "build"), each one installed the way a player
+# would and then played through the app's automated run (--smoke-test: menu, a 10-car race, phone wheel, garage,
+# time trial, quit) from the installed copy; tools/check-smoke.mjs fails the job if anything went wrong.
+# Runs on version tags (v1.0.0), by hand (Actions → Installers → Run workflow), and when the desktop app's files change.
+# The installers and the run's screenshots are kept as artifacts (Actions → the run → Artifacts).
+# CI machines have no GPU: the game renders through SwiftShader there (GPU flags below; players don't need them).
+name: Installers
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+    branches: [main, foundation]
+    paths: ['package.json', 'package-lock.json', 'desktop/**', 'tools/check-smoke.mjs', '.github/workflows/installers.yml']
+
+jobs:
+  installers:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'     # no code-signing certificate (yet)
+      GPU_FLAGS: --use-angle=swiftshader --enable-unsafe-swiftshader
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: mkdir smoke
+
+      # ---- Linux: AppImage + .deb ----
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        run: npx electron-builder --linux --publish never
+      - name: Install the .deb and play
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb ./release/*.deb
+          ls -la "/opt/Gridline GP"
+          xvfb-run -a "/opt/Gridline GP/gridline-gp" $GPU_FLAGS --smoke-test=$PWD/smoke/deb.png > smoke/deb.log 2>&1 || true
+          node tools/check-smoke.mjs smoke/deb.log
+      - name: Run the AppImage and play
+        if: runner.os == 'Linux'
+        run: |
+          chmod +x release/*.AppImage
+          # (APPIMAGE_EXTRACT_AND_RUN: the runner has no FUSE; --no-sandbox: Ubuntu 24.04 blocks the sandbox for AppImages)
+          APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a release/*.AppImage --no-sandbox $GPU_FLAGS --smoke-test=$PWD/smoke/appimage.png > smoke/appimage.log 2>&1 || true
+          node tools/check-smoke.mjs smoke/appimage.log
+      - name: The AppImage as a player starts it (no flags)
+        if: runner.os == 'Linux'
+        continue-on-error: true
+        run: |
+          APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a release/*.AppImage $GPU_FLAGS --smoke-test=$PWD/smoke/appimage-plain.png > smoke/appimage-plain.log 2>&1 || true
+          node tools/check-smoke.mjs smoke/appimage-plain.log
+
+      # ---- Windows: NSIS installer ----
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: npx electron-builder --win --publish never
+      - name: Install silently and play
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem release -Filter *.exe | Select-Object -First 1
+          "installer: $($setup.Name)"
+          Start-Process $setup.FullName -ArgumentList '/S' -Wait
+          $exe = Get-ChildItem "$env:LOCALAPPDATA\Programs", "$env:ProgramFiles" -Recurse -Filter 'Gridline GP.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $exe) { throw 'Gridline GP.exe not found after the install' }
+          "installed at: $($exe.FullName)"
+          Start-Process $exe.FullName -ArgumentList '--use-angle=swiftshader', '--enable-unsafe-swiftshader', "--smoke-test=$PWD\smoke\win.png" `
+            -RedirectStandardOutput smoke\win.log -RedirectStandardError smoke\win-err.log -Wait
+          Get-Content smoke\win-err.log -Tail 30
+          node tools/check-smoke.mjs smoke\win.log
+
+      # ---- macOS: .dmg (Apple silicon + Intel) ----
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: npx electron-builder --mac --arm64 --x64 --publish never
+      - name: Install from the .dmg and play
+        if: runner.os == 'macOS'
+        run: |
+          dmg=$(ls release/*arm64*.dmg | head -1); echo "dmg: $dmg"
+          hdiutil attach "$dmg" -nobrowse -mountpoint /Volumes/gridline
+          cp -R "/Volumes/gridline/Gridline GP.app" /Applications/
+          hdiutil detach /Volumes/gridline
+          "/Applications/Gridline GP.app/Contents/MacOS/Gridline GP" $GPU_FLAGS --smoke-test=$PWD/smoke/mac.png > smoke/mac.log 2>&1 || true
+          node tools/check-smoke.mjs smoke/mac.log
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: installers-${{ runner.os }}
+          retention-days: 14
+          if-no-files-found: ignore
+          path: |
+            release/*.AppImage
+            release/*.deb
+            release/*.exe
+            release/*.dmg
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-${{ runner.os }}
+          retention-days: 14
+          path: smoke/

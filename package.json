@@ -22,13 +22,15 @@
     "ghost-bench": "node tools/ghost-bench.mjs",
     "sim-trace": "node tools/sim-trace.mjs",
     "car-shot": "electron tools/car-shot.cjs",
-    "sound-check": "electron tools/sound-check.cjs"
+    "sound-check": "electron tools/sound-check.cjs",
+    "dist": "npm run build && electron-builder --publish never"
   },
   "devDependencies": {
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.1",
     "electron": "^44.5.1",
+    "electron-builder": "26.17.0",
     "eslint": "10.11.0",
     "globals": "17.12.0",
     "react": "19.3.0",
@@ -46,5 +48,56 @@
     "three": "0.128.0",
     "ws": "8.22.0"
   },
-  "type": "module"
+  "type": "module",
+  "author": {
+    "name": "EmmanuelAbebe"
+  },
+  "homepage": "https://github.com/EmmanuelAbebe/gridline-gp",
+  "build": {
+    "appId": "io.github.emmanuelabebe.gridlinegp",
+    "productName": "Gridline GP",
+    "artifactName": "Gridline-GP-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "package.json",
+      "desktop/**",
+      "dist/**",
+      "public/icons/**",
+      "phone-wheel/web/dist/**"
+    ],
+    "asar": true,
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Game",
+      "icon": "public/icons/icon-512.png",
+      "maintainer": "EmmanuelAbebe <EmmanuelAbebe@users.noreply.github.com>",
+      "synopsis": "F1-style racing game, played with a phone tilt wheel",
+      "syncDesktopName": true
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "public/icons/icon-512.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Gridline GP"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.racing-games",
+      "icon": "public/icons/icon-512.png",
+      "identity": null
+    }
+  },
+  "desktopName": "gridline-gp.desktop"
 }
