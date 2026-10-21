@@ -28,6 +28,7 @@ import { aiLap, aiLapReady, ghostDriver, createRival, rivalGap } from './ai-ghos
 import { createRacingLine } from './racing-line.js';
 import { createGhostInputs } from './ghost-inputs.js';
 import { createPresence } from './presence.js';
+import { createHudMirror } from './hud-mirror.js';
 import { createRecorder, ghostPose, ghostDelta, loadGhosts, keepGhost, ghostOf, dropGhost, readGhostFile, storeJson, packGhost, unpackGhost } from './ghost.js';
 import { HudStyle } from './hud-style.js';
 import { LayoutEditor } from './layout-editor.js';
@@ -93,6 +94,7 @@ const saveGhosts = () => Settings.set(CONFIG.storageKeys.ghosts, storeJson(game.
 const saveLoadedGhosts = () => Settings.set(CONFIG.storageKeys.ghostsLoaded, storeJson(game.loadedGhosts));
 const carModified = () => SIM.isModified(game.garage.mods);
 const racingLine = createRacingLine(Display.scene);   // the ALIEN's line, colour by its pedals (pref racingLine)
+const hudMirror = createHudMirror(Display);        // the rear-view strip on the HUD (pref hudMirror)
 const ghostInputs = createGhostInputs();             // the AI ghost's steering / gas / brake charts (pref ghostInputs)
 // AI laps (ai-ghosts.js): the fastest AI driver alone at each level, made once per circuit and active-aero setting
 const LEVELS = RACE_SETUP.aiLevels, aiPick = () => Object.hasOwn(LEVELS, game.setup.ghost) ? game.setup.ghost : null;
@@ -169,7 +171,7 @@ const savePrefs = () => Settings.set(CONFIG.storageKeys.prefs, JSON.stringify(ga
 // Push the prefs into the modules that use them.
 function applyPrefs() {
   const p = game.prefs;
-  Input.setConfig(p); Sound.setMuted(p.muted); racingLine.setMode(p.racingLine);
+  Input.setConfig(p); Sound.setMuted(p.muted); racingLine.setMode(p.racingLine); hudMirror.setOn(p.hudMirror);
   ghostInputs.show(!!game.rival && p.ghostInputs, game.rival ? `${game.rival.driver.code} · ${game.rival.levelId.toUpperCase()}` : '');
   Sound.setVolumes({ master: p.volume / 100, engine: p.engineVol / 100, fx: p.fxVol / 100, ambience: p.ambVol / 100 }); Hud.setMuted(p.muted); Hud.showFps(p.showFps);
 }
@@ -178,7 +180,7 @@ function applyPrefs() {
 function setGfx(id, announce) {
   const p = GFX_PROFILES[id], gpu = Display.gpu;
   game.gfx = id;
-  Display.applyProfile(p); world?.applyProfile(p); CarModels.applyProfile(carModels, p);
+  Display.applyProfile(p); world?.applyProfile(p); CarModels.applyProfile(carModels, p); hudMirror.setPerformance(id === 'perf');
   mirrors.setQuality(!p.lambertCars); mirrors.build(playerModel0.object, Design.data.car.parts);   // resolution follows the mode
   game.gfxNote = (gpu.short ? 'Graphics: ' + gpu.short + '. ' : '') + p.note(gpu.weak);
   if (announce) { Settings.set(CONFIG.storageKeys.gfx, id); Hud.toast(p.label); }
@@ -563,6 +565,7 @@ function renderFrame(dt) {
   const eye = Design.data.cameras.find(c => c.id === 'cockpit') || cam;
   mirrors.update([-eye.back, eye.height, eye.side || 0], cockpit ? 'cockpit' : 'outside', Display.camera.position);
   Display.render();
+  hudMirror.render(player.finished ? null : player);
 
   const drive = Input.drive, onLights = game.phase === PHASE.LIGHTS;
   const gi = dashGear(player, onLights, drive.thr);
@@ -652,7 +655,7 @@ function setTrack(id) {
 
 // ---- boot ----
 installDebug(setTrack, () => track, () => game.player, () => { game.paused = false; toMenu(); }, loadGhostText, skill => { game.autopilot = skill; },
-  () => racingLine.set(track, aiLapOf('alien', true)?.line));
+  () => racingLine.set(track, aiLapOf('alien', true)?.line), setPref);
 setTrack(game.setup.track);
 { const saved = Settings.get(CONFIG.storageKeys.gfx);
   setGfx(Object.hasOwn(GFX_PROFILES, saved || '') ? saved : (Display.gpu.weak ? 'perf' : 'quality'), false); }

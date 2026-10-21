@@ -88,7 +88,15 @@ export const Display = (() => {
     shadowInfo() { let cast = 0, recv = 0; scene.traverse(o => { if (o.castShadow) cast++; if (o.receiveShadow) recv++; });
       return { on: renderer.shadowMap.enabled, sun: sun.castShadow, size: sun.shadow.mapSize.x, cast, recv, map: !!sun.shadow.map }; },
     // the race scene into a texture (the player's mirrors)
-    renderTo(target, cam) { renderer.setRenderTarget(target); renderer.render(scene, cam); renderer.setRenderTarget(null); } };
+    renderTo(target, cam) { renderer.setRenderTarget(target); renderer.render(scene, cam); renderer.setRenderTarget(null); },
+    // draw `sc` through `cam` into a rectangle of the canvas (CSS px from the top left, a DOMRect) over what is there
+    // (the HUD mirror)
+    drawInset(sc, cam, r) {
+      const y = innerHeight - r.bottom, auto = renderer.autoClear;
+      renderer.setViewport(r.left, y, r.width, r.height); renderer.setScissor(r.left, y, r.width, r.height); renderer.setScissorTest(true);
+      renderer.autoClear = false; renderer.render(sc, cam); renderer.autoClear = auto;
+      renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight);
+    } };
 })();
 
 export function createFpsMonitor(windowSec) {

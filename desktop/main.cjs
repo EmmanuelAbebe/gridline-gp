@@ -153,6 +153,11 @@ async function smokeTest(win) {
   await new Promise(r => setTimeout(r, 700));
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-cockpit.png'), (await win.webContents.capturePage()).toPNG());
   await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyD', key: 'd' }))`);
+  // the rear-view mirror strip on the HUD (Settings → Driving), screenshot from the cockpit, then off again
+  await win.webContents.executeJavaScript(`gridlineDebug.setPref('hudMirror', true)`);
+  await new Promise(r => setTimeout(r, 300));
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-mirror.png'), (await win.webContents.capturePage()).toPNG());
+  await win.webContents.executeJavaScript(`gridlineDebug.setPref('hudMirror', false)`);
   // look back (R held) from the cockpit: the rear view, then back to the cockpit
   await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyR', key: 'r' }))`);
   await new Promise(r => setTimeout(r, 300));

@@ -61,6 +61,7 @@ const TABS = [
       full: 'The fastest line (the ALIEN rival\'s best lap) on the road: green on the gas, amber lifting, red braking (darker = harder).',
       braking: 'Only the braking zones of the fastest line, fading in before each one.',
       off: 'No line on the road.' })[v]),
+    seg('hudMirror', 'Mirror on screen', ON_OFF, v => v ? 'A rear-view mirror strip at the top of the screen (move it with the HUD layout editor, L).' : 'No mirror strip (R or the REAR button looks back).'),
     seg('ghostInputs', 'Ghost inputs', ON_OFF, v => v ? 'Time trial against an AI ghost: its steering, gas and brake as live charts, with yours on top.' : 'No input charts.'),
     seg('pauseOnBlur', 'Pause when you leave', ON_OFF, v => v ? 'The race pauses when you switch to another window or the game is hidden.' : 'The race carries on in the background.'),
     seg('aero', 'Active aero', C.aero, v => v === 'on'
