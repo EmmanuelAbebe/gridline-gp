@@ -14,7 +14,7 @@ export const DESIGN_DEFAULTS = {
   // Camera modes, cycled with C / Y. back/side/height/ahead/lookY are metres relative to the car.
   // k = follow stiffness, rigid = no smoothing, cockpitBody = player car shows its cockpit-view parts.
   cameras: [
-    { id: 'chase',   label: 'Chase',   back: 9.5,  side: 0, height: 3.3,  ahead: 7,  lookY: 1.1, k: 7,  near: 0.5,  fov: 60, fovGain: 14, lean: 0,     rigid: false, cockpitBody: false },
+    { id: 'chase',   label: 'Chase',   back: 5.75, side: 0, height: 2,    ahead: 7,  lookY: 1.1, k: 60, near: 0.5,  fov: 60, fovGain: 14, lean: 0,     rigid: false, cockpitBody: false },
     { id: 'cockpit', label: 'Cockpit', back: 0.33, side: 0, height: 0.77, ahead: 30, lookY: 0.8, k: 30, near: 0.12, fov: 56, fovGain: 10, lean: 0.035, rigid: true,  cockpitBody: true },
     { id: 'high',    label: 'High',    back: 16,   side: 0, height: 7,    ahead: 10, lookY: 0.5, k: 4,  near: 0.5,  fov: 60, fovGain: 14, lean: 0,     rigid: false, cockpitBody: false },
   ],

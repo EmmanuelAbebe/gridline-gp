@@ -52,6 +52,7 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
   car; their data was moved to the Dev profile). Smoke / track-shot runs: a throwaway temp profile.
 - HUD default layout = the user's own (2026-10-21, design-defaults.js `hud.layouts`): map + tower top left, position
   panel under the map, ghost inputs bottom left, buttons at 75%, no speedo in the cockpit view. Theme stays yellow.
+  Chase camera default = the user's too (2026-10-21): back 5.75, height 2, lookY 1.1, follow k 60 (was 9.5 / 3.3 / k 7).
 - Alpha (2026-10-21): version `0.1.0-alpha.1` (package.json; `src/game/version.js` → start-menu tag "ALPHA 0.1.0").
   A tag with a dash = a GitHub pre-release. LICENSE = PolyForm Noncommercial 1.0.0 (2026-10-21, user: anyone may change
   the code, no selling without permission) + a plain-words summary, the Required Notice line and an extra permission
