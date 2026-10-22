@@ -96,7 +96,6 @@ const TABS = [
   { id: 'graphics', label: 'Graphics', items: [
     seg('gfx', 'Graphics', [['quality', 'QUALITY'], ['perf', 'PERFORMANCE']]),
     seg('showFps', 'FPS counter', ON_OFF),
-    seg('pitCam', 'Pit stop camera', ON_OFF, v => v ? 'A TV shot of your stop: watch the crew change the tyres, then the gas takes you out.' : 'Your own camera stays on through the stop.'),
     buttons(['Full screen', 'fullscreen']),
   ] },
   { id: 'sound', label: 'Sound', items: [

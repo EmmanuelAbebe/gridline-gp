@@ -27,62 +27,126 @@ test('every circuit has a pit lane: entry road, pit wall, a box per team in orde
   }
 });
 
-test('a pit stop: request, 80 km/h limiter, stop in the box, service, back on track, then the race goes on', () => {
-  const T = S.track, race = S.createRace(3, { drivers: player(), wear: { fuel: 'normal', tyres: 'normal', damage: true } }), c = race.cars[0];
-  const events = []; let maxLane = 0, stopIdx = -1;
-  run(S, race, 200, (r, car) => {
-    tester(T, 1)(r, car);
-    events.push(...car.events.map(e => e.type).filter(t => t.startsWith('pit')));
-    if (car.pit?.phase === 'stop') stopIdx = car.idx;
-    if (car.pit && car.pit.p > T.pit.from && car.pit.p < T.pit.to) maxLane = Math.max(maxLane, car.v);
-  });
-  assert.deepEqual([...new Set(events)], [S.EV.PIT_IN, S.EV.PIT_STOP, S.EV.PIT_READY, S.EV.PIT_GO, S.EV.PIT_OUT]);
-  assert.ok(maxLane <= 80 / 3.6 + 0.01, `${(maxLane * 3.6).toFixed(1)} km/h in the lane`);
-  const box = T.pit.boxes[S.DRIVERS.findIndex(d => d.player)] % T.N;
-  assert.ok(Math.abs(stopIdx - box) <= 1, `stopped at ${stopIdx}, box ${box.toFixed(1)}`);
-  assert.ok(c.finished && c.pitStops === 1 && c.tyreWear < 0.3, `finished ${c.finished}, ${c.pitStops} stops, wear ${c.tyreWear}`);
-  // the stop costs time: compare with a race without one
-  const plain = S.createRace(3, { drivers: player() }); run(S, plain, 200, tester(T));
-  const loss = c.finishTime - plain.cars[0].finishTime;
-  assert.ok(loss > 8 && loss < 30, `the stop cost ${loss.toFixed(1)} s`);
+// A driver who uses the pit lane on their first lap past the entry (from 10 s in): along the pit road onto the fast
+// lane, a swing into the box and a stop (stop = false: straight through), full gas while held there (it must not
+// move), back out; elsewhere the proportional tester. Steers at a point ahead on that path, speeds by bang-bang pedals.
+function pitDriver(T, { stop = true, lane = 75 / 3.6 } = {}) {
+  const base = tester(T), L = T.pit, box = L.boxes[S.DRIVERS.findIndex(d => d.player)], ds = T.ds;
+  const sm = t => S.smoothstep(t);
+  const pathLat = (p, served) => {
+    if (stop && !served && p > box - 14 / ds && p <= box) return L.lane + (L.boxLat - L.lane) * sm((p - (box - 14 / ds)) / (13 / ds));
+    if (stop && served && p > box && p < box + 11 / ds) return L.lane + (L.boxLat - L.lane) * (1 - sm((p - box) / (11 / ds)));
+    return S.laneCentre(T, p);
+  };
+  const state = new WeakMap();
+  return (r, c) => {
+    const st = state.get(c) || {}; state.set(c, st);
+    const p = S.alongLane(T, c);
+    if (!st.done && p >= L.entry && p < L.entry + 10 && r.t > 10) st.on = true;
+    if (st.on && p < 0) { st.on = false; st.done = true; }
+    if (!st.on) return base(r, c);
+    if (c.pit?.phase === 'stop') return S.drivePlayer(r, c, { thr: 1, brk: 0, steer: 1, analog: true }, DT);
+    const served = c.pitStops > 0;
+    let vt = p < L.from ? Math.sqrt(lane * lane + 2 * 20 * Math.max(0, L.from - p) * ds) : p > L.to ? 80 : lane;
+    if (stop && !served) vt = Math.min(vt, Math.sqrt(2 * 3 * Math.max(0, (box - p) * ds)));
+    const look = Math.max(2, Math.round(Math.max(4, c.v * 0.35) / ds)), j = (c.idx + look) % T.N, lt = pathLat(p + look, served);
+    const diff = S.wrapA(Math.atan2(T.PZ[j] + T.NZ[j] * lt - c.z, T.PX[j] + T.NX[j] * lt - c.x) - c.h), slow = c.v > vt;
+    S.drivePlayer(r, c, { thr: slow ? 0 : 1, brk: slow ? Math.min(1, (c.v - vt) * 0.5 + 0.2) : 0, steer: S.clamp(diff * 3, -1, 1), analog: true }, DT);
+  };
+}
+
+test('you drive the pit lane: 80 km/h limiter, stop in your box, held there until the service is done, then free', () => {
+  for (const id of ['elkmoor', 'northfold']) {
+    const T = S.buildTrack(S.CIRCUITS[id]), race = S.createRace(3, { track: T, drivers: player(), wear: { fuel: 'normal', tyres: 'normal', damage: true } });
+    const c = race.cars[0], events = [];
+    let maxLane = 0, held = null, moved = 0, heldFor = 0;
+    const drive = pitDriver(T);
+    run(S, race, 300, (r, car) => {
+      drive(r, car);
+      events.push(...car.events.map(e => e.type).filter(t => t.startsWith('pit')));
+      if (car.pitLimiter) maxLane = Math.max(maxLane, Math.hypot(car.v, car.vy));
+      if (car.pit?.phase === 'stop') { held ??= [car.x, car.z, car.h]; moved = Math.max(moved, Math.hypot(car.x - held[0], car.z - held[1]), Math.abs(car.h - held[2])); heldFor += DT; }
+      if (car.pit?.drive) assert.ok(!car.wallHit, `${id}: no wall in the pit lane (p ${S.alongLane(T, car).toFixed(1)}, lat ${car.lat.toFixed(2)})`);
+    });
+    assert.deepEqual(events, [S.EV.PIT_IN, S.EV.PIT_STOP, S.EV.PIT_READY, S.EV.PIT_OUT], id);
+    assert.ok(maxLane <= 80 / 3.6 + 1e-9, `${id}: ${(maxLane * 3.6).toFixed(1)} km/h in the lane`);
+    assert.ok(moved === 0, `${id}: full gas in the box moved the car ${moved}`);
+    assert.ok(heldFor > 2.3, `${id}: held ${heldFor.toFixed(2)} s for the service`);
+    assert.ok(c.finished && c.pitStops === 1 && c.tyreWear < 0.3 && c.cuts === 0, `${id}: finished ${c.finished}, ${c.pitStops} stops, wear ${c.tyreWear}, cuts ${c.cuts}`);
+    if (id === 'elkmoor') {                                             // the stop costs time: compare with a race without one
+      const plain = S.createRace(3, { track: T, drivers: player() }); run(S, plain, 300, tester(T));
+      const loss = c.finishTime - plain.cars[0].finishTime;
+      assert.ok(loss > 8 && loss < 30, `the stop cost ${loss.toFixed(1)} s`);
+    }
+  }
 });
 
-test('in the pit lane the car drives: wheels roll, heading follows the path, steering by its curve; it waits for the gas', () => {
-  const T = S.track, race = S.createRace(3, { drivers: player(), wear: { tyres: 'normal' } }), c = race.cars[0];
-  let lastPos = null, worstSlip = 0, maxSteer = 0, readyAt = -1, left = -1, rollAtStop = 0;
-  const drive = tester(T, 1);
-  for (let s = 0; s < 120 * 120 && left < 0; s++) {
+test('the pit lane: drive straight through (no stop, no service); arriving too fast, the limiter cuts you to 80', () => {
+  const T = S.track, race = S.createRace(3, { drivers: player(), wear: { tyres: 'normal' } }), c = race.cars[0], events = [];
+  let atLine = 0, maxLane = 0;
+  const drive = pitDriver(T, { stop: false, lane: 140 / 3.6 });
+  run(S, race, 300, (r, car) => {
+    drive(r, car);
+    events.push(...car.events.map(e => e.type).filter(t => t.startsWith('pit')));
+    if (car.pitLimiter) { atLine ||= car.v; maxLane = Math.max(maxLane, Math.hypot(car.v, car.vy)); }
+  });
+  assert.deepEqual(events, [S.EV.PIT_IN, S.EV.PIT_OUT]);
+  assert.ok(atLine <= 80 / 3.6 + 1e-9 && maxLane <= 80 / 3.6 + 1e-9, `${(maxLane * 3.6).toFixed(1)} km/h`);
+  assert.ok(c.finished && c.pitStops === 0 && c.tyreWear > 0.2);
+});
+
+test('the pit lane has walls: the pit wall and the garages keep a car in it', () => {
+  const T = S.track, L = T.pit;
+  for (const [aim, lat] of [[-0.5, L.lane], [0.5, L.boxLat]]) {
+    const race = S.createRace(2, { drivers: player() }), c = race.cars[0], i = Math.round((L.from + L.to) / 2) % T.N;
+    Object.assign(c, { idx: i, lat, x: T.PX[i] + T.NX[i] * lat, z: T.PZ[i] + T.NZ[i] * lat, h: S.headingAt(T, i) + aim, v: 20, lap: 1 });
+    let hit = false;
+    for (let k = 0; k < 240; k++) {
+      S.drivePlayer(race, c, { thr: 1, brk: 0, steer: 0, analog: true }, DT);
+      hit ||= c.events.some(e => e.type === S.EV.WALL); c.events.length = 0;
+      assert.ok(c.pit?.drive && c.lat > L.wallLat && c.lat < L.garageLat, `${aim}: lat ${c.lat.toFixed(2)}`);
+    }
+    assert.ok(hit, `${aim}: hit the wall`);
+  }
+});
+
+test('an AI car in the pit lane: wheels roll, heading follows the path, steering by its curve, clear of the other boxes', () => {
+  const T = S.track, L = T.pit, d = S.DRIVERS.find(x => !x.player), k = S.DRIVERS.indexOf(d);
+  const race = S.createRace(3, { drivers: [d], wear: { tyres: 'normal' } }), c = race.cars[0];
+  let lastPos = null, worstSlip = 0, maxSteer = 0, rollAtStop = 0, worstBox = Infinity, out = false;
+  for (let s = 0; s < 120 * 120 && !out; s++) {
     race.t += DT;
-    if (c.pit?.done) {                                               // serviced: no gas for 2 s, then gas
-      if (readyAt < 0) readyAt = race.t;
-      S.drivePlayer(race, c, { thr: race.t - readyAt > 2 ? 1 : 0, brk: 0, steer: 0, analog: true }, DT);
-    } else drive(race, c);
-    for (const e of c.events) if (e.type === S.EV.PIT_GO) left = race.t;
-    c.events.length = 0;
+    if (c.lap === 1 && !c.pitStops && !c.pit) c.pitRequest = true;
+    S.driveAI(race, c, DT);
+    out ||= c.events.some(e => e.type === S.EV.PIT_OUT); c.events.length = 0;
     if (c.pit && lastPos && c.v > 1) {                               // moving the way it points (no sideways slide)
       const dir = Math.atan2(c.z - lastPos[1], c.x - lastPos[0]);
       worstSlip = Math.max(worstSlip, Math.abs(S.wrapA(dir - c.h)));
       maxSteer = Math.max(maxSteer, Math.abs(c.steer));
     }
+    // over a neighbouring box (7 m long, 3 m wide; the car ~5.6 × 2.1 m): how far its side stays from the box's edge
+    if (c.pit) for (const j of [k - 1, k + 1]) if (L.boxes[j] && Math.abs(c.pit.p - L.boxes[j]) * T.ds < 3.5 + 2.8)
+      worstBox = Math.min(worstBox, (L.boxLat - 1.5) - (c.lat + 1.05));
     if (c.pit?.phase === 'stop' && !rollAtStop) rollAtStop = c.roll;
     lastPos = c.pit ? [c.x, c.z] : null;
   }
-  assert.ok(left > 0 && left - readyAt >= 2 - 1e-6, `waited ${(left - readyAt).toFixed(2)} s for the gas`);
+  assert.ok(out && c.pitStops === 1);
   assert.ok(worstSlip < 0.03, `slide ${(worstSlip * 57.3).toFixed(1)}°`);
   assert.ok(maxSteer > 0.05 && maxSteer < 1, `steers into the box (${maxSteer.toFixed(2)})`);
   assert.ok(rollAtStop > 100, 'the wheels rolled down the lane');
+  assert.ok(worstBox > 0, `over the next box by ${(-worstBox).toFixed(2)} m`);
   // the crew's jobs add up to the stop
   const steps = S.serviceSteps({ fuel: 24, fuelTo: 60, wing: true, repair: true, tyres: true, time: 2.4 + 2 + 3 + 1.5 });
   assert.deepEqual(steps.map(s => s.job), ['tyres', 'fuel', 'wing', 'repair']);
   assert.ok(Math.abs(steps.at(-1).to - 8.9) < 1e-9);
 });
 
-test('driving onto the entry road is a pit stop too', () => {
+test('driving onto the entry road puts you in the pit lane; the limiter starts at the pit wall', () => {
   const T = S.track, race = S.createRace(2, { drivers: player() }), c = race.cars[0];
   const i = (T.pit.entry + 5 + T.N) % T.N, lat = T.HW + 3;
   Object.assign(c, { idx: i, lat, x: T.PX[i] + T.NX[i] * lat, z: T.PZ[i] + T.NZ[i] * lat, h: S.headingAt(T, i), v: 40, lap: 1 });
   S.drivePlayer(race, c, { thr: 1, brk: 0, steer: 0, analog: true }, DT);
-  assert.ok(c.pit && c.events.some(e => e.type === S.EV.PIT_IN));
+  assert.ok(c.pit?.drive && !c.pitLimiter && !c.events.some(e => e.type === S.EV.PIT_IN));
 });
 
 test('fuel: a short race needs no stop, a long one does; warnings; an empty tank leaves the car limping', () => {

@@ -323,7 +323,10 @@ async function trackShots(win) {
     const pit = await js(`gridlineDebug.pit()`);
     if (pit) views.push(['pitentry', `gridlineDebug.view('${id}', ${pit[0]} - 0.012, 1, 2.2, 45, 6)`],
       ['pitlane', `gridlineDebug.view('${id}', ${pit[1]} + 0.004, 13.4, 1.6, 40, 13.4)`],
-      ['pitaerial', `gridlineDebug.view('${id}', ${pit[0]}, -40, 45, 60, 10)`]);
+      ['pitaerial', `gridlineDebug.view('${id}', ${pit[0]}, -40, 45, 60, 10)`],
+      // from above, where the pit wall starts and ends (the lane's walls)
+      ['pitstart', `gridlineDebug.view('${id}', ${pit[1]} - 0.012, 30, 22, 24, 10)`],
+      ['pitend', `gridlineDebug.view('${id}', ${pit[2]} + 0.012, 30, 22, -24, 10)`]);
     corners.forEach((f, k) => {
       views.push([`brake${k}`, `gridlineDebug.view('${id}', ${f} - 0.03, 0, 1.6, 60)`]);
       views.push([`corner${k}`, `gridlineDebug.view('${id}', ${f} + 0.004, 4, 3, 40, -8)`]);

@@ -320,18 +320,24 @@ export const PIT = Object.freeze({ fast: 2.4, box: 8, garage: 12.5, entry: 55, e
   base: 2.4, refuel: 12, wing: 3, repair: 5, boxLength: 7,
   // garages (world.js draws them, pit.js stops each car at its own): door k at first + step·k m from the `pits` landmark
   garages: Object.freeze({ first: -67.5, step: 15, door: 11, building: 150 }),
-  // entering: on the entry road = more than `road` m past the track edge; a car asked to pit turns in within
-  // `request` samples of the entry road's start; neither counts later than `latest` samples before the pit wall
-  enter: Object.freeze({ road: 2.5, request: 4, latest: 12 }),
+  // entering (AI): on the entry road = more than `road` m past the track edge; a car asked to pit turns in within
+  // `request` samples of the entry road's start; neither counts later than `latest` samples before the pit wall.
+  // Driving yourself: in the pit lane once more than `drive` m past the edge on the entry road (before a track-limits
+  // cut could count: the whole car past the edge)
+  enter: Object.freeze({ road: 2.5, request: 4, latest: 12, drive: 1 }),
   edge: 1.5,                     // m inside the track edge where the pit roads leave and join the track
-  // the path into the box: swings across from `turnIn` samples before it over `turnInLength`, out over `turnOut`
-  turnIn: 14, turnInLength: 11, turnOut: 12,
+  // the AI's path into the box (m): swings across from `turnIn` before it over `turnInLength`, out over `turnOut`, so it
+  // stays clear of the neighbouring boxes (15 m apart, 7 m long)
+  turnIn: 16, turnInLength: 15, turnOut: 15,
+  // driving yourself (the player): stopped in your box = the car's centre within `along` m of the box's centre and `lat` m
+  // of its middle, pointing within `angle` rad of the lane, slower than `speed` m/s; then held until the service is done.
+  // The lane's outer edge (the garages) narrows to the pit roads' barrier over `taper` m at both ends.
+  boxFit: Object.freeze({ along: 1.5, lat: 1.1, angle: 0.35, speed: 0.4 }), taper: 16,
   // speeds in the lane: braking into the box at boxBrake m/s², pulling away at accel m/s², exitAccel on the exit road
   boxBrake: 6, accel: 8, exitAccel: 18, stopAt: 0.05, creep: Object.freeze({ within: 1, below: 0.3 }),
   // what the self-driving car shows the HUD and sound: throttle in / out, brake light, gear and revs
   // (steering: wheel angle = atan(wheelbase × the path's curvature), as a share of wheelLock rad; eased at steerRate/s)
   show: Object.freeze({ thrIn: 0.15, thrOut: 0.6, brake: 0.3, wheelbase: 3.4, wheelLock: 0.32, steerRate: 8, upshift: 10500, idle: 4200 }),
-  release: 0.4,                  // a player's car leaves its box once the service is done and the gas is past this
   // service: a wing counts as damaged above wingFrom, floor + suspension damage above repairFrom gets repaired
   wingFrom: 0.05, repairFrom: 0.02,
   // the AI's decision: never within `late` laps of the flag; fuel only when under fuelBelow laps are left; tyres only

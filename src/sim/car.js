@@ -1,5 +1,5 @@
 // Car state, where a car is on the track (nearest sample, lateral offset), walls and surface.
-import { EV, BARRIERS, ROUGH, OFFTRACK, WALLS } from './tuning.js';
+import { EV, BARRIER, BARRIERS, ROUGH, OFFTRACK, WALLS } from './tuning.js';
 import { surfaceAt } from './runoff.js';
 import { wrapA, wrapIdx, speedOf } from './math.js';
 import { gridSlot, headingAt } from './track.js';
@@ -70,16 +70,18 @@ export function createCar(track, driver, slot, rng) {
 // The barrier on the car's side at its sample (runoff.js). A hit keeps BARRIERS[type].keep of the speed (a tyre wall
 // soaks up more than concrete, which the car glances off). Returns the new hit's EV.WALL event (impact speed, `hard` =
 // how hard it felt for sound and shake, `front` = nose-on share for damage), else null.
-/** @param {Track} track @param {Car} c */
-export function resolveWalls(track, c) {
+// lane = [inner, outer] m from the centre line instead (a car in the pit lane: pit.js laneWalls; concrete walls).
+/** @param {Track} track @param {Car} c @param {number[]} [lane] */
+export function resolveWalls(track, c, lane = null) {
   const { NX, NZ } = track, R = track.runoff[c.lat < 0 ? 0 : 1], lim = R.wall[c.idx] - WALLS.clearance;
-  if (Math.abs(c.lat) <= lim) { c.wallHit = false; return null; }
-  const s = Math.sign(c.lat), over = Math.abs(c.lat) - lim;
-  c.x -= NX[c.idx]*s*over; c.z -= NZ[c.idx]*s*over; c.lat = s*lim;
+  const lo = lane ? lane[0] + WALLS.clearance : -lim, hi = lane ? lane[1] - WALLS.clearance : lim;
+  if (c.lat >= lo && c.lat <= hi) { c.wallHit = false; return null; }
+  const s = c.lat > hi ? 1 : -1, over = s > 0 ? c.lat - hi : lo - c.lat;
+  c.x -= NX[c.idx]*s*over; c.z -= NZ[c.idx]*s*over; c.lat = s > 0 ? hi : lo;
   let th = headingAt(track, c.idx);           // nudge the heading back along the wall
   let hit = null;
   if (!c.wallHit) {
-    const B = BARRIERS[R.barrier[c.idx]] || BARRIERS[0];
+    const B = BARRIERS[lane ? BARRIER.concrete : R.barrier[c.idx]] || BARRIERS[0];
     hit = { impact: Math.abs(c.v * Math.sin(c.h - th)), hard: B.hard, front: Math.abs(Math.sin(c.h - th)), barrier: B.name };
     c.v *= B.keep; c.vy *= WALLS.sideways; c.yawRate *= WALLS.sideways; emit(c, EV.WALL, hit);
   }
@@ -91,9 +93,10 @@ export function resolveWalls(track, c) {
 
 // Surface under the car (runoff.js surfaceAt: the same layout the renderer draws). Running onto a sausage kerb
 // upsets the car once: a yaw kick and a little speed lost (EV.SAUSAGE).
+// pitLane = driving in the pit lane (tarmac).
 /** @param {Track} track @param {Car} c */
-export function updateSurface(track, c) {
-  const { surface, depth } = surfaceAt(track, c.idx, c.lat), was = c.surface;
+export function updateSurface(track, c, pitLane = false) {
+  const { surface, depth } = pitLane ? { surface: 'tarmac', depth: 0 } : surfaceAt(track, c.idx, c.lat), was = c.surface;
   c.surface = surface; c.gravelDepth = depth;
   c.onKerb = surface === 'kerb' || surface === 'sausage';
   c.offTrack = surface in ROUGH;

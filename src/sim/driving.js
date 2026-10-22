@@ -1,13 +1,13 @@
 // The player's and the AI's driving. Every car is the same car (vehicle.js engine/gearbox/aero, chassis.js tyres);
 // the player and the AI only decide steering, throttle, brake and shifts.
-import { AI, ASSISTS, CHASSIS, TUNING, PIT, SPEED_STEER } from './tuning.js';
+import { AI, ASSISTS, CHASSIS, TUNING, SPEED_STEER } from './tuning.js';
 import { STOCK } from './spec.js';
 import { clamp, wrapA, wrapIdx } from './math.js';
 import { progress } from './race.js';
 import { afterMove } from './motion.js';
 import { stepChassis, steerLock, driftAngle } from './chassis.js';
 import { slipstream, cornerSpeed, brakeLimit, brakeMax, lateralGrip } from './vehicle.js';
-import { checkPitEntry, stepPit, updateWear, aiWantsPit } from './pit.js';
+import { checkPitEntry, stepPit, updateWear, aiWantsPit, drivePitLane, pitLimit } from './pit.js';
 import { updateActiveAero } from './active-aero.js';
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
@@ -20,17 +20,18 @@ import { updateActiveAero } from './active-aero.js';
 /** @param {Race} race @param {Car} c */
 export function drivePlayer(race, c, inp, dt) {
   updateActiveAero(race, c, inp, dt);
-  // the car drives itself in the pit lane; once serviced it waits in the box for the gas
-  if (checkPitEntry(race, c)) { stepPit(race, c, dt, inp.thr >= PIT.release); afterMove(race, c); return; }
+  const held = drivePitLane(race, c);                // the pit lane: you drive it; held in your box during the stop
   const rate = inp.analog ? inp.steerRate ?? 14 : 5;
   c.steerIn ??= c.steer;
   c.steerIn += clamp(clamp(inp.steer, -1, 1) - c.steerIn, -dt*rate, dt*rate);
   c.steer = inp.analog && inp.calm ? calmSteer(c.steerIn, c.v, inp.calm, c.spec) : c.steerIn;
   if (inp.speedSteer) c.steer = speedSteer(c.steer, c.v, inp.speedSteer, (c.assists || ASSISTS.medium).steer, c.spec);
   c.brake = inp.brk; c.thr = inp.thr;
+  if (held) { afterMove(race, c); return; }
   updateWear(race, c, inp.thr, dt);
   slipstream(race, c, progress);
   stepChassis(race, c, inp, dt);
+  pitLimit(c);
   afterMove(race, c);
 }
 

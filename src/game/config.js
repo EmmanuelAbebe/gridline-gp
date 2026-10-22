@@ -140,7 +140,6 @@ export const PREFS = Object.freeze({
     engineVol: 100, fxVol: 100, ambVol: 100,   // % per sound bus
     doppler: true, shiftBeep: false,
     shake: 70,           // % camera shake (close passes, dirty air)
-    pitCam: true,        // TV shot of your pit stop (main.js pitShot)
     racingLine: 'full',  // the racing line on the road (racing-line.js): full / braking (zones only) / off
     ghostInputs: true,   // time trial against an AI ghost: its steering / gas / brake charts (ghost-inputs.js)
     hudMirror: false,    // a rear-view mirror strip at the top of the screen (hud-mirror.js)

@@ -27,7 +27,7 @@ export const EVENT_MESSAGES = {
   [EV.BEACHED]: () => ({ toast: 'Beached in the gravel  ·  the marshals are recovering the car', kind: 'warn', secs: SIM.OFFTRACK.recoverTime }),
   [EV.RECOVERED]: () => ({ toast: 'Back on track  ·  dirty tyres, take it easy' }),
   // pit stops and the car's condition: the team on the radio
-  [EV.PIT_IN]: () => ({ radio: 'Pit limiter on. Box, box.', secs: 3 }),
+  [EV.PIT_IN]: () => ({ radio: 'Pit limiter on, 80. Stop in your box for the crew.', secs: 3 }),
   [EV.PIT_STOP]: e => {
     const s = e.service, jobs = ['tyres'];
     if (s.fuel > 0.5) jobs.push(`${Math.round(s.fuel)} kg of fuel`);
@@ -35,7 +35,7 @@ export const EVENT_MESSAGES = {
     if (s.repair) jobs.push('repairs');
     return { radio: `Stop: ${jobs.join(', ')}. ${s.time.toFixed(1)} s.`, secs: s.time + 0.5 };
   },
-  [EV.PIT_READY]: () => ({ toast: 'Service done  ·  GAS to leave the box', secs: 4 }),
+  [EV.PIT_READY]: () => ({ radio: 'Done. Go, go, go!', secs: 2 }),
   [EV.PIT_GO]: () => ({ radio: 'Go, go, go!', secs: 2 }),
   [EV.PIT_OUT]: (e, c, race) => ({ radio: `Limiter off. You're P${SIM.order(race).indexOf(c) + 1}.`, secs: 3 }),
   [EV.FUEL_LOW]: () => ({ radio: 'Fuel is getting low: about 2 laps left, not enough for the finish. Box when you can (B / pad X).', secs: 6 }),
@@ -53,7 +53,7 @@ export const messageFor = (e, c, race) => EVENT_MESSAGES[e.type]?.(e, c, race) ?
 
 // the other things said during a race
 export const SAY = {
-  boxOn: { radio: 'Copy, box this lap. The car takes over at the pit entry.', secs: 3 },
+  boxOn: { radio: 'Copy, box this lap. We are ready for you.', secs: 3 },
   boxOff: { radio: 'Understood, stay out.', secs: 3 },
   timeUp: { toast: 'Time up: the leader\'s next lap is the last' },
   autoShift: { toast: 'Automatic gearbox: pick SEMI-AUTO or MANUAL in Settings (O) to shift yourself' },

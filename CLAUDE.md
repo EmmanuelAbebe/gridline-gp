@@ -167,8 +167,18 @@ Tunables live in data tables (config modules), not inline in the logic.
      it: low fuel, damage, with messages). `track.pit` (`buildPitLane`; ranges from runoff.js `pitRange`: entry road
      `PIT.entry` samples before the pit wall, wall ±landmarkSpan around `pits`, exit road after; runoff gives the pit
      roads an outer wall (cls 253) and the pit wall (cls 255) after the smoothing). Lateral: pit wall HW+3.5, fast lane
-     +2.4, boxes +8 (one per DRIVERS entry, at its garage door), garages +12.5. Entry: driving onto the entry road
-     (lat > HW + 2.5) or `c.pitRequest` at its start → `c.pit` {p (unwrapped sample position), phase in/stop/out}:
+     +2.4, boxes +8 (one per DRIVERS entry, at its garage door), garages +12.5. The player drives it (2026-10-22, user:
+     "full driving capability in the pit lane", no cinematics): `drivePitLane` (drivePlayer) = in the lane once more
+     than `PIT.enter.drive` 1 m past the edge on the entry road (or behind the pit wall), out when back on the track side;
+     `c.pit.drive`; normal chassis, walls = `laneWalls` [pit wall, `laneOuter` = garages, tapering over `PIT.taper` 16 m
+     to the pit roads' barrier] (decided by the car's sample, like the run-off walls), tarmac, no track limits, contact
+     with track cars; `pitLimit` caps the speed at 80 km/h (scales v, vy) from the pit wall's start to its end, a car
+     arriving faster is cut to 80; stopped in its own box (`PIT.boxFit` ±1.5 m along, ±1.1 m sideways, < 20°, < 0.4 m/s)
+     → service, the car held still (position fixed, full gas or not) until it is done, then free (no release help).
+     Drive past = drive-through. PIT_IN at the pit wall's start (limiter), PIT_OUT on leaving. BOX only tells the team
+     (the crew comes out to wait: `c.pit.request`). world.js: the barrier ribbon no longer joins the pit roads' barrier
+     to the pit wall (it ran across the entry and exit roads); the lane's outer wall is drawn where the garages aren't.
+     AI: `c.pitRequest` at the entry road's start → `c.pit` {p (unwrapped sample position), phase in/stop/out}:
      `stepPit` drives the car on a path (no chassis, no walls/limits in afterMove, no collisions), 80 km/h limiter,
      stop in the box, service (tyres always 2.4 s, fuel at 12 kg/s to what the race needs + 0.4 lap, wing 3 s, repairs
      up to 5 s), out; laps/timing carry on. Events PIT_IN/STOP/GO/OUT. Race option `createRace(…, { wear: { fuel,
@@ -179,7 +189,9 @@ Tunables live in data tables (config modules), not inline in the logic.
      downforce × (1 − 0.3 f) + drag, suspension (hard hits) → steering pull + grip (EV.DAMAGE, c.damageNote);
      `carCondition(c)` is what chassis.js applies. AI: `aiWantsPit` once a lap before the entry (fuel won't last,
      tyres > 75% with > 1.5 laps to go, wing > 45%). Tests: tests/pit.test.js (every circuit's lane, a full stop
-     sequence ≤ 80 km/h in the lane, ~15–20 s lost, fuel/tyres/damage, a 6-lap thirsty AI race: everyone stops once).
+     sequence ≤ 80 km/h in the lane, ~15–20 s lost, fuel/tyres/damage, a 6-lap thirsty AI race: everyone stops once;
+     `pitDriver` = a bot that drives the player's car into its box / through the lane; walls; the AI path clear of the
+     neighbouring boxes).
      Game: Settings → Driving Fuel use / Tyre wear / Damage (`game.setup` fuel normal, tyres normal, damage on); BOX
      (B, pad X, HUD button) toggles the request; HUD rows Fuel (laps; amber/red if it won't last) / Tyres % / Damage
      in the position panel, pit status line (BOX THIS LAP / PIT LIMITER / PIT STOP); `Hud.radio` team-radio messages
@@ -188,14 +200,15 @@ Tunables live in data tables (config modules), not inline in the logic.
      2026-10-20 (user: show the crew fixing the specific parts; the car slid into the box with still wheels; wait for
      the driver to leave): stepPit places the car on the path with the heading from a central difference of the path
      (smooth, no per-sample kinks), front wheels steered by the path's curvature (atan(wheelbase·k) / wheelLock), wheels
-     rolling (c.roll); after the service `P.done` + EV.PIT_READY, and a player's car leaves only with the gas
-     (≥ PIT.release; drivePlayer passes it; the AI goes at once); HUD "GAS TO GO". `serviceSteps(service)` = the jobs in
+     rolling (c.roll); after the service `P.done` + EV.PIT_READY, the AI goes at once. The AI's swing into the box
+     (`PIT.turnIn` 16 / `turnInLength` 15 / `turnOut` 15 m, a smootherstep: no curvature at the ends) stays clear of the
+     neighbouring boxes (2026-10-22: it used to cut across the previous one). `serviceSteps(service)` = the jobs in
      order (tyres, fuel, wing, repair). Game `pit-crew.js`: 16 people per car in the race (team colours, jointed box
      rigs) waiting in front of the garage; out when the car is < 140 m away: jacks (car lifted 0.07 m), gunner + carrier
      per wheel (the wheel really comes off: CarModels `setService`), fuel man, wing men with a spare wing, repair crew,
-     lollipop man (red / green); nobody stands in the car's way (`wait` / `after` spots). Pit camera (pref `pitCam`,
-     Settings → Graphics; CameraRig `setShot` glides to a TV shot over the fast lane, main.js `pitShot`). Debug:
-     `gridlineDebug.pitNow(m)` drops your car into the lane m before its box with a damaged wing.
+     lollipop man (red / green); nobody stands in the car's way (`wait` / `after` spots). (The pit stop TV camera was
+     removed 2026-10-22.) Debug: `gridlineDebug.pitNow(m)` puts your car in the fast lane m before its box at 60 km/h
+     with a damaged wing (you drive from there). `--track-shots` has `pitstart` / `pitend` views from above.
    - `car.js` (locate, createCar, resolveWalls, updateSurface; car has `gear`, `rpm`, `autoShift`, `slip`, `brake`,
      and `trailLat`/`trailT` per track sample = its wake), `race.js` (formats, createRace, progress, lap +
      flag rules, checkpoints, order, gapTo), `motion.js` (afterMove), `driving.js` (drivePlayer, driveAI),

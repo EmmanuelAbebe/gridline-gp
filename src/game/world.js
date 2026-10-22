@@ -181,6 +181,7 @@ export function buildWorld(parent, track, drivers) {
     markStrip(i => RO[i] - 1.4, i => RO[i] + 1.4, 0.045, tyreStreaks(3, true), 17, i => braking(i) * 0.9, 2); }
 
   // ---- beside the road, from the run-off layout ----
+  let concreteFence = null;                                          // (buildBarriers makes it; concreteWall uses it)
   for (const side of [0, 1]) {
     const R = runoff[side];
     // flat kerbs, sausage kerbs behind them at chicanes, artificial grass, tarmac run-off, gravel
@@ -194,8 +195,18 @@ export function buildWorld(parent, track, drivers) {
     buildBarriers(side, R);
   }
 
+  // concrete wall + debris fence along at(d) (signed m from the centre line, d = how far behind the face) where include(i)
+  function concreteWall(at, include, fence = true) {
+    ribbon(at(0), 0, 1.1, include, { colorFn: i => (i >> 3) % 2 ? COLORS.concrete : 0xb8babd });
+    ribbon(at(0.4), 0, 1.1, include, { colorFn: () => 0xa6a9ad });
+    if (fence) ribbon(at(0.1), 1.1, 4.2, include, { map: concreteFence, texLen: 2, alpha: true });
+  }
   function buildBarriers(side, R) {
-    const s = side ? 1 : -1, B = SIM.BARRIER, at = (i, d = 0) => s * (R.wall[i] + d), is = t => i => R.barrier[i] === t;
+    // (no wall drawn from the pit roads' barrier to the pit wall: that would run across the pit road; the lane's own
+    // outer wall joins them, see the pit lane below)
+    const s = side ? 1 : -1, B = SIM.BARRIER, at = (i, d = 0) => s * (R.wall[i] + d);
+    const pitJoin = i => { const a = R.cls[i], b = R.cls[(i + 1) % N]; return a !== b && (a === 255 || b === 255); };
+    const is = t => i => R.barrier[i] === t && !pitJoin(i);
     // Armco: two steel rails on posts
     ribbon(i => at(i), 0.42, 0.72, is(B.armco), { colorFn: () => COLORS.armco });
     ribbon(i => at(i), 0.82, 0.98, is(B.armco), { colorFn: () => COLORS.armco });
@@ -219,9 +230,8 @@ export function buildWorld(parent, track, drivers) {
       x.fillStyle = '#7b828a'; x.fillRect(0, 0, w, 3);
     }, false);
     fenceTex.wrapS = fenceTex.wrapT = THREE.RepeatWrapping; fenceTex.repeat.set(1, 3);
-    ribbon(i => at(i), 0, 1.1, is(B.concrete), { colorFn: i => (i >> 3) % 2 ? COLORS.concrete : 0xb8babd });
-    ribbon(i => at(i, 0.4), 0, 1.1, is(B.concrete), { colorFn: () => 0xa6a9ad });
-    ribbon(i => at(i, 0.1), 1.1, 4.2, is(B.concrete), { map: fenceTex, texLen: 2, alpha: true });
+    concreteFence = fenceTex;
+    concreteWall(d => i => at(i, d), is(B.concrete));
     posts(side, i => R.wall[i] + 0.1, 2, is(B.concrete), [0.1, 3.3, 0.1], COLORS.fence, 2.75);
     // marshal-post debris fence behind fast corners' TecPro too
     ribbon(i => at(i, 1.4), 0.2, 3.4, is(B.tecpro), { map: fenceTex, texLen: 2, alpha: true });
@@ -272,10 +282,17 @@ export function buildWorld(parent, track, drivers) {
     const L = track.pit, from = Math.floor(L.entry), to = Math.ceil(L.exit), span = to - from;
     const inPit = i => SIM.wrapIdx(i - from, N) <= span, pOf = i => from + SIM.wrapIdx(i - from, N);
     const lane = i => SIM.laneCentre(track, pOf(i)), inLane = i => { const p = pOf(i); return p >= L.from && p <= L.to; };
-    const roadIn = i => inLane(i) ? L.wallLat + 0.15 : Math.max(HW, lane(i) - 2.4), roadOut = i => inLane(i) ? L.garageLat + 0.2 : Math.max(HW + 0.3, lane(i) + 2.4);
+    const outer = i => SIM.laneOuter(track, pOf(i));                  // the lane's outer wall (= the physics' edge, pit.js)
+    const roadIn = i => inLane(i) ? L.wallLat + 0.15 : Math.max(HW, lane(i) - 2.4), roadOut = i => inLane(i) ? outer(i) + 0.2 : Math.max(HW + 0.3, lane(i) + 2.4);
     strip(roadIn, roadOut, 0.032, i => inPit(i) ? COLORS.asphalt[1] : null, 1.2);
     for (const edge of [roadIn, roadOut]) strip(i => edge(i) - 0.12, i => edge(i) + 0.12, 0.05, i => inPit(i) && !(inLane(i) && edge === roadIn) && edge(i) > HW + 0.3 ? COLORS.paint : null, 3);
     strip(i => L.lane + 1.7, i => L.lane + 1.9, 0.05, i => inLane(i) ? COLORS.paint : null, 3);          // fast lane | working lane
+    // the lane's outer wall where the garages aren't: from the entry road's barrier out to the garages, and back in to
+    // the exit road's (joined to the run-off barrier at the samples either side)
+    { const half = SIM.PIT.garages.building / 2, R = runoff[1];
+      const wallLat = i => inLane(i) ? outer(i) : R.wall[i];
+      const open = i => { const p = pOf(i); return p >= L.from - 1 && p <= L.to && inPit(i) && Math.abs(p + 0.5 - landmarks.pits) * track.ds > half; };
+      concreteWall(d => i => wallLat(i) + d, open, false); }
     // box markings in team colours
     const boxGeo = new THREE.PlaneGeometry(SIM.PIT.boxLength, 3).rotateX(-Math.PI / 2);
     drivers.forEach((d, k) => { const p = L.boxes[k], i = SIM.wrapIdx(Math.round(p), N);

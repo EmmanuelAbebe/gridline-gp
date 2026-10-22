@@ -174,15 +174,13 @@ export function createPitCrews(scene) {
         cr.car = c; scene.add(cr.group); crews.push(cr);
       }
     },
-    // the box frame of a car's crew (the pit camera), or null
-    boxOf(c) { return crews.find(cr => cr.car === c)?.frame ?? null; },
     // { lift, outs[] } for the car's model while it is in its box, else null
     serviceOf(c) { return service.get(c) ?? null; },
     update(race, dt, cam) {
       service.clear();
       for (const cr of crews) {
         const c = cr.car, P = c.pit, ds = race.track.ds;
-        const near = P && (P.phase === 'stop' || (P.phase === 'in' && (P.box - P.p) * ds < CREW.comeOut) || (P.phase === 'out' && (P.p - P.box) * ds < 6));
+        const near = P && (P.phase === 'stop' || (P.phase === 'in' && (!P.drive || P.request) && (P.box - P.p) * ds < CREW.comeOut) || (P.phase === 'out' && (P.p - P.box) * ds < 6));
         if (near) { cr.out = true; cr.leftAt = -1; } else if (cr.out) { if (cr.leftAt < 0) cr.leftAt = race.t; if (race.t - cr.leftAt > CREW.goHome) cr.out = false; }
         const far = Math.hypot(cam.x - cr.frame.x, cam.z - cr.frame.z) > CREW.hideBeyond;
         cr.group.visible = !far;

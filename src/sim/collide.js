@@ -58,7 +58,7 @@ export function collide(race) {
   for (const c of cars) { c.wasTouching = c.touching; c.touching = false; }
   for (let i = 0; i < cars.length; i++) for (let j = i+1; j < cars.length; j++) {
     const a = cars[i], b = cars[j];
-    if (a.pit || b.pit) continue;                                  // the pit lane is behind the pit wall
+    if ((a.pit && !a.pit.drive) || (b.pit && !b.pit.drive)) continue;   // AI cars on their pit-lane path (pit.js) don't touch
     if (Math.abs(b.x - a.x) > reach || Math.abs(b.z - a.z) > reach) continue;
     const [px, pz, qx, qz] = closest(segment(a), segment(b));
     let nx = qx - px, nz = qz - pz; const d = Math.hypot(nx, nz);

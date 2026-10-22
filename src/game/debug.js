@@ -23,12 +23,14 @@ export function installDebug(setTrack, current, player = () => null, toMenu = ()
       Display.camera.lookAt(PX[j] + NX[j] * side, 0, PZ[j] + NZ[j] * side);
       return track.name;
     },
-    // put your car in the pit lane `metres` before its box at 60 km/h, with a damaged wing and floor (pit stop shots)
+    // put your car in the fast lane `metres` before its box at 60 km/h, with a damaged wing and floor (pit stop shots);
+    // from there you drive it (pit.js drivePitLane picks it up)
     pitNow(metres = 40) {
       const c = player(), track = current(), L = track.pit; if (!c || !L) return false;
-      const box = L.boxes[SIM.DRIVERS.findIndex(d => d.code === c.code)];
-      c.pit = { p: box - metres / track.ds, p0: L.from - 1, lat0: L.lane, box, phase: 'in', at: 0, until: 0, service: null, done: false };
-      c.v = 60 / 3.6; if (c.damage) Object.assign(c.damage, { wing: 0.5, floor: 0.2 });
+      const box = L.boxes[SIM.DRIVERS.findIndex(d => d.code === c.code)], i = SIM.wrapIdx(Math.round(box - metres / track.ds), track.N);
+      Object.assign(c, { idx: i, lat: L.lane, x: track.PX[i] + track.NX[i] * L.lane, z: track.PZ[i] + track.NZ[i] * L.lane,
+        h: Math.atan2(track.TZ[i], track.TX[i]), v: 60 / 3.6, vy: 0, yawRate: 0, pit: null, pitRequest: true });
+      if (c.damage) Object.assign(c.damage, { wing: 0.5, floor: 0.2 });
       return true;
     },
     pitState: () => { const c = player(); return c?.pit ? { phase: c.pit.phase, done: c.pit.done, kmh: Math.round(c.v * 3.6) } : null; },

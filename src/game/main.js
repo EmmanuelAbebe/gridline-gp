@@ -405,9 +405,8 @@ function renderFrame(dt) {
   crews.update(race, dt, Display.camera.position);
   if (isRunning()) marks.update(race, Design.data.car);
   for (const c of race.cars) modelOf.get(c.code).setService(crews.serviceOf(c));
-  CameraRig.setShot(game.prefs.pitCam ? pitShot(race, player) : null);
   CameraRig.setLook(isRunning() ? Input.look : { back: false, side: 0 });
-  const cockpit = !!cam.cockpitBody && !CameraRig.onShot && !CameraRig.lookingBack;   // the pit camera / rear view show the car from outside
+  const cockpit = !!cam.cockpitBody && !CameraRig.lookingBack;   // the rear view shows the car from outside
   modelOf.get(player.code).useCockpitView(cockpit);
   modelOf.get(player.code).setPedals(player.finished ? 0 : Input.drive.thr, player.finished ? 0 : Input.drive.brk);
   for (const c of race.cars) modelOf.get(c.code).sync(c, poseOf(c), dt);
@@ -437,18 +436,6 @@ function renderFrame(dt) {
   }
   if ((game.mapT -= dt) <= 0) { game.mapT = CONFIG.mapInterval; minimap.draw(race.cars); }
   Hud.tick(dt);
-}
-
-// The pit stop camera (Settings → Graphics): from the last metres into the box until just after leaving it, a TV
-// shot from above the fast lane, at the front quarter of the box, so you watch the crew work; it drifts slowly while they do.
-function pitShot(race, c) {
-  const P = c.pit; if (!P || c.finished) return null;
-  const ds = race.track.ds, f = crews.boxOf(c);
-  const on = P.phase === 'stop' || (P.phase === 'in' && (P.box - P.p) * ds < 22) || (P.phase === 'out' && (P.p - P.box) * ds < 9);
-  if (!on || !f) return null;
-  const t = P.phase === 'stop' ? race.t - P.at : 0, cx = Math.cos(f.h), cz = Math.sin(f.h);
-  const at = (x, y, z) => [f.x + cx * x - cz * z, y, f.z + cz * x + cx * z];       // box frame → world (z = right)
-  return { pos: at(6.4 - Math.min(2.5, t * 0.22), 3.6, -6.4 + Math.min(1, t * 0.08)), look: at(0.2, 0.35, 0.5), fov: 44 };
 }
 
 function monitorFps(dt) {

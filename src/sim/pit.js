@@ -1,11 +1,13 @@
 // Pit stops and what makes them necessary: fuel, tyre wear, damage (WEAR), and the pit lane itself (PIT).
 //
 // The lane runs beside the main straight on the right, behind the pit wall (runoff.js leaves room for it: entry road,
-// lane, exit road). A car enters when it is on the entry road (driven there), or at the start of the entry road when
-// it has asked to pit (c.pitRequest: the player's BOX button, the AI's plan). From there it drives itself, as in F1
-// games: down to the 80 km/h limit, into its box (one per entrant, in front of its garage), service, back out along
-// the fast lane, and onto the track after the exit road. Its position follows a path along the track samples at a
-// lateral offset (c.pit.p = unwrapped sample position), so laps, timing and order carry on as usual.
+// lane, exit road). The player drives it: the normal physics, the lane's walls (pit wall, garages), the speed held to
+// 80 km/h from the pit wall's start to its end (pitLimit), nothing else. Stop in your box (PIT.boxFit) and the crew
+// serves the car, which is held still until they are done; or just drive through (drivePitLane, c.pit.drive).
+// The AI drives itself on a path (checkPitEntry / stepPit): at the start of the entry road when it has asked to pit
+// (c.pitRequest, its plan), down to the limit, into its box (one per entrant, in front of its garage), service, back
+// out along the fast lane, and onto the track after the exit road. Its position follows a path along the track samples
+// at a lateral offset (c.pit.p = unwrapped sample position), so laps, timing and order carry on as usual.
 import { PIT, WEAR, EV, TUNING, RUNOFF } from './tuning.js';
 import { pitRange } from './runoff.js';
 import { DRIVERS } from './drivers.js';
@@ -17,23 +19,27 @@ import { clamp, wrapA, wrapIdx, smoothstep } from './math.js';
 /** @typedef {import('./types.js').Track} Track */
 
 
-/** @typedef {{ entry: number, from: number, to: number, exit: number, wallLat: number, lane: number, boxLat: number,
- *   garageLat: number, boxes: number[] }} PitLane */
+/** roadIn / roadOut = the pit roads' outer barrier where the lane starts / ends (m from the centre line)
+ * @typedef {{ entry: number, from: number, to: number, exit: number, wallLat: number, lane: number, boxLat: number,
+ *   garageLat: number, roadIn: number, roadOut: number, boxes: number[] }} PitLane */
 /** @typedef {{ fuelLaps: number, tyreLaps: number, damage: boolean, burnLap: number }} Wear */
 /** @typedef {{ wing: number, floor: number, susp: number }} Damage */   // each 0..1
 /** @typedef {{ fuel: number, fuelTo: number, wing: boolean, repair: boolean, tyres: boolean, time: number }} Service */
 /** In the pit lane: p = unwrapped sample position (from p0, lateral lat0 at the entry), the car's box, phase, service
- * done at the stop (from race time `at` until `until`); done = service finished (a player then waits for the gas).
+ * done at the stop (from race time `at` until `until`); done = service finished. drive = the driver drives (the
+ * player): entered = past the pit wall's start (limiter on), hold = where the car is held during the stop, request =
+ * BOX was asked for (the crew comes out to wait).
  * @typedef {{ p: number, p0: number, lat0: number, box: number, phase: 'in' | 'stop' | 'out', at: number, until: number,
- *   service: Service, done: boolean }} PitStop */
+ *   service: Service, done: boolean, drive?: boolean, entered?: boolean, hold?: number[], request?: boolean }} PitStop */
 
 // The lane on a track (null without pits): sample ranges + lateral offsets; boxes = one per DRIVERS entry, in front
 // of the garage doors world.js draws (PIT.garages: first + step·k m along from the `pits` landmark).
 /** @param {Track} track @returns {PitLane} */
 export function buildPitLane(track) {
   const r = pitRange(track); if (!r) return null;
-  const wallLat = track.HW + RUNOFF.pitWall;
+  const wallLat = track.HW + RUNOFF.pitWall, wall = track.runoff[1].wall, N = track.N;
   return { ...r, wallLat, lane: wallLat + PIT.fast, boxLat: wallLat + PIT.box, garageLat: wallLat + PIT.garage,
+    roadIn: wall[wrapIdx(Math.round(r.from) - 1, N)], roadOut: wall[wrapIdx(Math.round(r.to) + 1, N)],
     boxes: DRIVERS.map((d, k) => track.landmarks.pits + (PIT.garages.first + PIT.garages.step * k) / track.ds) };
 }
 
@@ -152,13 +158,15 @@ export function laneCentre(track, p) {
   if (p <= L.to) return L.lane;
   return L.lane + (edge - L.lane) * smoothstep((p - L.to) / (L.exit - L.to));
 }
+// the swing into / out of the box: 0..1 → 0..1 with no curvature at either end (no kink where it meets the straight)
+const swing = t => { t = clamp(t, 0, 1); return t * t * t * (t * (6 * t - 15) + 10); };
 // lateral offset of the pit path at p (unwrapped samples)
 /** @param {Race} race @param {Car} c */
 function pathLat(race, c, p) {
   const lane = race.track.pit, P = c.pit;
   if (p < lane.from) return P.lat0 + (lane.lane - P.lat0) * smoothstep((p - P.p0) / (lane.from - P.p0));
   if (p <= lane.to) {
-    const into = smoothstep((p - (P.box - PIT.turnIn)) / PIT.turnInLength), out = 1 - smoothstep((p - P.box) / PIT.turnOut);
+    const ds = race.track.ds, into = swing((p - (P.box - PIT.turnIn / ds)) / (PIT.turnInLength / ds)), out = 1 - swing((p - P.box) / (PIT.turnOut / ds));
     return lane.lane + (lane.boxLat - lane.lane) * (p < P.box ? into : out);
   }
   return lane.lane + (race.track.HW - PIT.edge - lane.lane) * smoothstep((p - lane.to) / (lane.exit - lane.to));
@@ -178,8 +186,8 @@ function pathHeading(race, c, p) {
   return Math.atan2(b[1] - a[1], b[0] - a[0]);
 }
 
-// One step of a car in the pit lane (instead of the driving model). Moves it along the path; the caller runs afterMove.
-// go = the driver lets it leave once the service is done (drivePlayer: the gas; the AI always)
+// One step of an AI car in the pit lane (instead of the driving model). Moves it along the path; the caller runs afterMove.
+// go = it may leave once the service is done
 /** @param {Race} race @param {Car} c */
 export function stepPit(race, c, dt, go = true) {
   const T = race.track, lane = T.pit, P = c.pit, ds = T.ds, S = PIT.show;
@@ -221,6 +229,84 @@ export function stepPit(race, c, dt, go = true) {
     c.h = t + wrapA(c.h - t); c.pit = null; c.pitLimiter = false;
     c.offset = pathLat(race, c, P.p); emit(c, EV.PIT_OUT);
   }
+}
+
+// ---------- driving yourself through the pit lane (the player) ----------
+// where a car is along the pit lane: unwrapped sample position (entry … exit, with the fraction past its sample), or
+// -1 outside that span
+/** @param {Track} T @param {Car} c */
+export function alongLane(T, c) {
+  const L = T.pit, i = c.idx, f = ((c.x - T.PX[i]) * T.TX[i] + (c.z - T.PZ[i]) * T.TZ[i]) / T.ds;
+  const p = L.entry + wrapIdx(i - L.entry, T.N) + f;
+  return p >= L.entry && p <= L.exit ? p : -1;
+}
+// the lane's outer edge at p (m from the centre line): the garages, narrowing to the pit roads' barrier at both ends
+/** @param {Track} T */
+export function laneOuter(T, p) {
+  const L = T.pit, t = Math.min(p - L.from, L.to - p) * T.ds / PIT.taper, road = p - L.from < L.to - p ? L.roadIn : L.roadOut;
+  return road + (L.garageLat - road) * smoothstep(t);
+}
+// the walls of a car driving in the lane, behind the pit wall: [pit wall, garages] (m from the centre line), else null
+// (the track's own run-off walls: the pit roads' barrier on the entry and exit roads)
+/** @param {Track} T @param {Car} c */
+export function laneWalls(T, c) {
+  const L = T.pit; if (!c.pit?.drive || !behindWall(T, c)) return null;
+  return [L.wallLat, laneOuter(T, L.entry + wrapIdx(c.idx - L.entry, T.N))];
+}
+// on a sample beside the pit wall (by the sample, as the track's walls go), on its far side
+/** @param {Track} T @param {Car} c */
+function besideWall(T, c) { const L = T.pit, q = L.entry + wrapIdx(c.idx - L.entry, T.N); return q >= L.from && q <= L.to; }
+/** @param {Track} T @param {Car} c */
+const behindWall = (T, c) => besideWall(T, c) && c.lat > T.pit.wallLat;
+
+// Before a driven car's step: starts / ends its time in the pit lane (on the entry road, or behind the pit wall = in;
+// back on the track or past the exit road = out), the limiter, the stop in its box. Returns true while the car is held
+// in its box (the caller skips the driving model).
+/** @param {Race} race @param {Car} c */
+export function drivePitLane(race, c) {
+  const T = race.track, L = T.pit; if (!L) return false;
+  const p = alongLane(T, c);
+  let P = c.pit;
+  if (!P) {
+    if (c.finished || p < 0 || !(besideWall(T, c) ? c.lat > L.wallLat : p < L.from && c.lat > T.HW + PIT.enter.drive)) return false;
+    P = c.pit = { p, p0: p, lat0: c.lat, box: boxOf(L, c), phase: 'in', at: 0, until: 0, service: null, done: false,
+      drive: true, entered: false, hold: null, request: c.pitRequest };
+    c.pitRequest = false;
+  }
+  if (P.phase === 'stop') {
+    if (race.t < P.until) {                                           // held in the box while the crew works
+      c.x = P.hold[0]; c.z = P.hold[1]; c.h = P.hold[2];
+      c.v = c.vy = c.yawRate = c.ax = 0; c.slideF = c.slideR = 0; c.lockF = c.spinR = false;
+      return true;
+    }
+    applyService(race, c, P.service); P.done = true; P.phase = 'out'; emit(c, EV.PIT_READY);
+  }
+  P.p = p;
+  // out: on the track side of the pit roads / the pit wall, or past the exit road
+  const back = p < 0 || (besideWall(T, c) ? c.lat < L.wallLat : c.lat < T.HW);
+  if (back) { c.pit = null; c.pitLimiter = false; if (P.entered) emit(c, EV.PIT_OUT); return false; }
+  if (!P.entered && p >= L.from) { P.entered = true; emit(c, EV.PIT_IN); }
+  c.pitLimiter = P.entered && p <= L.to;
+  if (!P.done) {
+    const F = PIT.boxFit, i = c.idx;
+    const inBox = Math.abs(p - P.box) * T.ds <= F.along && Math.abs(c.lat - L.boxLat) <= F.lat
+      && Math.abs(wrapA(c.h - Math.atan2(T.TZ[i], T.TX[i]))) <= F.angle && Math.hypot(c.v, c.vy) < F.speed;
+    if (inBox) {
+      P.phase = 'stop'; P.hold = [c.x, c.z, c.h]; P.service = service(race, c); P.at = race.t; P.until = race.t + P.service.time;
+      c.pitLimiter = false; emit(c, EV.PIT_STOP, { service: P.service });
+      c.v = c.vy = c.yawRate = 0;
+      return true;
+    }
+    P.phase = p < P.box ? 'in' : 'out';
+  }
+  return false;
+}
+// the pit limiter, after a driven car's step: its speed held to PIT.speed (a car arriving too fast is cut down to it)
+/** @param {Car} c */
+export function pitLimit(c) {
+  if (!c.pitLimiter) return;
+  const s = Math.hypot(c.v, c.vy);
+  if (s > PIT.speed) { const k = PIT.speed / s; c.v *= k; c.vy *= k; }
 }
 
 // The stop's jobs one after another (the time adds up to service.time): tyres always, then fuel, a new front wing,
