@@ -7,9 +7,12 @@ import { DT, run, seeded, aiDriver, centreProfile } from './helpers.js';
 
 for (const [id, circuit] of Object.entries(S.CIRCUITS)) {
   const T = S.buildTrack(circuit);
-  test(`${id}: geometry: parts of the track far apart along it never come within two run-off widths`, () => {
+  test(`${id}: geometry: parts of the track far apart along it never come within two run-off widths (or pass over each other)`, () => {
     const gap = Math.round(200 / T.ds); let min = Infinity;
-    for (let i = 0; i < T.N; i += 2) for (let j = i + gap; j < Math.min(T.N, T.N - gap + i); j += 2) min = Math.min(min, Math.hypot(T.PX[i] - T.PX[j], T.PZ[i] - T.PZ[j]));
+    for (let i = 0; i < T.N; i += 2) for (let j = i + gap; j < Math.min(T.N, T.N - gap + i); j += 2) {
+      if (T.elev && Math.abs(T.elev.Y[i] - T.elev.Y[j]) >= 6) continue;          // a bridge over the other part
+      min = Math.min(min, Math.hypot(T.PX[i] - T.PX[j], T.PZ[i] - T.PZ[j]));
+    }
     assert.ok(min > 2 * T.WALL + 10, `closest ${min.toFixed(0)} m`);
     // the grid (10 cars ≈ 75 m) sits on the straight before the line
     let back = 0; for (let i = T.N - 1; i > 0 && Math.abs(T.K[i]) < 0.002; i--) back += T.ds;

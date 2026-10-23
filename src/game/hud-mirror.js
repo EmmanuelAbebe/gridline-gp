@@ -44,8 +44,9 @@ export function createHudMirror(display) {
       ensure(r.width, r.height);
       if (frame++ % every === 0) {
         const p = poseOf(car), dx = Math.cos(p.h), dz = Math.sin(p.h);
-        cam.position.set(p.x - dx * M.back, M.height, p.z - dz * M.back);
-        cam.lookAt(p.x - dx * M.behind, M.lookY, p.z - dz * M.behind);
+        const y = p.y || 0, sl = Math.tan(p.pitch || 0);                 // (a hill: pose.js)
+        cam.position.set(p.x - dx * M.back, M.height + y - M.back * sl, p.z - dz * M.back);
+        cam.lookAt(p.x - dx * M.behind, M.lookY + y - M.behind * sl, p.z - dz * M.behind);
         if (cam.aspect !== r.width / r.height) { cam.aspect = r.width / r.height; cam.updateProjectionMatrix(); }
         display.renderTo(target, cam);
       }

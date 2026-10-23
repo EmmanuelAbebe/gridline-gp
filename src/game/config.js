@@ -39,6 +39,9 @@ export const COLORS = Object.freeze({
 // Scenery per circuit (track.theme; render-only). ground: grass colours; trees: how many, which kinds (cone = pine,
 // ball = broadleaf), hills: how many and how big; water: lakes (count, radius) or a harbour (`sea`: the side of the
 // circuit's bounding box); buildings: city blocks around a street circuit; rocks: moorland boulders.
+// Hilly circuits' ground (world.js buildTerrain): grid spacing and how far it reaches beyond the track (m); its last
+// `fade` m sink into the plane around it
+export const TERRAIN = Object.freeze({ step: 6, margin: 420, fade: 160 });
 export const THEMES = Object.freeze({
   forest:  { ground: [0x4a7530, 0x527f36], trees: 520, kinds: ['cone'], hills: { count: 18, size: 1 }, stripes: true },
   downs:   { ground: [0x5d8b3c, 0x679544], trees: 170, kinds: ['ball', 'ball', 'cone'], hills: { count: 26, size: 1.5, low: true }, stripes: true },

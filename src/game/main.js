@@ -38,7 +38,7 @@ import { SettingsScreen } from './settings-screen.js';
 import { SoundStudio } from './sound-studio.js';
 import { createSlipstreamFx } from './slipstream-fx.js';
 import { createRaceAudio } from './race-audio.js';
-import { poseOf, savePoses, interpolatePoses } from './pose.js';
+import { poseOf, savePoses, interpolatePoses, setPoseTrack } from './pose.js';
 import { loadSetup, loadPrefs, steerRate, raceFormat, raceWear, raceAero, buildField, playerSlotOf, assistsOf, setupSummary } from './setup-store.js';
 import { messageFor, SAY } from './race-messages.js';
 import { bindSettings } from './settings-binding.js';
@@ -475,18 +475,18 @@ function frame(now) {
 // ---- circuit: world, minimap and the idle scene behind the menu (cars parked on the grid) ----
 function setTrack(id) {
   if (track && track.id === id) return track;
-  track = trackOf(id);
+  track = trackOf(id); setPoseTrack(track);
   if (game.race) { game.race = null; game.player = null; trial.reset(); wakes.hideAll(); crews.dispose(); marks.clear(); racingLine.set(track, null); }    // the last race was on the old circuit
   drawOutline($('trackPreview'), track); describeRecord();
   world?.dispose();
   world = buildWorld(Display.scene, track, SIM.DRIVERS);
   if (game.gfx) world.applyProfile(GFX_PROFILES[game.gfx]);
   minimap = createMinimap($('map'), track);
-  { const g = track.landmarks.grandstand ?? 0, lat = -(track.runoff[0].wall[g] + 10); Sound.setCrowd(track.PX[g] + track.NX[g] * lat, 6, track.PZ[g] + track.NZ[g] * lat); }
-  const { PX, PZ, NX, NZ, TX, TZ, N } = track;
-  Display.camera.position.set(PX[0] + NX[0]*30 - TX[0]*40, 14, PZ[0] + NZ[0]*30 - TZ[0]*40);
-  Display.camera.lookAt(PX[N-40], 0, PZ[N-40]);
-  SIM.createRace(1, { track }).cars.forEach((c, i) => { carModels[i].setVisible(true); carModels[i].place(c.x, c.z, c.h); });
+  { const g = track.landmarks.grandstand ?? 0, lat = -(track.runoff[0].wall[g] + 10); Sound.setCrowd(track.PX[g] + track.NX[g] * lat, 6 + SIM.surfaceY(track, g, lat), track.PZ[g] + track.NZ[g] * lat); }
+  const { PX, PZ, NX, NZ, TX, TZ, N } = track, y0 = SIM.surfaceY(track, 0, 0);
+  Display.camera.position.set(PX[0] + NX[0]*30 - TX[0]*40, 14 + y0, PZ[0] + NZ[0]*30 - TZ[0]*40);
+  Display.camera.lookAt(PX[N-40], SIM.surfaceY(track, N - 40, 0), PZ[N-40]);
+  SIM.createRace(1, { track }).cars.forEach((c, i) => { carModels[i].setVisible(true); carModels[i].sync(c, poseOf(c)); });
   describeEvent();
   return track;
 }

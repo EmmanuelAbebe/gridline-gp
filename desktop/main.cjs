@@ -308,14 +308,37 @@ async function smokeTest(win) {
   setTimeout(() => { console.log('quit button did NOT close the app'); app.exit(1); }, 4000);
 }
 
+// --track-shots=dir --race: on each circuit (GRIDLINE_SHOT_CIRCUITS or all) a solo race with the AI driving your car:
+// screenshots every few seconds from the chase camera, then the cockpit (cars, cameras and the road on the hills)
+async function raceShots(win, js, wait) {
+  const ids = process.env.GRIDLINE_SHOT_CIRCUITS ? process.env.GRIDLINE_SHOT_CIRCUITS.split(',') : ['hautvale', 'saltcross', 'cantera', 'ironvale'];
+  for (const id of ids) {
+    for (let k = 0; k < 20 && (await js(`gridlineDebug.circuit()`)) !== id; k++) { await js(`document.querySelector('#trackStep [data-d="1"]').click()`); await wait(300); }
+    await js(`document.querySelector('#carsStep [data-d="-1"]')?.click()`);
+    await js(`document.getElementById('startBtn').click()`); await wait(1000);
+    await js(`gridlineDebug.autopilot(1)`);
+    for (let k = 0; k < 100 && (await js(`document.getElementById('tCur').textContent`)) === '0:00.000'; k++) await wait(300);
+    for (let k = 0; k < 8; k++) {
+      if (k === 5) await js(`document.getElementById('camBtn').click()`);
+      await wait(k ? 4500 : 2000);
+      fs.writeFileSync(path.join(shotsDir, `${id}-race${k}.png`), (await win.webContents.capturePage()).toPNG());
+    }
+    await js(`gridlineDebug.autopilot(0); gridlineDebug.toMenu()`); await wait(800);
+  }
+  app.exit(0);
+}
+
 // --track-shots=dir: every circuit from a few places (aerial, braking into the slowest corners, beside the barrier)
 async function trackShots(win) {
   await new Promise(r => win.webContents.once('did-finish-load', r));
   await new Promise(r => setTimeout(r, 4000));
   const js = c => win.webContents.executeJavaScript(c), wait = ms => new Promise(r => setTimeout(r, ms));
   fs.mkdirSync(shotsDir, { recursive: true });
+  if (process.argv.includes('--race')) return raceShots(win, js, wait);
   await js(`for (const o of document.querySelectorAll('.overlay, #startOv')) o.hidden = true`);
-  for (const id of ['elkmoor', 'harrow', 'cobalt', 'marrow', 'northfold']) {
+  // every circuit, or only those in GRIDLINE_SHOT_CIRCUITS (comma separated ids)
+  const all = ['elkmoor', 'harrow', 'cobalt', 'marrow', 'northfold', 'hautvale', 'saltcross', 'cantera', 'ironvale'];
+  for (const id of process.env.GRIDLINE_SHOT_CIRCUITS ? process.env.GRIDLINE_SHOT_CIRCUITS.split(',') : all) {
     await js(`gridlineDebug.view('${id}', 0, 0, 1, 1); gridlineDebug.showLine()`); await wait(800);
     const corners = (await js(`gridlineDebug.corners()`)).slice(0, 3);
     const views = [['aerial', `gridlineDebug.view('${id}', ${corners[0] ?? 0.3}, -60, 70, 40)`],
@@ -327,6 +350,17 @@ async function trackShots(win) {
       // from above, where the pit wall starts and ends (the lane's walls)
       ['pitstart', `gridlineDebug.view('${id}', ${pit[1]} - 0.012, 30, 22, 24, 10)`],
       ['pitend', `gridlineDebug.view('${id}', ${pit[2]} + 0.012, 30, 22, -24, 10)`]);
+    // a hilly circuit: up its steepest climb, down its steepest drop, and the climb from the side
+    const hills = await js(`gridlineDebug.hills()`);
+    if (hills) views.push(['uphill', `gridlineDebug.view('${id}', ${hills[0]} - 0.02, 0, 1.4, 60)`],
+      ['downhill', `gridlineDebug.view('${id}', ${hills[1]} - 0.015, 0, 1.4, 60)`],
+      ['hillside', `gridlineDebug.view('${id}', ${hills[0]}, -90, 8, 0, 0)`]);
+    const banked = await js(`gridlineDebug.banked()`);
+    if (banked) views.push(['banking', `gridlineDebug.view('${id}', ${banked[0]} - 0.02, 0, 1.4, 50)`],
+      ['bankside', `gridlineDebug.view('${id}', ${banked[0]}, ${banked[1] > 0 ? -60 : 60}, 6, 0, 0)`]);
+    const bridge = await js(`gridlineDebug.bridge()`);
+    if (bridge) views.push(['underbridge', `gridlineDebug.view('${id}', ${bridge[1]} - 0.012, 0, 1.4, 60)`],
+      ['bridge', `gridlineDebug.view('${id}', ${bridge[1]} - 0.006, 40, 18, 12, 0)`]);
     corners.forEach((f, k) => {
       views.push([`brake${k}`, `gridlineDebug.view('${id}', ${f} - 0.03, 0, 1.6, 60)`]);
       views.push([`corner${k}`, `gridlineDebug.view('${id}', ${f} + 0.004, 4, 3, 40, -8)`]);

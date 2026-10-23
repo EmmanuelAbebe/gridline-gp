@@ -65,7 +65,9 @@ export function createRacingLine(scene) {
       const i = n % N, a = SIM.wrapIdx(i - 1, N), b = SIM.wrapIdx(i + 1, N);
       const tx = line.x[b] - line.x[a], tz = line.z[b] - line.z[a], l = Math.hypot(tx, tz) || 1, nx = -tz / l, nz = tx / l;
       if (n) d += Math.hypot(line.x[i] - line.x[SIM.wrapIdx(i - 1, N)], line.z[i] - line.z[SIM.wrapIdx(i - 1, N)]);
-      pos.set([line.x[i] - nx * w, L.y, line.z[i] - nz * w, line.x[i] + nx * w, L.y, line.z[i] + nz * w], n * 6);
+      const lat = (line.x[i] - track.PX[i]) * track.NX[i] + (line.z[i] - track.PZ[i]) * track.NZ[i];
+      const ya = L.y + SIM.surfaceY(track, i, lat - w), yb = L.y + SIM.surfaceY(track, i, lat + w);   // (a hill: sim elevation.js)
+      pos.set([line.x[i] - nx * w, ya, line.z[i] - nz * w, line.x[i] + nx * w, yb, line.z[i] + nz * w], n * 6);
       const [r, g, bl] = cols[i].rgb, al = L.alpha * mask[i];
       col.set([r, g, bl, al, r, g, bl, al], n * 8);
       uv.set([0, d / L.repeat, 1, d / L.repeat], n * 4);

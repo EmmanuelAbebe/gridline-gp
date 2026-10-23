@@ -45,7 +45,8 @@ export function createTyreMarks(scene) {
     c3.setHex(hex);
     const dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l;
     const wa = a.w / 2, wb = b.w / 2;
-    pos.set([a.x - nx * wa, M.y, a.z - nz * wa, a.x + nx * wa, M.y, a.z + nz * wa, b.x - nx * wb, M.y, b.z - nz * wb, b.x + nx * wb, M.y, b.z + nz * wb], q * 12);
+    const ya = M.y + a.y, yb = M.y + b.y;
+    pos.set([a.x - nx * wa, ya, a.z - nz * wa, a.x + nx * wa, ya, a.z + nz * wa, b.x - nx * wb, yb, b.z - nz * wb, b.x + nx * wb, yb, b.z + nz * wb], q * 12);
     const aa = a.fresh ? 0 : A;                                  // the first quad of a mark fades in
     col.set([c3.r, c3.g, c3.b, aa, c3.r, c3.g, c3.b, aa, c3.r, c3.g, c3.b, A, c3.r, c3.g, c3.b, A], q * 16);
     dirty = true;
@@ -58,13 +59,13 @@ export function createTyreMarks(scene) {
       const W = design.wheels;
       for (const c of race.cars) {
         if (c.pit || SIM.speedOf(c) < M.minSpeed) { wheels.delete(c); continue; }
-        const p = poseOf(c), ch = Math.cos(p.h), sh = Math.sin(p.h), st = strengths(c);
+        const p = poseOf(c), ch = Math.cos(p.h), sh = Math.sin(p.h), st = strengths(c), tp = Math.tan(p.pitch), tr = Math.tan(p.roll);
         let last = wheels.get(c); if (!last) { last = W.map(() => null); wheels.set(c, last); }
         W.forEach((w, k) => {
           const x = p.x + ch * w.pos[0] - sh * w.pos[2], z = p.z + sh * w.pos[0] + ch * w.pos[2];
           const s = st[k] ?? 0, on = s > M.from || (c.offTrack && c.surface !== 'tarmac');
           if (!on) { last[k] = null; return; }
-          const here = { x, z, w: w.width * 0.9, fresh: false };
+          const here = { x, z, y: p.y + w.pos[0] * tp - w.pos[2] * tr, w: w.width * 0.9, fresh: false };   // (y: on a hill, pose.js)
           const prev = last[k];
           if (!prev) { last[k] = { ...here, fresh: true }; return; }
           if (Math.hypot(x - prev.x, z - prev.z) < M.step) return;

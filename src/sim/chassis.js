@@ -75,16 +75,28 @@ export function stepChassis(race, c, inp, dt) {
   if (c.beached) { c.v = c.vy = c.yawRate = 0; c.slideF = c.slideR = 0; return; }   // stuck: waiting for the marshals
   // deep in gravel at walking pace the wheels dig in
   const dug = c.surface === 'gravel' && c.gravelDepth > OT.deep && speedOf(c) < OT.digSpeed ? OT.dig : 1;
+  // hills and banking (elevation.js; null on a flat circuit: nothing below changes then): the road at this sample
+  const T = race.track, E = T.elev, ei = c.idx, onRoad = Math.abs(c.lat) <= T.HW;
+  const eSX = E ? E.SX[ei] : 0, eSN = E && onRoad ? E.SN[ei] : 0, eCA = E ? (onRoad ? E.CA[ei] : Math.sqrt(1 - eSX * eSX)) : 1;
   let slideF = 0, slideR = 0, lockF = false, spinR = false;
   for (let s = 0; s < n; s++) {
     // v: along the car's heading (negative = travelling backwards, e.g. past 90° in a spin), vy: sideways
     const v = c.v, sp = Math.abs(v), vy = c.vy, w = c.yawRate, speed = Math.hypot(v, vy);
     const delta = c.steer * steerLock(v, A.steer, S) + cond.pull;
+    // on a hill: gravity in the road's plane in the car's frame (gx forward, gy right, per G), and the load on the
+    // tyres per mass (gN; G on the flat): less over a crest, more in a dip and when the bank carries the cornering
+    let gx = 0, gy = 0, gN = G;
+    if (E) {
+      const ch = Math.cos(c.h), sh = Math.sin(c.h), cd = ch * T.TX[ei] + sh * T.TZ[ei], sd = sh * T.TX[ei] - ch * T.TZ[ei];
+      gx = eSX * cd + eSN * sd; gy = eSN * cd - eSX * sd;
+      gN = eCA * (G + v * v * E.VK[ei] - v * w * gy);         // (below 0 over a sharp crest: the downforce has to hold it)
+    }
     // reverse gear and crawling (by the real speed: a car sliding sideways at 90° is not crawling): kinematic steering
     if (d.reverse || speed < CH.lowSpeed) {
       let a = -d.resist - surfaceDrag(surf, v);
       if (d.reverse) { a += v > 0 ? -CH.brakeSystem * 0.4 * inp.brk : -TUNING.REVERSE_ACC * inp.brk; if (inp.thr > 0 && v < 0) a += 20 * inp.thr; }
-      else { a += Math.min(d.drive, S.grip * surf.grip * dirt * G * (1 - CH.frontWeight) * CH.longGrip) * dug; if (v > 0) a -= 20 * inp.brk * surf.grip; }
+      else { a += Math.min(d.drive, S.grip * surf.grip * dirt * gN * (1 - CH.frontWeight) * CH.longGrip) * dug; if (v > 0) a -= 20 * inp.brk * surf.grip; }
+      if (E) a -= G * gx;
       if (inp.hb && v > 0) a -= HANDBRAKE.crawl * inp.hb;
       const v0 = c.v; c.v = clamp(c.v + a * h, -TUNING.REVERSE_MAX, TUNING.V_CAP);
       if (!d.reverse && v0 >= 0 && c.v < 0) c.v = 0;
@@ -103,8 +115,8 @@ export function stepChassis(race, c, inp, dt) {
     const df = S.dfK * v * v * (1 - CH.dirtyAir * (c.slip || 0)) * yawAero * cond.aero * (1 - ACTIVE_AERO.downforceCut * c.aeroOpen);
     const transfer = c.ax * CH.cgHeight / L;
     const mu = S.grip * surf.grip * dirt;
-    const Df = mu * S.frontGrip * Math.max(0.5, G * CH.frontWeight + df * S.aeroFront * cond.front - transfer);
-    const Dr = mu * S.rearGrip * Math.max(0.5, G * (1 - CH.frontWeight) + df * (1 - S.aeroFront) + transfer);
+    const Df = mu * S.frontGrip * Math.max(0.5, gN * CH.frontWeight + df * S.aeroFront * cond.front - transfer);
+    const Dr = mu * S.rearGrip * Math.max(0.5, gN * (1 - CH.frontWeight) + df * (1 - S.aeroFront) + transfer);
     // slip angles (velocity at each axle vs where its wheels point)
     // (rolling backwards the steering acts the other way round)
     const back = v / Math.max(sp, 0.5);   // +1 forwards, −1 backwards, smooth through 0 (brakes then damp v to rest)
@@ -132,8 +144,11 @@ export function stepChassis(race, c, inp, dt) {
     const cosD = Math.cos(delta), sinD = Math.sin(delta);
     // the surface drags against the car's whole motion (a car sliding sideways through gravel is slowed too)
     const sd = surfaceDrag(surf, speed) / speed;
-    const ax = rear.fx + front.fx * cosD - front.fy * sinD - d.resist - sd * v;
-    const ay = front.fy * cosD + front.fx * sinD + rear.fy - sd * vy;
+    let ax = rear.fx + front.fx * cosD - front.fy * sinD - d.resist - sd * v;
+    let ay = front.fy * cosD + front.fx * sinD + rear.fy - sd * vy;
+    // gravity on the slope; on a bank the plan view only sees cos(bank) of the cornering the tyres give in the road's
+    // plane, the rest (1 − cos) comes for free with the tilt
+    if (E) { ax -= G * gx; ay += -G * gy + (1 - Math.sqrt(1 - eSN * eSN)) * v * w; }
     let dw = (A_FRONT * (front.fy * cosD + front.fx * sinD) - B_REAR * rear.fy) / K2;
     // stability assist: when the rear slides, pull the yaw rate back toward what the steering asks for
     // damping assist: always, gently, toward that same yaw rate

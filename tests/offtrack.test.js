@@ -97,6 +97,7 @@ test('run-off never reaches into another part of the track', () => {
       for (let j = 0; j < N; j += 2) {
         const along = Math.min((j - i + N) % N, (i - j + N) % N) * ds;
         if (along < 2 * R.wall[i] + 12) continue;
+        if (track.elev && Math.abs(track.elev.Y[i] - track.elev.Y[j]) >= 6) continue;   // a bridge over the other part
         const d = Math.hypot(x - track.PX[j], z - track.PZ[j]);
         assert.ok(d > HW + 2 && d > R.wall[i] - 2, `${id}: barrier at ${i} is ${d.toFixed(1)} m from sample ${j}`);
       }

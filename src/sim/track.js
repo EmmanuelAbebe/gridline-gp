@@ -2,10 +2,11 @@
 // tangents, right-hand normals, signed curvature, bounds, and the AI's speed profile and racing line.
 import { AI, TRACK_DEFAULTS, GRID, LIMITS, TUNING, CAR, CHASSIS } from './tuning.js';
 import { STOCK } from './spec.js';
-import { cornerSpeed, brakeLimit } from './vehicle.js';
+import { G, cornerSpeed, brakeLimit } from './vehicle.js';
 import { buildRunoff } from './runoff.js';
 import { buildPitLane } from './pit.js';
 import { buildAeroZones } from './active-aero.js';
+import { buildElevation, cornerSpeedAt, brakeLimitAt } from './elevation.js';
 import { RACING_LINES, ALIEN_LINES } from './racing-lines.js';
 import { CIRCUITS } from './circuits.js';
 import { clamp, wrapA, wrapIdx } from './math.js';
@@ -62,7 +63,7 @@ function storedLine(id, N, HW, table = RACING_LINES, edge = AI.lineEdge) {
   return RO;
 }
 
-function buildAiProfile({ id, N, HW, ds, K, PX, PZ, NX, NZ }) {
+function buildAiProfile({ id, N, HW, ds, K, PX, PZ, NX, NZ, elev }) {
   // the line: a minimum-curvature path within the road (outside → apex → outside). Each point moves to where it best
   // straightens the line with its neighbours `s` and 2·s samples away (least squared second difference), first on a
   // coarse set of points, then finer, filling in between.
@@ -79,17 +80,18 @@ function buildAiProfile({ id, N, HW, ds, K, PX, PZ, NX, NZ }) {
   // blend with the stored time-optimal line: AI.lineBlend 0 = minimum curvature (gentle, leaves room in traffic),
   // 1 = the time-optimal line (fastest alone, but its edge-to-edge sweeps make side-by-side racing messy)
   if (stored) for (let i = 0; i < N; i++) RO[i] += (stored[i] - RO[i]) * AI.lineBlend;
-  const main = lineProfile({ N, ds, PX, PZ, NX, NZ }, RO);
+  const main = lineProfile({ N, ds, PX, PZ, NX, NZ, elev }, RO);
   // ALIEN (race.aiAlien): its own time-optimal line closer to the edges (ALIEN_LINES; else the full stored line),
   // with its own speed profile
   const own = storedLine(id, N, HW, ALIEN_LINES, AI.alien.lineEdge) || stored;
-  const alien = own ? lineProfile({ N, ds, PX, PZ, NX, NZ }, Float64Array.from(own), 1, true) : null;
+  const alien = own ? lineProfile({ N, ds, PX, PZ, NX, NZ, elev }, Float64Array.from(own), 1, true) : null;
   return { ...main, alien };
 }
 
 // A line's curvature (LK) and speed profile (VP), and per sample the next corner's apex and braking zone (APEX, BRK)
+// (with hills: elevation.js corner speeds and braking, the load and gravity included)
 /** @param {any} geo @param {Float64Array} RO @param {number} [brake] @param {boolean} [circle] */
-function lineProfile({ N, ds, PX, PZ, NX, NZ }, RO, brake = AI.brake, circle = false) {
+function lineProfile({ N, ds, PX, PZ, NX, NZ, elev }, RO, brake = AI.brake, circle = false) {
   const { grip } = AI;
   // the line: segment lengths and headings, curvature over ±W samples (same window as K)
   const LS = new Float32Array(N), LH = new Float32Array(N), LK = new Float32Array(N), W = 5;
@@ -103,8 +105,18 @@ function lineProfile({ N, ds, PX, PZ, NX, NZ }, RO, brake = AI.brake, circle = f
     LK[i] = wrapA(LH[b] - LH[a]) / (len - LS[b] / 2 - LS[a] / 2 || ds);
   }
   const VP = new Float32Array(N);
-  for (let i = 0; i < N; i++) VP[i] = cornerSpeed(Math.abs(LK[i]), grip);
-  if (circle) {
+  for (let i = 0; i < N; i++) VP[i] = elev ? cornerSpeedAt(elev, i, LK[i], grip) : cornerSpeed(Math.abs(LK[i]), grip);
+  if (circle && elev) {
+    // (ALIEN on a hilly circuit: as below, with the load the hill leaves and gravity)
+    const S = STOCK;
+    for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) {
+      const j = (i+1)%N, u = VP[j], df = S.dfK * u * u, n = Math.max(-df, elev.CA[j] * (G + u * u * elev.VK[j]));
+      const latMax = Math.max(1, S.grip * (n + df)), lat = u * u * Math.abs(LK[j]), f = Math.sqrt(Math.max(0, 1 - (lat / latMax) ** 2));
+      const dec = Math.min(CHASSIS.brakeSystem, S.grip * CHASSIS.longGrip * (n + df)) * f + S.dragK * u * u + CAR.aero.rolling
+        + CAR.engine.engineBrake * 0.8 + G * elev.SX[j];
+      VP[i] = Math.min(VP[i], Math.sqrt(u * u + 2 * Math.max(3, dec) * LS[i]));
+    }
+  } else if (circle) {
     // ALIEN: braking as tools/lap-optimum.mjs's bot plans it: the grip the corner uses leaves less for braking
     // (friction circle), drag, rolling and engine braking help
     const S = STOCK, G = 9.81;
@@ -114,6 +126,9 @@ function lineProfile({ N, ds, PX, PZ, NX, NZ }, RO, brake = AI.brake, circle = f
       const dec = Math.min(CHASSIS.brakeSystem, S.grip * CHASSIS.longGrip * (G + df)) * f + S.dragK * u * u + CAR.aero.rolling + CAR.engine.engineBrake * 0.8;
       VP[i] = Math.min(VP[i], Math.sqrt(u * u + 2 * dec * LS[i]));
     }
+  } else if (elev) for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) {
+    const j = (i+1)%N, dec = brakeLimitAt(elev, j, VP[j]) - G * elev.SX[j];   // gravity at full share, the tyres at `brake`
+    VP[i] = Math.min(VP[i], Math.sqrt(VP[j]*VP[j] + 2*Math.max(3, dec*brake + G*elev.SX[j])*LS[i]));
   } else for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) {
     const j = (i+1)%N; VP[i] = Math.min(VP[i], Math.sqrt(VP[j]*VP[j] + 2*brakeLimit(VP[j])*brake*LS[i]));
   }
@@ -163,7 +178,8 @@ export function buildTrack(circuit, opts = {}) {
   // landmarks: sample index, or negative = metres before the line
   const landmarks = Object.fromEntries(Object.entries(circuit.landmarks || {}).map(([k, v]) => [k, v < 0 ? N - Math.round(-v / ds) : v]));
   const shape = { id: circuit.id, name: circuit.name, landmarks, N, HW, KERB, WALL: HW + runoff, KERB_K, L, ds,
-    PX, PZ, TX, TZ, NX, NZ, K, CK, bounds };
+    PX, PZ, TX, TZ, NX, NZ, K, CK, bounds, elev: /** @type {import('./elevation.js').Elevation} */ (null) };
+  shape.elev = buildElevation(shape, circuit.heights);    // hills and banking (elevation.js); null = flat
   // + the AI's line and speeds; what lies beside the road (runoff.js; WALL = the furthest barrier); the pit lane
   const track = { ...shape, ...buildAiProfile(shape), style: circuit.style || o.style, theme: circuit.theme || 'forest',
     runoff: /** @type {import('./runoff.js').Runoff[]} */ (null), pit: /** @type {import('./pit.js').PitLane} */ (null),

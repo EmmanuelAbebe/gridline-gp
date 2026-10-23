@@ -236,13 +236,13 @@ export const CarModels = (() => {
       // a pit stop (pit-crew.js): { lift (m, on the jacks), outs: m each wheel is off sideways } or null
       setService(s) { service = s; },
       mountScreen(mesh) { screen = mesh; placeScreen(); showView(); },
-      place(x, z, h) { root.position.set(x, 0, z); root.rotation.y = -h; },
+      // y, pitch (nose up +), roll (+ = leaning right): the road under a car on a hilly circuit (pose.js)
+      place(x, z, h, y = 0, pitch = 0, roll = 0) { root.position.set(x, y, z); root.rotation.set(roll, -h, pitch, 'YZX'); },
       setVisible(on) { root.visible = on; },
       get object() { return root; },        // the car's root group (the garage measures and frames it)
       // copy the car state onto the mesh at `pose` (pose.js: interpolated x/z/h); brake lights fade in and out over ~0.1 s
       sync(car, pose, dt = 1 / 60) {
-        this.place(pose.x, pose.z, pose.h);
-        root.position.y = service?.lift ?? 0;
+        this.place(pose.x, pose.z, pose.h, (pose.y || 0) + (service?.lift ?? 0), pose.pitch || 0, pose.roll || 0);
         pivots.forEach((p, i) => { const z = p.userData.z; p.position.z = z + Math.sign(z) * (service?.outs[i] ?? 0); });
         for (const w of wheels) w.rotation.z = -car.roll;
         for (const p of fronts) p.rotation.y = -car.steer * FRONT_STEER;

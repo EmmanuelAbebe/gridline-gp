@@ -66,8 +66,9 @@ export const AI = Object.freeze({
     thrGain: 0.8, brakeAt: 0.92, overBrake: 0.8, brakeScale: 1.15, brakeGain: 0.3,   // (× 0.97 of the limit)
     // pace (createRace aiPace for an ALIEN race): × the drivers' skill on its profile; the most each circuit's line
     // takes without spins or cuts (2026-10-20, solo laps of the fastest driver: Elkmoor 29.0, Harrow 49.3, Cobalt
-    // 50.4, Marrow 38.0, Northfold 59.1 s; the user's best there 59.975)
-    pace: Object.freeze({ default: 1.16, cobalt: 1.08, marrow: 1.12 }),
+    // 50.4, Marrow 38.0, Northfold 59.1 s; the user's best there 59.975; 2026-10-22 hills: Hautvale 58.8, Saltcross 64.8,
+    // Cantera 44.5, Ironvale 41.4 s)
+    pace: Object.freeze({ default: 1.16, cobalt: 1.08, marrow: 1.12, hautvale: 1.04, cantera: 1.12 }),
     // in traffic (a car ahead in its lane, alongside, or in a wake) its pace eases to `traffic` × that
     // over trafficTime s: the full push only works on the line in clean air (it put cars into walls in traffic)
     // clean air (no car in its lane or alongside, slip < cleanSlip) = 1; deep in a wake (slip > wakeSlip) or alongside
@@ -236,6 +237,10 @@ export const BARRIERS = Object.freeze([
   Object.freeze({ name: 'concrete', keep: 0.6,  hard: 1 }),
 ]);
 const R = o => Object.freeze(o);
+// Hills and banking (elevation.js): height profiles smoothed over heightBlur m, bank over bankBlur m, vertical
+// curvature measured over ±curveSpan m; the AI's plan never asks for less than minCorner m/s in a corner or less than
+// minBrake m/s² of braking (a steep downhill); cars more than `apart` m apart in height never touch (a bridge)
+export const ELEVATION = Object.freeze({ heightBlur: 22, bankBlur: 16, curveSpan: 10, minCorner: 8, minBrake: 3, apart: 3 });
 export const RUNOFF = Object.freeze({
   fast: 50, slow: 25,             // m/s at the apex
   turf: 2,                        // artificial grass behind kerbs (m)

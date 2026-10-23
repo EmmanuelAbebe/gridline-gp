@@ -1,8 +1,10 @@
 # Gridline GP: project context
 
-A browser F1-style racing game: 1–10 cars, five-light start, lap / timed / unlimited races on five invented circuits
-(Elkmoor Park 2.47 km, the original; Harrow Downs 3.89 fast; Cobalt Bay 3.01 street; Marrow Hill 2.60 twisty;
-Northfold 4.91 long), picked on the start menu. Built to be driven with the user's phone tilt wheel (github.com/EmmanuelAbebe/Phone-wheel),
+A browser F1-style racing game: 1–10 cars, five-light start, lap / timed / unlimited races on nine invented circuits
+(flat: Elkmoor Park 2.47 km, the original; Harrow Downs 3.89 fast; Cobalt Bay 3.01 street; Marrow Hill 2.60 twisty;
+Northfold 4.91 long; with hills and banking since 2026-10-22, inspired by real ones: Hautvale 4.40 forest valley with
+a dip and steep esses (Spa-like), Saltcross 5.11 figure of eight with a bridge (Suzuka-like), Cantera Hills 3.02 with a
+corkscrew (Laguna-Seca-like), Ironvale Speedway 3.31 oval + infield with 20° banked turns), picked on the start menu. Built to be driven with the user's phone tilt wheel (github.com/EmmanuelAbebe/Phone-wheel),
 which shows up in the browser as a virtual Xbox 360 controller.
 
 ## Goal and roadmap (Oct 2026)
@@ -97,6 +99,31 @@ Tunables live in data tables (config modules), not inline in the logic.
      ≥ ~140 m is flat out with downforce). `landmarks` = sample index or negative = metres before the line.
      `drivers.js`: `DRIVERS`. `math.js`: `wrapA`, `clamp`, `wrapIdx(i, N)` (track-sample wrap, any integer; use it, not
      hand-written `(i + N) % N`), `smoothstep`, `speedOf(c)` = hypot(v, vy) (all on SIM too).
+   - Hills and banking (2026-10-22, `elevation.js`, `ELEVATION` in tuning.js; user: "terrain just like real race
+     tracks", chose real physics). A circuit made with `course(poly)` (circuits.js: vertices [x, z, radius, height m,
+     bank° into the corner]) carries `heights` keys; `buildElevation` → `track.elev` {Y, BANK (+ = rising toward +N),
+     SX sin of the slope, SN sin(bank), CA cos of the whole tilt, VK vertical curvature (+ dip, − crest), lo, hi}: cubic
+     Hermite through the keys by their real distances (a uniform Catmull-Rom overshot after a dip and lifted the car off
+     over a crest), Gaussian blur. Flat circuits: `elev` null and every path is the old code (sim-trace identical).
+     The sim stays a plan view. chassis.js per sub-step: gravity in the road's plane in the car's frame (gx, gy),
+     tyre load gN = CA·(G + v²·VK − v·w·gy) in place of G (may go below 0 over a sharp crest: the downforce holds the
+     car), on a bank ay += (1 − cos bank)·v·w (the plan view only sees cos(bank) of the cornering). AI: `cornerSpeedAt`
+     / `brakeLimitAt` (track.js lineProfile, driving.js braking points, the brake pedal minus gravity), lap-optimum's
+     model has the same terms (its lines for the hilly circuits). collide.js: cars more than `apart` 3 m apart in
+     height never touch (the bridge). `surfaceY(track, p, lat)` = road height (bank across the road, flat beyond its
+     edges: run-off, pit lane), `samplePos`. Banking only matters below ~139 m radius (the downforce makes wider corners
+     flat out anyway): Ironvale's banked turns are 90 m, flat out at 360 km/h vs 312 flat. Tests: tests/elevation.test.js
+     (+ circuits / offtrack tests skip pairs ≥ 6 m apart in height). Game: `ground.js` `createGround(track)` (pure):
+     height anywhere = the road's edge out to the barrier + `flat` m (more at the pits / grandstand), then blending
+     into the land (track heights spread by a Gaussian + value noise); `bridge` samples = the upper road over another
+     part (≥ 6 m higher, within the lower road's barriers + 34 m) and the ground there follows the road below;
+     world.js: every strip / ribbon / post / placeAlong gets `hy(i, lat)`, `buildTerrain` (6 m grid, `TERRAIN` in
+     config.js, sinks into a wide plane at its edges; ~0.5 s per circuit), the bridge deck + pillars (not on the road
+     below); scenery stands on `groundAt`, no lakes on hills. pose.js `setPoseTrack`: poses get y / pitch / roll
+     (car-models `place(x, z, h, y, pitch, roll)`, Euler 'YZX'); camera-rig / hud-mirror heights follow the slope, the
+     cockpit rolls with the car; tyre marks, racing line, slipstream band/streaks, pit crews on the road height.
+     `--track-shots` adds uphill / downhill / hillside, banking / bankside, underbridge / bridge views;
+     `--track-shots=dir --race` = race screenshots on the hilly circuits (`GRIDLINE_SHOT_CIRCUITS=a,b` picks circuits).
    - `track.js`: `buildTrack(circuit)` → track object: closed centripetal Catmull-Rom → resampled to N equal steps
      of ~`TRACK_DEFAULTS.ds` 2.06 m (Elkmoor fixes samples 1200 so its physics stay bit-identical); AI and limits
      constants are in samples, so every circuit keeps ~2 m spacing. Per sample: `PX/PZ`, tangent `TX/TZ`, right-hand normal `NX/NZ`, signed curvature `K`
@@ -108,7 +135,9 @@ Tunables live in data tables (config modules), not inline in the logic.
      (~770 m) is flat out at ~320 km/h; the hairpin ~107 km/h.
      `SIM.track` is the default (Elkmoor). A new circuit = a new `CIRCUITS` entry; tests/circuits.test.js checks every
      entry (no overlapping run-off, straight before the line for the grid, solo AI lap clean, full field finishes,
-     proportional test driver laps it). Fastest-AI solo laps (3-lap best): Elkmoor 32.4, Marrow 42.5, Harrow 53.8, Cobalt 57.8, Northfold 67.6 s.
+     proportional test driver laps it). Fastest-AI solo laps (3-lap best): Elkmoor 32.4, Marrow 42.5, Harrow 53.8, Cobalt 57.8, Northfold 67.6 s;
+     LEGEND (aero on, 2026-10-22): Hautvale 61.7, Saltcross 68.9, Cantera 48.3, Ironvale 45.0 s; ALIEN 58.8 / 64.8 / 44.5 / 41.4
+     (ALIEN pace Hautvale 1.04: its chicane at the top of the climb was cut at more; Cantera 1.12).
    - `chassis.js` (every car: player and AI): two-axle bicycle model, 4 sub-steps per 120 Hz step. Axle grip = grip × surface ×
      (weight + downforce·(1 − dirtyAir·slip) ± load transfer from last `c.ax`); tyre curve sin(1.3·atan(Bα)) peaking
      at 0.1 rad front / 0.075 rear (stiffer, 6% grippier rear = stable); friction circle per axle (`axle()`): too

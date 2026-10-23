@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { SIM } from '../sim/index.js';
-import { CONFIG, COLORS, GFX_PROFILES, THEMES } from './config.js';
+import { CONFIG, COLORS, GFX_PROFILES, THEMES, TERRAIN } from './config.js';
 import { hexCss } from './util.js';
 import { buildScenery } from './scenery.js';
 import { markWorldShadows } from './shadows.js';
+import { createGround } from './ground.js';
 
 // Static track and scenery, all under one group. Returns handles for what graphics profiles and the start lights
 // change, and dispose() to take it out of the scene (switching circuits).
@@ -20,9 +21,13 @@ export function buildWorld(parent, track, drivers) {
   const decal = (factor, opts) => ({ ...opts, polygonOffset: true, polygonOffsetFactor: -factor, polygonOffsetUnits: -factor * 2 });
   const val = (o, i) => typeof o === 'function' ? o(i) : o;
   const wallAt = (side, i) => runoff[side].wall[i];
+  // hills (track.elev, sim elevation.js): the surface height at sample i, lat m from the centre line (0 on the flat:
+  // then everything below is exactly as before); the ground beyond the barriers (ground.js)
+  const elev = !!track.elev, hy = elev ? (i, lat) => SIM.surfaceY(track, i, lat) : () => 0;
+  const land = createGround(track);
 
   function placeAlong(obj, i, lat, y) {
-    obj.position.set(PX[i] + NX[i]*lat, y, PZ[i] + NZ[i]*lat);
+    obj.position.set(PX[i] + NX[i]*lat, y + hy(i, lat), PZ[i] + NZ[i]*lat);
     obj.rotation.y = -SIM.headingAt(track, i);
     scene.add(obj); return obj;
   }
@@ -41,7 +46,8 @@ export function buildWorld(parent, track, drivers) {
       if (a2 - a1 < 0.01 && b2 - b1 < 0.01) continue;
       const ax = PX[i]+NX[i]*a1, az = PZ[i]+NZ[i]*a1, bx = PX[i]+NX[i]*a2, bz = PZ[i]+NZ[i]*a2;
       const qx = PX[j]+NX[j]*b1, qz = PZ[j]+NZ[j]*b1, dx = PX[j]+NX[j]*b2, dz = PZ[j]+NZ[j]*b2;
-      pos.push(ax,y,az, bx,y,bz, qx,y,qz, bx,y,bz, dx,y,dz, qx,y,qz);   // wound to face up
+      const ya = y + hy(i, a1), yb = y + hy(i, a2), yq = y + hy(j, b1), yd = y + hy(j, b2);
+      pos.push(ax,ya,az, bx,yb,bz, qx,yq,qz, bx,yb,bz, dx,yd,dz, qx,yq,qz);   // wound to face up
       c.setHex(hex); for (let k = 0; k < 6; k++) { col.push(c.r, c.g, c.b); nor.push(0,1,0); }
     }
     if (!pos.length) return null;
@@ -49,6 +55,7 @@ export function buildWorld(parent, track, drivers) {
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    if (elev) g.computeVertexNormals();                 // (on a hill the strips tilt)
     const m = new THREE.Mesh(g, mat || lambert(decal(layer, { vertexColors: true, side: THREE.DoubleSide })));
     scene.add(m); return m;
   }
@@ -64,7 +71,8 @@ export function buildWorld(parent, track, drivers) {
       if (al < 0.01 && bl < 0.01) continue;
       const ax = PX[i]+NX[i]*a1, az = PZ[i]+NZ[i]*a1, bx = PX[i]+NX[i]*a2, bz = PZ[i]+NZ[i]*a2;
       const qx = PX[j]+NX[j]*b1, qz = PZ[j]+NZ[j]*b1, dx = PX[j]+NX[j]*b2, dz = PZ[j]+NZ[j]*b2;
-      pos.push(ax,y,az, bx,y,bz, qx,y,qz, bx,y,bz, dx,y,dz, qx,y,qz);
+      const ya = y + hy(i, a1), yb = y + hy(i, a2), yq = y + hy(j, b1), yd = y + hy(j, b2);
+      pos.push(ax,ya,az, bx,yb,bz, qx,yq,qz, bx,yb,bz, dx,yd,dz, qx,yq,qz);
       uv.push(0,v0, 1,v0, 0,v1, 1,v0, 1,v1, 0,v1);
       for (const a of [al, al, bl, al, bl, bl]) col.push(1, 1, 1, a);
     }
@@ -116,7 +124,8 @@ export function buildWorld(parent, track, drivers) {
       const ax = PX[i]+NX[i]*oi, az = PZ[i]+NZ[i]*oi, bx = PX[j]+NX[j]*oj, bz = PZ[j]+NZ[j]*oj, len = Math.hypot(bx-ax, bz-az);
       if (include(i)) {
         const u0 = u / texLen, u1 = (u + len) / texLen;
-        pos.push(ax,y0,az, bx,y0,bz, ax,y1,az, ax,y1,az, bx,y0,bz, bx,y1,bz);
+        const ha = hy(i, oi), hb = hy(j, oj);
+        pos.push(ax,y0+ha,az, bx,y0+hb,bz, ax,y1+ha,az, ax,y1+ha,az, bx,y0+hb,bz, bx,y1+hb,bz);
         uv.push(u0,0, u1,0, u0,1, u0,1, u1,0, u1,1);
         c.setHex(colorFn(i)); for (let k = 0; k < 6; k++) col.push(c.r, c.g, c.b);
       }
@@ -138,7 +147,7 @@ export function buildWorld(parent, track, drivers) {
     const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(...size), lambert({ color }), list.length);
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), p = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1);
     const s = side ? 1 : -1;
-    list.forEach((i, k) => { const d = s * val(o, i); p.set(PX[i] + NX[i]*d, y, PZ[i] + NZ[i]*d); q.setFromAxisAngle(up, -SIM.headingAt(track, i)); m4.compose(p, q, one); mesh.setMatrixAt(k, m4); });
+    list.forEach((i, k) => { const d = s * val(o, i); p.set(PX[i] + NX[i]*d, y + hy(i, d), PZ[i] + NZ[i]*d); q.setFromAxisAngle(up, -SIM.headingAt(track, i)); m4.compose(p, q, one); mesh.setMatrixAt(k, m4); });
     scene.add(mesh);
   }
 
@@ -154,14 +163,39 @@ export function buildWorld(parent, track, drivers) {
     }
   }, false);
   grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping; grassTex.repeat.set(90, 90);
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000).rotateX(-Math.PI/2), lambert({ map: grassTex }));
-  ground.position.set(cx, -0.06, cz); scene.add(ground);
+  if (!elev) {
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000).rotateX(-Math.PI/2), lambert({ map: grassTex }));
+    ground.position.set(cx, -0.06, cz); scene.add(ground);
+  } else buildTerrain();
   let stripes = null;
-  if (theme.stripes) {
+  if (theme.stripes && !elev) {
     const stripeTex = canvasTexture(64, 2, x => { for (let i = 0; i < 16; i++) { x.fillStyle = hexCss(i % 2 ? g0 : g1); x.fillRect(i*4, 0, 4, 2); } });
     stripeTex.wrapS = THREE.RepeatWrapping; stripeTex.repeat.set(6, 1);
     stripes = new THREE.Mesh(new THREE.PlaneGeometry(1400, 900, 1, 1).rotateX(-Math.PI/2), lambert({ map: stripeTex, transparent: true, opacity: 0.5 }));
     stripes.position.set(cx, -0.03, cz); scene.add(stripes);
+  }
+
+  // A hilly circuit's ground: a height grid (ground.js) over the circuit and its surroundings, sinking at its edges
+  // into a wide plane at the land's level; the grass texture by world position
+  function buildTerrain() {
+    const step = TERRAIN.step, M = TERRAIN.margin, x0 = bounds.minX - M, z0 = bounds.minZ - M;
+    const nx = Math.ceil((bounds.maxX - bounds.minX + 2 * M) / step), nz = Math.ceil((bounds.maxZ - bounds.minZ + 2 * M) / step);
+    const base = land.lo - 2, rep = 6000 / 90;
+    const pos = new Float32Array((nx + 1) * (nz + 1) * 3), uv = new Float32Array((nx + 1) * (nz + 1) * 2);
+    for (let a = 0; a <= nz; a++) for (let b = 0; b <= nx; b++) {
+      const k = a * (nx + 1) + b, x = x0 + b * step, z = z0 + a * step;
+      const edge = Math.min(a, b, nz - a, nx - b) * step, h = land.at(x, z), t = SIM.smoothstep(edge / TERRAIN.fade);
+      pos.set([x, base + (h - base) * t, z], k * 3); uv.set([x / rep, z / rep], k * 2);
+    }
+    const idx = [];
+    for (let a = 0; a < nz; a++) for (let b = 0; b < nx; b++) { const k = a * (nx + 1) + b; idx.push(k, k + nx + 1, k + 1, k + 1, k + nx + 1, k + nx + 2); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setIndex(idx); g.computeVertexNormals();
+    const tex = grassTex.clone(); tex.repeat.set(1, 1); tex.needsUpdate = true;
+    scene.add(new THREE.Mesh(g, lambert({ map: tex })));
+    const far = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000).rotateX(-Math.PI/2), lambert({ map: grassTex }));
+    far.position.set(cx, base - 0.05, cz); scene.add(far);
   }
 
   // ---- road, lines, racing line rubber and skid marks ----
@@ -316,7 +350,24 @@ export function buildWorld(parent, track, drivers) {
     placeAlong(pits, landmarks.pits, L.garageLat, 0);
   }
 
-  const scenery = buildScenery(scene, track, theme, { lambert, canvasTexture, placeAlong });
+  // bridges (a figure of eight: ground.js marks the upper road's samples): a deck under the road and its run-off,
+  // its side faces, and pillars beside the road below
+  if (elev && land.bridge.some(b => b)) {
+    const deck = 1.4, on = i => !!land.bridge[i];
+    for (const side of [0, 1]) {
+      const R = runoff[side], s = side ? 1 : -1, edge = i => R.wall[i] + 0.6;
+      ribbon(i => s * edge(i), -deck, 0, on, { colorFn: () => COLORS.concrete });
+    }
+    strip(i => -runoff[0].wall[i] - 0.6, i => runoff[1].wall[i] + 0.6, -deck, i => on(i) ? 0x8f9296 : null, 0);
+    const pillar = new THREE.BoxGeometry(1.6, 1, 1.6), mat = lambert({ color: COLORS.concrete });
+    for (let i = 0; i < N; i += 6) if (on(i)) for (const lat of [-runoff[0].wall[i] + 1, runoff[1].wall[i] - 1]) {
+      const x = PX[i] + NX[i] * lat, z = PZ[i] + NZ[i] * lat, top = hy(i, lat) - deck, foot = land.at(x, z);
+      if (top - foot < 2 || land.inside(x, z)) continue;
+      const p = new THREE.Mesh(pillar, mat); p.scale.y = top - foot; p.position.set(x, (top + foot) / 2, z); scene.add(p);
+    }
+  }
+
+  const scenery = buildScenery(scene, track, theme, { lambert, canvasTexture, placeAlong, groundAt: land.at });
   markWorldShadows(scene);
 
   return {

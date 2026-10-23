@@ -6,7 +6,8 @@ import { clamp, wrapA, wrapIdx } from './math.js';
 import { progress } from './race.js';
 import { afterMove } from './motion.js';
 import { stepChassis, steerLock, driftAngle } from './chassis.js';
-import { slipstream, cornerSpeed, brakeLimit, brakeMax, lateralGrip } from './vehicle.js';
+import { G, slipstream, cornerSpeed, brakeLimit, brakeMax, lateralGrip } from './vehicle.js';
+import { brakeLimitAt } from './elevation.js';
 import { checkPitEntry, stepPit, updateWear, aiWantsPit, drivePitLane, pitLimit } from './pit.js';
 import { updateActiveAero } from './active-aero.js';
 /** @typedef {import('./types.js').Car} Car */
@@ -184,7 +185,8 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   };
   // Far ahead, brake only once the deceleration needed reaches what the profile plans with (brake late, not long).
   let need = 0, vmin = sp;
-  const late = AI.brake * brakeLimit(sp, c.spec) * 0.9;
+  // (on a hill: the braking it has there, gravity included; elevation.js)
+  const E = T.elev, late = E ? AI.brake * brakeLimitAt(E, c.idx, sp, c.spec) * 0.9 : AI.brake * brakeLimit(sp, c.spec) * 0.9;
   for (let k = 2; k <= AI.brakeLook; k += k < 12 ? 2 : 6) {
     const j = (c.idx+k)%N, vt = Math.min(vp(j) * skill * offLine(j), targetV + k * 0.5);
     if (k <= 6) targetV = Math.min(targetV, vt);
@@ -202,12 +204,13 @@ export function driveAI(race, c, dt, skillOverride = 0) {
     const target = lost ? AI.recoverSpeed : Math.min(vt((c.idx + 2) % N), vt((c.idx + 5) % N), followCap);   // (never into the car ahead)
     let need2 = 0;
     for (let k = 2; k <= A.brakeLook; k += k < 12 ? 2 : 4) { const w = vt((c.idx + k) % N); need2 = Math.max(need2, (sp * sp - w * w) / (2 * k * ds)); }
-    const lim = brakeLimit(sp, c.spec) * 0.97, o2 = sp - target;
+    const lim = (E ? brakeLimitAt(E, c.idx, sp, c.spec) : brakeLimit(sp, c.spec)) * 0.97, o2 = sp - target;
     if (need2 > lim * A.brakeAt || o2 > A.overBrake) brk = clamp(need2 / (lim * A.brakeScale) + Math.max(0, o2) * A.brakeGain, 0, 1);
     else thr = o2 > 0 ? clamp(1 - o2 * A.thrGain, 0, 1) : 1;
   }
   else {
-    if (need > 2 || over > 1) brk = clamp(need / brakeMax(sp, c.spec) + Math.max(0, over) * AI.brakeGain, 0, 1);
+    // (downhill the brakes do more of it: gravity takes G·SX off the deceleration)
+    if (need > 2 || over > 1) brk = clamp((E ? need - G * E.SX[c.idx] : need) / brakeMax(sp, c.spec) + Math.max(0, over) * AI.brakeGain, 0, 1);
     else if (need <= 0) thr = clamp(0.5 - over * AI.thrGain, 0, 1);
     // no throttle while asking the front tyres for more than they have (it would only push the car wide)
     if (!lost && sp > AI.recoverSpeed && (Math.abs(want) > 0.95 || c.slideF > 0.3)) thr = Math.min(thr, AI.lockThrottle);

@@ -4,7 +4,7 @@
 // (equal masses, rigid-body impulse at the contact point, a little bounce): nose-to-tail the rear car slows and the front one is shoved, a side swipe pushes
 // both sideways, and an off-centre hit turns the car (`spin`). EV.CONTACT fires once per touch with `impact` =
 // closing speed (m/s).
-import { CONTACT, EV, CHASSIS } from './tuning.js';
+import { CONTACT, EV, CHASSIS, ELEVATION } from './tuning.js';
 import { afterMove } from './motion.js';
 import { addDamage } from './pit.js';
 import { emit } from './events.js';
@@ -54,12 +54,13 @@ function kick(c, jx, jz, px, pz) {
 
 /** @param {Race} race */
 export function collide(race) {
-  const cars = race.cars, reach = Math.max(REAR, FRONT) * 2 + 2 * RADIUS;
+  const cars = race.cars, reach = Math.max(REAR, FRONT) * 2 + 2 * RADIUS, elev = race.track.elev;
   for (const c of cars) { c.wasTouching = c.touching; c.touching = false; }
   for (let i = 0; i < cars.length; i++) for (let j = i+1; j < cars.length; j++) {
     const a = cars[i], b = cars[j];
     if ((a.pit && !a.pit.drive) || (b.pit && !b.pit.drive)) continue;   // AI cars on their pit-lane path (pit.js) don't touch
     if (Math.abs(b.x - a.x) > reach || Math.abs(b.z - a.z) > reach) continue;
+    if (elev && Math.abs(elev.Y[a.idx] - elev.Y[b.idx]) > ELEVATION.apart) continue;   // one on a bridge, the other under it
     const [px, pz, qx, qz] = closest(segment(a), segment(b));
     let nx = qx - px, nz = qz - pz; const d = Math.hypot(nx, nz);
     if (d >= 2 * RADIUS) continue;

@@ -34,8 +34,17 @@ const POWER = new Float64Array(1001); for (let i = 0; i <= 1000; i++) POWER[i] =
 const power = v => POWER[Math.min(1000, Math.max(0, Math.round(v * 10)))];
 const cornerV = (k, df) => { const R = 1 / Math.max(k, 1e-6), den = 1 - R * S.grip * df; return den <= 0.02 ? TUNING.V_CAP : Math.min(TUNING.V_CAP, Math.sqrt(R * S.grip * G / den)); };
 const dfOpen = S.dfK * (1 - AA.downforceCut), zone = T.aeroZone;
+// hills and banking (sim elevation.js; E null on a flat circuit, where all of this is the flat-ground model above):
+// corner speed with the bank and the crest, the tyres' load (weight share + crest / dip + the bank carrying the
+// cornering), the sideways demand on a bank, gravity along the slope
+const E = T.elev;
+const cornerAt = (i, ks, df) => E ? SIM.cornerSpeedAt(E, i, ks, 1, { ...S, dfK: df }) : cornerV(Math.abs(ks), df);
+const into = (i, ks) => E ? -Math.sign(ks) * E.SN[i] : 0;
+const load = (i, u, ks) => E ? E.CA[i] * (G + u * u * E.VK[i] + u * u * Math.abs(ks) * into(i, ks)) : G;
+const latNeed = (i, u, ks) => E ? Math.max(0, u * u * Math.abs(ks) * Math.sqrt(1 - E.SN[i] * E.SN[i]) - G * into(i, ks)) : u * u * Math.abs(ks);
+const slopeG = i => E ? G * E.SX[i] : 0;
 
-const X = new Float64Array(N), Z = new Float64Array(N), DS = new Float64Array(N), K = new Float64Array(N);
+const X = new Float64Array(N), Z = new Float64Array(N), DS = new Float64Array(N), K = new Float64Array(N), KS = new Float64Array(N);
 const env = new Float64Array(N), v = new Float64Array(N), open = new Uint8Array(N);
 function geometry(off) {
   for (let i = 0; i < N; i++) { X[i] = PX[i] + NX[i] * off[i]; Z[i] = PZ[i] + NZ[i] * off[i]; }
@@ -46,28 +55,28 @@ function geometry(off) {
     const h1 = Math.atan2(Z[i] - Z[a], X[i] - X[a]), h2 = Math.atan2(Z[b] - Z[i], X[b] - X[i]);
     let d = h2 - h1; d = Math.atan2(Math.sin(d), Math.cos(d));
     let L = 0; for (let k = a; k !== b; k = (k + 1) % N) L += DS[k];
-    K[i] = Math.abs(d) / (L / 2);
+    K[i] = Math.abs(d) / (L / 2); KS[i] = d / (L / 2);
   }
 }
 function lapTime(off) {
   geometry(off);
-  for (let i = 0; i < N; i++) env[i] = cornerV(K[i], S.dfK);
+  for (let i = 0; i < N; i++) env[i] = cornerAt(i, KS[i], S.dfK);
   // braking envelope (backwards, twice round so it closes on itself)
   for (let p = 0; p < 2; p++) for (let i = N - 1; i >= 0; i--) {
-    const j = (i + 1) % N, u = env[j], df = S.dfK * u * u, lat = u * u * K[j], latMax = S.grip * (G + df);
+    const j = (i + 1) % N, u = env[j], df = S.dfK * u * u, n = Math.max(-df, load(j, u, KS[j])), lat = latNeed(j, u, KS[j]), latMax = Math.max(1, S.grip * (n + df));
     const f = Math.sqrt(Math.max(0, 1 - (lat / latMax) ** 2));
-    const dec = Math.min(CHASSIS.brakeSystem, S.grip * CHASSIS.longGrip * (G + df)) * f + S.dragK * u * u + CAR.aero.rolling + CAR.engine.engineBrake * 0.8;
-    env[i] = Math.min(env[i], Math.sqrt(u * u + 2 * dec * DS[i]));
+    const dec = Math.min(CHASSIS.brakeSystem, S.grip * CHASSIS.longGrip * (n + df)) * f + S.dragK * u * u + CAR.aero.rolling + CAR.engine.engineBrake * 0.8 + slopeG(j);
+    env[i] = Math.min(env[i], Math.sqrt(u * u + 2 * Math.max(2, dec) * DS[i]));
   }
   // acceleration (forwards, twice round), straight mode in the zones while it can take the bend with open wings
   v[0] = env[0];
   for (let p = 0; p < 2; p++) for (let i = 0; i < N; i++) {
     const j = (i + 1) % N, u = v[i];
-    const op = aero && zone[i] && u <= cornerV(K[i], dfOpen) ? 1 : 0;
-    const df = (op ? dfOpen : S.dfK) * u * u, lat = u * u * K[i], latMax = S.grip * (G + df);
+    const op = aero && zone[i] && u <= cornerAt(i, KS[i], dfOpen) ? 1 : 0;
+    const df = (op ? dfOpen : S.dfK) * u * u, n = Math.max(-df, load(i, u, KS[i])), lat = latNeed(i, u, KS[i]), latMax = Math.max(1, S.grip * (n + df));
     const f = Math.sqrt(Math.max(0, 1 - (lat / latMax) ** 2));
-    const traction = S.grip * S.rearGrip * CHASSIS.longGrip * (G * (1 - CHASSIS.frontWeight) + df * (1 - S.aeroFront)) * f;
-    const a = Math.min(power(u), traction) - S.dragK * (1 - AA.dragCut * op) * u * u - CAR.aero.rolling;
+    const traction = S.grip * S.rearGrip * CHASSIS.longGrip * Math.max(0, n * (1 - CHASSIS.frontWeight) + df * (1 - S.aeroFront)) * f;
+    const a = Math.min(power(u), traction) - S.dragK * (1 - AA.dragCut * op) * u * u - CAR.aero.rolling - slopeG(i);
     v[j] = Math.min(env[j], Math.sqrt(Math.max(1, u * u + 2 * a * DS[i])));
     open[i] = op;
   }

@@ -6,7 +6,8 @@ import { COLORS, BRANDS } from './config.js';
 // the trackside furniture real circuits have: braking boards (300 / 200 / 100 m before the big stops), marshal posts,
 // advertising boards (invented brands), a sponsor bridge over the track, TV camera towers and grandstands at the
 // heaviest braking zones. Placement comes from the track and its run-off layout, so every circuit gets its own.
-export function buildScenery(scene, track, theme, { lambert, canvasTexture, placeAlong }) {
+// groundAt(x, z) = the ground's height (ground.js; 0 on a flat circuit)
+export function buildScenery(scene, track, theme, { lambert, canvasTexture, placeAlong, groundAt = () => 0 }) {
   const { N, ds, HW, PX, PZ, K, CK, KERB_K, VP, runoff, bounds } = track;
   const { minX, maxX, minZ, maxZ, cx, cz } = bounds;
   const at = i => SIM.wrapIdx(i, N);
@@ -124,7 +125,7 @@ export function buildScenery(scene, track, theme, { lambert, canvasTexture, plac
     sea.position.set(cx, -0.02, edge + 1500); scene.add(sea);
     const quay = new THREE.Mesh(new THREE.BoxGeometry(6000, 1, 4), lambert({ color: 0x8e9196 })); quay.position.set(cx, 0.2, edge); scene.add(quay);
   }
-  if (theme.lakes) {
+  if (theme.lakes && !track.elev) {                   // (lakes need flat ground)
     const [count, radius] = theme.lakes;
     for (let k = 0, tries = 0; k < count && tries < 400; tries++) {
       const x = minX - 150 + Math.random() * (maxX - minX + 300), z = minZ - 150 + Math.random() * (maxZ - minZ + 300), r = radius * (0.7 + Math.random() * 0.6);
@@ -148,7 +149,7 @@ export function buildScenery(scene, track, theme, { lambert, canvasTexture, plac
     const q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), pal = [0xc9c2b4, 0xa9adb2, 0xd8d2c4, 0x8c9399, 0xb7a58c, 0xe2e0da];
     const n = scatter(theme.buildings, 10, (x, z, k) => {
       const w = 14 + Math.random() * 22, d = 14 + Math.random() * 22, h = 8 + Math.random() * Math.random() * 45;
-      q.setFromAxisAngle(up, Math.round(Math.random() * 4) * Math.PI / 2 + 0.05); m4.compose(new THREE.Vector3(x, h / 2, z), q, new THREE.Vector3(w, h, d));
+      q.setFromAxisAngle(up, Math.round(Math.random() * 4) * Math.PI / 2 + 0.05); m4.compose(new THREE.Vector3(x, h / 2 + groundAt(x, z) - 1, z), q, new THREE.Vector3(w, h + 2, d));
       mesh.setMatrixAt(k, m4); mesh.setColorAt(k, col.setHex(pal[k % pal.length]));
     });
     mesh.count = n; scene.add(mesh);
@@ -156,7 +157,7 @@ export function buildScenery(scene, track, theme, { lambert, canvasTexture, plac
   if (theme.rocks) {
     const mesh = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), lambert({ color: 0x8b8a84 }), theme.rocks), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
     const n = scatter(theme.rocks, 6, (x, z, k) => { const s = 0.6 + Math.random() * 2.2;
-      q.setFromEuler(new THREE.Euler(Math.random(), Math.random() * 6, Math.random())); m4.compose(new THREE.Vector3(x, s * 0.3, z), q, new THREE.Vector3(s * 1.3, s, s)); mesh.setMatrixAt(k, m4); });
+      q.setFromEuler(new THREE.Euler(Math.random(), Math.random() * 6, Math.random())); m4.compose(new THREE.Vector3(x, s * 0.3 + groundAt(x, z), z), q, new THREE.Vector3(s * 1.3, s, s)); mesh.setMatrixAt(k, m4); });
     mesh.count = n; scene.add(mesh);
   }
   // trees: pines (cones) and broadleaf (balls), as the theme mixes them
@@ -169,10 +170,10 @@ export function buildScenery(scene, track, theme, { lambert, canvasTexture, plac
     let nc = 0, nb = 0;
     const n = scatter(max, 10, (x, z, k) => {
       if (gs !== undefined && Math.hypot(x - PX[gs], z - PZ[gs]) < 110) return false;
-      const s = 0.7 + Math.random() * 0.8, kind = kinds[(Math.random() * kinds.length) | 0];
-      sc.set(s, s, s); p.set(x, 1.5 * s, z); m4.compose(p, q, sc); trunks.setMatrixAt(k, m4);
-      if (kind === 'cone') { p.set(x, 7.5 * s, z); m4.compose(p, q, sc); cones.setMatrixAt(nc, m4); cones.setColorAt(nc++, col.setHSL(0.27 + Math.random() * 0.07, 0.45, 0.2 + Math.random() * 0.1)); }
-      else { p.set(x, 6 * s, z); sc.set(s * 1.1, s * 0.95, s * 1.1); m4.compose(p, q, sc); balls.setMatrixAt(nb, m4); balls.setColorAt(nb++, col.setHSL(0.22 + Math.random() * 0.08, 0.42, 0.24 + Math.random() * 0.1)); }
+      const s = 0.7 + Math.random() * 0.8, kind = kinds[(Math.random() * kinds.length) | 0], y = groundAt(x, z) - 0.3;
+      sc.set(s, s, s); p.set(x, 1.5 * s + y, z); m4.compose(p, q, sc); trunks.setMatrixAt(k, m4);
+      if (kind === 'cone') { p.set(x, 7.5 * s + y, z); m4.compose(p, q, sc); cones.setMatrixAt(nc, m4); cones.setColorAt(nc++, col.setHSL(0.27 + Math.random() * 0.07, 0.45, 0.2 + Math.random() * 0.1)); }
+      else { p.set(x, 6 * s + y, z); sc.set(s * 1.1, s * 0.95, s * 1.1); m4.compose(p, q, sc); balls.setMatrixAt(nb, m4); balls.setColorAt(nb++, col.setHSL(0.22 + Math.random() * 0.08, 0.42, 0.24 + Math.random() * 0.1)); }
     });
     trunks.count = n; cones.count = nc; balls.count = nb;
     scene.add(trunks, cones, balls);

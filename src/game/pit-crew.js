@@ -86,7 +86,7 @@ function pose(p, { walking = false, kneel = 0, crouch = 0, reach = 0, shake = 0,
 // wheels: the design's wheels ({ pos: [x, y, z], front }); frame: the box on the track { x, z, h }
 function crew(driver, wheels, frame) {
   const suit = new THREE.MeshLambertMaterial({ color: driver.color }), helmet = new THREE.MeshLambertMaterial({ color: driver.accent ?? 0xffffff });
-  const group = new THREE.Group(); group.position.set(frame.x, 0, frame.z); group.rotation.y = -frame.h;
+  const group = new THREE.Group(); group.position.set(frame.x, frame.y || 0, frame.z); group.rotation.y = -frame.h;
   const people = [], add = (role, x, z, a, extra = {}) => { const p = Object.assign(person(suit, helmet), { role, sx: x, sz: z, sa: a }, extra); people.push(p); group.add(p.root); return p; };
   const face = { left: Math.PI / 2, right: -Math.PI / 2, back: Math.PI, front: 0 };     // directions in the box frame
   wheels.forEach((w, i) => {
@@ -129,7 +129,7 @@ export function createPitCrews(scene) {
     const i = SIM.wrapIdx(Math.floor(p), track.N), j = (i + 1) % track.N, f = p - Math.floor(p), lat = track.pit.boxLat;
     const x = track.PX[i] + (track.PX[j] - track.PX[i]) * f, z = track.PZ[i] + (track.PZ[j] - track.PZ[i]) * f;
     const nx = track.NX[i] + (track.NX[j] - track.NX[i]) * f, nz = track.NZ[i] + (track.NZ[j] - track.NZ[i]) * f;
-    return { x: x + nx * lat, z: z + nz * lat, h: Math.atan2(track.TZ[i], track.TX[i]) };
+    return { x: x + nx * lat, z: z + nz * lat, h: Math.atan2(track.TZ[i], track.TX[i]), y: SIM.surfaceY(track, p, lat) };
   }
 
   // one crew's frame: who does what at stop time t (s), given the stop's steps; returns the car's lift and wheels

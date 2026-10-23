@@ -84,7 +84,8 @@ function createStreaks(scene) {
         const x = PX[i] + NX[i] * side, z = PZ[i] + NZ[i] * side;
         const a = level * S.alpha * p.k * Math.min(1, p.age / S.fadeIn) * Math.min(1, (end - p.s) / (end * S.fadeOut)) * Math.min(1, (p.s - S.from) / 2 + 0.2);
         // head toward the car ahead, tail streaming back toward you
-        pos.set([x, p.h, z, x - TX[i] * len, p.h, z - TZ[i] * len], k * 6);
+        const y = p.h + SIM.surfaceY(track, i, side);                   // (a hill: sim elevation.js)
+        pos.set([x, y, z, x - TX[i] * len, y, z - TZ[i] * len], k * 6);
         col.set([r, gg, b, Math.max(0, a), r, gg, b, 0], k * 8);
       });
       g.attributes.position.needsUpdate = true; g.attributes.color.needsUpdate = true;
@@ -125,7 +126,7 @@ export function createSlipstreamFx(scene, cars) {
       if (fresh) last = { i, lat: c.trailLat[i], hw: SIM.wakeHalfWidth(k * ds) + edge * 0.5 };
       const { i: j, lat, hw } = last, w0 = fresh ? hw : 0;     // past the fresh part the band closes to nothing
       const cx = PX[j] + NX[j] * lat, cz = PZ[j] + NZ[j] * lat;
-      p.set([cx - NX[j] * w0, FX.y, cz - NZ[j] * w0, cx + NX[j] * w0, FX.y, cz + NZ[j] * w0], k * 6);
+      p.set([cx - NX[j] * w0, FX.y + SIM.surfaceY(track, j, lat - w0), cz - NZ[j] * w0, cx + NX[j] * w0, FX.y + SIM.surfaceY(track, j, lat + w0), cz + NZ[j] * w0], k * 6);
     }
     w.mesh.geometry.attributes.position.needsUpdate = true;
     return true;

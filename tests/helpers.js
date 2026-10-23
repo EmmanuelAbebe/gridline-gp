@@ -30,11 +30,13 @@ export const aiDriver = (S, skills = {}) => (race, c) => S.driveAI(race, c, DT, 
 
 // A speed profile for the centre line (the AI's VP is for its racing line, which is faster): corner speed from the
 // centre line's curvature at 90% grip, then braking look-back at 85% of the braking limit. For the test drivers.
+// (On a hilly circuit with the hills: elevation.js corner speeds and braking, gravity included.)
 export function centreProfile(S, T) {
-  const { N, K, ds } = T, P = new Float32Array(N);
-  for (let i = 0; i < N; i++) P[i] = S.cornerSpeed(Math.abs(K[i]), 0.9);
+  const { N, K, ds } = T, P = new Float32Array(N), E = T.elev;
+  for (let i = 0; i < N; i++) P[i] = E ? S.cornerSpeedAt(E, i, K[i], 0.9) : S.cornerSpeed(Math.abs(K[i]), 0.9);
   for (let p = 0; p < 3; p++) for (let i = N - 1; i >= 0; i--) {
-    const j = (i + 1) % N; P[i] = Math.min(P[i], Math.sqrt(P[j] * P[j] + 2 * S.brakeLimit(P[j]) * 0.85 * ds));
+    const j = (i + 1) % N, dec = E ? Math.max(2, S.brakeLimitAt(E, j, P[j]) * 0.85 + 9.81 * E.SX[j] * 0.15) : S.brakeLimit(P[j]) * 0.85;
+    P[i] = Math.min(P[i], Math.sqrt(P[j] * P[j] + 2 * dec * ds));
   }
   return P;
 }
