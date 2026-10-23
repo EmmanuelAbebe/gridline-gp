@@ -6,6 +6,7 @@ import { createGround } from './ground.js';
 import { Display } from './display.js';
 import { Sound } from './sound.js';
 import { Input } from './input.js';
+import { benchCity, clearCity } from './bench.js';
 
 export function installDebug(setTrack, current, player = () => null, toMenu = () => {}, loadGhost = () => {}, autopilot = () => {}, showLine = () => {}, setPref = () => {}) {
   window.gridlineDebug = { soundReady: () => Sound.ready,
@@ -14,6 +15,13 @@ export function installDebug(setTrack, current, player = () => null, toMenu = ()
     toMenu, loadGhost, showLine, setPref,                              // (setPref(key, value): a Settings choice, e.g. hudMirror)
                                           // (showLine: the racing line on this circuit, no race needed)
     renderMs: n => Display.timeRender(n),                                // ms per frame of the current view (GPU included)
+    info: () => Display.info(),
+    // the city benchmark (bench.js): a .glb sent in base64 pieces (benchPart), then scattered round this circuit
+    benchPart: s => { (window.__benchParts ||= []).push(s); return true; },
+    benchCity: count => { const b = atob(window.__benchParts.join('')), u = new Uint8Array(b.length); window.__benchParts = [];
+      for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+      return benchCity(current(), u.buffer, count); },
+    clearCity,
     shadows: () => Display.shadowInfo(),                                // sun shadows on? map size, casters                                                 // back to the start menu; load a ghost file's text (smoke test)
     input: () => ({ ...Input.drive, device: Input.pad.label, kind: Input.pad.kind }),   // what drives the car right now
     // the player's car: speed (km/h), wings open (active aero), overtake mode

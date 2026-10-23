@@ -52,6 +52,11 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
   Plan agreed 2026-10-23: (1) pit building [done], (2) grandstands (8 m bays, seats, cantilever roof, low-poly seated
   crowd), (3) trackside (gantry with working lights, sponsor bridge, marshal posts, TV towers, board frames); (4) Cobalt
   Bay's city as a facade kit: ON HOLD for the game, built only as a performance benchmark (big textures / meshes).
+  City benchmark (2026-10-23): `npm run bench:city` = `city.py` (dir=…; six towers × tex 512–4096 × detail low / mid /
+  high, JPEG facades, not committed: tools/blender/out/city) + main.cjs `--track-shots=dir --bench-city=glbdir` (glbs sent
+  in base64 pieces: gridlineDebug.benchPart / benchCity / clearCity, src/game/bench.js, debug builds only) → report.md /
+  .json + screenshots; results and conclusions in docs/city-benchmark.md (textures cost load time and memory, not frame
+  time; triangles ~0.2–0.25 ms per million on the RX 9060 XT). `Display.info()` / `gridlineDebug.info()` = renderer.info.
   Then the car (the garage's part editing would give way to a fixed model).
 - npm scripts: `dev` (Vite dev server, browser), `dev:app` (dev server inside Electron, `tools/dev-app.mjs`),
   `build`, `start` (build + Electron), `test` (node:test, `tests/*.test.js`), `lint` (ESLint 10, `eslint.config.js`:

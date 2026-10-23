@@ -85,7 +85,9 @@ export const Display = (() => {
     // (tests) ms per frame of this view, the GPU included: n renders, each waited for with a 1-pixel read
     timeRender(n = 30) { const gl = renderer.getContext(), px = new Uint8Array(4), t0 = performance.now();
       for (let i = 0; i < n; i++) { followSun(); renderer.shadowMap.needsUpdate = true; renderer.render(scene, camera); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); }
-      return (performance.now() - t0) / n; }, get scale() { return scales[scaleIdx]; },
+      return (performance.now() - t0) / n; },
+    // (tests) what the last frame drew and what the GPU holds
+    info: () => ({ calls: renderer.info.render.calls, drawn: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures }), get scale() { return scales[scaleIdx]; },
     // another scene through another camera on the same canvas (the garage)
     renderWith: (sc, cam) => { renderer.shadowMap.needsUpdate = true; renderer.render(sc, cam); },
     get shadows() { return !!shadowCfg; },

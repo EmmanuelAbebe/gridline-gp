@@ -328,6 +328,38 @@ async function raceShots(win, js, wait) {
   app.exit(0);
 }
 
+// --track-shots=dir --bench-city=glbdir: the city benchmark (tools/blender/city.py → glbdir, src/game/bench.js) on Cobalt
+// Bay: every building set × GRIDLINE_BENCH_COUNTS buildings (default 260,1000): parse and upload times, triangles, texture
+// memory, ms per frame in three views (GPU included), an aerial screenshot each; report.md + report.json in the shots dir
+async function benchCityRun(win, js, wait) {
+  const dir = path.resolve(arg('bench-city')), order = f => { const [, t, d] = f.match(/t(\d+)-(\w+)/); return ['low', 'mid', 'high'].indexOf(d) * 1e5 + +t; };
+  const files = fs.readdirSync(dir).filter(f => /^city-t\d+-\w+\.glb$/.test(f)).sort((a, b) => order(a) - order(b));
+  const counts = (process.env.GRIDLINE_BENCH_COUNTS || '260,1000').split(',').map(Number);
+  await js(`for (const o of document.querySelectorAll('.overlay, #startOv')) o.hidden = true`);
+  const views = [['street', `gridlineDebug.view('cobalt', 0.3, 0, 1.4, 40)`], ['side', `gridlineDebug.view('cobalt', 0.62, 6, 2, 8, 70)`],
+    ['aerial', `gridlineDebug.view('cobalt', 0.45, -260, 160, 160)`]];
+  const measure = async () => { const out = {}; for (const [n, code] of views) { await js(code); await wait(150); out[n] = +(await js(`gridlineDebug.renderMs(30)`)).toFixed(2); } return out; };
+  await js(views[0][1]); await wait(1500);
+  const rows = [{ set: 'none', count: 0, ...(await measure()), ...(await js('gridlineDebug.info()')) }];
+  console.log(JSON.stringify(rows[0]));
+  for (const f of files) {
+    const b64 = fs.readFileSync(path.join(dir, f)).toString('base64'), fileMB = +(fs.statSync(path.join(dir, f)).size / 1048576).toFixed(1);
+    for (const count of counts) {
+      for (let i = 0; i < b64.length; i += 4e6) await js(`gridlineDebug.benchPart(${JSON.stringify(b64.slice(i, i + 4e6))})`);
+      const r = await js(`gridlineDebug.benchCity(${count})`), ms = await measure();
+      await js(views[2][1]); await wait(200);
+      fs.writeFileSync(path.join(shotsDir, `${f.replace('.glb', '')}-${count}.png`), (await win.webContents.capturePage()).toPNG());
+      rows.push({ set: f.replace(/^city-|\.glb$/g, ''), count, fileMB, ...r, ...ms }); console.log(JSON.stringify(rows.at(-1)));
+    }
+  }
+  await js('gridlineDebug.clearCity()');
+  fs.writeFileSync(path.join(shotsDir, 'report.json'), JSON.stringify(rows, null, 1));
+  const head = '| set | buildings | triangles | texture MB | file MB | parse ms | upload ms | street ms | side ms | aerial ms | draw calls |\n|---|---|---|---|---|---|---|---|---|---|---|\n';
+  fs.writeFileSync(path.join(shotsDir, 'report.md'), head + rows.map(r => `| ${r.set} | ${r.buildings ?? 0} | ${((r.triangles || 0) / 1e6).toFixed(2)} M | ${r.textureMB ?? 0} | ${r.fileMB ?? 0} | ${r.parseMs ?? '-'} | ${r.uploadMs ?? '-'} | ${r.street} | ${r.side} | ${r.aerial} | ${r.calls} |`).join('\n') + '\n');
+  console.log('city benchmark in ' + shotsDir);
+  app.exit(0);
+}
+
 // --track-shots=dir: every circuit from a few places (aerial, braking into the slowest corners, beside the barrier)
 async function trackShots(win) {
   await new Promise(r => win.webContents.once('did-finish-load', r));
@@ -335,6 +367,7 @@ async function trackShots(win) {
   const js = c => win.webContents.executeJavaScript(c), wait = ms => new Promise(r => setTimeout(r, ms));
   fs.mkdirSync(shotsDir, { recursive: true });
   if (process.argv.includes('--race')) return raceShots(win, js, wait);
+  if (arg('bench-city')) return benchCityRun(win, js, wait);
   await js(`for (const o of document.querySelectorAll('.overlay, #startOv')) o.hidden = true`);
   // every circuit, or only those in GRIDLINE_SHOT_CIRCUITS (comma separated ids)
   const all = ['elkmoor', 'harrow', 'cobalt', 'marrow', 'northfold', 'hautvale', 'saltcross', 'cantera', 'ironpark'];
