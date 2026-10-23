@@ -36,16 +36,24 @@ function layout(poly, arcStep = 12, straightStep = 120) {
 // A circuit with hills and banking: polygon vertices [x, z, radius, height, bank] (height in m; bank in degrees, the
 // road tilted into the corner: its outside higher; leave it out for none) → { ctrl, heights }. heights = keys in track
 // order: [x, z, height, bank] where bank is signed for the track (rad, + = the road rises toward its right, +N):
-// the height at every vertex's arc middle, the bank at its start, middle and end (0 at vertices without one).
+// the height at every vertex's arc middle, the bank at its start, middle and end (0 at vertices without one). A banked
+// arc's bank builds up over `bankRamp` m of the straight before it and goes over the same after it (as on a real oval:
+// the straights stay level), unless the straight to the next banked arc is too short for both: then it stays banked.
 // track.js turns them into smooth profiles (elevation.js).
-export function course(poly, arcStep = 12, straightStep = 120) {
-  const { ctrl, ends, turns } = layout(poly, arcStep, straightStep), heights = [];
-  poly.forEach(([, , , y = 0, bank = 0], i) => {
-    const arc = ends[i], b = -Math.sign(turns[i]) * bank * Math.PI / 180;   // a right turn (+) banks up toward its left
-    const mid = arc[Math.floor(arc.length / 2)];
+export function course(poly, arcStep = 12, straightStep = 120, bankRamp = 70) {
+  const { ctrl, ends, turns } = layout(poly, arcStep, straightStep), heights = [], M = poly.length;
+  const bankOf = i => -Math.sign(turns[i]) * (poly[i][4] || 0) * Math.PI / 180;   // a right turn (+) banks up toward its left
+  // a point `d` m from arc end `p` toward `q`, if the straight p..q is long enough for both ramps (from p's and q's arcs)
+  const along = (p, q, d, both) => { const L = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    return L > d * (both ? 2 : 1) + 1 ? [p[0] + (q[0] - p[0]) * d / L, p[1] + (q[1] - p[1]) * d / L] : null; };
+  poly.forEach(([, , , y = 0], i) => {
+    const arc = ends[i], b = bankOf(i), mid = arc[Math.floor(arc.length / 2)];
+    const prev = (i - 1 + M) % M, next = (i + 1) % M, pe = ends[prev][ends[prev].length - 1], ns = ends[next][0];
+    if (b && arc.length > 1) { const p = along(arc[0], pe, bankRamp, bankOf(prev)); if (p) heights.push([...p, null, 0]); }
     if (arc.length > 1) heights.push([...arc[0], null, b]);
     heights.push([...mid, y, b]);
     if (arc.length > 1) heights.push([...arc[arc.length - 1], null, b]);
+    if (b && arc.length > 1) { const p = along(arc[arc.length - 1], ns, bankRamp, bankOf(next)); if (p) heights.push([...p, null, 0]); }
   });
   return { ctrl, heights };
 }
@@ -109,8 +117,8 @@ export const CIRCUITS = Object.freeze({
     ...course([
       [-100, 0, 0, 30], [380, 0, 130, 27],                 // line, fast right
       [500, 150, 70, 24],                                  // right
-      [430, 270, 55, 24], [510, 380, 55, 25], [440, 480, 60, 26],   // esses
-      [470, 580, 90, 22],                                  // right onto the diagonal
+      [430, 270, 55, 24], [510, 380, 55, 25], [440, 480, 55, 26],   // esses
+      [470, 580, 75, 22],                                  // right onto the diagonal
       [200, 700, 0, 10],                                   // under the bridge
       [-420, 1080, 18, 6],                                 // hairpin left
       [100, 1260, 220, 7],                                 // long left
@@ -132,13 +140,13 @@ export const CIRCUITS = Object.freeze({
       [520, -330, 35, 24], [330, -290, 35, 27],            // right, left
       [230, -500, 40, 32],                                 // right
       [-120, -600, 45, 40],                                // left at the top of the hill
-      [-280, -380, 300, 50],                               // uphill kink
-      [-300, -260, 16, 56], [-235, -205, 16, 42],          // the corkscrew: left over the crest, right down the drop
-      [-330, -60, 90, 34],                                 // fast downhill sweep
-      [-470, 70, 22, 28],                                  // hairpin left
+      [-280, -380, 300, 54.5],                             // uphill kink
+      [-300, -260, 22, 56], [-235, -205, 22, 46],          // the corkscrew: left over the crest, right down the drop
+      [-330, -60, 90, 37],                                 // fast downhill sweep
+      [-470, 70, 22, 29],                                  // hairpin left
       [-250, 0, 60, 22],                                   // right onto the straight
     ]),
-    blurb: 'Climb the hill, a blind left over the crest, then the corkscrew: a right plunging 14 m down the drop.',
+    blurb: 'Climb the hill, a blind left over the crest, then the corkscrew: a right plunging down the drop.',
   },
   // a road course inside an oval: its banked turns and an infield
   ironvale: {

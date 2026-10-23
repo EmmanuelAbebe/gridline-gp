@@ -3,7 +3,7 @@
 A browser F1-style racing game: 1–10 cars, five-light start, lap / timed / unlimited races on nine invented circuits
 (flat: Elkmoor Park 2.47 km, the original; Harrow Downs 3.89 fast; Cobalt Bay 3.01 street; Marrow Hill 2.60 twisty;
 Northfold 4.91 long; with hills and banking since 2026-10-22, inspired by real ones: Hautvale 4.40 forest valley with
-a dip and steep esses (Spa-like), Saltcross 5.11 figure of eight with a bridge (Suzuka-like), Cantera Hills 3.02 with a
+a dip and steep esses (Spa-like), Saltcross 5.11 figure of eight with a bridge (Suzuka-like), Cantera Hills 3.01 with a
 corkscrew (Laguna-Seca-like), Ironvale Speedway 3.31 oval + infield with 20° banked turns), picked on the start menu. Built to be driven with the user's phone tilt wheel (github.com/EmmanuelAbebe/Phone-wheel),
 which shows up in the browser as a virtual Xbox 360 controller.
 
@@ -122,6 +122,20 @@ Tunables live in data tables (config modules), not inline in the logic.
      below); scenery stands on `groundAt`, no lakes on hills. pose.js `setPoseTrack`: poses get y / pitch / roll
      (car-models `place(x, z, h, y, pitch, roll)`, Euler 'YZX'); camera-rig / hud-mirror heights follow the slope, the
      cockpit rolls with the car; tyre marks, racing line, slipstream band/streaks, pit crews on the road height.
+     Smoothness fixes (2026-10-23; user: Cantera "jagged … harsh bend", "a wall in the road", "non smooth hill curves that
+     look like they could damage the car"; Hautvale and Saltcross liked, Hautvale left exactly as it was): course() ramps a
+     banked arc's bank in / out over `bankRamp` 70 m of straight (it used to tilt Ironvale's whole straights); Saltcross's
+     esses arcs overlapped (a 7 m zig-zag) → radii 55 / 75; Cantera's corkscrew radii 22, heights eased (crest radius 272 →
+     512 m, steepest 18 → 12.4%). The ground: was the nearest sample's height, so it stepped up to 21 m (cliffs) where two
+     parts of the track at different heights met; now a blend of every 2nd sample nearby, each read at the point's foot
+     (fractional surfaceY), weighted 1 / (u² + 0.01) with u = metres past its barrier (GROUND every / keep / band / fade),
+     sunk `deep` × tan(bank) under a banked road; and runoff.js freeDistance leaves `RUNOFF.bank` 1.5 m between two parts'
+     barriers per m of height between them (not near a crossing: `crossSpan`), the cut found to 1/32 m on hills (else the
+     barrier zig-zags in metre steps). Road strips on hills get smooth normals from the slope and bank (per-triangle normals
+     banded). Gantry / sponsor bridge feet follow a banked road. Tests: elevation.test.js "smooth to drive" (crest / dip
+     radius > 400 m, straights level, the ground never steps > 0.6 m in 25 cm), circuits.test.js "no kinks" (radius > 15 m,
+     curvature jump < 0.01 per sample); both failed on the old code. Debug: `GRIDLINE_SHOT_VIEWS="name:metres,lat,height,
+     ahead,side;..."` = only those --track-shots views; `gridlineDebug.length()`.
      `--track-shots` adds uphill / downhill / hillside, banking / bankside, underbridge / bridge views;
      `--track-shots=dir --race` = race screenshots on the hilly circuits (`GRIDLINE_SHOT_CIRCUITS=a,b` picks circuits).
    - `track.js`: `buildTrack(circuit)` → track object: closed centripetal Catmull-Rom → resampled to N equal steps
@@ -136,8 +150,9 @@ Tunables live in data tables (config modules), not inline in the logic.
      `SIM.track` is the default (Elkmoor). A new circuit = a new `CIRCUITS` entry; tests/circuits.test.js checks every
      entry (no overlapping run-off, straight before the line for the grid, solo AI lap clean, full field finishes,
      proportional test driver laps it). Fastest-AI solo laps (3-lap best): Elkmoor 32.4, Marrow 42.5, Harrow 53.8, Cobalt 57.8, Northfold 67.6 s;
-     LEGEND (aero on, 2026-10-22): Hautvale 61.7, Saltcross 68.9, Cantera 48.3, Ironvale 45.0 s; ALIEN 58.8 / 64.8 / 44.5 / 41.4
-     (ALIEN pace Hautvale 1.04: its chicane at the top of the climb was cut at more; Cantera 1.12).
+     LEGEND (aero on, 2026-10-23): Hautvale 61.7, Saltcross 66.4, Cantera 47.8, Ironvale 45.1 s; ALIEN 58.8 / 61.9 / 44.8 / 41.5
+     (ALIEN pace Hautvale 1.04: its chicane at the top of the climb was cut at more; Saltcross 1.14 on a --margin=1.5 line,
+     Cantera 1.06: the most that stays clean with active aero on and off).
    - `chassis.js` (every car: player and AI): two-axle bicycle model, 4 sub-steps per 120 Hz step. Axle grip = grip × surface ×
      (weight + downforce·(1 − dirtyAir·slip) ± load transfer from last `c.ax`); tyre curve sin(1.3·atan(Bα)) peaking
      at 0.1 rad front / 0.075 rear (stiffer, 6% grippier rear = stable); friction circle per axle (`axle()`): too

@@ -82,12 +82,14 @@ export function buildScenery(scene, track, theme, { lambert, canvasTexture, plac
     }
     if (best >= 0 && bestLen > 20) {
       const wl = runoff[0].wall[best] + 1.5, wr = runoff[1].wall[best] + 1.5, g = new THREE.Group(), steel = lambert({ color: 0x3a4048 });
-      for (const z of [-wl, wr]) { const p = new THREE.Mesh(new THREE.BoxGeometry(1, 9, 1), steel); p.position.set(0, 4.5, z); g.add(p); }
-      const beam = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.2, wl + wr + 1), steel); beam.position.set(0, 8.4, (wr - wl) / 2); g.add(beam);
+      // (on a banked road the feet stand at the road edges' heights; the beam stays level over the higher one)
+      const foot = lat => SIM.surfaceY(track, best, lat) - SIM.surfaceY(track, best, 0), lift = Math.max(0, foot(-wl), foot(wr));
+      for (const z of [-wl, wr]) { const f = foot(z), p = new THREE.Mesh(new THREE.BoxGeometry(1, 9 + lift - f, 1), steel); p.position.set(0, (9 + lift + f) / 2, z); g.add(p); }
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.2, wl + wr + 1), steel); beam.position.set(0, 8.4 + lift, (wr - wl) / 2); g.add(beam);
       const tex = canvasTexture(512, 64, (x, w, h) => { x.fillStyle = '#111'; x.fillRect(0, 0, w, h); x.fillStyle = '#ffc21a'; x.fillRect(0, h - 8, w, 8);
         x.font = 'bold 40px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#f4f4f0'; x.fillText('GRIDLINE GP', w / 2, h / 2 - 3); }, false);
       const banner = new THREE.Mesh(new THREE.PlaneGeometry(wl + wr - 2, 2.4), lambert({ map: tex, side: THREE.DoubleSide }));
-      banner.position.set(0, 6.6, (wr - wl) / 2); banner.rotation.y = Math.PI / 2; g.add(banner);
+      banner.position.set(0, 6.6 + lift, (wr - wl) / 2); banner.rotation.y = Math.PI / 2; g.add(banner);
       placeAlong(g, best, 0, 0);
     }
   }

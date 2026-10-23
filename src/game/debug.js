@@ -40,6 +40,7 @@ export function installDebug(setTrack, current, player = () => null, toMenu = ()
       for (let i = 0; i < E.SX.length; i++) { if (E.SX[i] > E.SX[up]) up = i; if (E.SX[i] < E.SX[down]) down = i; }
       return [up, down].map(i => i / E.SX.length); },
     circuit: () => current().id,                                        // the circuit shown now
+    length: () => current().N * current().ds,                           // its lap length (m)
     // the most banked sample (fraction of the lap) and its bank (rad), or null below 3°
     banked() { const E = current().elev; if (!E) return null; let b = 0; for (let i = 0; i < E.BANK.length; i++) if (Math.abs(E.BANK[i]) > Math.abs(E.BANK[b])) b = i;
       return Math.abs(E.BANK[b]) > 0.05 ? [b / E.BANK.length, E.BANK[b]] : null; },

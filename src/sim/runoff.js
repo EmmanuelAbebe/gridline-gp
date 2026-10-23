@@ -117,23 +117,33 @@ function freeDistance(track, side, wanted) {
   const { N, ds, PX, PZ, NX, NZ, HW } = track, s = side ? 1 : -1, CELL = 32, grid = new Map();
   const key = (x, z) => Math.floor(x / CELL) + ',' + Math.floor(z / CELL);
   for (let j = 0; j < N; j++) { const k = key(PX[j], PZ[j]); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(j); }
-  const out = new Float32Array(N);
+  const out = new Float32Array(N), E = track.elev;
+  // on a hilly circuit two parts of the track side by side at different heights need room between their barriers for
+  // the grass bank from one to the other (RUNOFF.bank m per m of height); not where they cross (a bridge: `nearCross`)
+  const nearCross = new Uint8Array(N);
+  if (E) for (let i = 0; i < N; i++) for (const j of grid.get(key(PX[i], PZ[i])) || []) {
+    if (Math.min(wrapIdx(j - i, N), wrapIdx(i - j, N)) * ds > 200 && Math.hypot(PX[i] - PX[j], PZ[i] - PZ[j]) < 2 * HW)
+      for (let o = -RUNOFF.crossSpan; o <= RUNOFF.crossSpan; o++) nearCross[wrapIdx(i + o, N)] = 1;
+  }
+  const reachCells = E ? 2 : 1;                                   // (the bank's room reaches further)
   for (let i = 0; i < N; i++) {
-    let d = HW, ok = HW;
-    for (; d <= wanted[i] + 0.01; d += 1) {
+    const clashAt = d => {
       const x = PX[i] + NX[i] * s * d, z = PZ[i] + NZ[i] * s * d, win = (2 * d + 10) / ds;
       const cx = Math.floor(x / CELL), cz = Math.floor(z / CELL);
-      let clash = false;
-      for (let a = -1; a <= 1 && !clash; a++) for (let b = -1; b <= 1 && !clash; b++) {
+      for (let a = -reachCells; a <= reachCells; a++) for (let b = -reachCells; b <= reachCells; b++) {
         for (const j of grid.get((cx + a) + ',' + (cz + b)) || []) {
           const along = Math.min(wrapIdx(j - i, N), wrapIdx(i - j, N));
           if (along <= win) continue;
-          if (Math.hypot(x - PX[j], z - PZ[j]) < d + 1) { clash = true; break; }
+          const room = E && !nearCross[i] && !nearCross[j] ? d + 1 + RUNOFF.bank * Math.abs(E.Y[i] - E.Y[j]) : d + 1;
+          if (Math.hypot(x - PX[j], z - PZ[j]) < room) return true;
         }
       }
-      if (clash) break;
-      ok = d;
-    }
+      return false;
+    };
+    let d = Number(HW), ok = Number(HW);
+    for (; d <= wanted[i] + 0.01; d += 1) { if (clashAt(d)) break; ok = d; }
+    // (hills: the cut found to 1/32 m, so the barrier follows it smoothly instead of in steps of a metre)
+    if (E && d <= wanted[i] + 0.01 && d > ok) { let hi = d; for (let k = 0; k < 5; k++) { const m = (ok + hi) / 2; if (clashAt(m)) hi = m; else ok = m; } }
     out[i] = d > wanted[i] ? wanted[i] : ok;
   }
   return out;

@@ -77,3 +77,30 @@ test('banking: through the speedway\'s banked turns flat out, faster than the sa
   S.collide(race);
   assert.ok(!a.touching && !c.touching && a.v === 30 && c.v === 30, 'no contact across the bridge');
 });
+
+// (2026-10-23, the player: "non smooth hill curves that look like they could damage the car", banked straights at
+// Ironvale, "a wall in the road": the ground stepped where two parts of the track at different heights met)
+test('smooth to drive and to look at: gentle crests and dips, level straights on the speedway, no steps in the ground', () => {
+  for (const id of HILLY) {
+    const T = S.buildTrack(S.CIRCUITS[id]), E = T.elev, N = T.N;
+    let vk = 0; for (let i = 0; i < N; i++) vk = Math.max(vk, Math.abs(E.VK[i]));
+    assert.ok(1 / vk > 400, `${id}: a crest or dip of ${(1 / vk).toFixed(0)} m radius`);
+    // banking only at the banked turns: wherever the road runs straight for 100 m either way it is level
+    for (let i = 0; i < N; i++) {
+      let straight = true; for (let o = -50; o <= 50 && straight; o++) straight = Math.abs(T.K[S.wrapIdx(i + o, N)]) < 1 / 2000;
+      if (straight) assert.ok(Math.abs(E.BANK[i]) < 0.01, `${id}: banked ${(E.BANK[i] * 180 / Math.PI).toFixed(1)}° on a straight at ${(i * T.ds).toFixed(0)} m`);
+    }
+    // the ground beside the track, walked outward from every 12th sample in 25 cm steps: never a jump
+    const g = createGround(T);
+    let worst = 0, where = '';
+    for (let i = 0; i < N; i += 12) for (const s of [-1, 1]) {
+      let prev = null;
+      for (let d = T.runoff[s > 0 ? 1 : 0].wall[i] + 1; d < 120; d += 0.25) {
+        const h = g.at(T.PX[i] + T.NX[i] * d * s, T.PZ[i] + T.NZ[i] * d * s);
+        if (prev !== null && Math.abs(h - prev) > worst) { worst = Math.abs(h - prev); where = `${(i * T.ds).toFixed(0)} m, ${d.toFixed(0)} m out`; }
+        prev = h;
+      }
+    }
+    assert.ok(worst < 0.6, `${id}: the ground steps ${worst.toFixed(2)} m in 25 cm (${where})`);
+  }
+});

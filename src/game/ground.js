@@ -15,6 +15,10 @@ export const GROUND = Object.freeze({
   spread: 260,                     // m: the Gaussian that spreads the track's heights into the land
   noise: 14, noiseFrom: 60, noiseFull: 170,   // m of rolling hills, growing from noiseFrom to noiseFull m from the track (= the search reach)
   under: 0.12,                     // m the ground stays below the road and run-off (the strips are drawn on top)
+  deep: 8,                         // + this × tan(bank) m under a banked road (> the terrain's grid step: world.js TERRAIN)
+  every: 2, keep: 1, band: 60, fade: 20,   // the samples blended (every n-th), m behind a barrier where only its part
+                                   // counts; only samples within `band` m of the nearest one's distance, their weight fading
+                                   // over `fade` m toward that and the search reach (noiseFull)
   bridgeGap: 6, bridgeReach: 34,   // m of height between two parts of the track that makes the upper one a bridge; how far past
                                    // the lower road's barriers the bridge reaches (its earth banks start there)
   cell: 40,
@@ -41,15 +45,16 @@ export function createGround(track) {
     const cx = Math.floor(x / G.cell), cz = Math.floor(z / G.cell), n = Math.ceil(r / G.cell);
     for (let a = -n; a <= n; a++) for (let b = -n; b <= n; b++) for (const i of cells.get((cx + a) + ',' + (cz + b)) || []) fn(i);
   };
-  // the nearest sample (not on a bridge) within `r` m: ring by ring outward, stopping once no nearer one can follow
-  const nearest = (x, z, r) => {
+  // the nearest sample (not on a bridge) within `r` m: ring by ring outward, stopping once no nearer one can follow;
+  // `skip(i)` leaves samples out (the other part of the track: away from sample `from` along it)
+  const nearest = (x, z, r, skip = null) => {
     const cx = Math.floor(x / G.cell), cz = Math.floor(z / G.cell), n = Math.ceil(r / G.cell);
     let best = r * r, bi = -1;
     for (let ring = 0; ring <= n; ring++) {
       for (let a = -ring; a <= ring; a++) for (let b = -ring; b <= ring; b++) {
         if (Math.max(Math.abs(a), Math.abs(b)) !== ring) continue;
         for (const i of cells.get((cx + a) + ',' + (cz + b)) || []) {
-          if (bridge[i]) continue;
+          if (bridge[i] || (skip && skip(i))) continue;
           const d = (x - PX[i]) ** 2 + (z - PZ[i]) ** 2; if (d < best) { best = d; bi = i; }
         }
       }
@@ -85,15 +90,41 @@ export function createGround(track) {
     const a = landAt(gx, gz), b = landAt(gx + 1, gz), c = landAt(gx, gz + 1), d = landAt(gx + 1, gz + 1);
     return a + (b - a) * fx + (c - a) * fz + (a - b - c + d) * fx * fz;
   };
-  // height at (x, z)
+  // height at (x, z): a weighted blend of what each track sample nearby (every `every`-th, not a bridge's) says the
+  // height is: its road surface at the point's foot (so every sample of one stretch agrees), level ground out to its
+  // reach, then over `blend` m into the land. A sample weighs 1 / (u² + 0.01), u = how far past its barrier (+ `keep` m)
+  // the point is: inside a part's barriers only that part counts, and between two parts at different heights (a
+  // hairpin's legs, the loops of a figure of eight) the ground slopes from one to the other with no step anywhere.
+  const cand = [], blendCells = new Map();
+  const nkey = (cx, cz) => (cx + 4096) * 8192 + cz + 4096;            // (a number: faster than the string keys)
+  for (let i = 0; i < N; i += G.every) if (!bridge[i]) { const k = nkey(Math.floor(PX[i] / G.cell), Math.floor(PZ[i] / G.cell)); if (!blendCells.has(k)) blendCells.set(k, []); blendCells.get(k).push(i); }
   function heightAt(x, z) {
-    const [bi, d] = nearest(x, z, 170), far = land(x, z);
-    const rough = G.noise * fbm(x, z) * SIM.smoothstep((d - G.noiseFrom) / (G.noiseFull - G.noiseFrom));
-    if (bi < 0) return far + G.noise * fbm(x, z);
-    const lat = (x - PX[bi]) * NX[bi] + (z - PZ[bi]) * NZ[bi], side = lat < 0 ? 0 : 1, a = Math.abs(lat);
-    const edge = SIM.surfaceY(track, bi, lat), reach = level[side][bi];
-    if (a <= reach) return edge - (a <= runoff[side].wall[bi] + 0.5 ? G.under : 0);
-    return edge + (far + rough - edge) * SIM.smoothstep((a - reach) / G.blend);
+    const far = land(x, z), R = G.noiseFull, cx = Math.floor(x / G.cell), cz = Math.floor(z / G.cell), n = Math.ceil(R / G.cell);
+    let dmin = R * R; cand.length = 0;
+    for (let a = -n; a <= n; a++) for (let b = -n; b <= n; b++) for (const i of blendCells.get(nkey(cx + a, cz + b)) || []) {
+      const d = (x - PX[i]) ** 2 + (z - PZ[i]) ** 2; if (d >= R * R) continue;
+      cand.push(i, d); if (d < dmin) dmin = d;
+    }
+    const noise = G.noise * fbm(x, z);
+    if (!cand.length) return far + noise;
+    dmin = Math.sqrt(dmin);
+    const rough = noise * SIM.smoothstep((dmin - G.noiseFrom) / (G.noiseFull - G.noiseFrom));
+    let wsum = 1 / (R * R), hsum = wsum * (far + rough);
+    for (let k = 0; k < cand.length; k += 2) {
+      const i = cand[k], d2 = cand[k + 1]; if (d2 > (dmin + G.band) ** 2) continue;
+      const d = Math.sqrt(d2);
+      const along = (x - PX[i]) * track.TX[i] + (z - PZ[i]) * track.TZ[i], lat = (x - PX[i]) * NX[i] + (z - PZ[i]) * NZ[i];
+      const side = lat < 0 ? 0 : 1, a = Math.abs(lat), wall = runoff[side].wall[i], reach = level[side][i];
+      const edge = SIM.surfaceY(track, i + along / track.ds, lat);
+      // (under the road itself deeper on a banked road: the terrain's triangles span its edge, where the tilted road
+      // meets the flat run-off, and would poke up through the kerb there)
+      const h = a <= reach ? edge - (a < track.HW ? G.under + G.deep * Math.abs(Math.tan(E.BANK[i])) : a <= wall + 0.5 ? G.under : 0)
+        : edge + (far + rough - edge) * SIM.smoothstep((a - reach) / G.blend);
+      const u = Math.max(0, Math.hypot(Math.max(0, a - wall), along) - G.keep);
+      const w = SIM.smoothstep(Math.min(R - d, dmin + G.band - d) / G.fade) / (u * u + 0.01);
+      wsum += w; hsum += w * h;
+    }
+    return hsum / wsum;
   }
   // inside the barriers of a part of the track that is not a bridge (where a bridge's pillar mustn't stand)
   const inside = (x, z) => { const [bi] = nearest(x, z, 60); if (bi < 0) return false;

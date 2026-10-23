@@ -24,6 +24,14 @@ export function buildWorld(parent, track, drivers) {
   // hills (track.elev, sim elevation.js): the surface height at sample i, lat m from the centre line (0 on the flat:
   // then everything below is exactly as before); the ground beyond the barriers (ground.js)
   const elev = !!track.elev, hy = elev ? (i, lat) => SIM.surfaceY(track, i, lat) : () => 0;
+  // the surface's normal at sample i (smooth along the track, unlike per-triangle normals, which band on the slopes):
+  // the road tilted by its bank, flat across beyond its edges (`onRoad` = the strip lies on the road)
+  const surfNormal = (i, onRoad) => {
+    const E = track.elev, t = E.SX[i] / Math.sqrt(1 - E.SX[i] * E.SX[i]), c = onRoad ? Math.tan(E.BANK[i]) : 0;
+    const tx = track.TX[i], tz = track.TZ[i], nx = NX[i], nz = NZ[i];
+    let x = c * tz - nz * t, y = nz * tx - nx * tz, z = nx * t - c * tx;
+    const l = Math.hypot(x, y, z) * Math.sign(y); return [x / l, y / l, z / l];
+  };
   const land = createGround(track);
 
   function placeAlong(obj, i, lat, y) {
@@ -48,14 +56,16 @@ export function buildWorld(parent, track, drivers) {
       const qx = PX[j]+NX[j]*b1, qz = PZ[j]+NZ[j]*b1, dx = PX[j]+NX[j]*b2, dz = PZ[j]+NZ[j]*b2;
       const ya = y + hy(i, a1), yb = y + hy(i, a2), yq = y + hy(j, b1), yd = y + hy(j, b2);
       pos.push(ax,ya,az, bx,yb,bz, qx,yq,qz, bx,yb,bz, dx,yd,dz, qx,yq,qz);   // wound to face up
-      c.setHex(hex); for (let k = 0; k < 6; k++) { col.push(c.r, c.g, c.b); nor.push(0,1,0); }
+      c.setHex(hex); for (let k = 0; k < 6; k++) col.push(c.r, c.g, c.b);
+      if (!elev) { for (let k = 0; k < 6; k++) nor.push(0,1,0); continue; }
+      const road = Math.abs(a1 + a2) / 2 < HW, ni = surfNormal(i, road), nj = surfNormal(j, road);
+      nor.push(...ni, ...ni, ...nj, ...ni, ...nj, ...nj);
     }
     if (!pos.length) return null;
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
-    if (elev) g.computeVertexNormals();                 // (on a hill the strips tilt)
     const m = new THREE.Mesh(g, mat || lambert(decal(layer, { vertexColors: true, side: THREE.DoubleSide })));
     scene.add(m); return m;
   }
@@ -284,12 +294,14 @@ export function buildWorld(parent, track, drivers) {
   const gantryLights = [];
   { const gi = landmarks.gantry ?? 2, wl = wallAt(0, gi) + 1, wr = wallAt(1, gi) + 1;
     const mat = lambert({ color: COLORS.steel }), g = new THREE.Group(), post = new THREE.BoxGeometry(0.6, 8, 0.6);
-    for (const z of [-wl, wr]) { const p = new THREE.Mesh(post, mat); p.position.set(0, 4, z); g.add(p); }
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.4, wl + wr + 0.6), mat); beam.position.set(0, 7.6, (wr - wl) / 2); g.add(beam);
+    // (on a banked road the feet stand at the road edges' heights; the beam stays level over the higher one)
+    const foot = lat => hy(gi, lat) - hy(gi, 0), lift = Math.max(0, foot(-wl), foot(wr));
+    for (const z of [-wl, wr]) { const f = foot(z), p = new THREE.Mesh(post, mat); p.scale.y = (8 + lift - f) / 8; p.position.set(0, (8 + lift + f) / 2, z); g.add(p); }
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.4, wl + wr + 0.6), mat); beam.position.set(0, 7.6 + lift, (wr - wl) / 2); g.add(beam);
     const lampGeo = new THREE.SphereGeometry(0.28, 10, 8);
     for (let k = 0; k < CONFIG.lights.count; k++) {
       const l = new THREE.Mesh(lampGeo, new THREE.MeshBasicMaterial({ color: COLORS.lampOff }));
-      l.position.set(-0.62, 7.6, (k - (CONFIG.lights.count-1)/2) * 1.1); g.add(l); gantryLights.push(l);
+      l.position.set(-0.62, 7.6 + lift, (k - (CONFIG.lights.count-1)/2) * 1.1); g.add(l); gantryLights.push(l);
     }
     placeAlong(g, gi, 0, 0); }
 

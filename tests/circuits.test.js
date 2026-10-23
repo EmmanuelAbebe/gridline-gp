@@ -39,3 +39,14 @@ for (const [id, circuit] of Object.entries(S.CIRCUITS)) {
     assert.equal(seen.get(race.cars[0])[S.EV.WALL] || 0, 0, 'no wall hits');
   });
 }
+
+// (2026-10-23: two arcs of Saltcross's esses overlapped, so the road zig-zagged back on itself for a few metres)
+test('no kinks: the road never turns tighter than its tightest corner is meant to', () => {
+  for (const id of Object.keys(S.CIRCUITS)) {
+    const T = S.buildTrack(S.CIRCUITS[id]);
+    let k = 0, jump = 0;
+    for (let i = 0; i < T.N; i++) { k = Math.max(k, Math.abs(T.K[i])); jump = Math.max(jump, Math.abs(T.K[(i + 1) % T.N] - T.K[i])); }
+    assert.ok(1 / k > 15, `${id}: a ${(1 / k).toFixed(1)} m radius`);
+    assert.ok(jump < 0.01, `${id}: the curvature jumps ${jump.toFixed(4)} between two samples`);
+  }
+});

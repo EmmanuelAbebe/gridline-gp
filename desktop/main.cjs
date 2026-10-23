@@ -365,6 +365,11 @@ async function trackShots(win) {
       views.push([`brake${k}`, `gridlineDebug.view('${id}', ${f} - 0.03, 0, 1.6, 60)`]);
       views.push([`corner${k}`, `gridlineDebug.view('${id}', ${f} + 0.004, 4, 3, 40, -8)`]);
     });
+    // GRIDLINE_SHOT_VIEWS="name:metres,lat,height,ahead,side;..." = only these views (metres along the lap)
+    if (process.env.GRIDLINE_SHOT_VIEWS) views.splice(0, views.length, ...process.env.GRIDLINE_SHOT_VIEWS.split(';').map(v => {
+      const [name, args] = v.split(':'), [m, ...rest] = args.split(',').map(Number);
+      return [name, `gridlineDebug.view('${id}', ${m} / (gridlineDebug.length() || 1), ${rest.join(', ')})`];
+    }));
     for (const [name, code] of views) {
       await js(code); await wait(400);
       fs.writeFileSync(path.join(shotsDir, `${id}-${name}.png`), (await win.webContents.capturePage()).toPNG());

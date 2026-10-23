@@ -68,7 +68,7 @@ export const AI = Object.freeze({
     // takes without spins or cuts (2026-10-20, solo laps of the fastest driver: Elkmoor 29.0, Harrow 49.3, Cobalt
     // 50.4, Marrow 38.0, Northfold 59.1 s; the user's best there 59.975; 2026-10-22 hills: Hautvale 58.8, Saltcross 64.8,
     // Cantera 44.5, Ironvale 41.4 s)
-    pace: Object.freeze({ default: 1.16, cobalt: 1.08, marrow: 1.12, hautvale: 1.04, cantera: 1.12 }),
+    pace: Object.freeze({ default: 1.16, cobalt: 1.08, marrow: 1.12, hautvale: 1.04, cantera: 1.06, saltcross: 1.14 }),
     // in traffic (a car ahead in its lane, alongside, or in a wake) its pace eases to `traffic` × that
     // over trafficTime s: the full push only works on the line in clean air (it put cars into walls in traffic)
     // clean air (no car in its lane or alongside, slip < cleanSlip) = 1; deep in a wake (slip > wakeSlip) or alongside
@@ -248,6 +248,8 @@ export const RUNOFF = Object.freeze({
   chicane: 50,
   gravelSmooth: 8,                // samples either side averaged into the gravel's edge
   exitKerb: 15,                   // samples the outside kerb runs on after the corner
+  bank: 1.5, crossSpan: 60,       // hills: m between two parts' barriers per m of height between them (a 1:1.5 grass bank);
+                                  // samples either side of a crossing (bridge) left out of that
   permanent: R({ heavy: 0.15,
     straight: R({ wall: 9, zone: 'grass', barrier: 'armco' }),
     inside:   R({ wall: 11, zone: 'grass', barrier: 'armco' }),
