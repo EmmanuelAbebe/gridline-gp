@@ -148,17 +148,20 @@ export const CIRCUITS = Object.freeze({
     ]),
     blurb: 'Climb the hill, a blind left over the crest, then the corkscrew: a right plunging down the drop.',
   },
-  // a road course inside an oval: its banked turns and an infield
-  ironvale: {
-    name: 'Ironvale Speedway', theme: 'downs', landmarks: { gantry: 2, grandstand: -103, pits: -82 },
-    ...course([
-      [0, 0, 0, 10], [500, 0, 24, 10],                     // line, the oval's front straight, left into the infield
-      [520, -170, 28, 10], [280, -150, 30, 10],            // left, right
-      [160, -270, 30, 10], [-120, -250, 40, 10],           // left, right
-      [-160, -420, 30, 10],                                // left onto the oval's back straight
-      [-820, -420, 90, 10, 20], [-820, 0, 90, 10, 20],     // two banked lefts (20°) and the short chute between
+  // a road course on the site of an old oval (2026-10-23: the oval's banked turns went, user: "no more bending like that,
+  // at least not for F1"): the old front straight, the infield, then a hairpin at the end of the back straight
+  ironpark: {
+    name: 'Ironvale Park', theme: 'downs', landmarks: { gantry: 2, grandstand: -103, pits: -82 },
+    ctrl: corners([
+      [0, 0, 0], [500, 0, 24],                             // line, the long front straight, left into the infield
+      [520, -170, 28], [280, -150, 30],                    // left, right
+      [160, -270, 30], [-120, -250, 40],                   // left, right
+      [-160, -420, 30],                                    // left onto the back straight
+      [-680, -430, 24],                                    // hairpin left at its end: the big stop
+      [-620, -230, 35], [-700, -80, 45],                   // right, left
+      [-560, 0, 60],                                       // a fast left onto the front straight
     ]),
-    blurb: 'An oval and its infield: two 20° banked turns taken flat out, a twisty infield, long straights to draft on.',
+    blurb: 'Built where an oval once stood: two long straights to draft on, a twisty infield and a hairpin at the end of the back straight.',
   },
 });
 // every circuit carries its key as `id`

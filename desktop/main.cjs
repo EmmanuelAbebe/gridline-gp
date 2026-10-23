@@ -311,7 +311,7 @@ async function smokeTest(win) {
 // --track-shots=dir --race: on each circuit (GRIDLINE_SHOT_CIRCUITS or all) a solo race with the AI driving your car:
 // screenshots every few seconds from the chase camera, then the cockpit (cars, cameras and the road on the hills)
 async function raceShots(win, js, wait) {
-  const ids = process.env.GRIDLINE_SHOT_CIRCUITS ? process.env.GRIDLINE_SHOT_CIRCUITS.split(',') : ['hautvale', 'saltcross', 'cantera', 'ironvale'];
+  const ids = process.env.GRIDLINE_SHOT_CIRCUITS ? process.env.GRIDLINE_SHOT_CIRCUITS.split(',') : ['hautvale', 'saltcross', 'cantera'];
   for (const id of ids) {
     for (let k = 0; k < 20 && (await js(`gridlineDebug.circuit()`)) !== id; k++) { await js(`document.querySelector('#trackStep [data-d="1"]').click()`); await wait(300); }
     await js(`document.querySelector('#carsStep [data-d="-1"]')?.click()`);
@@ -337,7 +337,7 @@ async function trackShots(win) {
   if (process.argv.includes('--race')) return raceShots(win, js, wait);
   await js(`for (const o of document.querySelectorAll('.overlay, #startOv')) o.hidden = true`);
   // every circuit, or only those in GRIDLINE_SHOT_CIRCUITS (comma separated ids)
-  const all = ['elkmoor', 'harrow', 'cobalt', 'marrow', 'northfold', 'hautvale', 'saltcross', 'cantera', 'ironvale'];
+  const all = ['elkmoor', 'harrow', 'cobalt', 'marrow', 'northfold', 'hautvale', 'saltcross', 'cantera', 'ironpark'];
   for (const id of process.env.GRIDLINE_SHOT_CIRCUITS ? process.env.GRIDLINE_SHOT_CIRCUITS.split(',') : all) {
     await js(`gridlineDebug.view('${id}', 0, 0, 1, 1); gridlineDebug.showLine()`); await wait(800);
     const corners = (await js(`gridlineDebug.corners()`)).slice(0, 3);

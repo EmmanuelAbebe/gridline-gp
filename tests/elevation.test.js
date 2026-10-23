@@ -7,10 +7,12 @@ import { course } from '../src/sim/circuits.js';
 import { createGround } from '../src/game/ground.js';
 import { DT } from './helpers.js';
 
-const HILLY = ['hautvale', 'saltcross', 'cantera', 'ironvale'];
+const HILLY = ['hautvale', 'saltcross', 'cantera'];
+// a small banked oval (no circuit has banking since Ironvale's oval went, 2026-10-23; the physics stays)
+const OVAL = { name: 'Test oval', id: 'oval', ...course([[0, 0, 0, 5], [300, 0, 90, 5, 20], [300, 260, 90, 5, 20], [-300, 260, 90, 5, 20], [-300, 0, 90, 5, 20]]) };
 
 test('flat circuits have no elevation; hilly ones have smooth profiles that close on themselves', () => {
-  for (const id of ['elkmoor', 'harrow', 'cobalt', 'marrow', 'northfold']) assert.equal(S.buildTrack(S.CIRCUITS[id]).elev, null, id);
+  for (const id of ['elkmoor', 'harrow', 'cobalt', 'marrow', 'northfold', 'ironpark']) assert.equal(S.buildTrack(S.CIRCUITS[id]).elev, null, id);
   for (const id of HILLY) {
     const T = S.buildTrack(S.CIRCUITS[id]), E = T.elev, N = T.N;
     assert.ok(E, id);
@@ -18,7 +20,7 @@ test('flat circuits have no elevation; hilly ones have smooth profiles that clos
     for (let i = 0; i < N; i++) { const j = (i + 1) % N; jump = Math.max(jump, Math.abs(E.Y[j] - E.Y[i])); slope = Math.max(slope, Math.abs(E.SX[i])); }
     assert.ok(jump < 0.5, `${id}: height steps ${jump.toFixed(2)} m per sample`);
     assert.ok(slope < 0.2, `${id}: steepest ${(slope * 100).toFixed(1)}%`);
-    assert.ok(id === 'ironvale' ? E.hi - E.lo < 0.01 : E.hi - E.lo > 20, `${id}: ${(E.hi - E.lo).toFixed(1)} m of climb`);
+    assert.ok(E.hi - E.lo > 20, `${id}: ${(E.hi - E.lo).toFixed(1)} m of climb`);
   }
   // course(): every vertex's height, the bank signed by the corner's direction (a right turn rises toward its left)
   const { heights } = course([[0, 0, 0, 5], [200, 0, 40, 7, 10], [200, 200, 40, 9], [0, 200, 40, 9]]);
@@ -49,22 +51,22 @@ test('the car on a hill: slower up the climb, faster down it, and it rolls back 
   assert.ok(aUp < a0 - 0.6 * 9.81 * E.SX[up] && aDown > a0 + 0.6 * 9.81 * -E.SX[down], `accel flat ${a0.toFixed(1)}, up ${aUp.toFixed(1)}, down ${aDown.toFixed(1)}`);
 });
 
-test('banking: through the speedway\'s banked turns flat out, faster than the same corner flat; cars on a bridge never touch those below', () => {
-  const T = S.buildTrack(S.CIRCUITS.ironvale), E = T.elev;
+test('banking: through an oval\'s banked turns flat out, faster than the same corner flat; cars on a bridge never touch those below', () => {
+  const T = S.buildTrack(OVAL), E = T.elev;
   // the tightest sample of the banked turns: flat out there on the centre line, which a flat corner wouldn't be
   let b = -1; for (let i = 0; i < T.N; i++) if (Math.abs(E.BANK[i]) > 0.3 && (b < 0 || Math.abs(T.K[i]) > Math.abs(T.K[b]))) b = i;
   assert.ok(b >= 0 && Math.abs(E.BANK[b]) > 0.33, `bank ${(E.BANK[b] * 57.3).toFixed(1)}°`);
   const banked = S.cornerSpeedAt(E, b, T.K[b]), flat = S.cornerSpeed(Math.abs(T.K[b]));
   assert.ok(banked >= S.TUNING.V_CAP - 1e-6 && flat < banked - 5, `${(banked * 3.6).toFixed(0)} km/h vs flat ${(flat * 3.6).toFixed(0)}`);
-  // and the cars really go round faster: the AI's slowest point in the banked end vs the same circuit with no banking
+  // and the cars really go round faster: the AI's slowest point on its second lap vs the same oval with no banking
   const slowest = circuit => {
     const X = S.buildTrack(circuit), solo = S.createRace(2, { track: X, drivers: [S.DRIVERS.find(d => !d.player)] }), ai = solo.cars[0];
     let low = Infinity;
-    for (let k = 0; k < 120 * 90 && !ai.finished; k++) { solo.t += DT; S.driveAI(solo, ai, DT); ai.events.length = 0; if (ai.lap === 2 && X.PX[ai.idx] < -650) low = Math.min(low, S.speedOf(ai)); }
+    for (let k = 0; k < 120 * 90 && !ai.finished; k++) { solo.t += DT; S.driveAI(solo, ai, DT); ai.events.length = 0; if (ai.lap === 2) low = Math.min(low, S.speedOf(ai)); }
     return low;
   };
-  const C = S.CIRCUITS.ironvale, withBank = slowest(C), noBank = slowest({ ...C, id: 'unbanked', heights: C.heights.map(k => [k[0], k[1], k[2], 0]) });
-  assert.ok(withBank > noBank + 2, `slowest in the banked end ${(withBank * 3.6).toFixed(0)} km/h, without the banking ${(noBank * 3.6).toFixed(0)}`);
+  const C = OVAL, withBank = slowest(C), noBank = slowest({ ...C, id: 'unbanked', heights: C.heights.map(k => [k[0], k[1], k[2], 0]) });
+  assert.ok(withBank > noBank + 2, `slowest on the banked oval ${(withBank * 3.6).toFixed(0)} km/h, without the banking ${(noBank * 3.6).toFixed(0)}`);
   // the bridge: two cars at the crossing's plan position, one on each level
   const X = S.buildTrack(S.CIRCUITS.saltcross), g = createGround(X), on = [...g.bridge.keys()].filter(i => g.bridge[i]);
   assert.ok(on.length > 10, `${on.length} bridge samples`);
@@ -80,7 +82,7 @@ test('banking: through the speedway\'s banked turns flat out, faster than the sa
 
 // (2026-10-23, the player: "non smooth hill curves that look like they could damage the car", banked straights at
 // Ironvale, "a wall in the road": the ground stepped where two parts of the track at different heights met)
-test('smooth to drive and to look at: gentle crests and dips, level straights on the speedway, no steps in the ground', () => {
+test('smooth to drive and to look at: gentle crests and dips, level straights, no steps in the ground', () => {
   for (const id of HILLY) {
     const T = S.buildTrack(S.CIRCUITS[id]), E = T.elev, N = T.N;
     let vk = 0; for (let i = 0; i < N; i++) vk = Math.max(vk, Math.abs(E.VK[i]));

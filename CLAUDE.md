@@ -4,7 +4,9 @@ A browser F1-style racing game: 1–10 cars, five-light start, lap / timed / unl
 (flat: Elkmoor Park 2.47 km, the original; Harrow Downs 3.89 fast; Cobalt Bay 3.01 street; Marrow Hill 2.60 twisty;
 Northfold 4.91 long; with hills and banking since 2026-10-22, inspired by real ones: Hautvale 4.40 forest valley with
 a dip and steep esses (Spa-like), Saltcross 5.11 figure of eight with a bridge (Suzuka-like), Cantera Hills 3.01 with a
-corkscrew (Laguna-Seca-like), Ironvale Speedway 3.31 oval + infield with 20° banked turns), picked on the start menu. Built to be driven with the user's phone tilt wheel (github.com/EmmanuelAbebe/Phone-wheel),
+corkscrew (Laguna-Seca-like); flat again since 2026-10-23: Ironvale Park 3.07 (`ironpark`), a road course where an oval stood: the old
+Ironvale Speedway's 20° banked turns were replaced by a hairpin + right-left + fast left, user: "no more bending like that, at least not
+for F1"; the new id keeps old Ironvale ghosts / records off the new layout), picked on the start menu. Built to be driven with the user's phone tilt wheel (github.com/EmmanuelAbebe/Phone-wheel),
 which shows up in the browser as a virtual Xbox 360 controller.
 
 ## Goal and roadmap (Oct 2026)
@@ -130,7 +132,8 @@ Tunables live in data tables (config modules), not inline in the logic.
      model has the same terms (its lines for the hilly circuits). collide.js: cars more than `apart` 3 m apart in
      height never touch (the bridge). `surfaceY(track, p, lat)` = road height (bank across the road, flat beyond its
      edges: run-off, pit lane), `samplePos`. Banking only matters below ~139 m radius (the downforce makes wider corners
-     flat out anyway): Ironvale's banked turns are 90 m, flat out at 360 km/h vs 312 flat. Tests: tests/elevation.test.js
+     flat out anyway): no circuit is banked since Ironvale's oval went (the physics stays, tested on a banked test oval in
+     elevation.test.js: 90 m turns flat out at 360 km/h vs 312 flat). Tests: tests/elevation.test.js
      (+ circuits / offtrack tests skip pairs ≥ 6 m apart in height). Game: `ground.js` `createGround(track)` (pure):
      height anywhere = the road's edge out to the barrier + `flat` m (more at the pits / grandstand), then blending
      into the land (track heights spread by a Gaussian + value noise); `bridge` samples = the upper road over another
@@ -168,7 +171,7 @@ Tunables live in data tables (config modules), not inline in the logic.
      `SIM.track` is the default (Elkmoor). A new circuit = a new `CIRCUITS` entry; tests/circuits.test.js checks every
      entry (no overlapping run-off, straight before the line for the grid, solo AI lap clean, full field finishes,
      proportional test driver laps it). Fastest-AI solo laps (3-lap best): Elkmoor 32.4, Marrow 42.5, Harrow 53.8, Cobalt 57.8, Northfold 67.6 s;
-     LEGEND (aero on, 2026-10-23): Hautvale 61.7, Saltcross 66.4, Cantera 47.8, Ironvale 45.1 s; ALIEN 58.8 / 61.9 / 44.8 / 41.5
+     LEGEND (aero on, 2026-10-23): Hautvale 61.7, Saltcross 66.4, Cantera 47.8, Ironvale Park 48.2 s; ALIEN 58.8 / 61.9 / 44.8 / 42.8
      (ALIEN pace Hautvale 1.04: its chicane at the top of the climb was cut at more; Saltcross 1.14 on a --margin=1.5 line,
      Cantera 1.06: the most that stays clean with active aero on and off).
    - `chassis.js` (every car: player and AI): two-axle bicycle model, 4 sub-steps per 120 Hz step. Axle grip = grip × surface ×

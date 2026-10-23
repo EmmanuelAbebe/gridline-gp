@@ -67,7 +67,7 @@ export const AI = Object.freeze({
     // pace (createRace aiPace for an ALIEN race): × the drivers' skill on its profile; the most each circuit's line
     // takes without spins or cuts (2026-10-20, solo laps of the fastest driver: Elkmoor 29.0, Harrow 49.3, Cobalt
     // 50.4, Marrow 38.0, Northfold 59.1 s; the user's best there 59.975; 2026-10-22 hills: Hautvale 58.8, Saltcross 64.8,
-    // Cantera 44.5, Ironvale 41.4 s)
+    // Cantera 44.5 s; 2026-10-23 Ironvale Park 42.8 s, clean at the default)
     pace: Object.freeze({ default: 1.16, cobalt: 1.08, marrow: 1.12, hautvale: 1.04, cantera: 1.06, saltcross: 1.14 }),
     // in traffic (a car ahead in its lane, alongside, or in a wake) its pace eases to `traffic` × that
     // over trafficTime s: the full push only works on the line in clean air (it put cars into walls in traffic)

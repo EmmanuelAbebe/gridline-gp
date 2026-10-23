@@ -3,8 +3,8 @@
 > **Alpha**: an early test version. Expect rough edges, and please [report bugs](#report-a-bug).
 
 An F1-style racing game for Windows, macOS and Linux. Race up to nine AI rivals or chase ghost laps on nine invented
-circuits, four of them with real hills and banking: a forest valley with a steep climb, a figure of eight over a
-bridge, a plunging corkscrew and a banked speedway. The car runs on a real tyre-and-downforce physics model, with a pit lane, fuel, tyre wear and damage.
+circuits, three of them with real hills: a forest valley with a steep climb, a figure of eight over a bridge and a
+plunging corkscrew. The car runs on a real tyre-and-downforce physics model, with a pit lane, fuel, tyre wear and damage.
 Play it with a keyboard or a controller, or turn your phone into a steering wheel: tilt it to steer, and it vibrates
 when you hit a kerb.
 
