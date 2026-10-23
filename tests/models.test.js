@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { SIM } from '../src/sim/index.js';
 
 function glbJson(file) {
   const b = readFileSync(new URL(file, import.meta.url));
@@ -24,4 +25,17 @@ test('trees.glb: two spruces and two broadleaf trees, each bark + leaves', () =>
   }
   assert.ok(tris < 12000, `${tris} triangles in all`);   // ~760 trees on Marrow Hill
   assert.equal(j.images.length, 2);
+});
+
+test('pits.glb: the pit building\'s modules, a bay as wide as a garage (where pit.js stops the cars)', () => {
+  const j = glbJson('../src/game/models/pits.glb'), G = SIM.PIT.garages, mods = {};
+  for (const n of j.nodes) { const [m, role] = n.name.split('-'); (mods[m] ||= {})[role] = j.accessors[j.meshes[n.mesh].primitives[0].attributes.POSITION]; }
+  assert.deepEqual(Object.keys(mods).sort(), ['bay', 'end_a', 'end_b', 'stand']);
+  for (const r of ['solid', 'inside', 'team', 'glass', 'panel']) assert.ok(mods.bay[r], `bay has ${r}`);
+  const b = mods.bay.glass;                                   // (the glass front spans exactly one bay)
+  assert.ok(Math.abs(b.max[0] - b.min[0] - G.step) < 0.01, `bay ${(b.max[0] - b.min[0]).toFixed(2)} m wide, garages ${G.step} m apart`);
+  assert.equal(G.step * SIM.DRIVERS.length, G.building, 'a bay per team fills the building');
+  // (z = away from the track: the roof's overhang ends before the boxes the cars stop in)
+  assert.ok(mods.bay.solid.min[2] > -(SIM.PIT.garage - SIM.PIT.box), `roof overhang ${(-mods.bay.solid.min[2]).toFixed(1)} m`);
+  assert.ok(mods.end_a.solid.min[0] >= -0.01 && mods.end_b.solid.max[0] <= 0.01, 'the end blocks start at the building\'s ends');
 });

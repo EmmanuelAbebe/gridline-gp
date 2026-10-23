@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import treesGlb from './models/trees.glb?url';
+import pitsGlb from './models/pits.glb?url';
 
 // Models made in Blender (tools/blender/*.py, `npm run models`), packed into the page as data URLs and loaded once at
 // boot (`await loadModels()` before the first world is built). Only geometry and textures are taken from the files:
@@ -8,7 +9,9 @@ import treesGlb from './models/trees.glb?url';
 // has none).
 //   Models.trees = { cone: [variant], ball: [variant] } (the themes' tree kinds, config.js THEMES), variant =
 //   { name, bark, leaves } geometries (origin at the foot of the trunk, m), and Models.treeMaps = { bark, leaves } textures.
-export const Models = { trees: null, treeMaps: null };
+//   Models.pits = { bay, end_a, end_b, stand: { [role]: geometry } } (tools/blender/pits.py: in the frame world.js places
+//   them in, x along the track, y up, z away from it; roles solid / team / glass / clear / light / panel).
+export const Models = { trees: null, treeMaps: null, pits: null };
 
 const KIND = { spruce: 'cone', broad: 'ball' };   // the .glb's tree names (spruce_a ...) → theme kinds
 
@@ -35,6 +38,19 @@ export async function loadModels() {
   for (const list of Object.values(trees)) list.sort((a, b) => a.name.localeCompare(b.name));
   coverageMips(maps.leaves, LEAF_CUT);
   Models.trees = trees; Models.treeMaps = maps;
+  Models.pits = modules(await parse(pitsGlb));
+}
+
+// a file of building modules: objects named `<module>-<role>` → { [module]: { [role]: geometry } }
+function modules(gltf) {
+  const out = {};
+  gltf.scene.updateMatrixWorld(true);
+  gltf.scene.traverse(o => {
+    if (!o.isMesh) return;
+    const [mod, role] = o.name.split('-');
+    (out[mod] ||= {})[role] = o.geometry.clone().applyMatrix4(o.matrixWorld);
+  });
+  return out;
 }
 
 export const LEAF_CUT = 0.4;   // the leaves' alphaTest

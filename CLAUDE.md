@@ -40,7 +40,19 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
   InstancedMesh pair per variant, random yaw. Cost on the RX 9060 XT: +1–1.5 ms per frame on Marrow (760 trees).
   tests/models.test.js checks the .glb (names, heights, attributes, < 12k triangles in all). Debug:
   `gridlineDebug.renderMs(n)` (Display.timeRender), `GRIDLINE_SHOT_TIMING=1|n` prints each --track-shots view's ms.
-  Next (agreed order): buildings / grandstands, then the car (the garage's part editing would give way to a fixed model).
+  `kit.py` (2026-10-23) = the shared code (Canvas, Part, tube/card, `G()` game frame → Blender, panel/box/cylinder,
+  `bake_ao` = Cycles AO baked into the vertex colours with occluder copies + a ground plane, `export`).
+  Pit building (`pits.py` → pits.glb, user chose "modern European"): modules in the game frame (x along, y up, z away from
+  the track): `bay` (15 m = PIT.garages step, door 11 m: open garage + interior, hospitality glass floor, roof 4 m over the
+  lane), `end_a` / `end_b` (stair towers with fins, the outer wall's sign), `stand` (a team's pit-wall stand on the lane
+  side of the fence); objects `<module>-<role>`, roles solid / inside (garage interior, game emissive = its strip lights) /
+  team (× team colour) / glass (Phong) / clear / light (unlit) / panel (game canvas sign, `flipY` false: glTF v runs
+  down). world.js: one group at `landmarks.pits` (bays at G.first + k·step like the doors, stands at the pit wall,
+  ends at ±building/2); `Models.pits`. tests/models.test.js ties the bay to PIT.garages.
+  Plan agreed 2026-10-23: (1) pit building [done], (2) grandstands (8 m bays, seats, cantilever roof, low-poly seated
+  crowd), (3) trackside (gantry with working lights, sponsor bridge, marshal posts, TV towers, board frames); (4) Cobalt
+  Bay's city as a facade kit: ON HOLD for the game, built only as a performance benchmark (big textures / meshes).
+  Then the car (the garage's part editing would give way to a fixed model).
 - npm scripts: `dev` (Vite dev server, browser), `dev:app` (dev server inside Electron, `tools/dev-app.mjs`),
   `build`, `start` (build + Electron), `test` (node:test, `tests/*.test.js`), `lint` (ESLint 10, `eslint.config.js`:
   undefined/unused names; `src/sim` gets no browser globals), `typecheck` (`tsc -p .`, TypeScript 6 on plain JS + JSDoc,

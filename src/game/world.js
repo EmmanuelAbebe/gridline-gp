@@ -5,6 +5,7 @@ import { hexCss } from './util.js';
 import { buildScenery } from './scenery.js';
 import { markWorldShadows } from './shadows.js';
 import { createGround } from './ground.js';
+import { Models } from './models.js';
 
 // Static track and scenery, all under one group. Returns handles for what graphics profiles and the start lights
 // change, and dispose() to take it out of the scene (switching circuits).
@@ -39,9 +40,24 @@ export function buildWorld(parent, track, drivers) {
     obj.rotation.y = -SIM.headingAt(track, i);
     scene.add(obj); return obj;
   }
-  function canvasTexture(w, h, paint, nearest = true) {
+  // the pit building's materials by role (models.js), its signs: a team's name over its garage, the end blocks' signs
+  function pitMaterials() {
+    return { solid: lambert({ vertexColors: true }), inside: lambert({ vertexColors: true, emissive: 0x4a4c50 }), glass: new THREE.MeshPhongMaterial({ vertexColors: true, specular: 0x555a60, shininess: 70 }),
+      clear: lambert({ color: 0xa9c1cd, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false }),
+      light: new THREE.MeshBasicMaterial({ vertexColors: true }) };
+  }
+  const teamSign = d => canvasTexture(512, 64, (x, w, h) => {
+    x.fillStyle = '#16181b'; x.fillRect(0, 0, w, h); x.fillStyle = hexCss(d.color); x.fillRect(0, h - 7, w, 7);
+    x.font = 'bold 38px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#f2f3f4';
+    x.fillText(d.team.toUpperCase(), w / 2, h / 2 - 3); }, false, false);
+  const endSign = text => canvasTexture(512, 256, (x, w, h) => {
+    x.fillStyle = '#1b1d21'; x.fillRect(0, 0, w, h); x.fillStyle = '#ffc21a'; x.fillRect(0, h - 18, w, 18);
+    x.font = `bold ${Math.min(90, Math.floor(900 / text.length))}px sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillStyle = '#f2f3f4'; x.fillText(text, w / 2, h / 2 - 8); }, false, false);
+  // (flipY false for the Blender models' uvs: glTF's v runs down the image)
+  function canvasTexture(w, h, paint, nearest = true, flipY = true) {
     const cv = document.createElement('canvas'); cv.width = w; cv.height = h; paint(cv.getContext('2d'), w, h);
-    const tex = new THREE.CanvasTexture(cv); if (nearest) tex.magFilter = THREE.NearestFilter; return tex;
+    const tex = new THREE.CanvasTexture(cv); if (nearest) tex.magFilter = THREE.NearestFilter; tex.flipY = flipY; return tex;
   }
 
   // Flat ribbon between lateral offsets o1..o2 (numbers, or functions of the sample). colorFn(i) returns a hex, or
@@ -355,10 +371,20 @@ export function buildWorld(parent, track, drivers) {
       b.position.y = 2.2; b.rotation.y = -Math.PI / 2; g.add(b); g.add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.6, 0.1), lambert({ color: 0x8a9096 })));
       g.children[1].position.y = 0.8; placeAlong(g, i, SIM.laneCentre(track, p) + 3.6, 0);
     }
-    const pits = new THREE.Group();
-    const G = SIM.PIT.garages, bld = new THREE.Mesh(new THREE.BoxGeometry(G.building, 7, 12), lambert({ color: COLORS.pits })); bld.position.set(0, 3.5, 6); pits.add(bld);
-    const glass = new THREE.Mesh(new THREE.BoxGeometry(G.building - 4, 2, 0.2), lambert({ color: COLORS.glass })); glass.position.set(0, 5, -0.05); pits.add(glass);
-    drivers.forEach((d, k) => { const door = new THREE.Mesh(new THREE.BoxGeometry(G.door, 3.2, 0.2), lambert({ color: d.color })); door.position.set(G.first + k * G.step, 1.6, -0.05); pits.add(door); });
+    // the pit building (Blender: tools/blender/pits.py, models.js): a bay per team centred on its garage door (where
+    // pit.js stops its car), the end blocks, each team's stand on the pit wall opposite its garage
+    const pits = new THREE.Group(), G = SIM.PIT.garages, M = Models.pits, roles = pitMaterials();
+    const add = (mod, x, z, team, sign) => { for (const [role, geo] of Object.entries(M[mod])) {
+      const mat = role === 'team' ? team.mat : role === 'panel' ? sign : roles[role];
+      const m = new THREE.Mesh(geo, mat); m.position.set(x, 0, z); pits.add(m);
+    } };
+    drivers.forEach((d, k) => {
+      const team = { mat: lambert({ vertexColors: true, color: d.color }) }, x = G.first + k * G.step;
+      add('bay', x, 0, team, lambert({ map: teamSign(d) }));
+      add('stand', x, L.wallLat - L.garageLat, team, null);
+    });
+    add('end_a', G.building / 2, 0, null, lambert({ map: endSign(track.name.toUpperCase()) }));
+    add('end_b', -G.building / 2, 0, null, lambert({ map: endSign('GRIDLINE GP') }));
     placeAlong(pits, landmarks.pits, L.garageLat, 0);
   }
 

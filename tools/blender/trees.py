@@ -11,11 +11,12 @@
 import bpy, math, random, sys, os
 import numpy as np
 from mathutils import Vector, Matrix, noise
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from kit import *   # Canvas, to_image, Part, tube, card, path_at, material, to_object, export, UP
 
-ARGS = dict(a.split('=', 1) for a in (sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []) if '=' in a)
+ARGS = args()
 OUT = os.path.abspath(ARGS.get('out', 'src/game/models/trees.glb'))
 PREVIEW = ARGS.get('preview')
-UP = Vector((0, 0, 1))   # (Blender is Z up; the glTF export turns it Y up)
 
 # the trees: name, kind, numbers (heights in m)
 TREES = [
@@ -29,54 +30,6 @@ LEAF_UV = (0.0, 0.0, 0.5, 1.0)   # (u0, v0, u1, v1) of each half
 SPRAY_UV = (0.5, 0.0, 1.0, 1.0)
 
 # ---------------------------------------------------------------- textures
-class Canvas:
-  """RGBA painting, rows top to bottom (flipped for Blender at the end), drawn at 2x and averaged down."""
-  def __init__(self, w, h, ss=2):
-    self.ss, self.w, self.h = ss, w * ss, h * ss
-    self.rgb = np.zeros((self.h, self.w, 3)); self.a = np.zeros((self.h, self.w))
-  def _box(self, x0, y0, x1, y1):
-    s = self.ss; x0, y0 = max(0, int(x0 * s)), max(0, int(y0 * s)); x1, y1 = min(self.w, int(x1 * s) + 2), min(self.h, int(y1 * s) + 2)
-    if x0 >= x1 or y0 >= y1: return None
-    ys, xs = np.mgrid[y0:y1, x0:x1]
-    return (slice(y0, y1), slice(x0, x1)), (xs + 0.5) / s, (ys + 0.5) / s
-  def paint(self, box, cov, col):
-    sl = box[0]
-    cov = np.clip(cov, 0, 1)[..., None]
-    self.rgb[sl] = self.rgb[sl] * (1 - cov) + np.asarray(col) * cov
-    self.a[sl] = self.a[sl] + cov[..., 0] * (1 - self.a[sl])
-  def segment(self, p, q, width, col):
-    (px, py), (qx, qy) = p, q
-    b = self._box(min(px, qx) - width, min(py, qy) - width, max(px, qx) + width, max(py, qy) + width)
-    if not b: return
-    _, xs, ys = b; dx, dy = qx - px, qy - py; L2 = dx * dx + dy * dy or 1e-9
-    t = np.clip(((xs - px) * dx + (ys - py) * dy) / L2, 0, 1)
-    d = np.hypot(xs - px - t * dx, ys - py - t * dy)
-    self.paint(b, (width / 2 - d) * self.ss + 0.5, col)
-  def leaf(self, base, ang, length, width, col, shade):
-    """a pointed leaf from `base` toward angle `ang` (0 = up the image), lighter along the midrib"""
-    bx, by = base; ca, sa = math.cos(ang), math.sin(ang)
-    tx, ty = bx + sa * length, by - ca * length
-    b = self._box(min(bx, tx) - width, min(by, ty) - width, max(bx, tx) + width, max(by, ty) + width)
-    if not b: return
-    _, xs, ys = b; rx, ry = xs - bx, ys - by
-    u = (rx * sa - ry * ca) / length                # 0 at the stalk .. 1 at the tip
-    v = (rx * ca + ry * sa)                         # across (px)
-    half = width / 2 * np.clip(np.sin(np.pi * np.clip(u, 0, 1)) ** 0.75, 0, 1) * (u < 1) * (u > 0)
-    cov = np.where(half > 0, (half - np.abs(v)) * self.ss + 0.5, 0)
-    rib = np.exp(-(v / (0.07 * width + 0.4)) ** 2) * 0.18
-    light = (shade * (0.82 + 0.28 * np.clip(u, 0, 1)) + rib - 0.12 * np.abs(v) / (width / 2 + 1e-6))[..., None]
-    self.paint(b, cov, np.asarray(col) * light)
-  def result(self):
-    s = self.ss
-    h, w = self.h // s, self.w // s
-    a = self.a.reshape(h, s, w, s).mean(axis=(1, 3))
-    pm = (self.rgb * self.a[..., None]).reshape(h, s, w, s, 3).mean(axis=(1, 3))
-    rgb = pm / np.maximum(a[..., None], 1e-6)
-    # transparent pixels take the mean colour, so mipmaps and filtering don't pull a dark fringe into the edges
-    mean = (pm.sum(axis=(0, 1)) / max(a.sum(), 1e-6))
-    rgb = np.where(a[..., None] > 0.02, rgb, mean)
-    return np.clip(rgb, 0, 1), np.clip(a, 0, 1)
-
 def broadleaf_cluster(c, x0, w, h, r):
   """a cluster of leaves on a twig, growing from the bottom middle of the cell"""
   twig = (0.33, 0.27, 0.19)
@@ -148,52 +101,7 @@ def bark_texture(n=256):
   dark, light = np.array([0.16, 0.12, 0.09]), np.array([0.46, 0.39, 0.32])
   return dark + (light - dark) * v, np.ones((n, n))
 
-def to_image(name, rgb, a):
-  h, w = a.shape
-  px = np.concatenate([rgb, a[..., None]], axis=2)[::-1].astype(np.float32)   # Blender's rows go bottom up
-  img = bpy.data.images.new(name, w, h, alpha=True)
-  img.pixels.foreach_set(px.ravel()); img.file_format = 'PNG'; img.pack()
-  return img
-
 # ---------------------------------------------------------------- geometry
-class Part:
-  """a mesh being built: quads with per-corner uv, colour (the baked shading) and normal"""
-  def __init__(self): self.verts, self.faces, self.uv, self.col, self.nrm = [], [], [], [], []
-  def quad(self, ps, uvs, cols, nrms):
-    k = len(self.verts); self.verts += [tuple(p) for p in ps]; self.faces.append((k, k + 1, k + 2, k + 3))
-    self.uv += uvs; self.col += cols; self.nrm += [tuple(n.normalized()) for n in nrms]
-
-def frames(pts):
-  """parallel-transport frames along a path (no twisting)"""
-  T = [(pts[min(i + 1, len(pts) - 1)] - pts[max(i - 1, 0)]).normalized() for i in range(len(pts))]
-  n = T[0].orthogonal().normalized(); out = []
-  for i, t in enumerate(T):
-    if i:
-      ax = T[i - 1].cross(t)
-      if ax.length > 1e-6: n = Matrix.Rotation(T[i - 1].angle(t), 3, ax.normalized()) @ n
-    n = (n - t * n.dot(t)).normalized(); out.append((t, n, t.cross(n)))
-  return out
-
-def tube(part, pts, rads, sides, shade, texel=0.55):
-  """a tapered tube through `pts`; the bark texture wraps round it ~ every `texel` m"""
-  F = frames(pts); wraps = max(1, round(2 * math.pi * rads[0] / texel)); along = [0.0]
-  for i in range(1, len(pts)): along.append(along[-1] + (pts[i] - pts[i - 1]).length)
-  ring = lambda i, s: (lambda a: F[i][1] * math.cos(a) + F[i][2] * math.sin(a))(2 * math.pi * s / sides)
-  for i in range(len(pts) - 1):
-    for s in range(sides):
-      corners = [(i, s), (i, s + 1), (i + 1, s + 1), (i + 1, s)]
-      ps = [pts[a] + ring(a, b) * rads[a] for a, b in corners]
-      uvs = [(b / sides * wraps, along[a] / (2 * math.pi * rads[0] / wraps)) for a, b in corners]
-      cols = [shade(p) for p in ps]
-      part.quad(ps, uvs, [(c, c, c, 1) for c in cols], [ring(a, b) for a, b in corners])
-
-def card(part, base, along, side, uv, shade, normal, flip=False):
-  """a foliage card: from `base` along `along` (the texture's bottom → top), ± `side` across"""
-  u0, v0, u1, v1 = uv
-  if flip: u0, u1 = u1, u0
-  ps = [base - side, base + side, base + side + along, base - side + along]
-  part.quad(ps, [(u0, v0), (u1, v0), (u1, v1), (u0, v1)], [(c, c, c, 1) for c in map(shade, ps)], [normal(p) for p in ps])
-
 def spruce(H, base, reach, seed):
   r = random.Random(seed); bark, leaves = Part(), Part()
   crown = lambda z: reach * max(0.0, (H - z) / (H - base)) ** 0.92   # the crown's radius at height z
@@ -246,13 +154,6 @@ def spruce(H, base, reach, seed):
     a = k * math.pi / 3; side = Vector((math.cos(a), math.sin(a), 0)) * 0.32
     card(leaves, top, axis(H) - top + UP * 0.2, side, SPRAY_UV, leaf_shade, normal)
   return bark, leaves
-
-def path_at(pts, s):
-  """the point a share `s` along a polyline"""
-  seg = [(pts[i + 1] - pts[i]).length for i in range(len(pts) - 1)]; d = s * sum(seg)
-  for i, l in enumerate(seg):
-    if d <= l or i == len(seg) - 1: return pts[i].lerp(pts[i + 1], min(1.0, d / l if l else 0))
-    d -= l
 
 def broad(H, wide, tall, seed):
   r = random.Random(seed); bark, leaves = Part(), Part()
@@ -308,24 +209,6 @@ def broad(H, wide, tall, seed):
   return bark, leaves
 
 # ---------------------------------------------------------------- Blender scene, export
-def material(name, img, alpha):
-  m = bpy.data.materials.new(name); m.use_nodes = True
-  nt = m.node_tree; bsdf = nt.nodes['Principled BSDF']; tex = nt.nodes.new('ShaderNodeTexImage'); tex.image = img
-  nt.links.new(tex.outputs['Color'], bsdf.inputs['Base Color'])
-  if alpha: nt.links.new(tex.outputs['Alpha'], bsdf.inputs['Alpha'])
-  bsdf.inputs['Roughness'].default_value = 0.9
-  return m
-
-def to_object(name, part, mat):
-  me = bpy.data.meshes.new(name); me.from_pydata(part.verts, [], part.faces); me.update()
-  uv = me.uv_layers.new(name='UVMap'); uv.data.foreach_set('uv', [c for p in part.uv for c in p])
-  col = me.color_attributes.new('Col', 'FLOAT_COLOR', 'CORNER'); col.data.foreach_set('color', [c for p in part.col for c in p])
-  me.color_attributes.active_color = col
-  me.normals_split_custom_set(part.nrm)
-  me.materials.append(mat)
-  ob = bpy.data.objects.new(name, me); bpy.context.scene.collection.objects.link(ob)
-  return ob
-
 def main():
   bpy.ops.wm.read_factory_settings(use_empty=True)
   atlas = to_image('foliage', *foliage_atlas()); bark_img = to_image('bark', *bark_texture())
@@ -335,12 +218,7 @@ def main():
     b, l = (spruce if kind == 'spruce' else broad)(**p)
     objs += [to_object(name + '-bark', b, m_bark), to_object(name + '-leaves', l, m_leaves)]
     print(f'{name}: {len(b.faces) * 2} bark + {len(l.faces) * 2} leaf triangles')
-  os.makedirs(os.path.dirname(OUT), exist_ok=True)
-  kw = dict(filepath=OUT, export_format='GLB', use_selection=False, export_texcoords=True, export_normals=True,
-            export_materials='EXPORT', export_image_format='AUTO', export_yup=True, export_apply=False,
-            export_cameras=False, export_lights=False, export_vertex_color='ACTIVE')
-  bpy.ops.export_scene.gltf(**kw)
-  print('wrote', OUT, os.path.getsize(OUT), 'bytes')
+  export(OUT)
   if PREVIEW: preview(objs, m_bark, m_leaves)
 
 def preview(objs, m_bark, m_leaves):
