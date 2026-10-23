@@ -1,6 +1,23 @@
 import * as THREE from 'three';
 import { SIM } from '../sim/index.js';
 import { COLORS, BRANDS } from './config.js';
+import { Models, LEAF_CUT } from './models.js';
+
+// the Blender trees (models.js): scale range per kind (the spruces are 15 / 19 m, the broadleaf 13 / 15 m tall), how far
+// they lean (rad), how deep they sink into the ground (m), the leaves' tint per tree (brightness lo, hi, warmth ±)
+const TREES = Object.freeze({ scale: { cone: [0.75, 1.25], ball: [0.8, 1.2] }, lean: 0.06, sink: 0.25, tint: [0.82, 1.08, 0.12], alphaTest: LEAF_CUT });
+
+// the leaves' material: alpha-tested cards, both faces lit by the normals the model gives them (they point out of the
+// crown, so the cards light like one leafy volume; the usual back-face flip would turn half of them dark)
+function foliage(map) {
+  const m = new THREE.MeshLambertMaterial({ map, vertexColors: true, alphaTest: TREES.alphaTest, side: THREE.DoubleSide });
+  m.onBeforeCompile = sh => {
+    const f = sh.fragmentShader;
+    sh.fragmentShader = f.replace('( gl_FrontFacing ) ? vIndirectFront : vIndirectBack', 'vIndirectFront').replace('( gl_FrontFacing ) ? vLightFront : vLightBack', 'vLightFront');
+    if (sh.fragmentShader === f) console.warn('foliage: the Lambert shader changed, leaves light per face');
+  };
+  return m;
+}
 
 // Everything beyond the barriers: the circuit's theme (trees, hills, lakes or a harbour with buildings, rocks) and
 // the trackside furniture real circuits have: braking boards (300 / 200 / 100 m before the big stops), marshal posts,
@@ -162,24 +179,32 @@ export function buildScenery(scene, track, theme, { lambert, canvasTexture, plac
       q.setFromEuler(new THREE.Euler(Math.random(), Math.random() * 6, Math.random())); m4.compose(new THREE.Vector3(x, s * 0.3 + groundAt(x, z), z), q, new THREE.Vector3(s * 1.3, s, s)); mesh.setMatrixAt(k, m4); });
     mesh.count = n; scene.add(mesh);
   }
-  // trees: pines (cones) and broadleaf (balls), as the theme mixes them
-  { const max = theme.trees, kinds = theme.kinds;
-    const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.35, 0.45, 3, 6), lambert({ color: COLORS.trunk }), max);
-    const cones = new THREE.InstancedMesh(new THREE.ConeGeometry(3.2, 9, 7), lambert({ color: 0xffffff }), max);
-    const balls = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(3.6, 1), lambert({ color: 0xffffff }), max);
-    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), col = new THREE.Color();
-    const gs = track.landmarks.grandstand;
-    let nc = 0, nb = 0;
-    const n = scatter(max, 10, (x, z, k) => {
-      if (gs !== undefined && Math.hypot(x - PX[gs], z - PZ[gs]) < 110) return false;
-      const s = 0.7 + Math.random() * 0.8, kind = kinds[(Math.random() * kinds.length) | 0], y = groundAt(x, z) - 0.3;
-      sc.set(s, s, s); p.set(x, 1.5 * s + y, z); m4.compose(p, q, sc); trunks.setMatrixAt(k, m4);
-      if (kind === 'cone') { p.set(x, 7.5 * s + y, z); m4.compose(p, q, sc); cones.setMatrixAt(nc, m4); cones.setColorAt(nc++, col.setHSL(0.27 + Math.random() * 0.07, 0.45, 0.2 + Math.random() * 0.1)); }
-      else { p.set(x, 6 * s + y, z); sc.set(s * 1.1, s * 0.95, s * 1.1); m4.compose(p, q, sc); balls.setMatrixAt(nb, m4); balls.setColorAt(nb++, col.setHSL(0.22 + Math.random() * 0.08, 0.42, 0.24 + Math.random() * 0.1)); }
+  // trees: spruces ('cone') and broadleaf trees ('ball'), as the theme mixes them; the models are made in Blender
+  // (tools/blender/trees.py, models.js), each variant one instanced bark mesh + one instanced leaves mesh
+  { const max = theme.trees, kinds = theme.kinds, maps = Models.treeMaps, gs = track.landmarks.grandstand;
+    const barkMat = lambert({ map: maps.bark, vertexColors: true }), leafMat = foliage(maps.leaves);
+    const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: maps.leaves, alphaTest: TREES.alphaTest, side: THREE.DoubleSide });
+    const sets = {};
+    for (const kind of new Set(kinds)) sets[kind] = Models.trees[kind].map(v => {
+      const bark = new THREE.InstancedMesh(v.bark, barkMat, max), leaves = new THREE.InstancedMesh(v.leaves, leafMat, max);
+      leaves.customDepthMaterial = depth;            // (the cards' shadows are cut out like the cards)
+      return { bark, leaves, n: 0 };
     });
-    trunks.count = n; cones.count = nc; balls.count = nb;
-    scene.add(trunks, cones, balls);
-    toggles.trees.push({ mesh: trunks, max: n }, { mesh: cones, max: nc }, { mesh: balls, max: nb });
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3(), p = new THREE.Vector3(), col = new THREE.Color();
+    scatter(max, 10, (x, z) => {
+      if (gs !== undefined && Math.hypot(x - PX[gs], z - PZ[gs]) < 110) return false;
+      const kind = kinds[(Math.random() * kinds.length) | 0], list = sets[kind], t = list[(Math.random() * list.length) | 0];
+      const [lo, hi] = TREES.scale[kind], s = lo + Math.random() * (hi - lo);
+      e.set((Math.random() - 0.5) * TREES.lean, Math.random() * Math.PI * 2, (Math.random() - 0.5) * TREES.lean);
+      sc.set(s, s * (0.92 + Math.random() * 0.16), s); p.set(x, groundAt(x, z) - TREES.sink, z); m4.compose(p, q.setFromEuler(e), sc);
+      t.bark.setMatrixAt(t.n, m4); t.leaves.setMatrixAt(t.n, m4);
+      const b = TREES.tint[0] + Math.random() * (TREES.tint[1] - TREES.tint[0]), w = (Math.random() - 0.5) * TREES.tint[2];   // brightness, warmth
+      t.leaves.setColorAt(t.n++, col.setRGB(b * (1 + w), b, b * (1 - w)));
+    });
+    for (const list of Object.values(sets)) for (const t of list) {
+      t.bark.count = t.leaves.count = t.n; scene.add(t.bark, t.leaves);
+      toggles.trees.push({ mesh: t.bark, max: t.n }, { mesh: t.leaves, max: t.n });
+    }
   }
   // distant hills: pointed (default), low and broad (downs), close (woods)
   { const mat = lambert({ color: COLORS.hill }), H = theme.hills;

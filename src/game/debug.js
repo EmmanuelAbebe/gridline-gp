@@ -13,6 +13,7 @@ export function installDebug(setTrack, current, player = () => null, toMenu = ()
     playerState: () => { const c = player(); return c && { slip: +c.slip.toFixed(2), slideR: +c.slideR.toFixed(2), lockF: c.lockF, kmh: Math.round(c.v * 3.6), idx: c.idx, lap: c.lap }; },
     toMenu, loadGhost, showLine, setPref,                              // (setPref(key, value): a Settings choice, e.g. hudMirror)
                                           // (showLine: the racing line on this circuit, no race needed)
+    renderMs: n => Display.timeRender(n),                                // ms per frame of the current view (GPU included)
     shadows: () => Display.shadowInfo(),                                // sun shadows on? map size, casters                                                 // back to the start menu; load a ghost file's text (smoke test)
     input: () => ({ ...Input.drive, device: Input.pad.label, kind: Input.pad.kind }),   // what drives the car right now
     // the player's car: speed (km/h), wings open (active aero), overtake mode

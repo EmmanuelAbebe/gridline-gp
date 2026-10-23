@@ -366,12 +366,14 @@ async function trackShots(win) {
       views.push([`corner${k}`, `gridlineDebug.view('${id}', ${f} + 0.004, 4, 3, 40, -8)`]);
     });
     // GRIDLINE_SHOT_VIEWS="name:metres,lat,height,ahead,side;..." = only these views (metres along the lap)
+    // GRIDLINE_SHOT_TIMING=1 also prints each view's render time (gridlineDebug.renderMs)
     if (process.env.GRIDLINE_SHOT_VIEWS) views.splice(0, views.length, ...process.env.GRIDLINE_SHOT_VIEWS.split(';').map(v => {
       const [name, args] = v.split(':'), [m, ...rest] = args.split(',').map(Number);
       return [name, `gridlineDebug.view('${id}', ${m} / (gridlineDebug.length() || 1), ${rest.join(', ')})`];
     }));
     for (const [name, code] of views) {
       await js(code); await wait(400);
+      if (process.env.GRIDLINE_SHOT_TIMING) console.log(`${id}-${name}: ${(await js(`gridlineDebug.renderMs(${+process.env.GRIDLINE_SHOT_TIMING > 1 ? +process.env.GRIDLINE_SHOT_TIMING : 40})`)).toFixed(2)} ms per frame`);
       fs.writeFileSync(path.join(shotsDir, `${id}-${name}.png`), (await win.webContents.capturePage()).toPNG());
     }
   }

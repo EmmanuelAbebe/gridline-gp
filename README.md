@@ -74,6 +74,9 @@ npm run check      # lint, type checks, tests, build
 npm run dist       # installers for this OS in release/
 ```
 
+The 3D models (trees) are made by scripts for [Blender](https://www.blender.org) in `tools/blender/`; the results
+are in `src/game/models/`, so you only need Blender to change them: `npm run models`.
+
 The code layout and design notes are in [CLAUDE.md](CLAUDE.md).
 
 ### Make a release

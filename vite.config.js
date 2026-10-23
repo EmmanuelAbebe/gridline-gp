@@ -6,6 +6,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 export default defineConfig({
   base: './',
   plugins: [viteSingleFile({ removeViteModuleLoader: true })],
+  assetsInclude: ['**/*.glb'],     // Blender models (src/game/models): data: URLs too
   build: {
     outDir: 'dist',
     emptyOutDir: true,

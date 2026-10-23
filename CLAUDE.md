@@ -21,6 +21,24 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
 - Build: Vite 8 + vite-plugin-singlefile → **one self-contained `dist/index.html`** (code, Three.js r128 from npm,
   CSS, fonts as data URLs; ~720 KB). Opens via file://, in Electron, or served over http. `dist/` is not in git.
   `public/` (manifest, icons, sw.js) is copied into dist as is.
+- Blender models (2026-10-23; user: "for the car, trees, building and other parts why not build it via blender?", chose
+  "start with the trees, you script it"): `tools/blender/<name>.py` = headless bpy scripts (`tools/blender/run.sh <name>
+  [preview=dir]`: $BLENDER, `blender` or the Flathub app; the Flatpak has a private /tmp and its own cwd, so paths are made
+  absolute and previews go to the git-excluded `tools/blender/out/`) → `src/game/models/<name>.glb`, committed (players and
+  CI don't need Blender); Vite `assetsInclude` glb, imported `?url` (inlined into dist: ~+1.7 MB). `npm run models` =
+  trees. `trees.py`: spruce_a/b (19 / 15 m, the themes' 'cone') and broad_a/b (13 / 15 m, 'ball'), each `<name>-bark` +
+  `<name>-leaves` objects (three's loader drops '.' from names); everything generated with seeds, textures painted with
+  numpy (foliage atlas 1024×512: broadleaf cluster | spruce spray; tileable bark), leaf cards with normals out of the crown
+  and vertex-colour AO; Cycles preview (its back faces flip the cards' normals: crowns look darker there than in the game).
+  Game: `models.js` `loadModels()` (main.js awaits it before the first world) → `Models.trees` {cone, ball: [{name, bark,
+  leaves}]}, `Models.treeMaps`; own Lambert materials (map encoding Linear: the renderer has no colour management);
+  leaves: alphaTest `LEAF_CUT` 0.4, DoubleSide with both faces lit by the model's normals (onBeforeCompile drops the
+  back-face light), coverage-keeping mipmaps (`coverageMips`: plain ones made distant spruces bare sticks), a
+  MeshDepthMaterial with the map for cut-out shadows. scenery.js `TREES` (scale per kind, lean, sink, leaf tint); one
+  InstancedMesh pair per variant, random yaw. Cost on the RX 9060 XT: +1–1.5 ms per frame on Marrow (760 trees).
+  tests/models.test.js checks the .glb (names, heights, attributes, < 12k triangles in all). Debug:
+  `gridlineDebug.renderMs(n)` (Display.timeRender), `GRIDLINE_SHOT_TIMING=1|n` prints each --track-shots view's ms.
+  Next (agreed order): buildings / grandstands, then the car (the garage's part editing would give way to a fixed model).
 - npm scripts: `dev` (Vite dev server, browser), `dev:app` (dev server inside Electron, `tools/dev-app.mjs`),
   `build`, `start` (build + Electron), `test` (node:test, `tests/*.test.js`), `lint` (ESLint 10, `eslint.config.js`:
   undefined/unused names; `src/sim` gets no browser globals), `typecheck` (`tsc -p .`, TypeScript 6 on plain JS + JSDoc,

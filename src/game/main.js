@@ -49,6 +49,7 @@ import { createPitCrews } from './pit-crew.js';
 import { createTyreMarks } from './tyre-marks.js';
 import { Garage } from './garage.js';
 import { loadGarage, loadRecords, recordLap, playerSpec, playerDriver } from './garage-store.js';
+import { loadModels } from './models.js';
 
 const { EV } = SIM;
 // circuits are built on first use (~40 ms) and kept
@@ -495,6 +496,7 @@ function setTrack(id) {
 // the test hooks: the dev server, or the desktop app's own test runs (smoke test, track shots: main.cjs DEBUG)
 if (import.meta.env.DEV || window.gridlineApp?.debug) installDebug(setTrack, () => track, () => game.player, () => { game.paused = false; toMenu(); }, trial.loadText, skill => { game.autopilot = skill; },
   () => racingLine.set(track, trial.aiLapOf('alien', true)?.line), setPref);
+await loadModels();                                                 // (the Blender models: trees)
 setTrack(game.setup.track);
 { const saved = Settings.get(CONFIG.storageKeys.gfx);
   setGfx(Object.hasOwn(GFX_PROFILES, saved || '') ? saved : (Display.gpu.weak ? 'perf' : 'quality'), false); }
