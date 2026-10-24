@@ -78,7 +78,7 @@ export function stepChassis(race, c, inp, dt) {
   // hills and banking (elevation.js; null on a flat circuit: nothing below changes then): the road at this sample
   const T = race.track, E = T.elev, ei = c.idx, onRoad = Math.abs(c.lat) <= T.HW;
   const eSX = E ? E.SX[ei] : 0, eSN = E && onRoad ? E.SN[ei] : 0, eCA = E ? (onRoad ? E.CA[ei] : Math.sqrt(1 - eSX * eSX)) : 1;
-  let slideF = 0, slideR = 0, lockF = false, spinR = false;
+  let slideF = 0, slideR = 0, lockF = false, lockR = false, spinR = false;
   for (let s = 0; s < n; s++) {
     // v: along the car's heading (negative = travelling backwards, e.g. past 90° in a spin), vy: sideways
     const v = c.v, sp = Math.abs(v), vy = c.vy, w = c.yawRate, speed = Math.hypot(v, vy);
@@ -125,7 +125,9 @@ export function stepChassis(race, c, inp, dt) {
     // brakes split by axle load (+ a front bias), drive on the rear
     const brake = brakeMax(sp, S) * inp.brk;
     const bias = clamp(Df / (Df + Dr) + S.brakeBias, 0.3, 0.8);
-    const absLimit = A.abs > 0 ? 0.97 + 0.15 * (1 - A.abs) : null, tcLimit = A.tc > 0 ? 0.97 + 0.25 * (1 - A.tc) : null;
+    // ABS / traction control hold the tyres at `limit` × what they can give: medium / high 0.97, low 0.985 (2026-10-24: low
+    // used to allow 1.045 / 1.095, past the grip, so its wheels locked and spun as with none)
+    const absLimit = A.abs > 0 ? 0.97 + 0.03 * (1 - A.abs) : null, tcLimit = A.tc > 0 ? 0.97 + 0.03 * (1 - A.tc) : null;
     const front = axle(Df, alphaF, CH.peakSlip, -brake * bias * back, absLimit);
     const rearLong = d.drive - brake * (1 - bias) * back;
     // rear braking: ABS, and (stability assist) a margin kept for cornering, like brake-force distribution
@@ -139,6 +141,7 @@ export function stepChassis(race, c, inp, dt) {
     slideF = Math.max(slideF, front.over - 1, Math.abs(alphaF) / CH.peakSlip - 1);
     slideR = Math.max(slideR, rear.over - 1, Math.abs(alphaR) / CH.rearPeakSlip - 1);
     if (front.over > 1 && brake > 0) lockF = true;
+    if (rear.over > 1 && braking && !inp.hb) lockR = true;
     if (rear.over > 1 && !braking && d.drive > 0 && !inp.hb) spinR = true;
     // equations of motion in the car's frame
     const cosD = Math.cos(delta), sinD = Math.sin(delta);
@@ -175,7 +178,7 @@ export function stepChassis(race, c, inp, dt) {
     c.x += (Math.cos(c.h) * c.v - Math.sin(c.h) * c.vy) * h;
     c.z += (Math.sin(c.h) * c.v + Math.cos(c.h) * c.vy) * h;
   }
-  c.slideF = clamp(slideF, 0, 1); c.slideR = clamp(slideR, 0, 1); c.lockF = lockF; c.spinR = spinR;
+  c.slideF = clamp(slideF, 0, 1); c.slideR = clamp(slideR, 0, 1); c.lockF = lockF; c.lockR = lockR; c.spinR = spinR;
   c.roll += c.v * dt / TUNING.WHEEL_RADIUS;
 }
 

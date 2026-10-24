@@ -40,6 +40,15 @@ export const AI = Object.freeze({
   // late braking: per braking zone (speed to lose > minDrop m/s), chance × (1 − driver skill) × 10; the next `length`
   // metres are then driven `over` too fast
   mistakes: Object.freeze({ chance: 0.12, over: [0.06, 0.14], length: 140, minDrop: 8 }),
+  // Driving without ABS / traction control (2026-10-24; the player drives with none and the AI's all-or-nothing pedals
+  // only worked because of them): driving.js feelPedals. Brake: the pedal it has learnt the fronts take in a straight
+  // line (`brake`, starting value), raised by `learn` per second while nothing locks, cut by at most 1 − `cut` per
+  // lock-up on tarmac above 25 m/s (never below `brakeMin`; a lock on the grass says nothing); while turning or after a lock it holds back further (`now`, recovering at `recover` per second). Throttle:
+  // the same per gear, from wheel spin and the rear sliding (`slide`).
+  feel: Object.freeze({ brake: 0.72, brakeMin: 0.5, learn: 0.02, cut: 0.97, nowCut: 0.88, recover: 1.5, thr: 1, thrLearn: 0.05, thrCut: 0.9, slide: 0.7, floor: 0.25,
+    counter: 1.0,      // opposite lock: × the drift angle, once the rear slides (driving.js steering)
+    trail: 0.6,        // brake × (1 − trail × |steering|): trail braking
+    slideDrift: 0.14 }),   // rad of drift above which it only touches the throttle (none by twice that)
   // racecraft (driving.js; m unless noted). Drivers' traits 0..1 (drivers.js `traits`, 0.5 when missing) scale them.
   // racecraft (driving.js; m unless noted). Drivers' traits 0..1 (drivers.js `traits`, 0.5 when missing) scale them.
   craft: Object.freeze({
@@ -69,6 +78,9 @@ export const AI = Object.freeze({
     // 50.4, Marrow 38.0, Northfold 59.1 s; the user's best there 59.975; 2026-10-22 hills: Hautvale 58.8, Saltcross 64.8,
     // Cantera 44.5 s; 2026-10-23 Ironvale Park 42.8 s, clean at the default)
     pace: Object.freeze({ default: 1.16, cobalt: 1.08, marrow: 1.12, hautvale: 1.04, cantera: 1.06, saltcross: 1.14 }),
+    // with no ABS / traction control (the player's assists, createRace aiAssists; 2026-10-24): where it differs, the most
+    // that stays clean with active aero on and off (Saltcross cut corners at 1.14)
+    paceOff: Object.freeze({ saltcross: 1.08 }),
     // in traffic (a car ahead in its lane, alongside, or in a wake) its pace eases to `traffic` × that
     // over trafficTime s: the full push only works on the line in clean air (it put cars into walls in traffic)
     // clean air (no car in its lane or alongside, slip < cleanSlip) = 1; deep in a wake (slip > wakeSlip) or alongside

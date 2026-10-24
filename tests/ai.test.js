@@ -103,3 +103,24 @@ test('ALIEN: faster than a great lap, clean, and it hunts down a car at that pac
   assert.ok(m.bestLap > 60 && a.finished && a.finishTime < m.finishTime, `stand-in ${m.bestLap.toFixed(2)}, ALIEN ahead`);
   assert.ok(hard(chase, seen2) === 0, 'no hard contact');
 });
+
+// (2026-10-24, the player drives with no assists: "the braking is not the same between me and the AI". The AI's
+// all-or-nothing pedals only worked with ABS and traction control; with the player's assists off it drives by feel,
+// driving.js feelPedals, and counter-steers its own slides.)
+test('without ABS / traction control the AI drives by feel: clean laps, close to its pace with them', () => {
+  const lapsOf = (id, alien, assists) => {
+    const track = S.buildTrack(S.CIRCUITS[id]), race = S.createRace({ type: 'unlimited' }, { track, drivers: [S.DRIVERS[0]],
+      aiAlien: alien, aiFollow: alien ? 6 : 1, seed: 11, activeAero: true, aiAssists: S.ASSISTS[assists] });
+    const c = race.cars[0], laps = []; let walls = 0, spins = 0, spun = false, locked = 0;
+    while (laps.length < 3 && race.t < 300) { race.t += DT; S.driveAI(race, c, DT); if (c.lockF) locked += DT;
+      const off = Math.abs(S.wrapA(c.h - S.headingAt(track, c.idx))); if (off > 1.2 && !spun) { spins++; spun = true; } if (off < 0.3) spun = false;
+      for (const e of c.events) { if (e.type === S.EV.WALL) walls++; if (e.type === S.EV.LAP) laps.push(e.time); } c.events.length = 0; }
+    return { best: Math.min(...laps.slice(1)), walls, spins, locked };
+  };
+  for (const [id, alien] of [['elkmoor', false], ['harrow', true], ['marrow', true]]) {
+    const off = lapsOf(id, alien, 'off'), on = lapsOf(id, alien, 'medium');
+    assert.ok(off.walls === 0 && off.spins === 0, `${id}${alien ? ' ALIEN' : ''}: ${off.spins} spins, ${off.walls} wall hits`);
+    assert.ok(off.best < on.best * 1.06, `${id}: ${off.best.toFixed(2)} s without assists vs ${on.best.toFixed(2)} s with them`);
+    assert.ok(off.locked > 0, 'it still locks a wheel now and then (it brakes by feel, not with ABS)');
+  }
+});

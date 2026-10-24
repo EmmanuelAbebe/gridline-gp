@@ -31,7 +31,7 @@ export function bindSettings(game, act) {
     note: key => key === 'gfx' ? game.gfxNote : undefined,
     action(name) {
       if (name === 'resetController') {
-        for (const k of ['smoothing', 'calm', 'deadZone', 'range', 'curve', 'pedalDeadZone']) game.prefs[k] = PREFS.defaults[k];
+        for (const k of ['smoothing', 'calm', 'deadZone', 'range', 'curve', 'pedalDeadZone', 'brakeForce']) game.prefs[k] = PREFS.defaults[k];
         act.setPref('smoothing', PREFS.defaults.smoothing); SettingsScreen.redraw();
       } else if (name === 'inputs') InputMonitor.toggle(true);
       else if (name.startsWith('sound:')) Sound.test(name.slice(6));

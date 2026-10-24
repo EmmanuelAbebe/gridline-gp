@@ -219,7 +219,7 @@ export function stepPit(race, c, dt, go = true) {
   const steer = clamp(Math.atan(S.wheelbase * k) / S.wheelLock, -1, 1);
   if (v > 0.05) c.steer += (steer - c.steer) * Math.min(1, dt * S.steerRate);
   c.roll += v * dt / TUNING.WHEEL_RADIUS;
-  c.v = v; c.vy = 0; c.yawRate = 0; c.slideF = c.slideR = 0; c.lockF = c.spinR = false;
+  c.v = v; c.vy = 0; c.yawRate = 0; c.slideF = c.slideR = 0; c.lockF = c.lockR = c.spinR = false;
   c.thr = P.phase === 'out' ? S.thrOut : S.thrIn; c.brake = P.phase === 'in' && v < PIT.speed - 0.5 && P.p - p0 > 0 ? S.brake : 0;
   c.gear = 1; while (c.gear < GEARS && rpmAt(v, c.gear) > S.upshift) c.gear++;
   c.rpm = Math.max(S.idle, rpmAt(v, c.gear)); c.ax = 0; c.surface = 'tarmac';
@@ -276,7 +276,7 @@ export function drivePitLane(race, c) {
   if (P.phase === 'stop') {
     if (race.t < P.until) {                                           // held in the box while the crew works
       c.x = P.hold[0]; c.z = P.hold[1]; c.h = P.hold[2];
-      c.v = c.vy = c.yawRate = c.ax = 0; c.slideF = c.slideR = 0; c.lockF = c.spinR = false;
+      c.v = c.vy = c.yawRate = c.ax = 0; c.slideF = c.slideR = 0; c.lockF = c.lockR = c.spinR = false;
       return true;
     }
     applyService(race, c, P.service); P.done = true; P.phase = 'out'; emit(c, EV.PIT_READY);

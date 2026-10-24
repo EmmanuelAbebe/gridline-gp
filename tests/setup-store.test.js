@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SIM as S } from '../src/sim/index.js';
 import { RACE_SETUP, PREFS } from '../src/game/config.js';
-import { loadSetup, loadPrefs, steerRate, raceFormat, raceWear, buildField, playerSlotOf, assistsOf, setupSummary } from '../src/game/setup-store.js';
+import { loadSetup, loadPrefs, steerRate, raceFormat, raceWear, buildField, playerSlotOf, assistsOf, aiAssistsOf, setupSummary } from '../src/game/setup-store.js';
 import { messageFor, EVENT_MESSAGES, SAY } from '../src/game/race-messages.js';
 
 test('setup: nothing saved, or broken JSON, gives the defaults', () => {
@@ -84,4 +84,12 @@ test('messages: every player event the game reports has one, built from the even
   for (const k of [EV.PIT_IN, EV.PIT_GO, EV.PIT_OUT, EV.FUEL_LOW, EV.FUEL_BOX, EV.FUEL_OUT, EV.TYRES_WORN, EV.BEACHED, EV.RECOVERED])
     assert.ok(EVENT_MESSAGES[k] && (messageFor({ type: k }, c, race).radio || messageFor({ type: k }, c, race).toast), k);
   for (const m of Object.values(SAY)) assert.ok(m.radio || m.toast);
+});
+
+test('the AI drives on the player\'s ABS / traction control / stability, never more than its usual medium', () => {
+  const M = S.ASSISTS.medium;
+  for (const lvl of ['medium', 'high']) { const a = aiAssistsOf({ assists: lvl }); for (const k of Object.keys(M)) assert.equal(a[k], M[k], `${lvl}: ${k}`); }
+  const off = aiAssistsOf({ assists: 'off' });
+  assert.ok(off.abs === 0 && off.tc === 0 && off.stability === 0 && off.steer === M.steer, 'off: no ABS, TC or stability (its own steering as usual)');
+  assert.match(setupSummary(loadSetup('{"assists":"off"}'), loadPrefs('{}'), 'quality'), /rivals on your ABS/);
 });

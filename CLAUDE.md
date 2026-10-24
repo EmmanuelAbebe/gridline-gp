@@ -236,6 +236,24 @@ Tunables live in data tables (config modules), not inline in the logic.
      the limit is now caught by a driver who counter-steers within 0.15 s (spun before), a passive one still spins, 120
      km/h unchanged, steady grip unchanged; AI laps within ±0.2 s (LEGEND Northfold −0.8 s). Tools: none kept; the
      skidpad = stepChassis without afterMove.
+   - The AI on the player's terms (2026-10-24; user, assists off: braking "extremely hard", spins in hairpins, "the
+     braking is not the same between me and the AI", AI faster off the line). Measured: the AI always drove on medium
+     (full ABS + TC + stability 0.7) with all-or-nothing pedals; put on assists off it spun ~30× in 4 laps. Without ABS the
+     fronts lock from ~70 % pedal (sooner while turning: light brake + lots of steering at 200 km/h = 70° spin, medium 14°);
+     the best unlocked stop is ~13 % longer than ABS. Launch with full gas: medium = the AI to the ms; off spins 1.8 s.
+     LOW's ABS / TC allowed 1.045 / 1.095 × the grip (locked / spun like none) → now 0.985 (medium 0.97).
+     createRace `aiAssists` (game: setup-store `aiAssistsOf` = the player's abs / tc / stability, at most medium's, so
+     medium / high change nothing: sim-trace identical; races, AI ghosts and the racing line use it; changing assists
+     mid-race updates the AI). Without ABS or TC driveAI's pedals go through `feelPedals` (`AI.feel`): brake ≤ the pedal it
+     has learnt the fronts take in a straight line (start 0.72, learns on tarmac > 25 m/s only, ≥ brakeMin 0.5) × a short-
+     term hold-back after a front / rear lock or the rear sliding × (1 − trail·|steer|); throttle ≤ a learnt cap per gear
+     (spin) × hold-back (rear slide), only a touch while drifting > 8°; counter-steer (+ counter × driftAngle once the rear
+     slides, for the stability it lacks vs its usual); ALIEN plans braking from feelBrake × brakePedal. Chassis `c.lockR`.
+     AI.alien.paceOff { saltcross 1.08 }. Solo best laps without assists (aero on): ALIEN Elkmoor 29.9, Harrow 49.9,
+     Northfold 59.7, Hautvale 60.7, Saltcross 64.6, Cantera 47.6, Ironvale Park 44.9; LEGEND 31.3 / 54.6 / 65.7 / 64.4 /
+     68.0 / 50.3 / 51.6 (≈ +0.2 … 3.4 s vs assists; all clean, aero on and off). Brake force pref (Settings → Controller,
+     `brakeForce` 50–100 %, default 100: full pedal = that share of the car's braking force; ~70 % = just under the lock
+     point). Open question for the user: the light-brake turn-in snap (chassis) is sudden; not changed.
    - Off track (2026-10-18; user: "the grass is too punishing", then approved a researched plan, beaching included).
      Before, grass/sand braked at up to 22/30 m/s² down to 60 km/h. Now (`SURFACES`, chassis.js `surfaceDrag` acts
      against the whole motion, sideways slides too): grass grip 0.35 + 2.2 m/s² (keeps the speed, can't brake or turn:

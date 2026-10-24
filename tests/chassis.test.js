@@ -175,3 +175,15 @@ test('speed-sensitive steering: with it, LOW assists lap as clean as medium for 
   assert.equal(S.speedSteer(0.5, v, k, k), 0.5, 'medium already has it');
   assert.ok(Math.abs(S.speedSteer(0.5, 5, k, 0) - 0.5 / S.SPEED_STEER.catchFrom) < 0.05, 'little change at walking pace');
 });
+
+// (2026-10-24: LOW's ABS / traction control let the tyres go 4.5 % / 9.5 % past their grip, so they locked and spun
+// exactly as with none)
+test('low assists: full brake never locks the fronts, full throttle from a standstill never spins the rears', () => {
+  const { race, c } = solo('low'), i = 60;
+  Object.assign(c, { idx: i, lat: 0, x: PX[i], z: PZ[i], h: S.headingAt(T, i), v: 280 / 3.6, gear: 8, lap: 1 });
+  let lock = false; straight(race, c, { thr: 0, brk: 1, steer: 0, analog: true }, 1.2, car => { lock ||= car.lockF; });
+  assert.ok(!lock, 'no front lock-up under full brake');
+  const s = solo('low'); let spin = false; Object.assign(s.c, { lap: 1 });
+  straight(s.race, s.c, { thr: 1, brk: 0, steer: 0, analog: true }, 3, car => { spin ||= car.spinR; });
+  assert.ok(!spin, 'no wheel spin pulling away at full throttle');
+});

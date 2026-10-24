@@ -75,10 +75,19 @@ export function assistsOf(s) {
   return { steer: M.steer * L[c.steer], stability: M.stability * L[c.stability], damping: 0, tc: M.tc * L[c.tc], abs: M.abs * L[c.abs] };
 }
 
+// The AI's assists in a race (createRace aiAssists): the player's ABS, traction control and stability, at most the AI's
+// usual (AI.assists, medium), so with the player on medium or high nothing changes and with them off the rivals drive
+// without them too (2026-10-24, user: the AI's ABS and traction control made it brake and launch better than they could)
+export function aiAssistsOf(s) {
+  const p = assistsOf(s), M = SIM.ASSISTS[SIM.AI.assists];
+  return { ...M, abs: Math.min(M.abs, p.abs), tc: Math.min(M.tc, p.tc), stability: Math.min(M.stability, p.stability) };
+}
+
 // The start menu's line about the Settings-screen choices (gfx = GFX_PROFILES key, may be null while booting).
 export function setupSummary(s, prefs, gfx) {
   const tc = assistsOf(s).tc, tcText = tc >= 1 ? '' : tc > 0 ? ' (traction control low)' : ' (no traction control)';
-  return `${choiceWord('gearbox', s.gearbox)} gearbox · ${choiceWord('assists', s.assists)} assists${tcText} · ${GFX_PROFILES[gfx]?.label.replace(' mode', '') ?? ''} graphics`
+  const a = assistsOf(s), rivals = a.abs < 1 || a.tc < 1 ? ' · rivals on your ABS / traction control' : '';
+  return `${choiceWord('gearbox', s.gearbox)} gearbox · ${choiceWord('assists', s.assists)} assists${tcText}${rivals} · ${GFX_PROFILES[gfx]?.label.replace(' mode', '') ?? ''} graphics`
     + ` · fuel ${s.fuel} · tyre wear ${s.tyres} · damage ${s.damage}`
     + (s.aero === 'on' ? ` · active aero${s.overtake === 'off' ? '' : ` + overtake ${s.overtake}`}` : ' · active aero off')
     + ` · controller smoothing ${prefs.smoothing ? prefs.smoothing : 'off'}`;

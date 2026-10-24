@@ -13,7 +13,7 @@ import { Display } from './display.js';
 import { CarModels } from './car-models.js';
 import { Hud } from './hud.js';
 import { poseOf, savePoses, interpolatePoses } from './pose.js';
-import { raceAero } from './setup-store.js';
+import { raceAero, aiAssistsOf } from './setup-store.js';
 import { playerDriver } from './garage-store.js';
 import { aiLap, aiLapReady, ghostDriver, createRival, rivalGap } from './ai-ghosts.js';
 import { createGhostInputs } from './ghost-inputs.js';
@@ -31,8 +31,8 @@ export function createTimeTrial({ game, track, saveSetup, switchTrack }) {
   const carModified = () => SIM.isModified(game.garage.mods);
   // AI laps (ai-ghosts.js): the fastest AI driver alone at each level, made once per circuit and active-aero setting
   const aiPick = () => Object.hasOwn(LEVELS, game.setup.ghost) ? game.setup.ghost : null;
-  const aiLapsReady = aero => Object.keys(LEVELS).every(id => aiLapReady(track(), id, aero));
-  const aiLapOf = (id, aero = raceAero(game.setup).activeAero) => aiLap(track(), id, LEVELS[id], aero);
+  const aiLapsReady = aero => Object.keys(LEVELS).every(id => aiLapReady(track(), id, aero, aiAssistsOf(game.setup)));
+  const aiLapOf = (id, aero = raceAero(game.setup).activeAero) => aiLap(track(), id, LEVELS[id], aero, aiAssistsOf(game.setup));
   // the recorded ghost to race on this circuit in this car class (game.setup.ghost): the one loaded from a file (else
   // your best), or your best; start = the standing-start lap (your lap 1 from the grid), else the flying lap. (An AI
   // pick races a live car instead: game.rival.)
@@ -110,7 +110,7 @@ export function createTimeTrial({ game, track, saveSetup, switchTrack }) {
     start(race, player) {
       const s = game.setup, trial = s.type === 'trial', pick = trial ? aiPick() : null;
       game.trial = trial; recorder.stop();
-      game.rival = pick ? createRival(track(), pick, LEVELS[pick], { activeAero: race.activeAero }) : null;
+      game.rival = pick ? createRival(track(), pick, LEVELS[pick], { activeAero: race.activeAero, aiAssists: aiAssistsOf(game.setup) }) : null;
       game.ghost = trial && !pick ? activeGhost(player.spec.modified) : null;            // laps 2..
       game.ghostStart = trial && !pick ? activeGhost(player.spec.modified, true) : null; // lap 1, from the grid
       Hud.setDelta(null, trial); model.setVisible(false);

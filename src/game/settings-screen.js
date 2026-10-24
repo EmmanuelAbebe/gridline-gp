@@ -89,6 +89,9 @@ const TABS = [
     slider('curve', 'Steering response', v => v === 1 ? 'LINEAR' : v.toFixed(1),
       v => v === 1 ? 'Linear: the wheel turns as much as you turn the controller.' : 'Finer near the centre, quicker toward full lock.'),
     slider('pedalDeadZone', 'Trigger dead zone', pct, () => 'Gas and brake ignored near rest.'),
+    slider('brakeForce', 'Brake force', pct, v => v >= 100
+      ? 'Full pedal = the car\'s full braking force. Without ABS the front tyres lock from about 70 % pedal (sooner while turning).'
+      : `Full pedal = ${v} % of the car's braking force${v <= 72 ? ': just under the point where the fronts lock in a straight line (fresh tyres, stock brake balance). Braking while turning can still lock them.' : '. Without ABS the fronts still lock near full pedal.'}`),
     { type: 'readout' },
     buttons(['Test controls', 'inputs'], ['Reset controller', 'resetController']),
   ] },

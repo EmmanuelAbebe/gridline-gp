@@ -78,6 +78,43 @@ export function calmSteer(s, v, calm, spec = STOCK) {
 // and pulls out late, to the inside of the next corner.
 const TRAITS = Object.freeze({ defend: 0.5, nerves: 0.5 });
 const traitOf = (c, k) => c.traits?.[k] ?? TRAITS[k];
+
+// An AI driver in a car without ABS / traction control drives by feel (AI.feel), as a racing driver does: it never
+// asks for more brake than it has learnt the front tyres take in a straight line, and holds back further for a moment
+// after a lock-up (front or rear: turning in on the brakes locks sooner); the same with the throttle, per gear, from
+// wheel spin and the rear sliding. It reacts to what the tyres did on the last step, so it still locks or spins now
+// and then. The pedals it would have used with the assists come in; what its feet can do goes out.
+/** @param {Car} c */
+function feelPedals(c, thr, brk, dt) {
+  const F = AI.feel;
+  if (!c.assists.abs) {
+    const straight = Math.abs(c.steer) < 0.1, learning = c.surface === 'track' && c.v > 25;   // (a lock on the grass says nothing)
+    if (c.lockF || c.lockR || (c.brake > 0 && c.slideR > F.slide)) {             // (braking with the rear sliding: off it)
+      if (c.lockF && !c.lockR && straight && learning) c.feelBrake = Math.max(F.brakeMin, c.feelBrake * F.cut, Math.min(c.feelBrake, c.brake) * F.cut);
+      c.feelBrakeNow = Math.max(F.floor, Math.min(1, c.brake / c.feelBrake) * F.nowCut);
+    } else {
+      if (brk > 0 && c.brake >= c.feelBrake * c.feelBrakeNow * 0.98) c.feelBrake = Math.min(1, c.feelBrake + F.learn * dt);
+      c.feelBrakeNow = Math.min(1, c.feelBrakeNow + F.recover * dt);
+    }
+    // trail braking: the more it turns, the less brake (what the tyres give to the corner they can't give to stopping)
+    brk = Math.min(brk, c.feelBrake * c.feelBrakeNow * (1 - F.trail * Math.min(1, Math.abs(c.steer))));
+  }
+  if (!c.assists.tc) {
+    const T = (c.feelThr ||= new Array(10).fill(F.thr)), g = Math.max(0, c.gear);
+    if (c.spinR || (c.slideR > F.slide && c.thr > F.floor)) {
+      if (c.spinR && c.surface === 'track') T[g] = Math.max(F.floor, T[g] * F.thrCut, Math.min(T[g], c.thr) * F.thrCut);
+      c.feelThrNow = Math.max(F.floor, Math.min(1, c.thr / T[g]) * F.nowCut);
+    } else {
+      if (thr > 0 && c.thr >= T[g] * c.feelThrNow * 0.98) T[g] = Math.min(1, T[g] + F.thrLearn * dt);
+      c.feelThrNow = Math.min(1, c.feelThrNow + F.recover * dt);
+    }
+    thr = Math.min(thr, T[g] * c.feelThrNow);
+    // sliding: only a touch of throttle until the car points where it goes again
+    const drift = Math.abs(driftAngle(c));
+    if (drift > F.slideDrift) thr = Math.min(thr, F.floor * clamp(1 - (drift - F.slideDrift) / F.slideDrift, 0, 1));
+  }
+  return [thr, brk];
+}
 /** @param {Race} race @param {Car} c */
 export function driveAI(race, c, dt, skillOverride = 0) {
   const T = race.track, { N, HW, ds, PX, PZ, NX, NZ } = T, C = AI.craft;
@@ -171,7 +208,11 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   const alpha = wrapA(Math.atan2(tz, tx) - c.h - driftAngle(c)), dist = Math.max(Math.hypot(tx, tz), 4);
   const lost = Math.abs(alpha) > Math.PI / 2;
   const kappa = 2 * (lost ? Math.sign(alpha) : Math.sin(alpha)) / dist, v5 = Math.max(sp, 5);
-  const delta = CHASSIS.wheelbase * kappa + AI.yawGain * (sp * kappa - c.yawRate) * CHASSIS.wheelbase / v5;
+  let delta = CHASSIS.wheelbase * kappa + AI.yawGain * (sp * kappa - c.yawRate) * CHASSIS.wheelbase / v5;
+  // without the stability assist the driver catches a sliding rear itself: opposite lock, the front wheels turned
+  // toward where the car is going (AI.feel.counter), for as much of the assist as it lacks
+  const stab = ASSISTS[AI.assists].stability;                 // (its usual assists: then nothing changes)
+  if (c.assists.stability < stab && c.slideR > 0.15 && !lost) delta += AI.feel.counter * (1 - c.assists.stability / stab) * clamp((c.slideR - 0.15) / 0.3, 0, 1) * driftAngle(c);
   const want = clamp(delta / steerLock(c.v, c.assists.steer, c.spec), -1, 1);
   const rate = alien ? AI.alien.steerRate : AI.steerRate;
   c.steer += clamp(want - c.steer, -dt * rate, dt * rate);
@@ -204,7 +245,8 @@ export function driveAI(race, c, dt, skillOverride = 0) {
     const target = lost ? AI.recoverSpeed : Math.min(vt((c.idx + 2) % N), vt((c.idx + 5) % N), followCap);   // (never into the car ahead)
     let need2 = 0;
     for (let k = 2; k <= A.brakeLook; k += k < 12 ? 2 : 4) { const w = vt((c.idx + k) % N); need2 = Math.max(need2, (sp * sp - w * w) / (2 * k * ds)); }
-    const lim = (E ? brakeLimitAt(E, c.idx, sp, c.spec) : brakeLimit(sp, c.spec)) * 0.97, o2 = sp - target;
+    // (without ABS: what its feet can do, the pedal it has learnt the fronts take × the full pedal's force)
+    const lim = (E ? brakeLimitAt(E, c.idx, sp, c.spec) : brakeLimit(sp, c.spec)) * (c.assists.abs ? 0.97 : Math.min(0.97, c.feelBrake * CHASSIS.brakePedal)), o2 = sp - target;
     if (need2 > lim * A.brakeAt || o2 > A.overBrake) brk = clamp(need2 / (lim * A.brakeScale) + Math.max(0, o2) * A.brakeGain, 0, 1);
     else thr = o2 > 0 ? clamp(1 - o2 * A.thrGain, 0, 1) : 1;
   }
@@ -223,6 +265,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
     c.mistakeEnd = (c.idx + Math.round(AI.mistakes.length / ds)) % N;
     brk = 0;
   }
+  if (!c.assists.abs || !c.assists.tc) [thr, brk] = feelPedals(c, thr, brk, dt);
   c.brake = brk; c.thr = thr;
   updateActiveAero(race, c, { thr, brk }, dt);
   updateWear(race, c, thr, dt);
