@@ -63,20 +63,20 @@ test('straight mode: a full field races clean, and the proportional test driver 
   }
 }));
 
-test('overtake mode: within a second of the car ahead at the line → boost for the lap; it adds power', () => {
+test('overtake mode: within a second of the car ahead at the line → boost for the lap; full electric power to 337 km/h', () => {
   const T = tracks.harrow, r = S.createRace(5, { track: T, drivers: S.DRIVERS.slice(0, 2), activeAero: true, seed: 1 });
   const [a, b] = r.cars;
   // b passed the sample a is on 0.6 s ago, and a is starting lap 2
   r.t = 100; a.lap = 2; a.boostLap = 1; b.trailT[a.idx] = r.t - 0.6;
   assert.ok(Math.abs(gapAhead(r, a) - 0.6) < 1e-4);   // trail times are Float32
-  a.player = true; a.v = 60; a.gear = 7;
+  a.player = true; a.v = 315 / 3.6; a.gear = 8;           // (past 290 km/h, where the MGU-K's power tapers: ERS)
   S.drivePlayer(r, a, { steer: 0, thr: 1, brk: 0 }, DT);
   assert.equal(a.events.filter(e => e.type === S.EV.BOOST_READY).length, 1);
   assert.ok(a.boostLeft > OVERTAKE.seconds - 0.1 && !a.boostOn, 'ready, not on until pressed');
   const before = a.drive;
   S.drivePlayer(r, a, { steer: 0, thr: 1, brk: 0, boost: true }, DT);
   assert.ok(a.boostOn && a.boostLeft < OVERTAKE.seconds, 'on and counting down');
-  assert.ok(a.drive > before * (1 + OVERTAKE.power * 0.8), `drive ${before.toFixed(2)} → ${a.drive.toFixed(2)}`);
+  assert.ok(a.drive > before * 1.15, `drive ${before.toFixed(2)} → ${a.drive.toFixed(2)}`);   // (2026: the taper starts at 337 km/h)
   // too far behind at the next line: no boost
   a.lap = 3; b.trailT[a.idx] = r.t - 2.5;
   S.drivePlayer(r, a, { steer: 0, thr: 1, brk: 0 }, DT);

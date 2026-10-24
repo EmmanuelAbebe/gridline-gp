@@ -120,8 +120,10 @@ test('track limits: running wide at speed counts, a slow car rejoining does not'
   // outside of the first corner, whole car past the kerb, moving along the track
   const i0 = [...T.CK].findIndex((k, i) => Math.abs(k) > T.KERB_K && Math.abs(T.K[i]) > T.KERB_K), side = T.CK[i0] > 0 ? 0 : 1, s = side ? 1 : -1;
   // drive the check through afterMove: move the car sample by sample along the outside
-  const run = v => { const { race, c } = solo(); const R = T.runoff[side]; place(c, i0, s * (R.kerb[i0] + 1.5));
-    for (let k = 1; k < 10; k++) { const i = i0 + k; c.x = PX[i] + NX[i] * s * (R.kerb[i] + 1.5); c.z = PZ[i] + NZ[i] * s * (R.kerb[i] + 1.5); c.v = v; race.t += DT;
+  // (past the painted kerb's outer edge, wherever the layout ends it: HW + KERB)
+  const out = i => Math.max(T.runoff[side].kerb[i], T.HW + T.KERB) + 1.5;
+  const run = v => { const { race, c } = solo(); place(c, i0, s * out(i0));
+    for (let k = 1; k < 10; k++) { const i = i0 + k; c.x = PX[i] + NX[i] * s * out(i); c.z = PZ[i] + NZ[i] * s * out(i); c.v = v; race.t += DT;
       S.drivePlayer(race, c, { thr: 0, brk: 0, steer: 0, analog: true }, 0); }
     return c; };
   const fast = run(40);

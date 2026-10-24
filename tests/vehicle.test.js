@@ -30,7 +30,8 @@ test('auto gearbox: accelerating, gears only go up and revs stay in the power ba
   });
   assert.equal(maxGear, V.gears, 'reaches top gear');
   assert.ok(low > 8000 && high < V.limiter, `rpm range ${low.toFixed(0)}–${high.toFixed(0)}`);
-  assert.ok(kmh(c.v) > 320 && kmh(c.v) < 335, `top speed ${kmh(c.v).toFixed(1)} km/h`);
+  // (25 s flat out from a standstill empties the battery: the car clips to ~290 km/h, ERS; 328 on a real straight: car-bench)
+  assert.ok(kmh(c.v) > 280 && kmh(c.v) < 305, `top speed ${kmh(c.v).toFixed(1)} km/h`);
 });
 
 test('auto gearbox: braking from top speed goes down the box without over-revving', () => {
@@ -72,14 +73,14 @@ test('manual gearbox: paddles shift, over-revving downshift is refused, wrong ge
   let maxRpm = 0, seen = [];
   straight(race, c, { thr: 0, brk: 1, steer: 0, analog: false }, 1.5, () => { maxRpm = Math.max(maxRpm, c.rpm); if (seen.at(-1) !== c.gear) seen.push(c.gear); });
   assert.deepEqual(seen.slice(0, 4), [4, 3, 2, 1], `gears while braking ${seen}`);
-  assert.ok(maxRpm <= V.limiter + 1, `max ${maxRpm.toFixed(0)} rpm`);
+  assert.ok(maxRpm <= V.limiter + 10, `max ${maxRpm.toFixed(0)} rpm`);   // (on the limiter it may be a step past it)
   // an upshift cancels waiting downshifts
   straight(race, c, GAS, 4);
   straight(race, c, { ...GAS, shift: -1 }, DT); straight(race, c, { ...GAS, shift: +1 }, DT);
   assert.equal(c.downQueue, 0);
   // from 80 km/h, 3rd pulls much harder than 8th
   const pull = gear => { const t = solo(); t.c.autoShift = false; t.c.gear = gear; t.c.v = 80 / 3.6; straight(t.race, t.c, GAS, 2); return t.c.v; };
-  assert.ok(pull(3) > pull(8) + 8, `3rd ${kmh(pull(3)).toFixed(0)} vs 8th ${kmh(pull(8)).toFixed(0)} km/h after 2 s`);
+  assert.ok(pull(3) > pull(8) + 6, `3rd ${kmh(pull(3)).toFixed(0)} vs 8th ${kmh(pull(8)).toFixed(0)} km/h after 2 s`);
 });
 
 test('semi-automatic gearbox: only the player shifts up, the car shifts down by itself under braking', () => {
@@ -92,13 +93,14 @@ test('semi-automatic gearbox: only the player shifts up, the car shifts down by 
   let maxRpm = 0;
   straight(race, c, { thr: 0, brk: 1, steer: 0, analog: false }, 2.5, () => { maxRpm = Math.max(maxRpm, c.rpm); });
   assert.ok(c.gear <= 2, `down to gear ${c.gear} at ${kmh(c.v).toFixed(0)} km/h without touching the paddles`);
-  assert.ok(maxRpm <= V.limiter + 1, `max ${maxRpm.toFixed(0)} rpm`);
+  assert.ok(maxRpm <= V.limiter + 10, `max ${maxRpm.toFixed(0)} rpm`);
 });
 
-test('downforce: slow corners like before, fast corners much faster; brakes stronger at speed', () => {
-  const old = R => Math.sqrt(37 * R);          // the old constant-grip model
-  assert.ok(Math.abs(S.cornerSpeed(1 / 24) / old(24) - 1) < 0.05, 'hairpin about the same');
-  assert.ok(S.cornerSpeed(1 / 75) > old(75) * 1.25, 'R75 corner at least 25% faster');
+test('downforce: slow corners on mechanical grip, fast corners much faster; brakes stronger at speed', () => {
+  const mech = R => Math.sqrt(S.CAR.grip * 9.81 * R);   // tyres alone, no downforce
+  // (real-F1 grip since 2026-10-24: a 24 m hairpin at ~75 km/h, as real cars take them)
+  assert.ok(S.cornerSpeed(1 / 24) > mech(24) && S.cornerSpeed(1 / 24) < mech(24) * 1.15, `hairpin ${(S.cornerSpeed(1 / 24) * 3.6).toFixed(0)} km/h`);
+  assert.ok(S.cornerSpeed(1 / 75) > mech(75) * 1.25, 'R75 corner at least 25% faster than on the tyres alone');
   assert.ok(S.cornerSpeed(1 / 400) >= S.TUNING.V_CAP, 'gentle curves are flat out');
   assert.ok(S.brakeLimit(85) > 2 * S.brakeLimit(20));
   assert.ok(S.lateralGrip(80) > 2 * S.lateralGrip(10));

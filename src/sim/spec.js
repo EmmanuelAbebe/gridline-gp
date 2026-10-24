@@ -37,9 +37,10 @@ export function carSpec(setupIn, modsIn) {
     dfK: 0.5 * aero.rho * (aero.liftArea * lift) / mass,  // downforce / mass = dfK·v² (stock: vehicle.js DOWNFORCE_K)
     dragK: 0.5 * aero.rho * (aero.dragArea * drag) / mass,
     aeroFront: CHASSIS.aeroFront + (s.balance - SETUP.balance.def) / 100,
-    frontGrip: 1 + SETUP.mechPerStep * mech,
-    rearGrip: CHASSIS.rearGrip * (1 - SETUP.mechPerStep * mech),
-    brakeBias: CHASSIS.brakeBias + (s.brakes - SETUP.brakes.def) / 100,
+    frontGrip: 1, rearGrip: CHASSIS.rearGrip,
+    // mechanical balance = the anti-roll bars: + = a softer front (less of the sideways load transfer on it) = more front grip
+    rollFront: CHASSIS.rollFront - SETUP.rollPerStep * mech,
+    brakeBias: s.brakes / 100,                           // front share of the braking
     brakeSystem: CHASSIS.brakeSystem * (m.brakes / 100),
     power: m.power / 100,
     top,                                                 // km/h at the redline per gear

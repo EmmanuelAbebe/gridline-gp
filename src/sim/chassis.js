@@ -8,7 +8,7 @@
 // Everything is per unit mass, so forces read as accelerations (m/s²).
 import { TUNING, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT, ACTIVE_AERO, HANDBRAKE } from './tuning.js';
 import { clamp, speedOf } from './math.js';
-import { lateralGrip, brakeMax, drivetrain } from './vehicle.js';
+import { lateralGrip, brakeMax, drivetrain, tyreGrip } from './vehicle.js';
 import { STOCK } from './spec.js';
 import { carCondition } from './pit.js';
 /** @typedef {import('./types.js').Car} Car */
@@ -24,6 +24,9 @@ export function surfaceDrag(surf, v) {
   const fade = sp <= surf.biteTo ? 1 : Math.max(surf.skim, 1 - (1 - surf.skim) * (sp - surf.biteTo) / surf.biteFade);
   return Math.sign(v) * (surf.rolling + surf.bite * Math.min(1, sp / surf.biteFrom) * fade);
 }
+// An axle's grip (per mass) with `load` on it (static `ns`) and `d` of it moved to the outer wheel by the cornering.
+const axleGrip = (load, d, ns, S) => { const half = load / 2, dd = Math.min(d, half);
+  return tyreGrip(half + dd, S, ns / 2) + tyreGrip(half - dd, S, ns / 2); };
 // tyre curve: sin(C·atan(B·α)), peaking at the axle's peak slip angle
 const C_SHAPE = CH.falloff, B_UNIT = Math.tan(Math.PI / (2 * C_SHAPE));
 export const tyreCurve = (alpha, peak = CH.peakSlip) => Math.sin(C_SHAPE * Math.atan(B_UNIT / peak * alpha));
@@ -114,9 +117,14 @@ export function stepChassis(race, c, inp, dt) {
     // (open wings: straight mode, active-aero.js; aeroOpen 0 multiplies by exactly 1)
     const df = S.dfK * v * v * (1 - CH.dirtyAir * (c.slip || 0)) * yawAero * cond.aero * (1 - ACTIVE_AERO.downforceCut * c.aeroOpen);
     const transfer = c.ax * CH.cgHeight / L;
-    const mu = S.grip * surf.grip * dirt;
-    const Df = mu * S.frontGrip * Math.max(0.5, gN * CH.frontWeight + df * S.aeroFront * cond.front - transfer);
-    const Dr = mu * S.rearGrip * Math.max(0.5, gN * (1 - CH.frontWeight) + df * (1 - S.aeroFront) + transfer);
+    const surfMu = surf.grip * dirt;
+    // per wheel (2026-10-24): the sideways load transfer of the last step moves load to the outer wheel of each axle;
+    // load sensitivity (tyreGrip) makes the axle give less than with the load shared evenly
+    const lat = Math.abs(c.ay) * CH.cgHeight / CH.track, lf = lat * S.rollFront, lr = lat * (1 - S.rollFront);
+    const loadF = Math.max(0.5, gN * CH.frontWeight + df * S.aeroFront * cond.front - transfer);
+    const loadR = Math.max(0.5, gN * (1 - CH.frontWeight) + df * (1 - S.aeroFront) + transfer);
+    const Df = surfMu * S.frontGrip * axleGrip(loadF, lf, G * CH.frontWeight, S);
+    const Dr = surfMu * S.rearGrip * axleGrip(loadR, lr, G * (1 - CH.frontWeight), S);
     // slip angles (velocity at each axle vs where its wheels point)
     // (rolling backwards the steering acts the other way round)
     const back = v / Math.max(sp, 0.5);   // +1 forwards, −1 backwards, smooth through 0 (brakes then damp v to rest)
@@ -124,7 +132,7 @@ export function stepChassis(race, c, inp, dt) {
     const alphaR = Math.atan2(vy - B_REAR * w, Math.max(sp, 1));
     // brakes split by axle load (+ a front bias), drive on the rear
     const brake = brakeMax(sp, S) * inp.brk;
-    const bias = clamp(Df / (Df + Dr) + S.brakeBias, 0.3, 0.8);
+    const bias = S.brakeBias;                          // (fixed: brake-by-wire keeps the rear share with the MGU-K harvesting)
     // ABS / traction control hold the tyres at `limit` × what they can give: medium / high 0.97, low 0.985 (2026-10-24: low
     // used to allow 1.045 / 1.095, past the grip, so its wheels locked and spun as with none)
     const absLimit = A.abs > 0 ? 0.97 + 0.03 * (1 - A.abs) : null, tcLimit = A.tc > 0 ? 0.97 + 0.03 * (1 - A.tc) : null;
@@ -164,7 +172,7 @@ export function stepChassis(race, c, inp, dt) {
     // the nose toward where it is going, ∝ dynamic pressure × slip angle (gone once the car is sideways: yawAero)
     // (the slip angle there, aeroArm m behind: so it also damps the rotation, like the rear tyres)
     dw += CH.aeroYaw * v * Math.abs(v) * Math.atan2(vy - CH.aeroArm * w, Math.max(Math.abs(v), 1)) * yawAero;
-    c.ax = ax;
+    c.ax = ax; c.ay = ay;
     const v0 = c.v;
     c.v += (ax + vy * w) * h;
     c.vy += (ay - v * w) * h;

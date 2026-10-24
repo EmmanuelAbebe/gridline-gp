@@ -1,5 +1,5 @@
 // Car state, where a car is on the track (nearest sample, lateral offset), walls and surface.
-import { EV, BARRIER, BARRIERS, ROUGH, OFFTRACK, WALLS, AI } from './tuning.js';
+import { EV, BARRIER, BARRIERS, ROUGH, OFFTRACK, WALLS, AI, ERS } from './tuning.js';
 import { surfaceAt } from './runoff.js';
 import { wrapA, wrapIdx, speedOf } from './math.js';
 import { gridSlot, headingAt } from './track.js';
@@ -43,9 +43,11 @@ export function createCar(track, driver, slot, rng) {
     // active aero (active-aero.js): wings open 0..1 (straight mode); overtake mode: seconds left this lap, on, lap detected
     // boostAuto: a player car using overtake mode the way the AI does (the game's AUTO setting)
     aeroOpen: 0, boostLeft: 0, boostOn: false, boostLap: 0, boostAuto: false,
+    // the power unit's battery (vehicle.js ers): charge (J), harvested this lap (J), the lap that counts, kW now (+ deploying)
+    soc: ERS.store * ERS.start, harvested: 0, ersLap: 0, ersKw: 0,
     // chassis (chassis.js): lateral speed (m/s, + = right), yaw rate (rad/s), last longitudinal accel,
     // how saturated each axle is (0..1), lock-up / wheel spin flags; assists (ASSISTS levels, set by createRace / the game)
-    vy: 0, yawRate: 0, ax: 0, slideF: 0, slideR: 0, lockF: false, lockR: false, spinR: false, assists: null,
+    vy: 0, yawRate: 0, ax: 0, ay: 0, slideF: 0, slideR: 0, lockF: false, lockR: false, spinR: false, assists: null,
     // an AI driver without ABS / traction control (driving.js feelPedals): what it has learnt the car takes, brake pedal
     // (straight-line) and throttle per gear, and how much it is holding back right now
     feelBrake: Number(AI.feel.brake), feelBrakeNow: 1, feelThr: /** @type {number[]} */ (null), feelThrNow: 1,

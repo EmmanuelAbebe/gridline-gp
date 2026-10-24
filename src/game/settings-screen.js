@@ -69,8 +69,8 @@ const TABS = [
       ? 'Every car opens its wing flaps on the straights (straight mode: less drag, about 350 km/h) and closes them to brake and turn (corner mode). The zones are marked on the minimap.'
       : 'Wings stay in corner mode: about 330 km/h.'),
     seg('overtake', 'Overtake mode', C.overtake, v => ({
-      auto: 'Within 1 s of the car ahead at the line: 5 s of extra power that lap, used for you on the straights when you are close.',
-      button: 'Within 1 s of the car ahead at the line: 5 s of extra power that lap. Switch it on with X, pad View or the BOOST button.',
+      auto: 'Within 1 s of the car ahead at the line: the next lap the electric motor keeps its full 350 kW up to 337 km/h (not 290), with extra battery, for 5 s; used for you on the straights when you are close.',
+      button: 'Within 1 s of the car ahead at the line: the next lap the electric motor keeps its full 350 kW up to 337 km/h (not 290), with extra battery, for 5 s. Switch it on with X, pad View or the BOOST button.',
       off: 'No overtake boost for anyone.' })[v], b => b.get('aero') === 'on'),
   ] },
   { id: 'controller', label: 'Controller', items: [
@@ -90,8 +90,8 @@ const TABS = [
       v => v === 1 ? 'Linear: the wheel turns as much as you turn the controller.' : 'Finer near the centre, quicker toward full lock.'),
     slider('pedalDeadZone', 'Trigger dead zone', pct, () => 'Gas and brake ignored near rest.'),
     slider('brakeForce', 'Brake force', pct, v => v >= 100
-      ? 'Full pedal = the car\'s full braking force. Without ABS the front tyres lock from about 70 % pedal (sooner while turning).'
-      : `Full pedal = ${v} % of the car's braking force${v <= 72 ? ': just under the point where the fronts lock in a straight line (fresh tyres, stock brake balance). Braking while turning can still lock them.' : '. Without ABS the fronts still lock near full pedal.'}`),
+      ? 'Full pedal = the car\'s full braking force, the same at any speed, as on a real car. Without ABS the fronts lock from ~80 % pedal at 320 km/h and ~30 % at 80 km/h: ease off as you slow and the downforce goes.'
+      : `Full pedal = ${v} % of the car's braking force (the same at any speed). Without ABS the fronts lock from ~${Math.min(100, Math.round(80 * 100 / v))} % pedal at 320 km/h and ~${Math.round(30 * 100 / v)} % at 80 km/h.`),
     { type: 'readout' },
     buttons(['Test controls', 'inputs'], ['Reset controller', 'resetController']),
   ] },

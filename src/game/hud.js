@@ -101,6 +101,10 @@ export const Hud = (() => {
           setOnce('dmgCls', worst > 0.5 ? 'bad' : worst > 0.08 ? 'warn' : '', k => { $('dmg').className = k; });
         }
       }
+      // the power unit's battery (SIM ERS): charge, and whether it is deploying (yellow) or harvesting (blue)
+      const soc = Math.round(c.soc / SIM.ERS.store * 100), ers = c.ersKw > 5 ? 'out' : c.ersKw < -5 ? 'in' : '';
+      setOnce('ersPct', soc, v => { $('ersPct').textContent = v + '%'; $('ersFill').style.width = v + '%'; });
+      setOnce('ersFlow', ers, k => { $('ers').className = k; });
       const pit = c.pit ? (c.pit.phase === 'stop' ? 'PIT STOP' : c.pitLimiter ? 'PIT LIMITER' : c.pit.drive && !c.pit.entered ? 'PIT ENTRY' : 'PIT EXIT') : c.pitRequest ? 'BOX THIS LAP' : '';
       // active aero: straight mode chip, overtake mode (ready / on with seconds left) and its button (BUTTON setting)
       setOnce('aeroOn', !!race.activeAero && c.aeroOpen > 0.5, v => $('aeroTag').classList.toggle('on', v));

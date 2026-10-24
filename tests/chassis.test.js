@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { SIM as S } from '../src/sim/index.js';
 import { DT, run, centreProfile } from './helpers.js';
 
+// (lap times: real-F1 physics since 2026-10-24, the bots ~47–49 s on Elkmoor; ~38–41 s before)
 const T = S.track, { N, PX, PZ } = T, VP = centreProfile(S, T);
 const solo = assists => { const race = S.createRace(1, { drivers: S.DRIVERS.filter(d => d.player) }), c = race.cars[0]; c.assists = S.ASSISTS[assists]; return { race, c }; };
 
@@ -29,7 +30,7 @@ for (const [assists, style] of [['medium', 'analog'], ['medium', 'tap'], ['low',
   test(`lap: ${style} steering on ${assists} assists is clean and quick`, () => {
     const { c, walls } = lap(assists, style);
     assert.ok(c.finished, 'finished');
-    assert.ok(c.finishTime < 42, `lap ${c.finishTime.toFixed(2)} s`);
+    assert.ok(c.finishTime < 50, `lap ${c.finishTime.toFixed(2)} s`);
     assert.equal(walls, 0);
   });
 }
@@ -38,7 +39,7 @@ for (const [assists, style] of [['medium', 'analog'], ['medium', 'tap'], ['low',
 test('lap: analog steering with no smoothing (steerRate Infinity) on medium is clean, and the wheel follows at once', () => {
   const { c, walls } = lap('medium', 'analog', Infinity);
   assert.ok(c.finished, 'finished');
-  assert.ok(c.finishTime < 42, `lap ${c.finishTime.toFixed(2)} s`);
+  assert.ok(c.finishTime < 50, `lap ${c.finishTime.toFixed(2)} s`);
   assert.equal(walls, 0);
   const { race, c: d } = solo('medium');
   S.drivePlayer(race, d, { thr: 0, brk: 0, steer: 0.8, analog: true, steerRate: Infinity }, DT);
@@ -47,9 +48,10 @@ test('lap: analog steering with no smoothing (steerRate Infinity) on medium is c
 
 test('calm steering at speed: a small tilt turns gently, full tilt still reaches the grip limit; laps clean', () => {
   const { c, walls } = lap('medium', 'analog', Infinity, 1);
-  assert.ok(c.finished && c.finishTime < 42 && walls === 0, `lap ${c.finishTime?.toFixed(2)} s, ${walls} wall hits`);
+  assert.ok(c.finished && c.finishTime < 50 && walls === 0, `lap ${c.finishTime?.toFixed(2)} s, ${walls} wall hits`);
   const v = 300 / 3.6;
-  assert.ok(Math.abs(S.calmSteer(0.1, v, 1)) < 0.05, `0.1 tilt -> ${S.calmSteer(0.1, v, 1).toFixed(3)}`);
+  // (the real-grip car has less to give at 300 km/h than the old one, so calm takes less off: 0.57 × the tilt)
+  assert.ok(Math.abs(S.calmSteer(0.1, v, 1)) < 0.06, `0.1 tilt -> ${S.calmSteer(0.1, v, 1).toFixed(3)}`);
   assert.equal(S.calmSteer(1, v, 1), 1);
   assert.equal(S.calmSteer(0.1, v, 0), 0.1);
   assert.ok(Math.abs(S.calmSteer(0.1, 60 / 3.6, 1) - 0.1) < 0.02, 'little change at low speed');
@@ -133,7 +135,10 @@ test('trail braking: on OFF and LOW, braking while turning in stays controllable
     assert.ok(drift < 0.08, `${assists} ${kmh} km/h: drift ${(drift * 57.3).toFixed(0)}°`);
   }
   for (const kmh of [120, 200, 280]) assert.ok(trail('off', kmh, 0.5, 0.5).drift < 0.1, `off ${kmh}: half brake + half tilt does not spin`);
-  assert.ok(!trail('off', 120, 0.5, 0).lock, 'half pedal in a straight line does not lock');
+  // the pedal sets the brake pressure, the same at any speed (as on a real car, since 2026-10-24): half of it holds at
+  // 280 km/h, where the downforce gives the tyres a lot, but locks them at 120 km/h; full pedal locks without ABS
+  assert.ok(!trail('off', 280, 0.5, 0).lock, 'half pedal at 280 km/h does not lock');
+  assert.ok(trail('off', 120, 0.5, 0).lock, 'half pedal at 120 km/h locks: ease it off as the car slows');
   assert.ok(trail('off', 120, 1, 0).lock, 'full pedal locks without ABS');
 });
 
@@ -167,7 +172,7 @@ test('handbrake: the rears lock and the car rotates in a turn; it stops a crawli
 test('speed-sensitive steering: with it, LOW assists lap as clean as medium for a tilt driver; full travel = full lock; no effect on medium', () => {
   const k = S.ASSISTS.medium.steer;
   const { c, walls } = lap('low', 'analog', Infinity, 1, k);
-  assert.ok(c.finished && c.finishTime < 42 && walls === 0, `lap ${c.finishTime?.toFixed(2)} s, ${walls} wall hits`);
+  assert.ok(c.finished && c.finishTime < 50 && walls === 0, `lap ${c.finishTime?.toFixed(2)} s, ${walls} wall hits`);
   const v = 300 / 3.6, raw = S.steerLock(v, 0), use = S.steerLock(v, k);
   assert.ok(Math.abs(S.speedSteer(S.SPEED_STEER.catchFrom, v, k, 0) * raw - use) < 1e-9, 'the usable angle at catchFrom of the travel');
   assert.equal(S.speedSteer(1, v, k, 0), 1, 'full travel = full lock (opposite lock for slides)');

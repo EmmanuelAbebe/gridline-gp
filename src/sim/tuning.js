@@ -1,6 +1,9 @@
 // Driving and race-rule constants. Units are SI throughout: metres, seconds, m/s, m/s².
 export const TUNING = Object.freeze({
-  VMAX: 92,           // nominal top speed (what the engine and drag settle at); camera FOV scales with it
+  // the physics' version: 2 = real-F1 physics (2026-10-24). Lap records and ghosts are kept per version (game
+  // config storageKeys, ghost.js validGhost): laps on different physics don't compare
+  PHYSICS: 2,
+  VMAX: 82,           // nominal top speed (an endless straight, the battery empty: ERS clipping; 92 until 2026-10-24); camera FOV scales with it
   V_CAP: 100,         // hard speed cap, above anything the car can reach
   REVERSE_MAX: 9,
   REVERSE_ACC: 5,
@@ -15,7 +18,7 @@ export const CONTACT = Object.freeze({ rear: 1.5, front: 2.3, radius: 1.05, rest
 
 // The AI drivers (driving.js): they drive the same car as the player, through steering, throttle and brake.
 export const AI = Object.freeze({
-  grip: 1.0,           // share of the cornering grip the speed profile plans with, on the racing line
+  grip: 0.98,          // share of the cornering grip the speed profile plans with, on the racing line
   brake: 0.85,          // share of the braking limit the profile plans with
   dirtyTime: 0.8,      // s: how fast the AI adapts its corner speeds to the dirty air it is in
   lineMargin: 2.2,      // m: the fallback (minimum-curvature) line keeps the car's centre this far inside the road edge
@@ -30,7 +33,7 @@ export const AI = Object.freeze({
   brakeLook: 60,        // samples ahead checked for braking
   lockThrottle: 0.25,   // throttle at most while the steering is at its lock or the front slides
   // moving across to a new line (racing line, passing): rate 1/s, at most lineSlope m per m driven and lineSpeed m/s
-  lineRate: 2, lineSlope: 0.06, lineSpeed: 2.5,
+  lineRate: 2, lineSlope: 0.06, lineSpeed: 2.5, cleanFollow: 3,   // (× in clean air, 2026-10-24: driving.js)
   // racecraft (m): bodies touch at 2 × CONTACT.radius sideways. A car within followRange ahead and closer than sideGap
   // sideways is in our lane: move to pass it; closer than followLat we can't get by yet, so close only to followGap
   // (followGain m/s per metre). A car within ±alongside along the track: keep sideGap from it.
@@ -39,19 +42,22 @@ export const AI = Object.freeze({
   recoverSpeed: 8,      // m/s: pointing the wrong way (after a spin), turn back at this speed
   // late braking: per braking zone (speed to lose > minDrop m/s), chance × (1 − driver skill) × 10; the next `length`
   // metres are then driven `over` too fast
-  mistakes: Object.freeze({ chance: 0.12, over: [0.06, 0.14], length: 140, minDrop: 8 }),
+  // (2026-10-24, real grip: 6–14 % too fast was a sure run-wide; now 3–7 %: a lock-up or a wide moment)
+  mistakes: Object.freeze({ chance: 0.12, over: [0.03, 0.07], length: 140, minDrop: 8 }),
+  // the way out of a corner: lift when the car will be past the kerb's end (+ room m) in look s (driving.js)
+  edge: Object.freeze({ look: 0.8, room: 0.2, fade: 1.5, min: 0.2 }),
   // Driving without ABS / traction control (2026-10-24; the player drives with none and the AI's all-or-nothing pedals
   // only worked because of them): driving.js feelPedals. Brake: the pedal it has learnt the fronts take in a straight
   // line (`brake`, starting value), raised by `learn` per second while nothing locks, cut by at most 1 − `cut` per
   // lock-up on tarmac above 25 m/s (never below `brakeMin`; a lock on the grass says nothing); while turning or after a lock it holds back further (`now`, recovering at `recover` per second). Throttle:
   // the same per gear, from wheel spin and the rear sliding (`slide`).
-  feel: Object.freeze({ brake: 0.72, brakeMin: 0.5, learn: 0.02, cut: 0.97, nowCut: 0.88, recover: 1.5, thr: 1, thrLearn: 0.05, thrCut: 0.9, slide: 0.7, floor: 0.25,
+  feel: Object.freeze({ brake: 0.95, brakeMin: 0.8, brakeMax: 1.05, learn: 0.02, cut: 0.97, nowCut: 0.88, recover: 1.5, thr: 1, thrLearn: 0.05, thrCut: 0.9, slide: 0.7, floor: 0.25,
     counter: 1.0,      // opposite lock: × the drift angle, once the rear slides (driving.js steering)
     trail: 0.6,        // brake × (1 − trail × |steering|): trail braking
     slideDrift: 0.14 }),   // rad of drift above which it only touches the throttle (none by twice that)
   // racecraft (driving.js; m unless noted). Drivers' traits 0..1 (drivers.js `traits`, 0.5 when missing) scale them.
   // racecraft (driving.js; m unless noted). Drivers' traits 0..1 (drivers.js `traits`, 0.5 when missing) scale them.
-  craft: Object.freeze({
+  craft: Object.freeze({ squeeze: 0.96,
     behindRange: 30,    // a car this close behind puts the driver under pressure (0 at 30 m .. 1 alongside)
     pressureMistakes: 2.5,   // mistake chance × (1 + this × nerves × pressure)
     defendRange: 14, defendFrom: 160, defendLate: 40,   // defend against a car within defendRange, decided between
@@ -77,10 +83,11 @@ export const AI = Object.freeze({
     // takes without spins or cuts (2026-10-20, solo laps of the fastest driver: Elkmoor 29.0, Harrow 49.3, Cobalt
     // 50.4, Marrow 38.0, Northfold 59.1 s; the user's best there 59.975; 2026-10-22 hills: Hautvale 58.8, Saltcross 64.8,
     // Cantera 44.5 s; 2026-10-23 Ironvale Park 42.8 s, clean at the default)
-    pace: Object.freeze({ default: 1.16, cobalt: 1.08, marrow: 1.12, hautvale: 1.04, cantera: 1.06, saltcross: 1.14 }),
+    // (2026-10-24, the real-physics car: rescanned on the new lines, the most that stays clean with active aero on and off)
+    pace: Object.freeze({ default: 1.13, harrow: 1.07, hautvale: 1.07, northfold: 1.07, saltcross: 1.07, cantera: 1.10, marrow: 1.16 }),
     // with no ABS / traction control (the player's assists, createRace aiAssists; 2026-10-24): where it differs, the most
     // that stays clean with active aero on and off (Saltcross cut corners at 1.14)
-    paceOff: Object.freeze({ saltcross: 1.08 }),
+    paceOff: Object.freeze({ default: 1.10, hautvale: 1.04, cantera: 1.04, saltcross: 1.04, marrow: 1.16, northfold: 1.07 }),
     // in traffic (a car ahead in its lane, alongside, or in a wake) its pace eases to `traffic` × that
     // over trafficTime s: the full push only works on the line in clean air (it put cars into walls in traffic)
     // clean air (no car in its lane or alongside, slip < cleanSlip) = 1; deep in a wake (slip > wakeSlip) or alongside
@@ -101,19 +108,23 @@ export const AI = Object.freeze({
 
 // The car: one performance model for every car (player and AI). Accelerations are m/s² per unit mass.
 export const CAR = Object.freeze({
-  mass: 800,          // kg, with driver
-  grip: 3.0,          // tyre friction: cornering limit = grip × (g + downforce / mass). Real slicks ~1.8; higher here
-                      // because the circuit is tighter than a real one
+  // Real Formula 1 (2026 rules; 2026-10-24, user: "as close to reality as possible"; tools/car-bench.mjs checks the car
+  // against real figures): ~770 kg with the driver (the rules' minimum 768), slicks of ~1.8 friction at their static
+  // load, losing loadSens per g of extra load (load sensitivity, vehicle.js tyreGrip; never below muMin of it)
+  mass: 770,          // kg, with driver
+  grip: 1.8,          // tyre friction at the static load (real slicks ~1.6–1.8). Until 2026-10-24: 3.0, no load sensitivity
+  loadSens: 0.08, muMin: 0.6,
   aero: Object.freeze({
     rho: 1.2,         // air density
-    liftArea: 3.2,    // downforce = ½·rho·liftArea·v² (an F1 car is ~3–4.5 m²)
-    dragArea: 1.45,   // drag = ½·rho·dragArea·v²; with the engine below this sets the ~331 km/h top speed
+    liftArea: 4.8,    // downforce = ½·rho·liftArea·v²: equal to the weight at ~185 km/h (2026: 30 % less than before, ~150)
+    dragArea: 1.1,    // drag = ½·rho·dragArea·v² (cornering mode, 2026 Z-mode; straight mode: ACTIVE_AERO)
     rolling: 0.15,    // rolling resistance, m/s²
   }),
   engine: Object.freeze({
     idle: 4000, launch: 7000, redline: 12000, limiter: 12500,   // rpm; launch = clutch-slip rpm pulling away in 1st
-    // full-throttle power curve (rpm, kW), linear in between
-    power: [[3000, 100], [5000, 260], [7000, 430], [9000, 600], [10500, 715], [11500, 750], [12500, 735]],
+    // the combustion engine's full-throttle power curve (rpm, kW), linear in between: 400 kW at its peak (2026 rules;
+    // the electric motor's 350 kW on top: ERS). Until 2026-10-24 one 750 kW curve.
+    power: [[3000, 53], [5000, 139], [7000, 229], [9000, 320], [10500, 381], [11500, 400], [12500, 392]],
     efficiency: 0.92,
     engineBrake: 1.4, // extra deceleration off the throttle at redline, scaled by rpm
   }),
@@ -133,15 +144,15 @@ export const CAR = Object.freeze({
 export const SETUP = Object.freeze({
   wing:    { min: 1, max: 11, step: 1, def: 6 },        // downforce level: more grip in corners, more drag on straights
   balance: { min: 40, max: 50, step: 0.5, def: 45 },    // % of the downforce on the front axle: more = sharper turn-in, looser rear
-  brakes:  { min: 51, max: 63, step: 0.5, def: 57 },    // brake balance, % front (at rest: front weight 45 % + the bias)
+  brakes:  { min: 51, max: 63, step: 0.5, def: 57 },    // brake balance, % of the braking on the front axle
   gearing: { min: 310, max: 380, step: 5, def: 340 },   // km/h in top gear at the redline: long enough for the top speed (low wing, slipstream), or the car hits the limiter
   mech:    { min: -5, max: 5, step: 1, def: 0 },        // mechanical balance (anti-roll bars): + = front grip up, rear down
   liftPerStep: 0.07, dragPerStep: 0.045,                // wing: liftArea × (1 + 0.07·steps), dragArea × (1 + 0.045·steps)
-  mechPerStep: 0.012,                                   // mech: front × (1 + 0.012·steps), rear × (1 − 0.012·steps)
+  rollPerStep: 0.03,                                    // mech: the front's share of the sideways load transfer − 0.03·steps
 });
 export const MODS = Object.freeze({
   power:     { min: 50, max: 250, step: 5, def: 100 },   // % engine power
-  mass:      { min: 500, max: 1200, step: 10, def: 800 }, // kg with driver
+  mass:      { min: 500, max: 1200, step: 10, def: 770 }, // kg with driver
   grip:      { min: 50, max: 250, step: 5, def: 100 },   // % tyre grip
   downforce: { min: 0, max: 300, step: 5, def: 100 },    // % downforce (on top of the wing setting)
   drag:      { min: 20, max: 200, step: 5, def: 100 },   // % aerodynamic drag
@@ -165,7 +176,10 @@ export const HANDBRAKE = Object.freeze({
 });
 
 export const CHASSIS = Object.freeze({
-  wheelbase: 3.6, frontWeight: 0.45,   // static weight on the front axle
+  wheelbase: 3.4, frontWeight: 0.45,   // m (2026 rules: 3.4, was 3.6); static weight on the front axle
+  // sideways load transfer (2026-10-24): accel × cgHeight / track moves load to the outer wheels, `rollFront` of it on the
+  // front axle (the anti-roll bars: SETUP mech); with load sensitivity the axle loses grip (chassis.js)
+  track: 1.6, rollFront: 0.5,
   // aero yaw stability (2026-10-21; user, assists off: "the car behaves violently"): yaw acceleration per (m/s)² per rad
   // of slip angle. From a side force of ~1.5 m² × 1.5 /rad × dynamic pressure acting ~1.5 m behind the centre of mass:
   // ~0.002–0.004. With it a lift-off at the limit at 220 km/h is caught by a driver who counter-steers in 0.15 s (it
@@ -180,10 +194,11 @@ export const CHASSIS = Object.freeze({
   rearGrip: 1.06,       // and grip a little more
   falloff: 1.3,         // tyre curve shape: grip past the peak falls to sin(falloff·π/2) ≈ 89%
   longGrip: 0.9,        // braking/driving grip relative to cornering grip
-  brakeSystem: 70,      // m/s² the brakes can ask for at most
-  brakePedal: 1.15,     // full pedal = this × the tyres' straight-line limit at the current speed (capped by brakeSystem):
-                        // only the last ~15% of pedal locks, so partial braking (and trail braking) is controllable
-  brakeBias: 0.12,      // brake split = front load share + this (front locks first: understeer, not a spin)
+  brakeSystem: 70,      // m/s² the brakes can do at most (the AI's plans: brakeLimit)
+  brakeFull: 46,        // m/s² asked at full pedal, at any speed: at top speed about where the tyres lock, at 80 km/h a
+                        // third of the pedal is (real drivers push ~130 kg at the start of a big stop, ~40 at its end)
+  // brake balance: a fixed front share (SETUP brakes, 57 % by default: just more than the front's share of the load at the
+  // limit, so the fronts lock first); until 2026-10-24 the load share + 0.12
   rearBrakeMargin: 0.2, // with the stability assist on, rear braking keeps this share of grip spare for cornering
   lockLateral: 0.35,    // cornering grip left on a locked or spinning axle
   slideLong: 0.9,       // braking / drive force of a sliding tyre, relative to its peak
@@ -192,8 +207,9 @@ export const CHASSIS = Object.freeze({
   // turns the car like the original game (37 m/s² at full tilt; the tyres give ~1.35× their share at small angles,
   // hence 27), and a cubic brings full tilt back up to the grip limit
   calmLateral: 27, calmMinSlope: 0.3,
-  limitTurn: 1.25,      // steering assist: full lock = this × the geometric angle of the tightest steady turn
-  steerMargin: 0.01,    //   + this many rad (both measured: full lock lands just past the grip limit)
+  limitTurn: 1.0,       // steering assist: full lock = this × the geometric angle of the tightest steady turn
+  steerMargin: 0.065,   //   + this many rad (both measured on the skidpad, 2026-10-24: the real-grip tyres need 0.035–0.06 rad
+                        //   more than the geometric angle at their limit; full lock lands just past it)
   lowSpeed: 2, blendSpeed: 6,   // m/s: below lowSpeed the car steers kinematically, blended up to blendSpeed
   substeps: 4,          // tyre forces are stiff: integrate in 4 sub-steps of the 120 Hz step
   dirtyAir: 0.25,       // downforce lost at full wake strength (following closely through corners)
@@ -216,7 +232,8 @@ export const SURFACES = Object.freeze({
   turf:    S({ grip: 0.6, rolling: 1.2 }),
   tarmac:  S({ grip: 0.9, rolling: 0.3 }),
   grass:   S({ grip: 0.35, rolling: 2.2 }),
-  gravel:  S({ grip: 0.3, rolling: 1.5, bite: 6.5, biteFrom: 15, biteTo: 22, biteFade: 28, skim: 0.35 }),
+  // (2026-10-24, real grip 1.8: rolling 1.5 → 0.4 and the bite built up to 20 m/s, or a car's drive in gravel never beat it)
+  gravel:  S({ grip: 0.3, rolling: 0.4, bite: 6.5, biteFrom: 20, biteTo: 22, biteFade: 28, skim: 0.35 }),
 });
 // Surfaces that leave dirt on the tyres (rough = camera shake, off-track sound)
 export const ROUGH = Object.freeze({ turf: 0.4, grass: 1, gravel: 1 });
@@ -304,7 +321,7 @@ export const SLIP = Object.freeze({
 // `closeAhead` m) the front and rear wing flaps open (straight mode: less drag and downforce) on full throttle with
 // the wheel near straight; braking, lifting, turning or the end of the zone closes them (corner mode).
 export const ACTIVE_AERO = Object.freeze({
-  dragCut: 0.24,        // share of the drag gone with the wings fully open
+  dragCut: 0.35,        // share of the drag gone with the wings fully open (2026 X-mode; 0.24 until 2026-10-24)
   downforceCut: 0.36,   // share of the downforce gone (the floor keeps the rest)
   openTime: 0.35, closeTime: 0.18,   // s for the flaps to open / close fully
   thr: 0.85, steer: 0.3, minSpeed: 30,   // open only above this throttle, below this steering, above this speed (m/s)
@@ -314,7 +331,24 @@ export const ACTIVE_AERO = Object.freeze({
 });
 // Overtake mode: crossing the line within `gap` s of the car ahead gives `seconds` of extra electrical power
 // (`power` share more drive) for that lap; the player switches it on (BOOST), the AI uses it on straights when close.
-export const OVERTAKE = Object.freeze({ gap: 1.0, seconds: 5, power: 0.14, fromLap: 2 });
+// Overtake mode (2026 rules): within `gap` s of the car ahead at the line, the next lap's deployment keeps the MGU-K's
+// full 350 kW up to 337 km/h (ERS.taperFromBoost) instead of 290, with `energy` J of extra battery for it, for at most
+// `seconds` of use. (Until 2026-10-24: +14 % power.)
+export const OVERTAKE = Object.freeze({ gap: 1.0, seconds: 5, fromLap: 2, energy: 0.5e6 });
+
+// The 2026 power unit's electrical side (vehicle.js ers): the MGU-K on the rear axle deploys up to `kw` on the throttle,
+// tapering from taperFrom to nothing at taperTo (the rules' 290 → 355 km/h); the battery (`store` J usable) is charged
+// under braking (up to harvestKw, as much as the rear brakes ask: brake-by-wire blends it with the friction brakes, so the
+// car feels no difference) and off the throttle (coastKw, a little engine braking), at most `perLap` J a lap (8.5 MJ).
+// Deployment fades below `low` of the battery to nothing when it is empty, and above 290 km/h with the battery under
+// `clipBelow` the MGU-K harvests `clipKw` from the engine instead ("super clipping": the car slows at the end of a long
+// straight), as the real cars' energy management does. Every car the same, the player's included.
+export const ERS = Object.freeze({
+  kw: 350, taperFrom: 290 / 3.6, taperFromBoost: 337 / 3.6, taperTo: 355 / 3.6,
+  store: 4e6, start: 0.9, perLap: 8.5e6, harvestKw: 350, coastKw: 120,
+  low: 0.25, clipBelow: 0.3, clipKw: 200, minSpeed: 15, coastMax: 1.2, fullRpm: 10000,   // (the motor drives through the
+                         // gearbox: its full power from fullRpm of the engine up, less below, torque-limited)   // m/s² at most from lifting (the motor's torque)   // m/s: deployment's force below this as at it (the motor's torque limit)
+});
 
 // kerbs where |curvature| > kerbK; runoff = the default barrier distance past the road edge (the layout varies it)
 // samples: fixed count, or (when absent) one sample every `ds` metres; Elkmoor fixes 1200 (≈ 2.06 m)

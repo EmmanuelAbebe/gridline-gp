@@ -5,8 +5,9 @@ export const CONFIG = Object.freeze({
   physicsStep: 1 / 120,
   maxFrameDt: 0.1,
   sky: 0xa8cbe6,
-  storageKeys: { gfx: 'gridline.gfx', design: 'gridline.design', race: 'gridline.race', prefs: 'gridline.prefs', garage: 'gridline.garage', records: 'gridline.records',
-    ghosts: 'gridline.ghosts', ghostsLoaded: 'gridline.ghosts-loaded' },
+  storageKeys: { gfx: 'gridline.gfx', design: 'gridline.design', race: 'gridline.race', prefs: 'gridline.prefs', garage: 'gridline.garage', records: 'gridline.records.2',
+    // (records and ghosts per physics version, SIM.TUNING.PHYSICS: version 1's are left in 'gridline.records' etc.)
+    ghosts: 'gridline.ghosts.2', ghostsLoaded: 'gridline.ghosts-loaded.2' },
   lights: { count: 5, interval: 0.9, holdMin: 0.4, holdRand: 1.8, hideAfterGo: 0.7 },
   resultsDelay: 2.2,           // seconds of race time after the chequered flag
   finalLapFlashDelay: 0.9,

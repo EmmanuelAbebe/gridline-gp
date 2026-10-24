@@ -51,13 +51,14 @@ test('the car on a hill: slower up the climb, faster down it, and it rolls back 
   assert.ok(aUp < a0 - 0.6 * 9.81 * E.SX[up] && aDown > a0 + 0.6 * 9.81 * -E.SX[down], `accel flat ${a0.toFixed(1)}, up ${aUp.toFixed(1)}, down ${aDown.toFixed(1)}`);
 });
 
-test('banking: through an oval\'s banked turns flat out, faster than the same corner flat; cars on a bridge never touch those below', () => {
+test('banking: an oval\'s banked turns much faster than the same corner flat; cars on a bridge never touch those below', () => {
   const T = S.buildTrack(OVAL), E = T.elev;
-  // the tightest sample of the banked turns: flat out there on the centre line, which a flat corner wouldn't be
+  // the tightest sample of the banked turns: much faster there on the centre line than the same corner flat
+  // (real grip since 2026-10-24: a 90 m turn banked 20° is no longer flat out, 265 km/h vs 187 flat)
   let b = -1; for (let i = 0; i < T.N; i++) if (Math.abs(E.BANK[i]) > 0.3 && (b < 0 || Math.abs(T.K[i]) > Math.abs(T.K[b]))) b = i;
   assert.ok(b >= 0 && Math.abs(E.BANK[b]) > 0.33, `bank ${(E.BANK[b] * 57.3).toFixed(1)}°`);
   const banked = S.cornerSpeedAt(E, b, T.K[b]), flat = S.cornerSpeed(Math.abs(T.K[b]));
-  assert.ok(banked >= S.TUNING.V_CAP - 1e-6 && flat < banked - 5, `${(banked * 3.6).toFixed(0)} km/h vs flat ${(flat * 3.6).toFixed(0)}`);
+  assert.ok(banked > flat * 1.3, `${(banked * 3.6).toFixed(0)} km/h vs flat ${(flat * 3.6).toFixed(0)}`);
   // and the cars really go round faster: the AI's slowest point on its second lap vs the same oval with no banking
   const slowest = circuit => {
     const X = S.buildTrack(circuit), solo = S.createRace(2, { track: X, drivers: [S.DRIVERS.find(d => !d.player)] }), ai = solo.cars[0];

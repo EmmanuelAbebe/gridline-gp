@@ -22,10 +22,10 @@ function recordLap() {
 
 test('a recorded lap plays back along the track and gives the live delta', () => {
   const { ghost: g, T } = recordLap();
-  assert.ok(g && g.time > 25 && g.time < 40, `lap ${g?.time}`);
+  assert.ok(g && g.time > 34 && g.time < 50, `lap ${g?.time}`);   // (Elkmoor, real-F1 physics since 2026-10-24)
   assert.ok(Math.abs(g.frames.length / 3 - g.time * GHOST.hz) < 3, 'frames at GHOST.hz');
   // every playback point lies on the road
-  for (let t = 0; t < g.time; t += 0.37) {
+  for (let t = 0; t < g.time - 1 / GHOST.hz; t += 0.37) {    // (the last frame is up to 1/hz before the lap's end)
     const p = ghostPose(g, t); assert.ok(p, `pose at ${t.toFixed(2)}`);
     let best = Infinity; for (let i = 0; i < T.N; i += 2) best = Math.min(best, Math.hypot(p.x - T.PX[i], p.z - T.PZ[i]));
     assert.ok(best < T.HW + 3, `on the road at ${t.toFixed(1)} s (${best.toFixed(1)} m)`);
@@ -95,7 +95,8 @@ test('standing-start and flying laps are kept apart; old saves are sorted; a fil
 });
 
 test('the store keeps the best per circuit and class; files round-trip; broken data is ignored', () => {
-  const { ghost: g } = recordLap(), store = {};
+  // (a flying lap, flagged as the game flags them: the old saves' guess from the first frames is tested below)
+  const { ghost: g0 } = recordLap(), g = { ...g0, start: false }, store = {};
   assert.ok(keepGhost(store, g));
   assert.equal(keepGhost(store, { ...g, time: g.time + 1 }), false, 'a slower lap is not kept');
   assert.ok(keepGhost(store, { ...g, time: g.time - 1 }), 'a faster one replaces it');

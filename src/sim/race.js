@@ -26,7 +26,7 @@ export function createRace(format, { track = DEFAULT_TRACK, drivers = DRIVERS, a
   // aiFollow: how tightly the AI follows its line (× lineSlope / lineSpeed, driving.js): ALIEN drives it closer
   // aiAlien: the ALIEN level (driving.js): its own line, pedals and attack, at its own pace per circuit
   // (without ABS or traction control a few circuits need it gentler: AI.alien.paceOff)
-  if (aiAlien) aiPace = (aiAssists && (!aiAssists.abs || !aiAssists.tc) ? AI.alien.paceOff[track.id] : undefined) ?? AI.alien.pace[track.id] ?? AI.alien.pace.default;
+  if (aiAlien) aiPace = (aiAssists && (!aiAssists.abs || !aiAssists.tc) ? AI.alien.paceOff[track.id] ?? AI.alien.paceOff.default : undefined) ?? AI.alien.pace[track.id] ?? AI.alien.pace.default;
   const aiTop = Math.max(0, ...drivers.filter(d => !d.player).map(d => d.skill));   // the fastest AI driver (ALIEN spread)
   const race = { track, format: fmt, aiPace, aiFollow, aiAlien, aiTop, seed, rng, activeAero, overtake,   // active-aero.js
     laps: fmt.type === 'laps' ? fmt.laps : Infinity,               // distance; Infinity for timed / unlimited

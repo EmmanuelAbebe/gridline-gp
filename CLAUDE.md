@@ -134,6 +134,45 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
   `(1 − f)·s·s·(3 − 2s)` with `(1 − f)·smoothstep(s)`) changes the last bit and the hashes. Both take an optional other copy of `src/sim/index.js` (e.g. a worktree of an older commit) via
   `tools/load-sim.mjs` (the old single-file `.html` loader was removed 2026-10-21).
 
+## Real F1 physics (2026-10-24; user: "the car to behave like a real f1 car … its physics as close to reality as possible")
+Physics version 2 (`TUNING.PHYSICS`; records / ghosts kept per version: storageKeys `gridline.records.2`, `gridline.ghosts.2`,
+ghosts carry `physics`, validGhost refuses other versions; version 1's data is left in the old keys). `npm run car-bench`
+(tools/car-bench.mjs, tests/realism.test.js) measures the car against real ranges (`REAL`): top speed 328 / 346 km/h
+(cornering / straight mode, a real 1.2 km straight entered at 200 km/h with a charged battery), 0–100 2.68 s, 0–200 4.88 s,
+braking 4.9 g at 300 km/h and 300 → 80 km/h in 100 m, cornering 2.0 / 2.7 / 4.0 / 4.7–4.9 g at 80 / 150 / 250 / 300 km/h,
+downforce = weight at ~185 km/h, 0 of 64 turn-in combinations spin (the old car: 8). Sources: Brembo Monza data (5–5.8 g,
+349 → 87 km/h in ~137 m), 2026 rules (Honda, The Race, GPFans: 400 kW ICE + 350 kW MGU-K tapering from 290 km/h, Overtake
+mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downforce = weight ~150 km/h pre-2026), slick μ ~1.8.
+- Car (tuning.js): mass 770, grip 1.8 (was 3.0) with load sensitivity `loadSens` 0.08 per g (vehicle.js `tyreGrip(n, s, ns)`;
+  `muMin` 0.6), liftArea 4.8 m², dragArea 1.1 (Z-mode), X-mode drag cut 0.35 (was 0.24), wheelbase 3.4, track 1.6,
+  `rollFront` 0.5 = the anti-roll bars (SETUP mech now shifts it: `rollPerStep`; frontGrip / rearGrip no longer).
+- One tyre formula everywhere: `tyreGrip`; `lateralGrip` = tyreGrip(weight + downforce) less the sideways transfer's cost
+  (k·a², `latLoss`, solved); `cornerU` = the corner-speed quadratic with both (flat cornerSpeed, elevation cornerSpeedAt,
+  the planner, active-aero zones, lap-optimum). chassis.js: per-wheel loads from the last step's `c.ay` (car field) →
+  `axleGrip`. Steering assist cap recalibrated on a skidpad: `limitTurn` 1.0 + `steerMargin` 0.065 rad (the real-grip tyres
+  need 0.035–0.06 rad past the geometric angle at their limit).
+- Power unit (vehicle.js `ers`, `ERS`): ICE curve 400 kW peak; MGU-K up to 350 kW on the throttle, full from `fullRpm`
+  10000 down (torque-limited, through the gearbox), tapering 290 → 355 km/h (Overtake: from 337), fading 300–50 rpm before
+  the limiter; battery `store` 4 MJ (starts 0.9), harvest under braking ≤ 350 kW (brake-by-wire: no extra decel), lifting
+  `coastKw` 120 (≤ coastMax 1.2 m/s²), ≤ `perLap` 8.5 MJ; deployment fades below `low` 25 %; super clipping (clipKw 200)
+  above 290 km/h with the battery < 30 %. On an endless straight the car clips to ~293 km/h (VMAX 82 m/s). Car fields soc,
+  harvested, ersLap, ersKw. OVERTAKE: power +14 % → taper from 337 km/h + `energy` 0.5 MJ. HUD `#ers` gauge (yellow deploying,
+  blue harvesting).
+- Brakes: the pedal sets the pressure, the same at any speed (`brakeFull` 46 m/s² at full pedal; brakeSystem 70 = the
+  hardware cap for the plans): without ABS the fronts lock from ~79 % pedal at 330 km/h to ~32 % at 80 km/h. Brake balance
+  fixed = SETUP brakes / 100 (57 % front: the fronts lock first at every speed). Brake force pref text follows.
+- AI on it: AI.grip 0.98 (planning margin), `cleanFollow` 3 (in clean air it follows its line 3× as tightly: off the apex
+  by 2–3 m it ran wide on the exits), `craft.squeeze` 0.96 (side by side or passing: off its line, a fast corner is only flat
+  on the line), `AI.edge` (lifts when it will be past the kerb's end in 0.8 s), mistakes 3–7 % (were 6–14 %: a sure run-wide
+  on real grip), feelBrake = share of the tyres' limit (pedal = share × brakeLimit / brakeMax). ALIEN paces rescanned (clean
+  aero on / off): pace default 1.13, harrow / hautvale / northfold / saltcross 1.07, cantera 1.10, marrow 1.16; paceOff default
+  1.10, hautvale / cantera / saltcross 1.04, marrow 1.16, northfold 1.07. Racing lines regenerated (lap-optimum includes the
+  MGU-K). Gravel: rolling 0.4, bite 6.5 from 20 m/s (a car could never drive out on real grip).
+- Lap times (best, aero on, medium assists): LEGEND Elkmoor 40.1, Harrow 65.4, Cobalt 72.4, Marrow 54.2, Northfold 80.2,
+  Hautvale 76.2, Saltcross 82.4, Cantera 60.8, Ironvale Park 61.2; ALIEN 36.8 / 60.9 / 62.4 / 46.8 / 73.4 / 69.6 / 76.8 / 54.1 /
+  53.1 (no assists: LEGEND +1–6 %, ALIEN Elkmoor 39.3, Harrow 62.0, Northfold 75.6 …). sim-trace baseline changed.
+  Not done: tyre temperature / warm-up.
+
 ## Architecture
 Tunables live in data tables (config modules), not inline in the logic.
 1. **SIM** (`src/sim/`, exported as one `SIM` object from `index.js`):
@@ -245,7 +284,7 @@ Tunables live in data tables (config modules), not inline in the logic.
      createRace `aiAssists` (game: setup-store `aiAssistsOf` = the player's abs / tc / stability, at most medium's, so
      medium / high change nothing: sim-trace identical; races, AI ghosts and the racing line use it; changing assists
      mid-race updates the AI). Without ABS or TC driveAI's pedals go through `feelPedals` (`AI.feel`): brake ≤ the pedal it
-     has learnt the fronts take in a straight line (start 0.72, learns on tarmac > 25 m/s only, ≥ brakeMin 0.5) × a short-
+     has learnt the fronts take in a straight line (a share of the tyres' limit, start 0.95, learns on tarmac > 25 m/s only, 0.8 … 1.05) × a short-
      term hold-back after a front / rear lock or the rear sliding × (1 − trail·|steer|); throttle ≤ a learnt cap per gear
      (spin) × hold-back (rear slide), only a touch while drifting > 8°; counter-steer (+ counter × driftAngle once the rear
      slides, for the stability it lacks vs its usual); ALIEN plans braking from feelBrake × brakePedal. Chassis `c.lockR`.

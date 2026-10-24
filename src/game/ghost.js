@@ -2,6 +2,8 @@
 // A ghost = one valid lap: the car's pose sampled at GHOST.hz from the line to the line, plus the lap time at every
 // GHOST.split track samples (for the live delta). Kept per circuit and car class (stock / modified, like the lap
 // records): your best, and one loaded from a file (a friend's).
+import { SIM } from '../sim/index.js';
+
 export const GHOST = Object.freeze({ hz: 20, split: 20, version: 1, maxFrames: 20 * 600 });
 
 // Records the lap in progress; start() at each crossing of the line, sample() every sim step, lap() when the lap is
@@ -27,7 +29,7 @@ export function createRecorder() {
     lap(time, meta) {
       on = false;
       if (frames.length < 3 * GHOST.hz * 5 || !(time > 0)) return null;
-      return { v: GHOST.version, time, ...meta, date: meta.date ?? null, hz: GHOST.hz, split: GHOST.split, frames, splits };
+      return { v: GHOST.version, physics: SIM.TUNING.PHYSICS, time, ...meta, date: meta.date ?? null, hz: GHOST.hz, split: GHOST.split, frames, splits };
     },
   };
 }
@@ -79,6 +81,7 @@ export function expandGhost(c) {
 // is raced against the first, every later lap against the second.
 export function validGhost(g, circuits) {
   if (!g || typeof g !== 'object' || g.v !== GHOST.version || !(g.time > 0) || !Object.hasOwn(circuits, g.circuit)) return false;
+  if ((g.physics ?? 1) !== SIM.TUNING.PHYSICS) return false;         // (driven on other physics: it doesn't compare)
   if (!Array.isArray(g.frames) || g.frames.length % 3 || g.frames.length < 9 || !g.frames.every(Number.isFinite)) return false;
   return Array.isArray(g.splits) && g.hz > 0 && g.split > 0;
 }

@@ -1,9 +1,9 @@
 // Active aero and overtake mode (ACTIVE_AERO, OVERTAKE in tuning.js). Every car, player and AI, the same rules.
 // Off unless the race has `activeAero` (createRace option), so cars without it keep aeroOpen = 0: the physics then
 // multiplies by exactly 1 (sim-trace unchanged).
-import { ACTIVE_AERO as AA, OVERTAKE, AI, TUNING, EV } from './tuning.js';
+import { ACTIVE_AERO as AA, OVERTAKE, AI, TUNING, EV, ERS } from './tuning.js';
 import { STOCK } from './spec.js';
-import { G } from './vehicle.js';
+import { cornerSpeed } from './vehicle.js';
 import { wrapIdx } from './math.js';
 import { emit } from './events.js';
 /** @typedef {import('./types.js').Car} Car */
@@ -14,8 +14,8 @@ import { emit } from './events.js';
 // `look` m (racing line or centre line) is one a car with open wings takes at full speed.
 /** @param {{ N: number, ds: number, K: Float32Array, LK: Float32Array, VP: Float32Array }} t */
 export function buildAeroZones(t) {
-  const { N, ds, K, LK, VP } = t, Z = AA.zone, dfOpen = STOCK.dfK * (1 - AA.downforceCut), mu = STOCK.grip * AI.grip;
-  const flatOut = k => { const den = 1 - mu * dfOpen / Math.max(k, 1e-6); return den <= 0.02 || Math.sqrt(mu * G / Math.max(k, 1e-6) / den) >= TUNING.V_CAP; };
+  const { N, ds, K, LK, VP } = t, Z = AA.zone, open = { ...STOCK, dfK: STOCK.dfK * (1 - AA.downforceCut) };
+  const flatOut = k => cornerSpeed(k, AI.grip, open) >= TUNING.V_CAP;
   const look = Math.round(Z.look / ds), ahead = Math.round(Z.closeAhead / ds), ok = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
     let good = true;
@@ -64,6 +64,7 @@ export function updateActiveAero(race, c, inp, dt) {
     c.boostLap = c.lap; c.boostOn = false;
     const gap = c.lap >= OVERTAKE.fromLap && !c.finished ? gapAhead(race, c) : Infinity;
     c.boostLeft = gap <= OVERTAKE.gap ? OVERTAKE.seconds : 0;
+    if (c.boostLeft) c.soc = Math.min(ERS.store, c.soc + OVERTAKE.energy);    // (2026: extra energy for it)
     if (c.boostLeft) emit(c, EV.BOOST_READY, { gap });
   }
   const zoneHere = !!T.aeroZone[c.idx] && !c.pit;

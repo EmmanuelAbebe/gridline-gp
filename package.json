@@ -21,6 +21,7 @@
     "phone:watch": "vite build --watch --config phone-wheel/web/vite.config.ts",
     "sim-test": "node tools/sim-test.mjs",
     "lap-optimum": "node tools/lap-optimum.mjs",
+    "car-bench": "node tools/car-bench.mjs",
     "ghost-bench": "node tools/ghost-bench.mjs",
     "sim-trace": "node tools/sim-trace.mjs",
     "car-shot": "electron tools/car-shot.cjs",

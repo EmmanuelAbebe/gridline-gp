@@ -10,7 +10,7 @@
 //    (compression, VK > 0) presses it down, a road banked into the corner carries part of the cornering itself;
 //  - on a banked road the plan view sees only cos(bank) of the cornering the tyres have to give (see chassis.js).
 import { ELEVATION, CHASSIS, TUNING } from './tuning.js';
-import { G, brakeLimit, cornerSpeed } from './vehicle.js';
+import { G, brakeLimit, cornerSpeed, cornerU, tyreGrip } from './vehicle.js';
 import { STOCK } from './spec.js';
 import { clamp, wrapIdx } from './math.js';
 /** @typedef {import('./spec.js').Spec} Spec */
@@ -101,10 +101,11 @@ export const samplePos = (track, i, x, z) => i + ((x - track.PX[i]) * track.TX[i
 export function cornerSpeedAt(E, i, k, share = 1, s = STOCK) {
   const ak = Math.abs(k);
   if (!E) return cornerSpeed(ak, share, s);
-  const into = -Math.sign(k) * E.SN[i], cb = Math.sqrt(1 - E.SN[i] * E.SN[i]), mu = s.grip * share, ca = E.CA[i];
-  const den = ak * cb - mu * (ca * (E.VK[i] + ak * into) + s.dfK), num = mu * ca * G + G * into;
-  if (den <= 0.02 * ak) return TUNING.V_CAP;            // (a crest: VK < 0 keeps den up even when straight = the lift-off speed)
-  return clamp(Math.sqrt(Math.max(0, num) / den), ELEVATION.minCorner, TUNING.V_CAP);
+  const into = -Math.sign(k) * E.SN[i], cb = Math.sqrt(1 - E.SN[i] * E.SN[i]), ca = E.CA[i];
+  // asked: u·|k|·cb − G·into; load: ca·G + u·(ca·(VK + |k|·into) + dfK) (a crest: VK < 0 takes load away with speed)
+  const u = cornerU(Math.max(ak * cb, 1e-6), G * into, ca * G, ca * (E.VK[i] + ak * into) + s.dfK, share, s);
+  if (!(u < TUNING.V_CAP * TUNING.V_CAP)) return TUNING.V_CAP;
+  return clamp(Math.sqrt(Math.max(0, u)), ELEVATION.minCorner, TUNING.V_CAP);
 }
 // Straight-line braking the tyres allow at sample i and speed v (as vehicle.js brakeLimit, with the load the hill
 // leaves and gravity: uphill helps, downhill takes some away). Flat: brakeLimit, exactly.
@@ -112,5 +113,5 @@ export function cornerSpeedAt(E, i, k, share = 1, s = STOCK) {
 export function brakeLimitAt(E, i, v, s = STOCK) {
   if (!E) return brakeLimit(v, s);
   const n = Math.max(0, E.CA[i] * (G + v * v * E.VK[i]) + s.dfK * v * v);      // weight (less over a crest) + downforce
-  return Math.max(ELEVATION.minBrake, Math.min(s.brakeSystem, s.grip * CHASSIS.longGrip * n) + G * E.SX[i]);
+  return Math.max(ELEVATION.minBrake, Math.min(s.brakeSystem, CHASSIS.longGrip * tyreGrip(n, s)) + G * E.SX[i]);
 }

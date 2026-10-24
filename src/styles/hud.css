@@ -126,3 +126,11 @@
   #map{width:120px;height:120px}
 }
 .gear .lbl.queued{color:var(--amber)}
+
+/* the power unit's battery (ERS) under the pedals: yellow while deploying, blue while harvesting */
+#ers{grid-column:1/-1;display:flex;align-items:center;gap:6px;margin:-2px 0 6px}
+#ers i{flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
+#ers u{display:block;height:100%;width:0;background:var(--green);transition:background .2s}
+#ers.out u{background:#ffd21f}
+#ers.in u{background:#3fa9ff}
+#ers .num{min-width:3.2em;text-align:right;font-size:12px}

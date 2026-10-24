@@ -2,7 +2,7 @@
 // tangents, right-hand normals, signed curvature, bounds, and the AI's speed profile and racing line.
 import { AI, TRACK_DEFAULTS, GRID, LIMITS, TUNING, CAR, CHASSIS } from './tuning.js';
 import { STOCK } from './spec.js';
-import { G, cornerSpeed, brakeLimit } from './vehicle.js';
+import { G, cornerSpeed, brakeLimit, tyreGrip } from './vehicle.js';
 import { buildRunoff } from './runoff.js';
 import { buildPitLane } from './pit.js';
 import { buildAeroZones } from './active-aero.js';
@@ -111,8 +111,8 @@ function lineProfile({ N, ds, PX, PZ, NX, NZ, elev }, RO, brake = AI.brake, circ
     const S = STOCK;
     for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) {
       const j = (i+1)%N, u = VP[j], df = S.dfK * u * u, n = Math.max(-df, elev.CA[j] * (G + u * u * elev.VK[j]));
-      const latMax = Math.max(1, S.grip * (n + df)), lat = u * u * Math.abs(LK[j]), f = Math.sqrt(Math.max(0, 1 - (lat / latMax) ** 2));
-      const dec = Math.min(CHASSIS.brakeSystem, S.grip * CHASSIS.longGrip * (n + df)) * f + S.dragK * u * u + CAR.aero.rolling
+      const latMax = Math.max(1, tyreGrip(n + df, S)), lat = u * u * Math.abs(LK[j]), f = Math.sqrt(Math.max(0, 1 - (lat / latMax) ** 2));
+      const dec = Math.min(CHASSIS.brakeSystem, CHASSIS.longGrip * tyreGrip(n + df, S)) * f + S.dragK * u * u + CAR.aero.rolling
         + CAR.engine.engineBrake * 0.8 + G * elev.SX[j];
       VP[i] = Math.min(VP[i], Math.sqrt(u * u + 2 * Math.max(3, dec) * LS[i]));
     }
@@ -121,9 +121,9 @@ function lineProfile({ N, ds, PX, PZ, NX, NZ, elev }, RO, brake = AI.brake, circ
     // (friction circle), drag, rolling and engine braking help
     const S = STOCK, G = 9.81;
     for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) {
-      const j = (i+1)%N, u = VP[j], df = S.dfK * u * u, latMax = S.grip * (G + df), lat = u * u * Math.abs(LK[j]);
+      const j = (i+1)%N, u = VP[j], df = S.dfK * u * u, latMax = tyreGrip(G + df, S), lat = u * u * Math.abs(LK[j]);
       const f = Math.sqrt(Math.max(0, 1 - (lat / latMax) ** 2));
-      const dec = Math.min(CHASSIS.brakeSystem, S.grip * CHASSIS.longGrip * (G + df)) * f + S.dragK * u * u + CAR.aero.rolling + CAR.engine.engineBrake * 0.8;
+      const dec = Math.min(CHASSIS.brakeSystem, CHASSIS.longGrip * tyreGrip(G + df, S)) * f + S.dragK * u * u + CAR.aero.rolling + CAR.engine.engineBrake * 0.8;
       VP[i] = Math.min(VP[i], Math.sqrt(u * u + 2 * dec * LS[i]));
     }
   } else if (elev) for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) {

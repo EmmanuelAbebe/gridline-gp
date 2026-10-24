@@ -88,16 +88,18 @@ const traitOf = (c, k) => c.traits?.[k] ?? TRAITS[k];
 function feelPedals(c, thr, brk, dt) {
   const F = AI.feel;
   if (!c.assists.abs) {
+    // (feelBrake: the share of the tyres' straight-line limit it dares; the pedal for that falls with the speed)
     const straight = Math.abs(c.steer) < 0.1, learning = c.surface === 'track' && c.v > 25;   // (a lock on the grass says nothing)
+    const sp = Math.max(c.v, 1), toPedal = brakeLimit(sp, c.spec) / brakeMax(sp, c.spec), share = c.brake / toPedal;
     if (c.lockF || c.lockR || (c.brake > 0 && c.slideR > F.slide)) {             // (braking with the rear sliding: off it)
-      if (c.lockF && !c.lockR && straight && learning) c.feelBrake = Math.max(F.brakeMin, c.feelBrake * F.cut, Math.min(c.feelBrake, c.brake) * F.cut);
-      c.feelBrakeNow = Math.max(F.floor, Math.min(1, c.brake / c.feelBrake) * F.nowCut);
+      if (c.lockF && !c.lockR && straight && learning) c.feelBrake = Math.max(F.brakeMin, c.feelBrake * F.cut, Math.min(c.feelBrake, share) * F.cut);
+      c.feelBrakeNow = Math.max(F.floor, Math.min(1, share / c.feelBrake) * F.nowCut);
     } else {
-      if (brk > 0 && c.brake >= c.feelBrake * c.feelBrakeNow * 0.98) c.feelBrake = Math.min(1, c.feelBrake + F.learn * dt);
+      if (brk > 0 && share >= c.feelBrake * c.feelBrakeNow * 0.98) c.feelBrake = Math.min(F.brakeMax, c.feelBrake + F.learn * dt);
       c.feelBrakeNow = Math.min(1, c.feelBrakeNow + F.recover * dt);
     }
     // trail braking: the more it turns, the less brake (what the tyres give to the corner they can't give to stopping)
-    brk = Math.min(brk, c.feelBrake * c.feelBrakeNow * (1 - F.trail * Math.min(1, Math.abs(c.steer))));
+    brk = Math.min(brk, c.feelBrake * c.feelBrakeNow * toPedal * (1 - F.trail * Math.min(1, Math.abs(c.steer))));
   }
   if (!c.assists.tc) {
     const T = (c.feelThr ||= new Array(10).fill(F.thr)), g = Math.max(0, c.gear);
@@ -147,7 +149,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   const vp = j => VP[j] < TUNING.V_CAP * 0.97 ? VP[j] * dirty : VP[j];
   let targetV = Math.min(vp((c.idx+2)%N), vp((c.idx+6)%N)) * skill;
   // the cars around: ahead in our lane (follow / pass), alongside (keep room), close behind (pressure, defending)
-  const myP = progress(race, c), edge = HW - (alien ? AI.alien.edge : 1.5);   // (ALIEN: its line runs closer to the edges)
+  const myP = progress(race, c), edge = HW - (alien ? AI.alien.edge : 2.5);   // (ALIEN: its line runs closer to the edges)
   let lane = null, lo = -edge, hi = edge, behind = null, hunting = false, followCap = Infinity;
   for (const o of race.cars) {
     if (o === c || o.pit) continue;
@@ -167,6 +169,9 @@ export function driveAI(race, c, dt, skillOverride = 0) {
     else lo = Math.max(lo, o.lat + AI.sideGap, heading ? o.offset + AI.sideGap : -Infinity);
   }
   targetV = Math.min(targetV, followCap);
+  // side by side or passing it is off its line, so a corner is tighter than its plan (on real grip a fast corner is only
+  // flat on the line): it gives a little, as drivers do (2026-10-24)
+  if (!alien && (lo !== -edge || hi !== edge || lane)) targetV *= C.squeeze;
   // pressure 0..1: a car close behind (more mistakes)
   const press = behind ? clamp(1 - (-behind.gap) / C.behindRange, 0, 1) : 0;
   c.pressure += (press - c.pressure) * Math.min(1, dt * 2);
@@ -192,7 +197,9 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   off = lo <= hi ? clamp(off, lo, hi) : (lo + hi) / 2;
   off = clamp(off, -edge, edge);
   // (race.aiFollow > 1, ALIEN: the line followed that much more tightly, in clean air only: in traffic like the others)
-  const f = !lane && lo === -edge && hi === edge ? race.aiFollow || 1 : 1;
+  // (in clean air everyone follows its line AI.cleanFollow times as tightly: on real grip a corner taken 2–3 m off the
+  // line's apex runs wide on the exit; in traffic the loose follow stays, it is what makes passing possible)
+  const f = !lane && lo === -edge && hi === edge ? Math.max(race.aiFollow || 1, AI.cleanFollow) : 1;
   const slope = Math.min(AI.lineSlope * f * sp + 0.3, AI.lineSpeed * f) * dt;   // never cut across faster than this
   if (alien && f > 1 && Math.abs(off - c.offset) < AI.alien.snap) c.offset = off;   // ALIEN in clean air: on the line itself
   else c.offset += clamp((off - c.offset) * Math.min(1, dt * AI.lineRate * f), -slope, slope);
@@ -246,7 +253,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
     let need2 = 0;
     for (let k = 2; k <= A.brakeLook; k += k < 12 ? 2 : 4) { const w = vt((c.idx + k) % N); need2 = Math.max(need2, (sp * sp - w * w) / (2 * k * ds)); }
     // (without ABS: what its feet can do, the pedal it has learnt the fronts take × the full pedal's force)
-    const lim = (E ? brakeLimitAt(E, c.idx, sp, c.spec) : brakeLimit(sp, c.spec)) * (c.assists.abs ? 0.97 : Math.min(0.97, c.feelBrake * CHASSIS.brakePedal)), o2 = sp - target;
+    const lim = (E ? brakeLimitAt(E, c.idx, sp, c.spec) : brakeLimit(sp, c.spec)) * (c.assists.abs ? 0.97 : Math.min(0.97, c.feelBrake)), o2 = sp - target;
     if (need2 > lim * A.brakeAt || o2 > A.overBrake) brk = clamp(need2 / (lim * A.brakeScale) + Math.max(0, o2) * A.brakeGain, 0, 1);
     else thr = o2 > 0 ? clamp(1 - o2 * A.thrGain, 0, 1) : 1;
   }
@@ -257,6 +264,11 @@ export function driveAI(race, c, dt, skillOverride = 0) {
     // no throttle while asking the front tyres for more than they have (it would only push the car wide)
     if (!lost && sp > AI.recoverSpeed && (Math.abs(want) > 0.95 || c.slideF > 0.3)) thr = Math.min(thr, AI.lockThrottle);
   }
+  // running out of road on the way out (2026-10-24, real grip: under power the car runs a little wide of its line):
+  // where it will be in `look` s; past the kerb's end, ease the throttle, as a driver lifts before the track limits
+  { const E2 = AI.edge, hd = wrapA(c.h - Math.atan2(T.TZ[c.idx], T.TX[c.idx])), vlat = c.v * Math.sin(hd) + c.vy * Math.cos(hd);
+    const ahead = c.lat + vlat * E2.look, limit = HW + T.KERB + E2.room;
+    if (thr > 0 && Math.abs(ahead) > limit && Math.sign(vlat) === Math.sign(ahead)) thr *= clamp(1 - (Math.abs(ahead) - limit) / E2.fade, E2.min, 1); }
   // mistakes: weaker drivers more often; nervy ones more with a car right behind
   const chance = AI.mistakes.chance * (1 - c.skill) * 10 * (1 + C.pressureMistakes * traitOf(c, 'nerves') * c.pressure);
   if (brk > 0 && c.brake === 0 && !skillOverride && !alien && !c.mistake && sp - vmin > AI.mistakes.minDrop && race.rng() < chance) {

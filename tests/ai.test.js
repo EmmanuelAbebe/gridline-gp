@@ -37,7 +37,7 @@ test('AI: a clean lap on the tyre model, and the pace setting orders lap times',
   };
   const times = [0.8, 0.9, 1].map(lap);
   assert.ok(times[0] > times[1] && times[1] > times[2], `lap times ${times.map(t => t.toFixed(2))}`);
-  assert.ok(times[2] > 30 && times[2] < 34, `full pace ${times[2].toFixed(2)} s`);
+  assert.ok(times[2] > 37 && times[2] < 43, `full pace ${times[2].toFixed(2)} s`);   // (real-F1 physics since 2026-10-24; ~32 s before)
 }));
 
 test('AI: drives through its tyres (the car slides a little at the limit, never spins)', () => seeded(() => {
@@ -88,19 +88,19 @@ test('recovery: pointing the wrong way, the AI turns round and carries on', () =
 });
 
 test('ALIEN: faster than a great lap, clean, and it hunts down a car at that pace', () => {
-  // its own line and profile exist on every circuit; on Northfold the fastest driver laps well under the user's best
-  // (59.975 s), every lap valid, no walls
+  // its own line and profile exist on every circuit; on Northfold the fastest driver laps under 75 s (real-F1 physics
+  // since 2026-10-24; the user's best on the old car was 59.975 s) under 77 s, every lap valid, no walls
   for (const T2 of Object.entries(S.CIRCUITS).map(([id, c]) => S.buildTrack({ ...c, id }))) assert.ok(T2.alien, `${T2.id}: ALIEN line`);
   const NF = S.buildTrack({ ...S.CIRCUITS.northfold, id: 'northfold' });
   const solo = S.createRace(3, { track: NF, drivers: field(['VOS']), activeAero: true, aiFollow: 6, aiAlien: true, seed: 3 }), seen = race(solo, 300);
   const v = solo.cars[0];
-  assert.ok(v.finished && v.bestLap < 59.6, `ALIEN lap ${v.bestLap.toFixed(2)}`);
+  assert.ok(v.finished && v.bestLap < 77, `ALIEN lap ${v.bestLap.toFixed(2)}`);
   assert.ok(!seen.get(v)[S.EV.WALL] && !seen.get(v)[S.EV.CUT], 'clean');
-  // the player's car (driven here at a fixed pace, ~60 s, about the user's best) starts ahead: the ALIEN hunts it down,
+  // the player's car (driven here at a fixed pace, a little slower than the ALIEN alone) starts ahead: the ALIEN hunts it down,
   // gets past and finishes ahead, without hard contact
   const chase = S.createRace(4, { track: NF, drivers: field(['YOU', 'VOS']), activeAero: true, aiFollow: 6, aiAlien: true, seed: 1 });
-  const [m, a] = chase.cars, seen2 = race(chase, 330, { YOU: 0.975 * 1.09 });
-  assert.ok(m.bestLap > 60 && a.finished && a.finishTime < m.finishTime, `stand-in ${m.bestLap.toFixed(2)}, ALIEN ahead`);
+  const [m, a] = chase.cars, seen2 = race(chase, 400, { YOU: 0.975 * 1.03 });
+  assert.ok(m.bestLap > v.bestLap && a.finished && a.finishTime < m.finishTime, `stand-in ${m.bestLap.toFixed(2)}, ALIEN ahead`);
   assert.ok(hard(chase, seen2) === 0, 'no hard contact');
 });
 
@@ -120,7 +120,8 @@ test('without ABS / traction control the AI drives by feel: clean laps, close to
   for (const [id, alien] of [['elkmoor', false], ['harrow', true], ['marrow', true]]) {
     const off = lapsOf(id, alien, 'off'), on = lapsOf(id, alien, 'medium');
     assert.ok(off.walls === 0 && off.spins === 0, `${id}${alien ? ' ALIEN' : ''}: ${off.spins} spins, ${off.walls} wall hits`);
-    assert.ok(off.best < on.best * 1.06, `${id}: ${off.best.toFixed(2)} s without assists vs ${on.best.toFixed(2)} s with them`);
+    // (traction control matters more on real grip: corner exits are traction-limited up to 4th gear)
+    assert.ok(off.best < on.best * 1.1, `${id}: ${off.best.toFixed(2)} s without assists vs ${on.best.toFixed(2)} s with them`);
     assert.ok(off.locked > 0, 'it still locks a wheel now and then (it brakes by feel, not with ABS)');
   }
 });
