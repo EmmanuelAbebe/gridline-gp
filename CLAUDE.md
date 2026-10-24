@@ -28,7 +28,7 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
   [preview=dir]`: $BLENDER, `blender` or the Flathub app; the Flatpak has a private /tmp and its own cwd, so paths are made
   absolute and previews go to the git-excluded `tools/blender/out/`) → `src/game/models/<name>.glb`, committed (players and
   CI don't need Blender); Vite `assetsInclude` glb, imported `?url` (inlined into dist: ~+1.7 MB). `npm run models` =
-  trees. `trees.py`: spruce_a/b (19 / 15 m, the themes' 'cone') and broad_a/b (13 / 15 m, 'ball'), each `<name>-bark` +
+  trees + pits + stands. `trees.py`: spruce_a/b (19 / 15 m, the themes' 'cone') and broad_a/b (13 / 15 m, 'ball'), each `<name>-bark` +
   `<name>-leaves` objects (three's loader drops '.' from names); everything generated with seeds, textures painted with
   numpy (foliage atlas 1024×512: broadleaf cluster | spruce spray; tileable bark), leaf cards with normals out of the crown
   and vertex-colour AO; Cycles preview (its back faces flip the cards' normals: crowns look darker there than in the game).
@@ -49,8 +49,16 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
   team (× team colour) / glass (Phong) / clear / light (unlit) / panel (game canvas sign, `flipY` false: glTF v runs
   down). world.js: one group at `landmarks.pits` (bays at G.first + k·step like the doors, stands at the pit wall,
   ends at ±building/2); `Models.pits`. tests/models.test.js ties the bay to PIT.garages.
-  Plan agreed 2026-10-23: (1) pit building [done], (2) grandstands (8 m bays, seats, cantilever roof, low-poly seated
-  crowd), (3) trackside (gantry with working lights, sponsor bridge, marshal posts, TV towers, board frames); (4) Cobalt
+  Grandstands (`stands.py` → stands.glb, 2026-10-23): `main` (8 m bay: 14 rows × 13 seats, half aisles with steps + rail,
+  advert parapet, rear wall, roof cantilevered on a steel truss from a column behind) and `small` (7 rows, a canopy),
+  `<kind>_end_a / _end_b` (stepped side walls), `fan_sit` / `fan_cheer` (seated fans: shirt / skin / legs). The bays' glTF
+  extras = the seat layout (`export_extras`; models.js keeps it in geometry.userData). Game `stands.js` `buildStand(track,
+  { kind, at, side, front, n, hy, brand })`: bays walked along the offset curve (corners follow the bend, slopes step),
+  left-side stands turned round, InstancedMesh per role, advert panels from BRANDS, a fan on every seat in a random order
+  (`STANDS`: 15% cheering, skin / trousers palettes, seat colour per kind); GFX `crowd` is now the share of seats filled
+  (Quality 1, Performance 0.3). Main stand: 20 bays, 4 m behind the barrier; corner stands (scenery.js): 7 bays at the two
+  biggest stops. Full crowds: ~+1 ms per frame on the RX 9060 XT.
+  Plan agreed 2026-10-23: (1) pit building [done], (2) grandstands [done], (3) trackside (gantry with working lights, sponsor bridge, marshal posts, TV towers, board frames); (4) Cobalt
   Bay's city as a facade kit: ON HOLD for the game, built only as a performance benchmark (big textures / meshes).
   City benchmark (2026-10-23): `npm run bench:city` = `city.py` (dir=…; six towers × tex 512–4096 × detail low / mid /
   high, JPEG facades, not committed: tools/blender/out/city) + main.cjs `--track-shots=dir --bench-city=glbdir` (glbs sent

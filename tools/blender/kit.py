@@ -132,12 +132,12 @@ def to_object(name, part, mat):
   ob = bpy.data.objects.new(name, me); bpy.context.scene.collection.objects.link(ob)
   return ob
 
-def export(path, image_format='AUTO'):
+def export(path, image_format='AUTO', extras=False):
   """everything in the scene to a .glb (Y up, custom normals, the active colour attribute as COLOR_0)"""
   os.makedirs(os.path.dirname(path), exist_ok=True)
   bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=False, export_texcoords=True, export_normals=True,
             export_materials='EXPORT', export_image_format=image_format, export_yup=True, export_apply=False,
-            export_cameras=False, export_lights=False, export_vertex_color='ACTIVE')
+            export_cameras=False, export_lights=False, export_vertex_color='ACTIVE', export_extras=extras)
   print('wrote', path, os.path.getsize(path), 'bytes')
 
 # ---------------------------------------------------------------- buildings: modelled in the game's frame

@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { SIM } from '../sim/index.js';
-import { CONFIG, COLORS, GFX_PROFILES, THEMES, TERRAIN } from './config.js';
+import { CONFIG, COLORS, THEMES, TERRAIN } from './config.js';
 import { hexCss } from './util.js';
 import { buildScenery } from './scenery.js';
 import { markWorldShadows } from './shadows.js';
 import { createGround } from './ground.js';
 import { Models } from './models.js';
+import { buildStand } from './stands.js';
 
 // Static track and scenery, all under one group. Returns handles for what graphics profiles and the start lights
 // change, and dispose() to take it out of the scene (switching circuits).
@@ -321,22 +322,11 @@ export function buildWorld(parent, track, drivers) {
     }
     placeAlong(g, gi, 0, 0); }
 
-  // grandstand with crowd (left of the main straight), pit lane + garages (right)
-  const CROWD_MAX = Math.max(GFX_PROFILES.quality.crowd, GFX_PROFILES.perf.crowd);
-  let crowd = null;
+  // the main grandstand (Blender: stands.js) left of the main straight, 4 m behind the barrier: 20 bays (160 m)
+  const crowd = [];
   if (landmarks.grandstand !== undefined) {
-    const st = new THREE.Group(), mat = lambert({ color: COLORS.stand });
-    for (let k = 0; k < 6; k++) { const b = new THREE.Mesh(new THREE.BoxGeometry(160, 1.4*(k+1), 3), mat); b.position.set(0, 0.7*(k+1), -k*3); st.add(b); }
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(164, 0.4, 21), lambert({ color: COLORS.roof })); roof.position.set(0, 13, -7); st.add(roof);
-    crowd = new THREE.InstancedMesh(new THREE.BoxGeometry(0.55, 0.9, 0.5), lambert(), CROWD_MAX);
-    const m4 = new THREE.Matrix4(), col = new THREE.Color(), pal = COLORS.crowd;
-    for (let n = 0; n < CROWD_MAX; n++) {
-      const k = n % 6, x = (Math.random()-0.5)*156;
-      m4.makeTranslation(x, 1.4*(k+1)+0.45, -k*3 + (Math.random()-0.5)); crowd.setMatrixAt(n, m4);
-      crowd.setColorAt(n, col.setHex(pal[(Math.random()*pal.length)|0]));
-    }
-    st.add(crowd);
-    placeAlong(st, landmarks.grandstand, -(wallAt(0, landmarks.grandstand) + 4), 0);
+    const st = buildStand(track, { kind: 'main', at: landmarks.grandstand, side: -1, front: wallAt(0, landmarks.grandstand) + 4, n: 20, hy });
+    scene.add(st.group); crowd.push(...st.crowd);
   }
   // pit lane (SIM track.pit): entry road off the track, fast lane behind the pit wall, a box per team in front of its
   // garage, exit road back on; the pit wall starts with a TecPro nose; PIT 80 boards at the entry and the lane
@@ -411,7 +401,7 @@ export function buildWorld(parent, track, drivers) {
   return {
     applyProfile(p) {
       scenery.applyProfile(p);
-      if (crowd) crowd.count = Math.min(CROWD_MAX, p.crowd);
+      for (const c of crowd) c.mesh.count = Math.round(c.max * p.crowd);
       if (stripes) stripes.visible = p.stripes;
     },
     setStartLights(n) { gantryLights.forEach((l, i) => l.material.color.setHex(i < n ? COLORS.lampOn : COLORS.lampOff)); },

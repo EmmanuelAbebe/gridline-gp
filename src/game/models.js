@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import treesGlb from './models/trees.glb?url';
 import pitsGlb from './models/pits.glb?url';
+import standsGlb from './models/stands.glb?url';
 
 // Models made in Blender (tools/blender/*.py, `npm run models`), packed into the page as data URLs and loaded once at
 // boot (`await loadModels()` before the first world is built). Only geometry and textures are taken from the files:
@@ -11,7 +12,9 @@ import pitsGlb from './models/pits.glb?url';
 //   { name, bark, leaves } geometries (origin at the foot of the trunk, m), and Models.treeMaps = { bark, leaves } textures.
 //   Models.pits = { bay, end_a, end_b, stand: { [role]: geometry } } (tools/blender/pits.py: in the frame world.js places
 //   them in, x along the track, y up, z away from it; roles solid / team / glass / clear / light / panel).
-export const Models = { trees: null, treeMaps: null, pits: null };
+//   Models.stands = { main, small, <kind>_end_a / _end_b, fan_sit, fan_cheer: { [role]: geometry } } (stands.py; a bay's
+//   geometries carry its seat layout in userData, from the glTF extras).
+export const Models = { trees: null, treeMaps: null, pits: null, stands: null };
 
 const KIND = { spruce: 'cone', broad: 'ball' };   // the .glb's tree names (spruce_a ...) → theme kinds
 
@@ -39,6 +42,7 @@ export async function loadModels() {
   coverageMips(maps.leaves, LEAF_CUT);
   Models.trees = trees; Models.treeMaps = maps;
   Models.pits = modules(await parse(pitsGlb));
+  Models.stands = modules(await parse(standsGlb));
 }
 
 // a file of building modules: objects named `<module>-<role>` → { [module]: { [role]: geometry } }
@@ -48,7 +52,8 @@ function modules(gltf) {
   gltf.scene.traverse(o => {
     if (!o.isMesh) return;
     const [mod, role] = o.name.split('-');
-    (out[mod] ||= {})[role] = o.geometry.clone().applyMatrix4(o.matrixWorld);
+    const g = (out[mod] ||= {})[role] = o.geometry.clone().applyMatrix4(o.matrixWorld);
+    g.userData = { ...o.userData };                                    // (glTF extras)
   });
   return out;
 }

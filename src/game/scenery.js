@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { SIM } from '../sim/index.js';
 import { COLORS, BRANDS } from './config.js';
 import { Models, LEAF_CUT } from './models.js';
+import { buildStand } from './stands.js';
 
 // the Blender trees (models.js): scale range per kind (the spruces are 15 / 19 m, the broadleaf 13 / 15 m tall), how far
 // they lean (rad), how deep they sink into the ground (m), the leaves' tint per tree (brightness lo, hi, warmth ±)
@@ -121,19 +122,11 @@ export function buildScenery(scene, track, theme, { lambert, canvasTexture, plac
       const box = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.4), cam); box.position.set(0, 7.6, -s * 0.6); g.add(box);
       placeAlong(g, i, s * (R.wall[i] + 5), 0);
     }
-    const standMat = lambert({ color: COLORS.stand }), roofMat = lambert({ color: COLORS.roof });
-    for (const c of big.slice(0, 2)) {
+    for (const [k, c] of big.slice(0, 2).entries()) {     // corner stands (stands.js): 7 bays, 6 m behind the barrier
       const s = c.side ? 1 : -1, i = at(c.apex - 6), R = sideOf(s), lat = s * (R.wall[i] + 6);
-      const x = PX[i] + track.NX[i] * lat, z = PZ[i] + track.NZ[i] * lat;
-      if (!free(x, z, 3)) continue;
-      const g = new THREE.Group(), rows = 4, len = 60;
-      for (let k = 0; k < rows; k++) { const b = new THREE.Mesh(new THREE.BoxGeometry(len, 1.2 * (k + 1), 2.6), standMat); b.position.set(0, 0.6 * (k + 1), s * k * 2.6); g.add(b); }
-      const roof = new THREE.Mesh(new THREE.BoxGeometry(len + 2, 0.3, 12), roofMat); roof.position.set(0, 7.5, s * 4); g.add(roof);
-      const n = 360, crowd = new THREE.InstancedMesh(new THREE.BoxGeometry(0.55, 0.9, 0.5), lambert(), n), m4 = new THREE.Matrix4(), col = new THREE.Color();
-      for (let k = 0; k < n; k++) { const r = k % rows; m4.makeTranslation((Math.random() - 0.5) * (len - 3), 1.2 * (r + 1) + 0.45, s * (r * 2.6 + (Math.random() - 0.5)));
-        crowd.setMatrixAt(k, m4); crowd.setColorAt(k, col.setHex(COLORS.crowd[(Math.random() * COLORS.crowd.length) | 0])); }
-      g.add(crowd); toggles.crowds.push({ mesh: crowd, max: n });
-      placeAlong(g, i, lat, 0);
+      if (!free(PX[i] + track.NX[i] * lat, PZ[i] + track.NZ[i] * lat, 3)) continue;
+      const st = buildStand(track, { kind: 'small', at: i, side: s, front: R.wall[i] + 6, n: 7, hy: (j, l) => SIM.surfaceY(track, j, l), brand: 3 + k * 5 });
+      scene.add(st.group); toggles.crowds.push(...st.crowd);
     }
   }
 
@@ -219,7 +212,7 @@ export function buildScenery(scene, track, theme, { lambert, canvasTexture, plac
   return {
     applyProfile(p) {
       for (const t of toggles.trees) t.mesh.count = Math.floor(t.max * p.treeFraction);
-      for (const t of toggles.crowds) t.mesh.count = Math.floor(t.max * Math.min(1, p.crowd / 1500));
+      for (const t of toggles.crowds) t.mesh.count = Math.round(t.max * p.crowd);
       for (const h of toggles.hills) h.visible = p.hills;
     },
   };

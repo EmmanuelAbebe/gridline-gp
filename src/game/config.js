@@ -29,7 +29,7 @@ export const SFX = Object.freeze({
 export const COLORS = Object.freeze({
   grass: 0x4a7530, sand: 0xcab98f, asphalt: [0x4e5157, 0x52555b], paint: 0xf4f4f0,
   kerb: [0xf4f4f0, 0xd92b2b], barrier: [0x2b62c9, 0xe8e8e4], steel: 0x23272e, lampOn: 0xff2020, lampOff: 0x330a0a,
-  stand: 0x8f969e, roof: 0xe6e8ea, hill: 0x7f9c78, carDark: 0x18191c, tyre: 0x121212,
+  hill: 0x7f9c78, carDark: 0x18191c, tyre: 0x121212,
   turf: [0x2f7a3c, 0x2b7238], tarmacRunoff: [0x5d6066, 0x595c62], gravel: [0xa08b67, 0x9d8865], sausage: [0xf2c81a, 0x1c1c1c],
   armco: 0xaeb4ba, armcoPost: 0x6d737a, tyreBelt: [0xd92b2b, 0xf4f4f0], tecpro: [0xd92b2b, 0x2b62c9],
   concrete: 0xc3c5c8, fence: 0x9aa1a8, board: 0x1d4fa8, marshal: 0xff7a1a, water: 0x2f5f7f,
@@ -61,14 +61,14 @@ export const GFX_PROFILES = Object.freeze({
   quality: {
     label: 'Quality mode', antialias: true,
     renderScales: [2, 1.75, 1.5, 1.25, 1, 0.85, 0.7].filter(v => v <= Math.max(1, DPR) + 0.01), startScale: Math.min(DPR, 1.5),
-    lambertCars: false, treeFraction: 1, crowd: 1500, stripes: true, hills: true, fog: [220, 1500], far: 3000,
+    lambertCars: false, treeFraction: 1, crowd: 1, stripes: true, hills: true, fog: [220, 1500], far: 3000,
     shadows: { size: 4096, range: 110 },   // sun shadow map: texels, half-width (m) of the box around the view (display.js)
     note: weakGpu => weakGpu ? 'Performance mode is recommended for this GPU.' : 'Full detail.',
   },
   perf: {
     label: 'Performance mode', antialias: false,
     renderScales: [1, 0.85, 0.75, 0.65, 0.55, 0.5], startScale: 1,
-    lambertCars: true, treeFraction: 0.4, crowd: 450, stripes: false, hills: false, fog: [160, 850], far: 950,
+    lambertCars: true, treeFraction: 0.4, crowd: 0.3, stripes: false, hills: false, fog: [160, 850], far: 950,
     shadows: null,                          // the cars' soft contact shadows only
     note: () => 'No edge smoothing, lower resolution, lighter scenery, no sun shadows.',
   },
