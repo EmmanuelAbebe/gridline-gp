@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import treesGlb from './models/trees.glb?url';
 import pitsGlb from './models/pits.glb?url';
 import standsGlb from './models/stands.glb?url';
+import tracksideGlb from './models/trackside.glb?url';
 
 // Models made in Blender (tools/blender/*.py, `npm run models`), packed into the page as data URLs and loaded once at
 // boot (`await loadModels()` before the first world is built). Only geometry and textures are taken from the files:
@@ -14,7 +15,8 @@ import standsGlb from './models/stands.glb?url';
 //   them in, x along the track, y up, z away from it; roles solid / team / glass / clear / light / panel).
 //   Models.stands = { main, small, <kind>_end_a / _end_b, fan_sit, fan_cheer: { [role]: geometry } } (stands.py; a bay's
 //   geometries carry its seat layout in userData, from the glTF extras).
-export const Models = { trees: null, treeMaps: null, pits: null, stands: null };
+//   Models.trackside = { post, truss, lights, marshal, tvtower, brakeboard, advert: { [role]: geometry } } (trackside.py).
+export const Models = { trees: null, treeMaps: null, pits: null, stands: null, trackside: null };
 
 const KIND = { spruce: 'cone', broad: 'ball' };   // the .glb's tree names (spruce_a ...) → theme kinds
 
@@ -43,6 +45,7 @@ export async function loadModels() {
   Models.trees = trees; Models.treeMaps = maps;
   Models.pits = modules(await parse(pitsGlb));
   Models.stands = modules(await parse(standsGlb));
+  Models.trackside = modules(await parse(tracksideGlb));
 }
 
 // a file of building modules: objects named `<module>-<role>` → { [module]: { [role]: geometry } }

@@ -495,7 +495,7 @@ function setTrack(id) {
 // ---- boot ----
 // the test hooks: the dev server, or the desktop app's own test runs (smoke test, track shots: main.cjs DEBUG)
 if (import.meta.env.DEV || window.gridlineApp?.debug) installDebug(setTrack, () => track, () => game.player, () => { game.paused = false; toMenu(); }, trial.loadText, skill => { game.autopilot = skill; },
-  () => racingLine.set(track, trial.aiLapOf('alien', true)?.line), setPref);
+  () => racingLine.set(track, trial.aiLapOf('alien', true)?.line), setPref, () => world?.spots);
 await loadModels();                                                 // (the Blender models: trees)
 setTrack(game.setup.track);
 { const saved = Settings.get(CONFIG.storageKeys.gfx);

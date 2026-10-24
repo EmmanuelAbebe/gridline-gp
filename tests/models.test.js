@@ -54,3 +54,17 @@ test('stands.glb: grandstand bays with their seat layout, end walls, two kinds o
   }
   for (const f of ['fan_sit', 'fan_cheer']) for (const r of ['shirt', 'skin', 'legs']) assert.ok(mods[f]?.[r], `${f} ${r}`);
 });
+
+test('trackside.glb: the gantry, bridge, marshal post, TV tower and board frames; the start lights in five columns', () => {
+  const j = glbJson('../src/game/models/trackside.glb'), names = new Set(j.nodes.map(n => n.name));
+  for (const m of ['post', 'truss', 'lights', 'marshal', 'tvtower', 'brakeboard', 'advert']) assert.ok(names.has(`${m}-solid`), `${m} is there`);
+  for (const m of ['brakeboard', 'advert']) assert.ok(names.has(`${m}-panel`), `${m} has a panel for its sign`);
+  // one lamp object per column of lights (world.js lights them one by one), from the grid's left (−z) to its right
+  const lamps = [0, 1, 2, 3, 4].map(k => j.nodes.find(n => n.name === `lights-lamp${k}`));
+  assert.ok(lamps.every(Boolean), 'five lamp columns');
+  const z = lamps.map(n => { const a = j.accessors[j.meshes[n.mesh].primitives[0].attributes.POSITION]; return (a.min[2] + a.max[2]) / 2; });
+  assert.ok(z.every((v, k) => !k || v > z[k - 1]), `columns in order across the track: ${z.map(v => v.toFixed(2))}`);
+  // the truss is a 2 m section along z, the post 10 m tall (the game scales both by these)
+  const size = (n, i) => { const a = j.accessors[j.meshes[j.nodes.find(x => x.name === n).mesh].primitives[0].attributes.POSITION]; return a.max[i] - a.min[i]; };
+  assert.ok(Math.abs(size('truss-solid', 2) - 2) < 0.15 && Math.abs(size('post-solid', 1) - 10) < 0.1);
+});

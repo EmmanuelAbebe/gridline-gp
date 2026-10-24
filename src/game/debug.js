@@ -8,7 +8,7 @@ import { Sound } from './sound.js';
 import { Input } from './input.js';
 import { benchCity, clearCity } from './bench.js';
 
-export function installDebug(setTrack, current, player = () => null, toMenu = () => {}, loadGhost = () => {}, autopilot = () => {}, showLine = () => {}, setPref = () => {}) {
+export function installDebug(setTrack, current, player = () => null, toMenu = () => {}, loadGhost = () => {}, autopilot = () => {}, showLine = () => {}, setPref = () => {}, spots = () => null) {
   window.gridlineDebug = { soundReady: () => Sound.ready,
     autopilot,                                                         // autopilot(skill): the AI drives your car (0 = you)
     playerState: () => { const c = player(); return c && { slip: +c.slip.toFixed(2), slideR: +c.slideR.toFixed(2), lockF: c.lockF, kmh: Math.round(c.v * 3.6), idx: c.idx, lap: c.lap }; },
@@ -48,6 +48,7 @@ export function installDebug(setTrack, current, player = () => null, toMenu = ()
     hills() { const E = current().elev; if (!E) return null; let up = 0, down = 0;
       for (let i = 0; i < E.SX.length; i++) { if (E.SX[i] > E.SX[up]) up = i; if (E.SX[i] < E.SX[down]) down = i; }
       return [up, down].map(i => i / E.SX.length); },
+    spots,                                                              // TV towers, sponsor bridge (scenery.js spots)
     circuit: () => current().id,                                        // the circuit shown now
     length: () => current().N * current().ds,                           // its lap length (m)
     // the most banked sample (fraction of the lap) and its bank (rad), or null below 3°

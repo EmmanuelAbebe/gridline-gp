@@ -391,6 +391,9 @@ async function trackShots(win) {
     const banked = await js(`gridlineDebug.banked()`);
     if (banked) views.push(['banking', `gridlineDebug.view('${id}', ${banked[0]} - 0.02, 0, 1.4, 50)`],
       ['bankside', `gridlineDebug.view('${id}', ${banked[0]}, ${banked[1] > 0 ? -60 : 60}, 6, 0, 0)`]);
+    const spots = await js(`gridlineDebug.spots()`);                    // the TV towers and the sponsor bridge (scenery.js)
+    if (spots) { spots.tv.slice(0, 2).forEach(([f, lat], k) => views.push([`tv${k}`, `gridlineDebug.view('${id}', ${f} - 0.006, ${lat > 0 ? -2 : 2}, 4, 6, ${lat})`]));
+      if (spots.bridge !== null) views.push(['sponsor', `gridlineDebug.view('${id}', ${spots.bridge} - 0.02, 0, 2, 50)`]); }
     const bridge = await js(`gridlineDebug.bridge()`);
     if (bridge) views.push(['underbridge', `gridlineDebug.view('${id}', ${bridge[1]} - 0.012, 0, 1.4, 60)`],
       ['bridge', `gridlineDebug.view('${id}', ${bridge[1]} - 0.006, 40, 18, 12, 0)`]);

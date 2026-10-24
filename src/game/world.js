@@ -2,11 +2,11 @@ import * as THREE from 'three';
 import { SIM } from '../sim/index.js';
 import { CONFIG, COLORS, THEMES, TERRAIN } from './config.js';
 import { hexCss } from './util.js';
-import { buildScenery } from './scenery.js';
 import { markWorldShadows } from './shadows.js';
 import { createGround } from './ground.js';
 import { Models } from './models.js';
 import { buildStand } from './stands.js';
+import { buildScenery, spanTruss } from './scenery.js';
 
 // Static track and scenery, all under one group. Returns handles for what graphics profiles and the start lights
 // change, and dispose() to take it out of the scene (switching circuits).
@@ -307,18 +307,16 @@ export function buildWorld(parent, track, drivers) {
   { const mat = new THREE.MeshBasicMaterial(decal(4, { color: COLORS.paint })), geo = new THREE.PlaneGeometry(0.25, 2.6).rotateX(-Math.PI/2);
     drivers.forEach((d, slot) => { const { idx, lat } = SIM.gridSlot(track, slot, 2.9); placeAlong(new THREE.Mesh(geo, mat), idx, lat, 0.065); }); }
 
-  // start gantry with the five lights (posts just behind the barriers)
+  // start gantry with the five lights (posts just behind the barriers; Blender: trackside.py post / truss / lights)
   const gantryLights = [];
-  { const gi = landmarks.gantry ?? 2, wl = wallAt(0, gi) + 1, wr = wallAt(1, gi) + 1;
-    const mat = lambert({ color: COLORS.steel }), g = new THREE.Group(), post = new THREE.BoxGeometry(0.6, 8, 0.6);
-    // (on a banked road the feet stand at the road edges' heights; the beam stays level over the higher one)
+  { const gi = landmarks.gantry ?? 2, wl = wallAt(0, gi) + 1, wr = wallAt(1, gi) + 1, T = Models.trackside, g = new THREE.Group();
+    // (on a banked road the feet stand at the road edges' heights; the truss stays level over the higher one)
     const foot = lat => hy(gi, lat) - hy(gi, 0), lift = Math.max(0, foot(-wl), foot(wr));
-    for (const z of [-wl, wr]) { const f = foot(z), p = new THREE.Mesh(post, mat); p.scale.y = (8 + lift - f) / 8; p.position.set(0, (8 + lift + f) / 2, z); g.add(p); }
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.4, wl + wr + 0.6), mat); beam.position.set(0, 7.6 + lift, (wr - wl) / 2); g.add(beam);
-    const lampGeo = new THREE.SphereGeometry(0.28, 10, 8);
-    for (let k = 0; k < CONFIG.lights.count; k++) {
-      const l = new THREE.Mesh(lampGeo, new THREE.MeshBasicMaterial({ color: COLORS.lampOff }));
-      l.position.set(-0.62, 7.6 + lift, (k - (CONFIG.lights.count-1)/2) * 1.1); g.add(l); gantryLights.push(l);
+    spanTruss(g, T, lambert({ vertexColors: true }), -wl, wr, foot, 7.0 + lift);
+    const pod = new THREE.Group(); pod.position.set(-0.8, 7.3 + lift, 0); g.add(pod);
+    pod.add(new THREE.Mesh(T.lights.solid, lambert({ vertexColors: true })));
+    for (let k = 0; k < CONFIG.lights.count; k++) {                    // lamp k = the k-th column from the grid's left
+      const l = new THREE.Mesh(T.lights[`lamp${k}`], new THREE.MeshBasicMaterial({ color: COLORS.lampOff })); pod.add(l); gantryLights.push(l);
     }
     placeAlong(g, gi, 0, 0); }
 
@@ -399,6 +397,7 @@ export function buildWorld(parent, track, drivers) {
   markWorldShadows(scene);
 
   return {
+    spots: scenery.spots,
     applyProfile(p) {
       scenery.applyProfile(p);
       for (const c of crowd) c.mesh.count = Math.round(c.max * p.crowd);

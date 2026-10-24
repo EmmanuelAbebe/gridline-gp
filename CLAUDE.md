@@ -58,7 +58,15 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
   (`STANDS`: 15% cheering, skin / trousers palettes, seat colour per kind); GFX `crowd` is now the share of seats filled
   (Quality 1, Performance 0.3). Main stand: 20 bays, 4 m behind the barrier; corner stands (scenery.js): 7 bays at the two
   biggest stops. Full crowds: ~+1 ms per frame on the RX 9060 XT.
-  Plan agreed 2026-10-23: (1) pit building [done], (2) grandstands [done], (3) trackside (gantry with working lights, sponsor bridge, marshal posts, TV towers, board frames); (4) Cobalt
+  Trackside (`trackside.py` → trackside.glb, 2026-10-23): `post` (lattice tower leg, 10 m, scaled to the span) + `truss`
+  (2 m box-truss section along z, stretched to fill) = scenery.js `spanTruss` for the start gantry and the sponsor bridge;
+  `lights` = the start lights' pod (housing + `lamp0..4`, two lenses per column, lamp k = k-th from the grid's left: world.js
+  gantryLights, setStartLights unchanged); `marshal` (hut on a plinth, window, steps, green flag), `tvtower` (scaffold,
+  camera + operator), `brakeboard` / `advert` frames with `panel`s painted by the game (flipY false). scenery.js `where()` /
+  `instances()`: every copy of a model is one InstancedMesh per role (adverts one per brand). The sponsor banner faced away
+  from the oncoming cars (read backwards) until then. `world.spots` / `gridlineDebug.spots()` = where the TV towers and the
+  sponsor bridge went; --track-shots adds `tv0`, `tv1`, `sponsor` views.
+  Plan agreed 2026-10-23: (1) pit building [done], (2) grandstands [done], (3) trackside [done], (3) trackside (gantry with working lights, sponsor bridge, marshal posts, TV towers, board frames); (4) Cobalt
   Bay's city as a facade kit: ON HOLD for the game, built only as a performance benchmark (big textures / meshes).
   City benchmark (2026-10-23): `npm run bench:city` = `city.py` (dir=…; six towers × tex 512–4096 × detail low / mid /
   high, JPEG facades, not committed: tools/blender/out/city) + main.cjs `--track-shots=dir --bench-city=glbdir` (glbs sent

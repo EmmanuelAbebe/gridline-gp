@@ -4,6 +4,16 @@ import { COLORS, BRANDS } from './config.js';
 import { Models, LEAF_CUT } from './models.js';
 import { buildStand } from './stands.js';
 
+// a truss across the track on two lattice posts (the sponsor bridge, the start gantry; Blender: trackside.py `post` /
+// `truss`), in a group placed along the track: posts at z0 / z1 standing at foot(z) (a banked road's edges), the truss's
+// underside at y, its 2 m sections stretched a little to fill the span exactly
+export function spanTruss(g, T, mat, z0, z1, foot, y) {
+  for (const z of [z0, z1]) { const f = foot(z), p = new THREE.Mesh(T.post.solid, mat); p.position.set(0, f, z); p.scale.y = (y + 1.6 - f) / 10; g.add(p); }
+  const n = Math.max(1, Math.round((z1 - z0) / 2)), seg = (z1 - z0) / n, m = new THREE.InstancedMesh(T.truss.solid, mat, n), m4 = new THREE.Matrix4();
+  for (let k = 0; k < n; k++) m.setMatrixAt(k, m4.compose(new THREE.Vector3(0, y, z0 + k * seg), new THREE.Quaternion(), new THREE.Vector3(1, 1, seg / 2)));
+  g.add(m);
+}
+
 // the Blender trees (models.js): scale range per kind (the spruces are 15 / 19 m, the broadleaf 13 / 15 m tall), how far
 // they lean (rad), how deep they sink into the ground (m), the leaves' tint per tree (brightness lo, hi, warmth ±)
 const TREES = Object.freeze({ scale: { cone: [0.75, 1.25], ball: [0.8, 1.2] }, lean: 0.06, sink: 0.25, tint: [0.82, 1.08, 0.12], alphaTest: LEAF_CUT });
@@ -34,6 +44,7 @@ export function buildScenery(scene, track, theme, { lambert, canvasTexture, plac
   // a point is free if it is further than the barrier (+ margin) from every part of the track
   const free = (x, z, margin) => { for (let i = 0; i < N; i += 3) { const dx = x - PX[i], dz = z - PZ[i], r = reach[i] + margin; if (dx*dx + dz*dz < r*r) return false; } return true; };
   const toggles = { trees: [], hills: [], crowds: [] };
+  const spots = { tv: [], bridge: null };          // where the TV towers and the sponsor bridge went (fractions of the lap; --track-shots)
 
   // ---- the corners that matter: apex, turn-in, speed scrubbed, outside side ----
   const corners = [];
@@ -45,51 +56,49 @@ export function buildScenery(scene, track, theme, { lambert, canvasTexture, plac
     corners.push({ apex: i, turnIn: at(t), scrub: hi - VP[i], side: CK[i] > 0 ? 0 : 1 });
   }
 
+  // the Blender models (tools/blender/trackside.py, Models.trackside): one instanced mesh per model and role, each copy's
+  // matrix from placeAlong (a model faces the track at −z, so the left side's turn round)
+  const T = Models.trackside, solid = lambert({ vertexColors: true }), glass = new THREE.MeshPhongMaterial({ vertexColors: true, specular: 0x444a50, shininess: 60 });
+  const where = (i, lat, turn = lat < 0) => { const o = new THREE.Object3D(); placeAlong(o, i, lat, 0); if (turn) o.rotation.y += Math.PI;
+    o.updateMatrix(); scene.remove(o); return o.matrix.clone(); };
+  const instances = (geo, mat, list) => { if (!list.length) return null; const m = new THREE.InstancedMesh(geo, mat, list.length);
+    list.forEach((x, k) => m.setMatrixAt(k, x)); scene.add(m); return m; };
+
   // ---- braking boards: 300 / 200 / 100 m before the turn-in of every corner that needs real braking ----
   const boardTex = n => canvasTexture(64, 96, (x, w, h) => {
     x.fillStyle = '#1d4fa8'; x.fillRect(0, 0, w, h); x.fillStyle = '#f4f4f0'; x.fillRect(5, 5, w - 10, h - 10);
     x.fillStyle = '#111'; x.font = 'bold 34px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(n, w / 2, h / 2);
-  }, false);
-  const boardMats = { 100: lambert({ map: boardTex('100') }), 200: lambert({ map: boardTex('200') }), 300: lambert({ map: boardTex('300') }) };
-  const boardGeo = new THREE.PlaneGeometry(1.2, 1.8), poleGeo = new THREE.BoxGeometry(0.12, 1, 0.12), poleMat = lambert({ color: 0x8a9096 });
-  for (const c of corners) {
-    if (c.scrub < 20) continue;
-    const s = c.side ? 1 : -1, R = sideOf(s);
-    for (const m of [100, 200, 300]) {
-      const i = at(c.turnIn - Math.round(m / ds)); if (Math.abs(K[i]) > KERB_K * 2) continue;
-      const g = new THREE.Group(), b = new THREE.Mesh(boardGeo, boardMats[m]); b.position.y = 1.9; b.rotation.y = -Math.PI / 2; g.add(b);
-      const p = new THREE.Mesh(poleGeo, poleMat); p.position.y = 0.5; g.add(p);
-      placeAlong(g, i, s * Math.min(R.wall[i] - 1, HW + 5), 0);   // facing the oncoming cars
+  }, false, false);
+  { const boards = { 100: [], 200: [], 300: [] };
+    for (const c of corners) {
+      if (c.scrub < 20) continue;
+      const s = c.side ? 1 : -1, R = sideOf(s);
+      for (const m of [100, 200, 300]) {
+        const i = at(c.turnIn - Math.round(m / ds)); if (Math.abs(K[i]) > KERB_K * 2) continue;
+        boards[m].push(where(i, s * Math.min(R.wall[i] - 1, HW + 5), false));   // facing the oncoming cars
+      }
     }
+    for (const m of [100, 200, 300]) instances(T.brakeboard.panel, lambert({ map: boardTex(String(m)) }), boards[m]);
+    instances(T.brakeboard.solid, solid, [...boards[100], ...boards[200], ...boards[300]]);
   }
 
   // ---- marshal posts every ~280 m, alternating sides, behind the barrier ----
-  { const hutGeo = new THREE.BoxGeometry(2.4, 2.2, 2.2), hutMat = lambert({ color: 0xf2f2ee }), bandGeo = new THREE.BoxGeometry(2.45, 0.35, 2.25), bandMat = lambert({ color: COLORS.marshal });
-    const roofGeo = new THREE.BoxGeometry(2.8, 0.15, 2.6), flagGeo = new THREE.PlaneGeometry(0.7, 0.5), flagMat = lambert({ color: 0x2fae4a, side: THREE.DoubleSide });
-    const step = Math.round(280 / ds);
-    for (let k = 0, i = Math.round(60 / ds); i < N - 30; i += step, k++) {
-      const s = k % 2 ? 1 : -1, R = sideOf(s), g = new THREE.Group();
-      const hut = new THREE.Mesh(hutGeo, hutMat); hut.position.y = 1.1; g.add(hut);
-      const band = new THREE.Mesh(bandGeo, bandMat); band.position.y = 1.6; g.add(band);
-      const roof = new THREE.Mesh(roofGeo, lambert({ color: 0x9aa0a6 })); roof.position.y = 2.28; g.add(roof);
-      const pole = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.6, 0.06), poleMat); pole.position.set(1.4, 1.3, s * -1.2); g.add(pole);
-      const flag = new THREE.Mesh(flagGeo, flagMat); flag.position.set(1.75, 2.35, s * -1.2); g.add(flag);
-      placeAlong(g, i, s * (R.wall[i] + 3), 0);
-    }
+  { const step = Math.round(280 / ds), list = [];
+    for (let k = 0, i = Math.round(60 / ds); i < N - 30; i += step, k++) { const s = k % 2 ? 1 : -1; list.push(where(i, s * (sideOf(s).wall[i] + 3))); }
+    instances(T.marshal.solid, solid, list); instances(T.marshal.glass, glass, list);
   }
 
   // ---- advertising boards behind the barrier on the straights ----
   { const mats = BRANDS.map(([name, bg, fg]) => lambert({ map: canvasTexture(256, 40, (x, w, h) => {
       x.fillStyle = bg; x.fillRect(0, 0, w, h); x.fillStyle = fg; x.font = 'bold 28px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(name, w / 2, h / 2 + 1);
-    }, false), side: THREE.DoubleSide }));
-    const geo = new THREE.PlaneGeometry(8, 1.25), legGeo = new THREE.BoxGeometry(0.1, 0.4, 0.1), step = Math.round(70 / ds);
+    }, false, false) }));
+    const step = Math.round(70 / ds), byBrand = mats.map(() => []), all = [];
     let n = 0;
     for (let i = 10; i < N; i += step) for (const s of [-1, 1]) {
       const R = sideOf(s); if (Math.abs(CK[i]) > KERB_K || R.barrier[i] === SIM.BARRIER.concrete && R.wall[i] < HW + 5) continue;
-      const g = new THREE.Group(), b = new THREE.Mesh(geo, mats[n++ % mats.length]); b.position.y = 1.05; b.rotation.y = s > 0 ? Math.PI : 0; g.add(b);
-      for (const x of [-3.6, 3.6]) { const l = new THREE.Mesh(legGeo, poleMat); l.position.set(x, 0.2, 0); g.add(l); }
-      placeAlong(g, i, s * (R.wall[i] + 0.9), 0);
+      const m = where(i, s * (R.wall[i] + 0.9)); byBrand[n++ % mats.length].push(m); all.push(m);
     }
+    mats.forEach((mat, k) => instances(T.advert.panel, mat, byBrand[k])); instances(T.advert.solid, solid, all);
   }
 
   // ---- sponsor bridge over the straightest stretch away from the start ----
@@ -99,29 +108,22 @@ export function buildScenery(scene, track, theme, { lambert, canvasTexture, plac
       if (len > bestLen) { bestLen = len; best = i; }
     }
     if (best >= 0 && bestLen > 20) {
-      const wl = runoff[0].wall[best] + 1.5, wr = runoff[1].wall[best] + 1.5, g = new THREE.Group(), steel = lambert({ color: 0x3a4048 });
+      const wl = runoff[0].wall[best] + 1.5, wr = runoff[1].wall[best] + 1.5, g = new THREE.Group();
       // (on a banked road the feet stand at the road edges' heights; the beam stays level over the higher one)
       const foot = lat => SIM.surfaceY(track, best, lat) - SIM.surfaceY(track, best, 0), lift = Math.max(0, foot(-wl), foot(wr));
-      for (const z of [-wl, wr]) { const f = foot(z), p = new THREE.Mesh(new THREE.BoxGeometry(1, 9 + lift - f, 1), steel); p.position.set(0, (9 + lift + f) / 2, z); g.add(p); }
-      const beam = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.2, wl + wr + 1), steel); beam.position.set(0, 8.4 + lift, (wr - wl) / 2); g.add(beam);
+      spanTruss(g, T, solid, -wl, wr, foot, 7.9 + lift);
       const tex = canvasTexture(512, 64, (x, w, h) => { x.fillStyle = '#111'; x.fillRect(0, 0, w, h); x.fillStyle = '#ffc21a'; x.fillRect(0, h - 8, w, 8);
         x.font = 'bold 40px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#f4f4f0'; x.fillText('GRIDLINE GP', w / 2, h / 2 - 3); }, false);
       const banner = new THREE.Mesh(new THREE.PlaneGeometry(wl + wr - 2, 2.4), lambert({ map: tex, side: THREE.DoubleSide }));
-      banner.position.set(0, 6.6 + lift, (wr - wl) / 2); banner.rotation.y = Math.PI / 2; g.add(banner);
-      placeAlong(g, best, 0, 0);
+      banner.position.set(0, 6.6 + lift, (wr - wl) / 2); banner.rotation.y = -Math.PI / 2; g.add(banner);   // (facing the oncoming cars: it read backwards)
+      placeAlong(g, best, 0, 0); spots.bridge = best / N;
     }
   }
 
   // ---- TV camera towers and grandstands at the biggest stops ----
   const big = corners.slice().sort((a, b) => b.scrub - a.scrub);
-  { const steel = lambert({ color: 0x8d949b }), cam = lambert({ color: 0x1b1d22 });
-    for (const c of big.slice(0, 4)) {
-      const s = c.side ? 1 : -1, i = at(c.apex - 10), R = sideOf(s), g = new THREE.Group();
-      for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.12, 7, 0.12), steel); p.position.set(x, 3.5, z); g.add(p); }
-      const deck = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.2, 2.6), steel); deck.position.y = 7; g.add(deck);
-      const box = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.4), cam); box.position.set(0, 7.6, -s * 0.6); g.add(box);
-      placeAlong(g, i, s * (R.wall[i] + 5), 0);
-    }
+  { instances(T.tvtower.solid, solid, big.slice(0, 4).map(c => { const s = c.side ? 1 : -1, i = at(c.apex - 10); spots.tv.push([i / N, s * (sideOf(s).wall[i] + 5)]);
+      return where(i, s * (sideOf(s).wall[i] + 5)); }));
     for (const [k, c] of big.slice(0, 2).entries()) {     // corner stands (stands.js): 7 bays, 6 m behind the barrier
       const s = c.side ? 1 : -1, i = at(c.apex - 6), R = sideOf(s), lat = s * (R.wall[i] + 6);
       if (!free(PX[i] + track.NX[i] * lat, PZ[i] + track.NZ[i] * lat, 3)) continue;
@@ -210,6 +212,7 @@ export function buildScenery(scene, track, theme, { lambert, canvasTexture, plac
     } }
 
   return {
+    spots,
     applyProfile(p) {
       for (const t of toggles.trees) t.mesh.count = Math.floor(t.max * p.treeFraction);
       for (const t of toggles.crowds) t.mesh.count = Math.round(t.max * p.crowd);
