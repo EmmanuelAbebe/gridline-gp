@@ -154,7 +154,7 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
 - Power unit (vehicle.js `ers`, `ERS`): ICE curve 400 kW peak; MGU-K up to 350 kW on the throttle, full from `fullRpm`
   10000 down (torque-limited, through the gearbox), tapering 290 → 355 km/h (Overtake: from 337), fading 300–50 rpm before
   the limiter; battery `store` 4 MJ (starts 0.9), harvest under braking ≤ 350 kW (brake-by-wire: no extra decel), lifting
-  `coastKw` 120 (≤ coastMax 1.2 m/s²), ≤ `perLap` 8.5 MJ; deployment fades below `low` 25 %; super clipping (clipKw 200)
+  `coastKw` 120 (≤ coastMax 2.0 m/s²), part throttle `partKw` 200 from the engine's spare power, ≤ `perLap` 8.5 MJ; deployment fades below `low` 25 %; super clipping (clipKw 200)
   above 290 km/h with the battery < 30 %. On an endless straight the car clips to ~293 km/h (VMAX 82 m/s). Car fields soc,
   harvested, ersLap, ersKw. OVERTAKE: power +14 % → taper from 337 km/h + `energy` 0.5 MJ. HUD `#ers` gauge (yellow deploying,
   blue harvesting).
@@ -163,7 +163,7 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   fixed = SETUP brakes / 100 (57 % front: the fronts lock first at every speed). Brake force pref text follows.
 - AI on it: AI.grip 0.98 (planning margin), `cleanFollow` 3 (in clean air it follows its line 3× as tightly: off the apex
   by 2–3 m it ran wide on the exits), `craft.squeeze` 0.96 (side by side or passing: off its line, a fast corner is only flat
-  on the line), `AI.edge` (lifts when it will be past the kerb's end in 0.8 s), mistakes 3–7 % (were 6–14 %: a sure run-wide
+  on the line), `AI.edge` (lifts when it will be past the kerb's end in 0.8 s and is already wider than its own line: 2026-10-25, without that it lifted out of every chicane, 0.2 throttle out of both of Hautvale's last corners), mistakes 3–7 % (were 6–14 %: a sure run-wide
   on real grip), feelBrake = share of the tyres' limit (pedal = share × brakeLimit / brakeMax). ALIEN paces rescanned (clean
   aero on / off): pace default 1.13, harrow / hautvale / northfold / saltcross 1.07, cantera 1.10, marrow 1.16; paceOff default
   1.10, hautvale / cantera / saltcross 1.04, marrow 1.16, northfold 1.07. Racing lines regenerated (lap-optimum includes the
@@ -632,6 +632,13 @@ Tunables live in data tables (config modules), not inline in the logic.
      and shows results (`game.ended`). `watchRace` announces time-up and the final lap.
    - Game: `game` state object, phases menu → lights → race → done; `newRace`, `simStep` (fixed 120 Hz),
      `renderFrame` (interpolated `rx/rz/rh`), `monitorFps` (two slow 0.5 s windows < 52 fps → step down).
+
+ERS deployment map (2026-10-25, chassis.js `c.deploy`, `ERS.map`, same for every car like a real ECU): no electrical power
+within near 30 + far 150 × (1 − charge share) m of a braking zone (`track.BRK`); part throttle (< 0.95) charges from the
+engine's spare power (`partKw` 200). A full battery would make ALIEN 3.5 s faster at Hautvale (69.5 → 66.0): the cars are
+energy-starved, as the 2026 ones are; the map gained 0.9–1.5 s on the long circuits, lost 0.2–0.8 on Marrow / Cantera / Cobalt.
+Garage saves before physics 2 with the old stock mass 800 kg load as stock (garage-store.js `OLD_STOCK`; the user's car
+showed MODIFIED only because of it).
 
 ## Garage: car setup, open mods, livery (2026-10-19; user asked for a car setup screen plus a garage with a free 360°
 ## camera and open modification of looks and physics; chose "setup + open mods (flagged)" and "your car only")

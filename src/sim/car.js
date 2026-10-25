@@ -44,7 +44,7 @@ export function createCar(track, driver, slot, rng) {
     // boostAuto: a player car using overtake mode the way the AI does (the game's AUTO setting)
     aeroOpen: 0, boostLeft: 0, boostOn: false, boostLap: 0, boostAuto: false,
     // the power unit's battery (vehicle.js ers): charge (J), harvested this lap (J), the lap that counts, kW now (+ deploying)
-    soc: ERS.store * ERS.start, harvested: 0, ersLap: 0, ersKw: 0,
+    soc: ERS.store * ERS.start, harvested: 0, ersLap: 0, ersKw: 0, deploy: 1,
     // chassis (chassis.js): lateral speed (m/s, + = right), yaw rate (rad/s), last longitudinal accel,
     // how saturated each axle is (0..1), lock-up / wheel spin flags; assists (ASSISTS levels, set by createRace / the game)
     vy: 0, yawRate: 0, ax: 0, ay: 0, slideF: 0, slideR: 0, lockF: false, lockR: false, spinR: false, assists: null,

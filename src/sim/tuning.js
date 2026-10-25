@@ -45,7 +45,7 @@ export const AI = Object.freeze({
   // (2026-10-24, real grip: 6–14 % too fast was a sure run-wide; now 3–7 %: a lock-up or a wide moment)
   mistakes: Object.freeze({ chance: 0.12, over: [0.03, 0.07], length: 140, minDrop: 8 }),
   // the way out of a corner: lift when the car will be past the kerb's end (+ room m) in look s (driving.js)
-  edge: Object.freeze({ look: 0.8, room: 0.2, fade: 1.5, min: 0.2 }),
+  edge: Object.freeze({ look: 0.8, room: 0.2, fade: 1.5, min: 0.2, off: 0.5 }),   // off: m wide of its line for the full lift
   // Driving without ABS / traction control (2026-10-24; the player drives with none and the AI's all-or-nothing pedals
   // only worked because of them): driving.js feelPedals. Brake: the pedal it has learnt the fronts take in a straight
   // line (`brake`, starting value), raised by `learn` per second while nothing locks, cut by at most 1 − `cut` per
@@ -84,7 +84,7 @@ export const AI = Object.freeze({
     // 50.4, Marrow 38.0, Northfold 59.1 s; the user's best there 59.975; 2026-10-22 hills: Hautvale 58.8, Saltcross 64.8,
     // Cantera 44.5 s; 2026-10-23 Ironvale Park 42.8 s, clean at the default)
     // (2026-10-24, the real-physics car: rescanned on the new lines, the most that stays clean with active aero on and off)
-    pace: Object.freeze({ default: 1.13, harrow: 1.07, hautvale: 1.07, northfold: 1.07, saltcross: 1.07, cantera: 1.10, marrow: 1.16 }),
+    pace: Object.freeze({ default: 1.13, harrow: 1.07, hautvale: 1.07, northfold: 1.07, saltcross: 1.07, cantera: 1.09, marrow: 1.16 }),
     // with no ABS / traction control (the player's assists, createRace aiAssists; 2026-10-24): where it differs, the most
     // that stays clean with active aero on and off (Saltcross cut corners at 1.14)
     paceOff: Object.freeze({ default: 1.10, hautvale: 1.04, cantera: 1.04, saltcross: 1.04, marrow: 1.16, northfold: 1.07 }),
@@ -346,7 +346,13 @@ export const OVERTAKE = Object.freeze({ gap: 1.0, seconds: 5, fromLap: 2, energy
 export const ERS = Object.freeze({
   kw: 350, taperFrom: 290 / 3.6, taperFromBoost: 337 / 3.6, taperTo: 355 / 3.6,
   store: 4e6, start: 0.9, perLap: 8.5e6, harvestKw: 350, coastKw: 120,
-  low: 0.25, clipBelow: 0.3, clipKw: 200, minSpeed: 15, coastMax: 1.2, fullRpm: 10000,   // (the motor drives through the
+  low: 0.25, clipBelow: 0.3, clipKw: 200, minSpeed: 15, coastMax: 2.0, fullRpm: 10000,
+  // part throttle (below partBelow): the engine's spare power into the battery, up to partKw (2026-10-25: braking alone
+  // gave ~3 MJ a lap at Hautvale and the battery sat empty; the rules allow 8.5)
+  partBelow: 0.95, partKw: 200,
+  // deployment map (chassis.js c.deploy): none within near + far × (1 − charge share) m of a braking zone, full
+  // fade m further back (2026-10-25: spent wherever there was throttle, the battery was empty for most of a lap)
+  map: Object.freeze({ near: 30, far: 150, fade: 80 }),   // (the motor drives through the
                          // gearbox: its full power from fullRpm of the engine up, less below, torque-limited)   // m/s² at most from lifting (the motor's torque)   // m/s: deployment's force below this as at it (the motor's torque limit)
 });
 

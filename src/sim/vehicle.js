@@ -162,7 +162,7 @@ export function slipstream(race, c, progressOf) {
 // Returns the drive it adds and the resistance its harvesting adds (per mass). Braking harvest is free (brake-by-wire:
 // the rear brakes do less, the car brakes the same).
 /** @param {Car} c */
-function ers(c, thr, brk, v, dt, room = 1) {
+function ers(c, thr, brk, v, dt, room = 1, iceKw = 0) {
   const s = c.spec, m = s.mass, sp = Math.max(v, 0);
   if (!(dt > 0)) return { drive: 0, resist: 0 };            // (a step of no time: nothing flows; it would divide by 0)
   if (c.ersLap !== c.lap) { c.ersLap = c.lap; c.harvested = 0; }
@@ -171,13 +171,15 @@ function ers(c, thr, brk, v, dt, room = 1) {
   let drive = 0, resist = 0, kw = 0;
   if (thr >= 0.05 && sp > 0.5) {
     const full = clamp((c.soc / ERS.store) / ERS.low, 0, 1) || (c.boostOn && c.soc > 0 ? 1 : 0);
-    let p = ERS.kw * 1000 * s.power * thr * taper * full * room;
+    let p = ERS.kw * 1000 * s.power * thr * taper * full * room * (c.boostOn ? 1 : c.deploy ?? 1);
     p = Math.min(p, c.soc / dt);
     if (p > 0) { c.soc -= p * dt; drive = p / (m * Math.max(sp, ERS.minSpeed)); kw = p / 1000; }
     // super clipping: past the taper with the battery low, the MGU-K charges from the engine instead
     if (taper < 1 && thr > 0.9 && c.soc < ERS.clipBelow * ERS.store && !c.boostOn) {
       const got = charge(ERS.clipKw * 1000 * (1 - taper) * dt) / dt; resist += got / (m * sp); kw -= got / 1000;
     }
+    // part throttle: the engine runs harder than the wheels ask and the MGU-K stores the rest (the drive is the same)
+    if (thr < ERS.partBelow) { const got = charge(Math.min(ERS.partKw * 1000, iceKw * 1000 * (1 - thr)) * dt) / dt; kw -= got / 1000; }
   } else if (sp > 0.5) {
     // braking: as much as the rear brakes ask (their share ~43 %), up to harvestKw; lifting: coastKw of engine braking
     const brakeP = brk > 0 ? brakeMax(sp, s) * brk * m * sp * 0.43 : 0;
@@ -205,7 +207,7 @@ export function drivetrain(c, { thr, brk, shift = 0 }, dt) {
   let drive = driveAccel(rpm, c.gear, c.spec) * thr;
   // the MGU-K and the battery (ERS): deployment on the throttle, harvesting under braking and lifting
   // (the motor fades out from 300 to 50 rpm before the limiter, so the car never overshoots it)
-  const e = ers(c, thr, brk, v, dt, clamp((engine.limiter - 50 - rpm) / 250, 0, 1) * Math.min(1, rpm / ERS.fullRpm));
+  const e = ers(c, thr, brk, v, dt, clamp((engine.limiter - 50 - rpm) / 250, 0, 1) * Math.min(1, rpm / ERS.fullRpm), powerKw(rpm) * c.spec.power * engine.efficiency);
   drive += e.drive;
   if (c.shiftT > 0) drive *= gearbox.shiftCut;
   if (thr < 0.05 && v > 0.5) resist += engine.engineBrake * Math.min(1, rpm / engine.redline);

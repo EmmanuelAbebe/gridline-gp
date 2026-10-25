@@ -27,7 +27,7 @@ export const isModified = mods => Object.entries(validMods(mods)).some(([k, v]) 
 export function carSpec(setupIn, modsIn) {
   const s = validSetup(setupIn), m = validMods(modsIn);
   const wing = s.wing - SETUP.wing.def, mech = s.mech - SETUP.mech.def;
-  const mass = m.mass;                                   // stock 800 = CAR.mass
+  const mass = m.mass;                                   // stock = CAR.mass
   const lift = (1 + SETUP.liftPerStep * wing) * (m.downforce / 100), drag = (1 + SETUP.dragPerStep * wing) * (m.drag / 100);
   const gearK = s.gearing / gearbox.top[gearbox.top.length - 1];
   const top = gearbox.top.map(kmh => kmh * gearK);

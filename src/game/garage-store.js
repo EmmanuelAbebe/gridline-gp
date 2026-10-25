@@ -30,9 +30,12 @@ export function validLivery(l = {}) {
 }
 
 // saved JSON (or null) → { livery, setup, mods }
+// (physics 2 made the stock car 770 kg: a car saved before it with the old stock 800 kg is stock, not a mass mod)
+const OLD_STOCK = { 1: { mass: 800 } };
 export function loadGarage(json) {
-  const s = parse(json);
-  return { livery: validLivery(s.livery), setup: SIM.validSetup(s.setup), mods: SIM.validMods(s.mods) };
+  const s = parse(json), old = OLD_STOCK[s.physics ?? 1], mods = s.mods && typeof s.mods === 'object' ? { ...s.mods } : s.mods;
+  if (old && mods) for (const [k, v] of Object.entries(old)) if (mods[k] === v) delete mods[k];
+  return { physics: SIM.TUNING.PHYSICS, livery: validLivery(s.livery), setup: SIM.validSetup(s.setup), mods: SIM.validMods(mods) };
 }
 // the player's car for the race: their driver entry with the livery on it, and the spec from setup + mods
 export const playerDriver = g => ({ ...PLAYER, color: g.livery.color, accent: g.livery.accent, number: g.livery.number });

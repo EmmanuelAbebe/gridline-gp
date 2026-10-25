@@ -62,3 +62,10 @@ test('orbit camera: turns all the way round, stays above the floor, zoom and pan
   const top = orbitPosition({ yaw: 0, pitch: ORBIT.maxPitch, dist: 5, target: [0, 0.5, 0] });
   assert.ok(top[1] > 5, 'from above');
 });
+
+test('a car saved before physics 2 with the old stock mass loads as stock', () => {
+  const old = loadGarage(JSON.stringify({ mods: { power: 100, mass: 800, grip: 100, downforce: 100, drag: 100, brakes: 100 } }));
+  assert.equal(S.isModified(old.mods), false);
+  const now = loadGarage(JSON.stringify({ physics: 2, mods: { mass: 800 } }));
+  assert.equal(now.mods.mass, 800);                    // saved since: 800 kg is a real mod
+});

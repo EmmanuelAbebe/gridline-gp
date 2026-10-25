@@ -265,10 +265,13 @@ export function driveAI(race, c, dt, skillOverride = 0) {
     if (!lost && sp > AI.recoverSpeed && (Math.abs(want) > 0.95 || c.slideF > 0.3)) thr = Math.min(thr, AI.lockThrottle);
   }
   // running out of road on the way out (2026-10-24, real grip: under power the car runs a little wide of its line):
-  // where it will be in `look` s; past the kerb's end, ease the throttle, as a driver lifts before the track limits
+  // where it will be in `look` s; past the kerb's end, ease the throttle, as a driver lifts before the limits. Only as
+  // far as it is already wider than the line it means to drive (`off` m = all of it): a chicane's line crosses the road
+  // at speed (2026-10-25: the lift cut the throttle to `min` out of both of Hautvale's last corners)
   { const E2 = AI.edge, hd = wrapA(c.h - Math.atan2(T.TZ[c.idx], T.TX[c.idx])), vlat = c.v * Math.sin(hd) + c.vy * Math.cos(hd);
-    const ahead = c.lat + vlat * E2.look, limit = HW + T.KERB + E2.room;
-    if (thr > 0 && Math.abs(ahead) > limit && Math.sign(vlat) === Math.sign(ahead)) thr *= clamp(1 - (Math.abs(ahead) - limit) / E2.fade, E2.min, 1); }
+    const ahead = c.lat + vlat * E2.look, limit = HW + T.KERB + E2.room, out = (c.lat - RO[c.idx] - bias) * Math.sign(ahead);
+    if (thr > 0 && Math.abs(ahead) > limit && Math.sign(vlat) === Math.sign(ahead) && out > 0)
+      thr *= clamp(1 - (Math.abs(ahead) - limit) / E2.fade * Math.min(1, out / E2.off), E2.min, 1); }
   // mistakes: weaker drivers more often; nervy ones more with a car right behind
   const chance = AI.mistakes.chance * (1 - c.skill) * 10 * (1 + C.pressureMistakes * traitOf(c, 'nerves') * c.pressure);
   if (brk > 0 && c.brake === 0 && !skillOverride && !alien && !c.mistake && sp - vmin > AI.mistakes.minDrop && race.rng() < chance) {
