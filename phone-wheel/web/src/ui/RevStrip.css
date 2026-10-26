@@ -1,0 +1,8 @@
+.revstrip { display: flex; justify-content: center; align-items: center; gap: var(--led-gap); height: var(--led-h); }
+.revstrip .led { width: var(--led-w); height: var(--led-h); border-radius: calc(var(--led-h) / 2.5); background: var(--led-off); }
+.revstrip .led.on.g { background: var(--led-g); box-shadow: 0 0 10px var(--led-g); }
+.revstrip .led.on.r { background: var(--led-r); box-shadow: 0 0 10px var(--led-r); }
+.revstrip .led.on.b { background: var(--led-b); box-shadow: 0 0 10px var(--led-b); }
+.revstrip.now .led { animation: shift-now .16s steps(2) infinite; }
+@keyframes shift-now { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .revstrip.now .led { animation: none; } }

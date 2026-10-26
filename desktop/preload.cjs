@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('gridlineApp', {
     status: () => ipcRenderer.invoke('phone:status'),
     onInput: fn => ipcRenderer.on('phone:input', (_e, input) => fn(input)),
     feedback: fx => ipcRenderer.send('phone:feedback', fx),      // force feedback → the phone's vibration
+    dash: d => ipcRenderer.send('phone:dash', d),                // gear, revs, speed → the phone's rev strip
     onStatus: fn => ipcRenderer.on('phone:status', (_e, s) => fn(s)),
   },
 });

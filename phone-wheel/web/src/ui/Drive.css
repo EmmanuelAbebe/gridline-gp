@@ -1,29 +1,39 @@
-/* The grid: pedals full height on the outside, shift keys and the middle column above the status line. */
+/* The grid: pedals full height on the outside, shift keys and the middle column between them, the rev lights above. */
 .drive {
   position: fixed; inset: 0; display: grid; gap: var(--drive-gap); padding: var(--pedal-margin);
   grid-template-columns: var(--pedal-fr) var(--shift-fr) var(--center-fr) var(--shift-fr) var(--pedal-fr);
-  grid-template-rows: 1fr auto;
-  grid-template-areas: "p1 s1 mid s2 p2" "p1 st st st p2";
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "p1 s1 mid s2 p2";
 }
-.drive.no-shift { grid-template-columns: var(--pedal-fr) calc(var(--center-fr) + 2 * var(--shift-fr)) var(--pedal-fr); grid-template-areas: "p1 mid p2" "p1 st p2"; }
+.drive.with-dash { grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "rev rev rev rev rev" "p1 s1 mid s2 p2"; row-gap: var(--led-row-gap); }
+.drive.no-shift { grid-template-columns: var(--pedal-fr) calc(var(--center-fr) + 2 * var(--shift-fr)) var(--pedal-fr); grid-template-areas: "p1 mid p2"; }
+.drive.no-shift.with-dash { grid-template-areas: "rev rev rev" "p1 mid p2"; }
+.drive > .revstrip { grid-area: rev; }
 .drive > .pedal.left { grid-area: p1; }
 .drive > .shift.left { grid-area: s1; } .drive > .shift.right { grid-area: s2; }
 .drive > .center { grid-area: mid; }
-.drive > .statusline { grid-area: st; }
 .drive > .pedal.right { grid-area: p2; }
 
-/* the middle column: settings at the top, the wheel (tap = centre) and any extra buttons, reconnect at the bottom */
-.center { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; justify-items: center; gap: var(--gap); min-width: 0; min-height: 0; }
-.center .mid { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--gap); min-height: 0; overflow: hidden; }
-/* more than one extra button: a smaller wheel, small buttons two to a row */
-.center.crowded { --wheel-size: var(--wheel-size-crowded); }
-.center.crowded .aux { display: grid; grid-template-columns: repeat(2, auto); }
+/* the middle column: gear + speed at the top, the extra buttons under it, the small round buttons at the bottom */
+.center { display: flex; flex-direction: column; align-items: center; gap: var(--gap); min-width: 0; min-height: 0; overflow: hidden; }
+.center .dash { display: grid; justify-items: center; line-height: 1; }
+.center .gear { font: 800 var(--gear-size) / 1 var(--font); font-variant-numeric: tabular-nums; }
+.center .kmh { font-size: var(--text-m); color: var(--muted); font-variant-numeric: tabular-nums; min-height: 1.2em; margin-top: 2px; }
+.center .queued { font-size: var(--text-s); font-weight: 800; color: var(--accent); min-height: 1.2em; }
+.center .conn { font-size: var(--text-s); color: var(--muted); text-align: center; padding: 8px 0; }
+.center .conn.bad { color: var(--brake); }
+.center .aux { flex: 1 1 auto; align-content: center; display: grid; grid-template-columns: repeat(auto-fit, minmax(min-content, 1fr)); justify-items: center; }
+/* more than two extra buttons: small ones, two to a row */
+.center.crowded .aux { grid-template-columns: repeat(2, auto); }
 .center.crowded .auxbtn { height: var(--aux-size-s); width: calc(var(--aux-size-s) * 1.2); font-size: 15px; }
+.center .rounds { display: grid; grid-template-columns: repeat(2, auto); gap: var(--gap); margin-top: auto; }
 .center button.round { width: var(--round-size); height: var(--round-size); border-radius: 50%; padding: 0; font-size: var(--icon-size);
-  display: grid; place-items: center; flex-shrink: 0; }
+  display: grid; place-items: center; flex-shrink: 0; position: relative; }
 .center button.round svg { vertical-align: 0; }
+.center button.round .q { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.center button.round .q.good { background: var(--good); } .center button.round .q.fair { background: var(--fair); }
+.center button.round .q.poor, .center button.round .q.stalled { background: var(--poor); }
 .wheel-btn { background: none; border: none; padding: 0; border-radius: 50%; }
-.wheel { width: var(--wheel-size); height: var(--wheel-size); color: var(--text); transition: transform .03s linear; display: block; }
+.wheel { width: 80%; height: 80%; color: var(--text); transition: transform .03s linear; display: block; }
 .wheel-btn.centred .wheel { color: var(--accent); }
 .wheel.lock { color: var(--brake); }   /* at full lock (Center.tsx) */
-.readout { font-variant-numeric: tabular-nums; font-size: var(--text-s); color: var(--muted); }

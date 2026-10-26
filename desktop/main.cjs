@@ -102,6 +102,7 @@ ipcMain.handle('phone:start', (_e, opts) => phone.start(opts));
 ipcMain.handle('phone:stop', () => phone.stop().then(() => phone.status()));
 ipcMain.handle('phone:status', () => phone.status());
 ipcMain.on('phone:feedback', (_e, fx) => phone.feedback(fx));
+ipcMain.on('phone:dash', (_e, d) => phone.dash(d));
 app.on('will-quit', () => { phone.close(); });
 
 async function smokeTest(win) {

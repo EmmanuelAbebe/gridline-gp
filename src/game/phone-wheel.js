@@ -29,6 +29,8 @@ export const PhoneWheel = (() => {
     stop: () => api ? api.stop() : Promise.resolve(status),
     // force feedback (haptics.js) → the phone's vibration; nothing without a connected phone
     feedback(fx) { if (api?.feedback && status.phones) api.feedback(fx); },
+    // the dash (gear, revs, speed) → the phone's rev strip and gear
+    dash(d) { if (api?.dash && status.phones) api.dash(d); },
     pad() {
       if (!status.phones) return null;
       snapshot.axes[0] = input.s; snapshot.timestamp = input.t;

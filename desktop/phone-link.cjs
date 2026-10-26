@@ -8,7 +8,7 @@
 // Links (phone-net.cjs): wifi, bluetooth (tethering; the address is watched and the certificate follows it), usb.
 //
 //   const link = createPhoneLink({ dataDir, pagesDir, onInput, onStatus });
-//   await link.start({ link: 'wifi' | 'bluetooth' | 'usb', port }); link.status(); link.feedback(fx); await link.stop();
+//   await link.start({ link: 'wifi' | 'bluetooth' | 'usb', port }); link.status(); link.feedback(fx); link.dash(d); await link.stop();
 const fs = require('node:fs');
 const path = require('node:path');
 const net = require('node:net');
@@ -246,8 +246,14 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
     const text = JSON.stringify({ fx });
     for (const ws of wss.clients) if (ws.readyState === 1 && ws.bufferedAmount < 4096) ws.send(text);
   }
+  // the dash (2026-10-26): { g gear, q queued downshift, r revs 0..1 (1 = shift now), v km/h } or {} = not driving
+  function dash(d) {
+    if (!d || typeof d !== 'object') return;
+    const text = JSON.stringify({ dash: d });
+    for (const ws of wss.clients) if (ws.readyState === 1 && ws.bufferedAmount < 4096) ws.send(text);
+  }
 
-  return { start, stop, status, feedback, close: async () => { clearInterval(watchdog); await stop(); } };
+  return { start, stop, status, feedback, dash, close: async () => { clearInterval(watchdog); await stop(); } };
 }
 
 module.exports = { createPhoneLink, parseMessage, pairingToken, ensureCert, BUTTONS };

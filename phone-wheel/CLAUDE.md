@@ -36,6 +36,15 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   and shift keys are a face on a base that sinks when pressed. Shift keys send `flick.up` / `flick.down` (engine.tap),
   `layout.shiftButtons` / `layout.swapShift` (upshift beside the brake by default, as sketched). Quick sliders are gone
   from the screen (and `layout.quickSliders` from the profile, 2026-10-21); new profiles have one extra button, BOX (X).
+- Driving screen round 2 (2026-10-26; user picked a rev strip from four mock-ups, then: no status line, gear + speed as
+  high as possible, the important buttons under them): `RevStrip` = 15 LEDs along the top (green / red / blue, all blue
+  flashing = shift now) from Gridline GP's `{dash: {g, q, r, v}}` (gear, queued downshift, revs 0..1, km/h; {} = not
+  driving; main.js `sendPhoneDash` → preload `phone.dash` → phone-link.cjs `dash`), `engine.dash`; middle column = gear +
+  km/h (or the connection state while nothing comes), the extra buttons, then wheel (tap = centre) / Settings /
+  Reconnect (dot = link quality, details in its title) / full screen. Layout → Rev lights and gear (`layout.dash`).
+  The status line is gone. Steering: straight ahead moves only with the Center buttons; the reference direction is
+  decided from the first reading and kept (a 90° turn = portrait used to switch the steering round); GravitySensor
+  preferred; full lock is felt from the phone's own steering.
 - PC → phone also `{fx: {k, kh, o, s, h?, g?}}` = Gridline GP's force feedback (src/game/haptics.js), played by
   `web/src/engine/haptics.ts` `planFeedback` (pure, test/haptics.test.ts): a motor is only on/off, so strength = pulse
   width; kerbs = regular ripple kept in phase when renewed, gravel/grass = uneven rumble, slides = fine buzz, hits /

@@ -413,6 +413,15 @@ function dashGear(p, onLights, thr) {
   return { gear: onLights ? 'N' : p.gear === -1 ? 'R' : String(p.gear), next: !onLights && p.downQueue > 0 ? p.gear - p.downQueue : null,
     revs: SIM.clamp((rpm - REV_FROM) / (V.autoUp - REV_FROM), 0, 1) };
 }
+// the phone wheel's rev strip and gear (phone-wheel/web: Dash): 20 a second while it changes, once a second otherwise
+// (a phone that connects later gets it too), {} = not driving
+const phoneDash = { next: null, sent: '', wait: 0, since: 0 };
+function sendPhoneDash(dt, driving) {
+  const d = driving && phoneDash.next ? phoneDash.next : {}, text = JSON.stringify(d);
+  phoneDash.since += dt;
+  if ((phoneDash.wait -= dt) > 0 || (text === phoneDash.sent && phoneDash.since < 1)) return;
+  phoneDash.sent = text; phoneDash.wait = 0.05; phoneDash.since = 0; PhoneWheel.dash(d);
+}
 function renderFrame(dt) {
   const { race, player } = game, cam = CameraRig.mode;
   crews.update(race, dt, Display.camera.position);
@@ -432,6 +441,7 @@ function renderFrame(dt) {
 
   const drive = Input.drive, onLights = game.phase === PHASE.LIGHTS;
   const gi = dashGear(player, onLights, drive.thr);
+  phoneDash.next = { g: gi.gear, q: gi.next ?? 0, r: Math.round(gi.revs * 50) / 50, v: Math.round(SIM.speedOf(player) * 3.6) };
   Hud.updateDash({
     kmh: Math.round(SIM.speedOf(player) * 3.6), gear: gi.gear, gearNext: gi.next, revs: gi.revs, slip: onLights ? 0 : player.slip,
     steer: player.finished ? 0 : player.steer, steerIn: player.finished ? 0 : player.steerIn, thr: drive.thr, brk: drive.brk,
@@ -481,6 +491,7 @@ function frame(now) {
     renderFrame(dt);
   }
   else Display.render();
+  sendPhoneDash(dt, game.race && game.player && !game.player.finished && (game.phase === PHASE.RACE || game.phase === PHASE.LIGHTS));
   { const p = game.player, m = haptics.frame(running && game.phase === PHASE.RACE && p && !p.finished ? p : null, dt); if (m) PhoneWheel.feedback(m.fx); }
   monitorFps(dt);
 }

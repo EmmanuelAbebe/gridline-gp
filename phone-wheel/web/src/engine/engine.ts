@@ -4,7 +4,8 @@
 //   phone → PC  {s, g, b, k} at ~60 Hz (steer −1..1, gas 0..1, brake 0..1, button bitmask), every 500 ms plus
 //               p (probe sequence) and r (our last round trip); a = 1 away (presence.ts: on a table / left alone 10 s), sent with
 //               everything else at 0 until the driver taps "I'm here"
-//   PC → phone  {pong, hz, gap} for each probe, and {fx} = force feedback (haptics.ts);  GET /check?t= tells a refused socket "wrong pairing code" apart
+//   PC → phone  {pong, hz, gap} for each probe, {fx} = force feedback (haptics.ts), {dash: {g, q, r, v}} = gear,
+//               queued downshift, revs 0..1 (1 = shift now), km/h ({} = not driving; Gridline GP only);  GET /check?t= tells a refused socket "wrong pairing code" apart
 import { steerCurve, bitOf, type Config, type ButtonId } from '../settings/settings.ts';
 import { idlePlan, planFeedback, type Fx } from './haptics.ts';
 import { createPresence, type Away } from './presence.ts';
@@ -13,6 +14,8 @@ export type Phase = 'idle' | 'connecting' | 'connected' | 'lost' | 'unpaired';
 export interface Status { phase: Phase; retryAt: number; attempts: number }
 
 export const state = { steer: 0, gas: 0, brake: 0, gotMotion: false, paused: false, preview: false, away: 0 as Away };
+// the game's dash (Drive: rev strip, gear, speed); g '' = nothing from the game
+export const dash = { g: '', q: 0, r: 0, v: 0 };
 export const link = { rtt: null as number | null, rttMax: null as number | null, hz: 0, gap: 0, sendGap: 0, quality: '' as '' | 'good' | 'fair' | 'poor' | 'stalled' };
 let status: Status = { phase: 'idle', retryAt: 0, attempts: 0 };
 export const getStatus = () => status;
@@ -118,6 +121,13 @@ export function testFeedback(fx: Fx, ms = 1500) {
     if (performance.now() >= testUntil) { clearInterval(testTimer); testUntil = 0; feedback({}, true); return; }
     feedback(once, true);
   }, 50);
+}
+
+// ---------- the game's dash
+const num = (v: unknown, lo: number, hi: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : 0);
+export function setDash(d: Record<string, unknown>) {
+  dash.g = typeof d.g === 'string' ? d.g.slice(0, 2) : '';
+  dash.q = num(d.q, 0, 9); dash.r = num(d.r, 0, 1); dash.v = Math.round(num(d.v, 0, 999));
 }
 
 // ---------- tilt → steering angle
@@ -250,10 +260,12 @@ function connect() {
     let d: unknown = null; try { d = JSON.parse(e.data); } catch { return; }
     if (d && typeof (d as { pong?: unknown }).pong === 'number') onPong(d as { pong: number }, performance.now());
     else if (d && typeof (d as { fx?: unknown }).fx === 'object') feedback((d as { fx: Fx }).fx);
+    else if (d && typeof (d as { dash?: unknown }).dash === 'object') setDash((d as { dash: Record<string, unknown> }).dash);
   };
   sock.onclose = async () => {
     if (ws !== sock) return;                    // replaced by reconnect()
     feedback({});                               // nothing more is coming: let the motor stop
+    setDash({});
     // a browser can't see why a WebSocket failed, so ask whether the pairing code is the problem
     let paired: boolean | null = null;
     try { paired = (await fetch(`/check?t=${t}`, { cache: 'no-store' })).ok; } catch { paired = null; }
