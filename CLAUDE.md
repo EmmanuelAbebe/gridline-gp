@@ -172,6 +172,17 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   Hautvale 76.2, Saltcross 82.4, Cantera 60.8, Ironvale Park 61.2; ALIEN 36.8 / 60.9 / 62.4 / 46.8 / 73.4 / 69.6 / 76.8 / 54.1 /
   53.1 (no assists: LEGEND +1–6 %, ALIEN Elkmoor 39.3, Harrow 62.0, Northfold 75.6 …). sim-trace baseline changed.
   Not done: tyre temperature / warm-up.
+- Behaviour audit (2026-10-25; user: "reevaluate the car behaviour in different conditions"; launches, straight / trail
+  braking, skidpad, lift-off, power-on, phone full tilt, off track, low speed, full-field AI races; no NaNs, soc in range,
+  steady grip within 5 % of the plan). Fixed, the user's choice: (1) trail-braking locked the rears first at a light pedal
+  (28° spins at 200 km/h, 35 % pedal; 50 % only understeered) → `CHASSIS.brakeMigration` 0.05 (balance + 5 % × (1 − pedal),
+  as the real setting): no trail spins at 57 %. (2) a linear pedal left 15 % stable and 30 % a spin at the limit in 3rd
+  without TC → torque map `engine.pedalMap` 1.6 (drive and ERS ∝ pedal^1.6; stable to ~45 %); the AI presses
+  torque^(1/1.6) (driveAI end: its controllers ask for torque; without it the faster car got stuck behind in
+  racecraft tests). (3) `slideLong` 0.9 → 0.75: a locked stop from 300 is now 123 m vs 106 m with ABS (was 107).
+  ALIEN paceOff hautvale 1.02, saltcross 1.02 (clean). Known, left: holding the brake at rest reverses to 32 km/h (stop /
+  reverse on hold); lift-off at the limit in 3rd gives 15–17° (catchable); a sudden 2× lock at 200 km/h with no assists
+  snaps (the speed-sensitive phone steering never asks for it). Scratch tools only (scratchpad audit/*.mjs).
 
 ## Architecture
 Tunables live in data tables (config modules), not inline in the logic.

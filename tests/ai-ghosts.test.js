@@ -23,7 +23,7 @@ test('the live rival drives the list\'s laps, and the gap follows', () => {
   const lap = aiLapRun(T, L.pro), r = createRival(T, 'pro', L.pro), laps = [];
   const you = SIM.createRace({ type: 'unlimited' }, { track: T, drivers: [SIM.DRIVERS[1]], seed: 5 }), y = you.cars[0];
   let gaps = 0;
-  for (let s = 0; s < 120 * 110; s++) {
+  for (let s = 0; s < 120 * 140; s++) {
     const before = r.car.lap; r.step(1 / 120); if (r.car.lap !== before) laps.push(r.car.lastLap);
     you.t += 1 / 120; SIM.driveAI(you, y, 1 / 120, 0.8); y.events.length = 0;
     const g = rivalGap(y, you.t, r);

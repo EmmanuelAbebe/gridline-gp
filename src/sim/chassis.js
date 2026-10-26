@@ -136,7 +136,8 @@ export function stepChassis(race, c, inp, dt) {
     const alphaR = Math.atan2(vy - B_REAR * w, Math.max(sp, 1));
     // brakes split by axle load (+ a front bias), drive on the rear
     const brake = brakeMax(sp, S) * inp.brk;
-    const bias = S.brakeBias;                          // (fixed: brake-by-wire keeps the rear share with the MGU-K harvesting)
+    // (brake-by-wire keeps the rear share with the MGU-K harvesting; it moves forward as the pedal comes off: migration)
+    const bias = Math.min(1, S.brakeBias + CH.brakeMigration * (1 - inp.brk));
     // ABS / traction control hold the tyres at `limit` × what they can give: medium / high 0.97, low 0.985 (2026-10-24: low
     // used to allow 1.045 / 1.095, past the grip, so its wheels locked and spun as with none)
     const absLimit = A.abs > 0 ? 0.97 + 0.03 * (1 - A.abs) : null, tcLimit = A.tc > 0 ? 0.97 + 0.03 * (1 - A.tc) : null;

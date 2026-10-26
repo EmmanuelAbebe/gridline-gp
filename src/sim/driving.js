@@ -1,6 +1,6 @@
 // The player's and the AI's driving. Every car is the same car (vehicle.js engine/gearbox/aero, chassis.js tyres);
 // the player and the AI only decide steering, throttle, brake and shifts.
-import { AI, ASSISTS, CHASSIS, TUNING, SPEED_STEER } from './tuning.js';
+import { AI, ASSISTS, CHASSIS, TUNING, SPEED_STEER, CAR } from './tuning.js';
 import { STOCK } from './spec.js';
 import { clamp, wrapA, wrapIdx } from './math.js';
 import { progress } from './race.js';
@@ -281,6 +281,8 @@ export function driveAI(race, c, dt, skillOverride = 0) {
     brk = 0;
   }
   if (!c.assists.abs || !c.assists.tc) [thr, brk] = feelPedals(c, thr, brk, dt);
+  // (everything above asks for a share of the torque; the pedal that gives it, through the torque map: vehicle.js)
+  if (thr > 0) thr **= 1 / CAR.engine.pedalMap;
   c.brake = brk; c.thr = thr;
   updateActiveAero(race, c, { thr, brk }, dt);
   updateWear(race, c, thr, dt);

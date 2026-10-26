@@ -95,7 +95,8 @@ test('stability: full lock held at 250 km/h stays controlled on medium, rotates 
     const race = S.createRace(1, { track: OPEN, drivers: S.DRIVERS.filter(d => d.player) }), c = race.cars[0];
     c.assists = S.ASSISTS[assists]; c.v = 250 / 3.6; c.gear = 6; let maxDrift = 0;
     for (let i = 0; i < 120 * 1.2; i++) {
-      race.t += DT; S.drivePlayer(race, c, { thr: 0.6, brk: 0, steer: 1, analog: true }, DT);
+      // (0.8 pedal ≈ 0.7 of the torque through the torque map: 0.6 as with the old linear pedal)
+      race.t += DT; S.drivePlayer(race, c, { thr: 0.8, brk: 0, steer: 1, analog: true }, DT);
       assert.equal(c.surface, 'track'); maxDrift = Math.max(maxDrift, Math.abs(S.driftAngle(c)));
     }
     return maxDrift;

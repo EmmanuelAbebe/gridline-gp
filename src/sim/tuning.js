@@ -87,7 +87,7 @@ export const AI = Object.freeze({
     pace: Object.freeze({ default: 1.13, harrow: 1.07, hautvale: 1.07, northfold: 1.07, saltcross: 1.07, cantera: 1.09, marrow: 1.16 }),
     // with no ABS / traction control (the player's assists, createRace aiAssists; 2026-10-24): where it differs, the most
     // that stays clean with active aero on and off (Saltcross cut corners at 1.14)
-    paceOff: Object.freeze({ default: 1.10, hautvale: 1.04, cantera: 1.04, saltcross: 1.04, marrow: 1.16, northfold: 1.07 }),
+    paceOff: Object.freeze({ default: 1.10, hautvale: 1.02, cantera: 1.04, saltcross: 1.02, marrow: 1.16, northfold: 1.07 }),
     // in traffic (a car ahead in its lane, alongside, or in a wake) its pace eases to `traffic` × that
     // over trafficTime s: the full push only works on the line in clean air (it put cars into walls in traffic)
     // clean air (no car in its lane or alongside, slip < cleanSlip) = 1; deep in a wake (slip > wakeSlip) or alongside
@@ -126,6 +126,9 @@ export const CAR = Object.freeze({
     // the electric motor's 350 kW on top: ERS). Until 2026-10-24 one 750 kW curve.
     power: [[3000, 53], [5000, 139], [7000, 229], [9000, 320], [10500, 381], [11500, 400], [12500, 392]],
     efficiency: 0.92,
+    // torque map (2026-10-25): the pedal asks for torque ∝ pedal^pedalMap, as a real F1 car's progressive maps (a linear
+    // pedal left 15 % stable and 30 % a spin at the limit in 3rd without traction control)
+    pedalMap: 1.6,
     engineBrake: 1.4, // extra deceleration off the throttle at redline, scaled by rpm
   }),
   gearbox: Object.freeze({
@@ -187,6 +190,9 @@ export const CHASSIS = Object.freeze({
   aeroYaw: 0.0025,
   aeroArm: 1.5,         // m behind the centre of mass where that side force acts
   aeroFront: 0.45,      // share of the downforce on the front axle (more = more oversteer)
+  // brake migration (2026-10-25), as the real cars' setting: the balance moves `brakeMigration` further forward at a
+  // light pedal than at full (linear): trail-braking into a corner locked the rears first (a spin) at 57 %
+  brakeMigration: 0.05,
   cgHeight: 0.25,       // m: longitudinal load transfer = accel × cgHeight / wheelbase
   gyration: 1.2,        // m: yaw inertia = mass × gyration²
   peakSlip: 0.1,        // rad (~5.7°): front slip angle of peak grip
@@ -201,7 +207,8 @@ export const CHASSIS = Object.freeze({
   // limit, so the fronts lock first); until 2026-10-24 the load share + 0.12
   rearBrakeMargin: 0.2, // with the stability assist on, rear braking keeps this share of grip spare for cornering
   lockLateral: 0.35,    // cornering grip left on a locked or spinning axle
-  slideLong: 0.9,       // braking / drive force of a sliding tyre, relative to its peak
+  slideLong: 0.75,      // braking / drive force of a sliding tyre, relative to its peak (2026-10-25: 0.9 made a locked stop
+                        // from 300 km/h only 1 % longer than with ABS; real locked slicks lose a good deal more)
   maxSteer: 0.3,        // rad of road-wheel angle at full lock (no steering assist)
   // player analog steering at speed (driving.js, inp.calm 0..1): the slope near the centre is cut so a small tilt
   // turns the car like the original game (37 m/s² at full tilt; the tyres give ~1.35× their share at small angles,

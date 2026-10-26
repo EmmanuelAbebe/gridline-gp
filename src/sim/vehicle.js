@@ -162,14 +162,14 @@ export function slipstream(race, c, progressOf) {
 // Returns the drive it adds and the resistance its harvesting adds (per mass). Braking harvest is free (brake-by-wire:
 // the rear brakes do less, the car brakes the same).
 /** @param {Car} c */
-function ers(c, thr, brk, v, dt, room = 1, iceKw = 0) {
+function ers(c, thr, brk, v, dt, room = 1, iceKw = 0, pedal = thr) {
   const s = c.spec, m = s.mass, sp = Math.max(v, 0);
   if (!(dt > 0)) return { drive: 0, resist: 0 };            // (a step of no time: nothing flows; it would divide by 0)
   if (c.ersLap !== c.lap) { c.ersLap = c.lap; c.harvested = 0; }
   const charge = j => { const room = Math.min(ERS.store - c.soc, ERS.perLap - c.harvested), got = Math.max(0, Math.min(j, room)); c.soc += got; c.harvested += got; return got; };
   const from = c.boostOn ? ERS.taperFromBoost : ERS.taperFrom, taper = clamp((ERS.taperTo - sp) / (ERS.taperTo - from), 0, 1);
   let drive = 0, resist = 0, kw = 0;
-  if (thr >= 0.05 && sp > 0.5) {
+  if (pedal >= 0.05 && sp > 0.5) {
     const full = clamp((c.soc / ERS.store) / ERS.low, 0, 1) || (c.boostOn && c.soc > 0 ? 1 : 0);
     let p = ERS.kw * 1000 * s.power * thr * taper * full * room * (c.boostOn ? 1 : c.deploy ?? 1);
     p = Math.min(p, c.soc / dt);
@@ -204,10 +204,11 @@ export function drivetrain(c, { thr, brk, shift = 0 }, dt) {
   if (c.gear === -1) { c.rpm = engine.idle + brk * 3000; c.drive = 0; return { drive: 0, resist, reverse: true }; }
   const rpm = engineRpm(v, c.gear, thr, c.spec);
   c.rpm = rpm;
-  let drive = driveAccel(rpm, c.gear, c.spec) * thr;
+  const tq = thr ** engine.pedalMap;                // the torque the pedal asks for (torque map)
+  let drive = driveAccel(rpm, c.gear, c.spec) * tq;
   // the MGU-K and the battery (ERS): deployment on the throttle, harvesting under braking and lifting
   // (the motor fades out from 300 to 50 rpm before the limiter, so the car never overshoots it)
-  const e = ers(c, thr, brk, v, dt, clamp((engine.limiter - 50 - rpm) / 250, 0, 1) * Math.min(1, rpm / ERS.fullRpm), powerKw(rpm) * c.spec.power * engine.efficiency);
+  const e = ers(c, tq, brk, v, dt, clamp((engine.limiter - 50 - rpm) / 250, 0, 1) * Math.min(1, rpm / ERS.fullRpm), powerKw(rpm) * c.spec.power * engine.efficiency, thr);
   drive += e.drive;
   if (c.shiftT > 0) drive *= gearbox.shiftCut;
   if (thr < 0.05 && v > 0.5) resist += engine.engineBrake * Math.min(1, rpm / engine.redline);
