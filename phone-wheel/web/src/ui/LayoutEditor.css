@@ -1,0 +1,14 @@
+/* The layout editor: a box over every element, a bar with the buttons */
+.layout-editor { position: fixed; inset: 0; z-index: 30; touch-action: none; background: color-mix(in srgb, var(--bg) 35%, transparent); }
+.ed-box { position: absolute; box-sizing: border-box; border: 2px dashed color-mix(in srgb, var(--accent) 70%, transparent); border-radius: var(--radius-s);
+  background: color-mix(in srgb, var(--accent) 8%, transparent); display: grid; place-items: center; overflow: hidden; touch-action: none; cursor: move; }
+.ed-box.sel { border-style: solid; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); z-index: 1; }
+.ed-label { font-size: var(--text-s); font-weight: 800; letter-spacing: .08em; color: var(--text); background: color-mix(in srgb, var(--bg) 75%, transparent);
+  padding: 2px 6px; border-radius: 6px; pointer-events: none; white-space: nowrap; }
+.ed-size { position: absolute; right: 0; bottom: 0; width: 26px; height: 26px; cursor: nwse-resize; touch-action: none;
+  background: linear-gradient(135deg, transparent 50%, var(--accent) 50%); border-bottom-right-radius: var(--radius-s); }
+.ed-bar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2; display: flex; gap: var(--gap); align-items: center;
+  background: var(--panel); border: var(--border) solid var(--line); border-radius: var(--radius-m); padding: 6px 8px; box-shadow: 0 6px 24px #0008; max-width: calc(100vw - 16px); }
+.ed-bar.down { top: auto; bottom: 8px; }
+.ed-info { font-size: var(--text-s); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; padding: 0 4px; }
+.ed-bar button { flex-shrink: 0; }

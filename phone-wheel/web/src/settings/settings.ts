@@ -25,7 +25,10 @@ export type ButtonSize = 's' | 'm' | 'l';
 // shiftButtons: the UPSHIFT / DOWNSHIFT keys beside the pedals (they send flick.up / flick.down); swapShift puts
 // upshift beside the gas instead of the brake.
 // putDown: stop sending and ask "are you there?" when the phone is put down flat or dropped (engine/presence.ts)
-export interface LayoutCfg { swapPedals: boolean; pedalSize: number; buttonSize: ButtonSize; showWheel: boolean; haptics: boolean; shiftButtons: boolean; swapShift: boolean; putDown: boolean; dash: boolean }
+export interface LayoutCfg { swapPedals: boolean; pedalSize: number; buttonSize: ButtonSize; showWheel: boolean; haptics: boolean; shiftButtons: boolean; swapShift: boolean; putDown: boolean; dash: boolean; free: FreeLayout | null }
+// Your own layout (Layout → Move and resize): each element's box as shares of the screen (0..1); null = the standard grid
+export interface Rect { x: number; y: number; w: number; h: number }
+export type FreeLayout = Record<string, Rect>
 // force feedback from the game (engine/haptics.ts): strength × every effect, and which effects play
 export interface FeedbackCfg { on: boolean; strength: number; hits: boolean; kerbs: boolean; offTrack: boolean; slides: boolean; shifts: boolean; lock: boolean }
 export interface Config { steer: SteerCfg; gas: PedalCfg; brake: PedalCfg; buttons: ButtonCfg[]; flick: FlickCfg; layout: LayoutCfg; feedback: FeedbackCfg }
@@ -42,7 +45,7 @@ export const DEFAULTS: Config = {
   // flick a thumb sideways toward the screen centre while on a pedal to shift: brake = down, gas = up
   // (`distance` px within `time` ms, mostly sideways); each flick taps the bound button once
   flick: { on: true, distance: 40, time: 160, down: 'LB', up: 'RB' },
-  layout: { swapPedals: false, pedalSize: 1, buttonSize: 'm', showWheel: true, haptics: true, shiftButtons: true, swapShift: false, putDown: true, dash: true },
+  layout: { swapPedals: false, pedalSize: 1, buttonSize: 'm', showWheel: true, haptics: true, shiftButtons: true, swapShift: false, putDown: true, dash: true, free: null },
   feedback: { on: true, strength: 1, hits: true, kerbs: true, offTrack: true, slides: true, shifts: false, lock: true },
 };
 
@@ -63,6 +66,23 @@ function pedal(raw: unknown, d: PedalCfg): PedalCfg {
     curve: num(p.curve, d.curve, 0.3, 3),
     max: num(p.max, d.max, 0.1, 1),
   };
+}
+
+// a saved free layout: only well-formed boxes, each at least MIN_BOX of the screen and kept on it
+export const MIN_BOX = 0.04;
+export function freeLayout(raw: unknown): FreeLayout | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const out: FreeLayout = {};
+  for (const [id, v] of Object.entries(raw as Record<string, unknown>).slice(0, 40)) {
+    const r = obj(v);
+    if (!/^[a-z0-9]{1,12}$/.test(id) || ![r.x, r.y, r.w, r.h].every((n) => typeof n === 'number' && Number.isFinite(n))) continue;
+    out[id] = clampRect(r as unknown as Rect);
+  }
+  return Object.keys(out).length ? out : null;
+}
+export function clampRect(r: Rect): Rect {
+  const w = Math.min(1, Math.max(MIN_BOX, r.w)), h = Math.min(1, Math.max(MIN_BOX, r.h));
+  return { x: Math.min(1 - w, Math.max(0, r.x)), y: Math.min(1 - h, Math.max(0, r.y)), w, h };
 }
 
 // Fill in anything missing or out of range, so old or hand-edited profiles always load.
@@ -98,6 +118,7 @@ export function sanitize(input: unknown): Config {
       haptics: bool(l.haptics, D.layout.haptics),
       shiftButtons: bool(l.shiftButtons, D.layout.shiftButtons),
       dash: bool(l.dash, D.layout.dash),
+      free: freeLayout(l.free),
       swapShift: bool(l.swapShift, D.layout.swapShift),
       putDown: bool(l.putDown, D.layout.putDown),
     },

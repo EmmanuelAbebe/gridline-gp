@@ -45,6 +45,14 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   The status line is gone. Steering: straight ahead moves only with the Center buttons; the reference direction is
   decided from the first reading and kept (a 90° turn = portrait used to switch the steering round); GravitySensor
   preferred; full lock is felt from the phone's own steering.
+- Your own layout (2026-10-26; user: "manipulate the UI as I want … simple relocation and resizing of elements"):
+  Settings → Layout → Edit layout = `LayoutEditor` over the driving screen (engine paused): a box per element (pedals,
+  shift keys, rev lights, gear, each extra button, wheel, Settings, Reconnect, full screen; `slotsOf` in Drive.tsx), drag
+  to move, corner to resize, snapped to 0.5 %; starts from where everything is now (`measureLayout` reads every
+  `[data-slot]`). Saved in the profile as `layout.free` {id: {x, y, w, h} shares of the screen} (`freeLayout` sanitises;
+  null = the standard grid, also the Standard button); Drive then places each element absolutely, its contents scaled to
+  the box (container query units). A button added later gets a small box in the middle. Profiles → Export / Import
+  carries it to another phone (or from the PC preview).
 - PC → phone also `{fx: {k, kh, o, s, h?, g?}}` = Gridline GP's force feedback (src/game/haptics.js), played by
   `web/src/engine/haptics.ts` `planFeedback` (pure, test/haptics.test.ts): a motor is only on/off, so strength = pulse
   width; kerbs = regular ripple kept in phase when renewed, gravel/grass = uneven rumble, slides = fine buzz, hits /

@@ -1,7 +1,7 @@
 // The phone page's pure logic: settings (sanitize, profiles), curves, flick to shift, and the tilt → steering angle.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BUTTONS, DEFAULTS, bitOf, clone, createFlick, loadStore, pedalValue, sanitize, steerCurve } from '../src/settings/settings.ts';
+import { BUTTONS, DEFAULTS, bitOf, clone, createFlick, loadStore, pedalValue, sanitize, steerCurve, freeLayout, MIN_BOX } from '../src/settings/settings.ts';
 import { tiltDegrees, resetTilt } from '../src/engine/engine.ts';
 
 test('button bits match the wire protocol order (phonewheel/protocol.py, desktop/phone-link.cjs)', () => {
@@ -78,4 +78,14 @@ test('older stores get the REAR (look back) button once; removing it sticks', ()
   s.profiles.A.buttons.pop();
   assert.deepEqual(loadStore(JSON.stringify(s)).profiles.A.buttons.map((b) => b.bind), ['X'], 'not added again');
   assert.deepEqual(loadStore(null).profiles.Default.buttons.map((b) => b.label), ['BOX', 'REAR']);
+});
+
+test('your own layout: boxes stay on the screen and keep a usable size; anything malformed is dropped', () => {
+  assert.equal(freeLayout(null), null); assert.equal(freeLayout([1, 2]), null); assert.equal(freeLayout({}), null);
+  const L = freeLayout({ gas: { x: 0.9, y: -0.2, w: 0.3, h: 0.001 }, brake: { x: 0, y: 0, w: 0.2, h: 'tall' }, 'Bad id!': { x: 0, y: 0, w: 0.1, h: 0.1 } })!;
+  assert.deepEqual(Object.keys(L), ['gas']);
+  assert.ok(Math.abs(L.gas.x - 0.7) < 1e-9 && L.gas.y === 0 && L.gas.h === MIN_BOX, JSON.stringify(L.gas));
+  const s = sanitize({ layout: { free: { btn0: { x: 0.4, y: 0.4, w: 0.1, h: 0.1 } } } });
+  assert.deepEqual(s.layout.free, { btn0: { x: 0.4, y: 0.4, w: 0.1, h: 0.1 } });
+  assert.equal(sanitize({}).layout.free, null, 'the standard layout by default');
 });

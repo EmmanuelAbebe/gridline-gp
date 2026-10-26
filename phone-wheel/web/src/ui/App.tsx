@@ -5,7 +5,9 @@ import { isPreview, startPreview } from '../engine/preview.ts';
 import { clone, loadStore, saveStore, type Config, type Store } from '../settings/settings.ts';
 import { enterFullscreen, keepAwake, setHaptics } from './screen.ts';
 import { StartScreen } from './StartScreen.tsx';
-import { Drive } from './Drive.tsx';
+import { Drive, slotsOf } from './Drive.tsx';
+import { LayoutEditor, measureLayout } from './LayoutEditor.tsx';
+import type { FreeLayout } from '../settings/settings.ts';
 import { RotateHint } from './RotateHint.tsx';
 import { AwayScreen } from './AwayScreen.tsx';
 import { Settings } from './settings/Settings.tsx';
@@ -19,12 +21,14 @@ export function App() {
   const [started, setStarted] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [warn, setWarn] = useState('');
+  const [draft, setDraft] = useState<FreeLayout | null>(null);   // Layout → Move and resize: the boxes being edited
   const cfg = store.profiles[store.active];
 
   engine.setConfig(cfg);                     // cheap, and keeps the engine in step on every render
   setHaptics(cfg.layout.haptics);
   useEffect(() => saveStore(store), [store]);
-  useEffect(() => { engine.state.paused = settingsOpen; if (settingsOpen) engine.stopFeedback(); }, [settingsOpen]);
+  const editing = draft !== null;
+  useEffect(() => { engine.state.paused = settingsOpen || editing; if (settingsOpen || editing) engine.stopFeedback(); }, [settingsOpen, editing]);
 
   const update: Update = (fn) => setStore((s) => { const next = clone(s); fn(next.profiles[next.active]); return next; });
 
@@ -50,11 +54,15 @@ export function App() {
 
   return (
     <>
-      <Drive cfg={cfg} openSettings={() => setSettingsOpen(true)} preview={preview} />
-      {started && !settingsOpen && !preview && <RotateHint />}
+      <Drive cfg={cfg} openSettings={() => setSettingsOpen(true)} preview={preview} free={editing ? draft : undefined} />
+      {editing && <LayoutEditor slots={slotsOf(cfg, () => {}, preview)} draft={draft} setDraft={setDraft} cancel={() => setDraft(null)}
+        done={() => { const d = draft; update((c) => { c.layout.free = d; }); setDraft(null); }}
+        standard={() => { update((c) => { c.layout.free = null; }); setDraft(null); }} />}
+      {started && !settingsOpen && !editing && !preview && <RotateHint />}
       {!started && <StartScreen onStart={start} warn={warn} openSettings={() => setSettingsOpen(true)} preview={preview} />}
-      {started && !settingsOpen && <AwayScreen />}
-      {settingsOpen && <Settings store={store} setStore={setStore} cfg={cfg} update={update} close={() => setSettingsOpen(false)} />}
+      {started && !settingsOpen && !editing && <AwayScreen />}
+      {settingsOpen && <Settings store={store} setStore={setStore} cfg={cfg} update={update} close={() => setSettingsOpen(false)}
+        editLayout={() => { setDraft(measureLayout()); setSettingsOpen(false); }} />}
     </>
   );
 }

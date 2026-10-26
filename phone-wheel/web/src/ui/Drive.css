@@ -8,31 +8,42 @@
 .drive.with-dash { grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "rev rev rev rev rev" "p1 s1 mid s2 p2"; row-gap: var(--led-row-gap); }
 .drive.no-shift { grid-template-columns: var(--pedal-fr) calc(var(--center-fr) + 2 * var(--shift-fr)) var(--pedal-fr); grid-template-areas: "p1 mid p2"; }
 .drive.no-shift.with-dash { grid-template-areas: "rev rev rev" "p1 mid p2"; }
-.drive > .revstrip { grid-area: rev; }
-.drive > .pedal.left { grid-area: p1; }
-.drive > .shift.left { grid-area: s1; } .drive > .shift.right { grid-area: s2; }
 .drive > .center { grid-area: mid; }
-.drive > .pedal.right { grid-area: p2; }
+/* each element's box (data-slot): the pedals and shift keys fill theirs */
+.drive > .slot { position: relative; min-width: 0; min-height: 0; }
+.slot > .pedal, .slot > .shift { position: absolute; inset: 0; }
+
+/* your own layout (Layout → Move and resize): every box placed by itself, its contents filling it */
+.drive.free { display: block; padding: 0; }
+.drive.free > .slot { position: absolute; display: grid; place-items: center; container-type: size; }
+.drive.free > .slot > .revstrip { width: 100%; height: 100%; --led-h: 100%; --led-w: calc((100cqw - 14 * var(--led-gap)) / 15); }
+.drive.free > .slot > .auxbtn { width: 100%; height: 100%; font-size: min(40cqh, 26cqw); }
+.drive.free > .slot > button.round { width: 100%; height: 100%; border-radius: 999px; font-size: min(45cqh, 45cqw); }
+.drive.free > .slot > button.round .wheel { width: auto; height: 80%; aspect-ratio: 1; }
+.drive.free > .slot .gear { font-size: min(62cqh, 80cqw); }
+.drive.free > .slot .kmh { font-size: min(16cqh, 18cqw); }
+.drive.free > .slot .queued { font-size: min(12cqh, 14cqw); }
+.drive.free > .slot > .conn { width: 100%; }
 
 /* the middle column: gear + speed at the top, the extra buttons under it, the small round buttons at the bottom */
 .center { display: flex; flex-direction: column; align-items: center; gap: var(--gap); min-width: 0; min-height: 0; overflow: hidden; }
-.center .dash { display: grid; justify-items: center; line-height: 1; }
-.center .gear { font: 800 var(--gear-size) / 1 var(--font); font-variant-numeric: tabular-nums; }
-.center .kmh { font-size: var(--text-m); color: var(--muted); font-variant-numeric: tabular-nums; min-height: 1.2em; margin-top: 2px; }
-.center .queued { font-size: var(--text-s); font-weight: 800; color: var(--accent); min-height: 1.2em; }
-.center .conn { font-size: var(--text-s); color: var(--muted); text-align: center; padding: 8px 0; }
-.center .conn.bad { color: var(--brake); }
+.drive .dash { display: grid; justify-items: center; line-height: 1; }
+.drive .gear { font: 800 var(--gear-size) / 1 var(--font); font-variant-numeric: tabular-nums; }
+.drive .kmh { font-size: var(--text-m); color: var(--muted); font-variant-numeric: tabular-nums; min-height: 1.2em; margin-top: 2px; }
+.drive .queued { font-size: var(--text-s); font-weight: 800; color: var(--accent); min-height: 1.2em; }
+.drive .conn { font-size: var(--text-s); color: var(--muted); text-align: center; padding: 8px 0; }
+.drive .conn.bad { color: var(--brake); }
 .center .aux { flex: 1 1 auto; align-content: center; display: grid; grid-template-columns: repeat(auto-fit, minmax(min-content, 1fr)); justify-items: center; }
 /* more than two extra buttons: small ones, two to a row */
 .center.crowded .aux { grid-template-columns: repeat(2, auto); }
 .center.crowded .auxbtn { height: var(--aux-size-s); width: calc(var(--aux-size-s) * 1.2); font-size: 15px; }
 .center .rounds { display: grid; grid-template-columns: repeat(2, auto); gap: var(--gap); margin-top: auto; }
-.center button.round { width: var(--round-size); height: var(--round-size); border-radius: 50%; padding: 0; font-size: var(--icon-size);
+.drive button.round { width: var(--round-size); height: var(--round-size); border-radius: 50%; padding: 0; font-size: var(--icon-size);
   display: grid; place-items: center; flex-shrink: 0; position: relative; }
-.center button.round svg { vertical-align: 0; }
-.center button.round .q { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
-.center button.round .q.good { background: var(--good); } .center button.round .q.fair { background: var(--fair); }
-.center button.round .q.poor, .center button.round .q.stalled { background: var(--poor); }
+.drive button.round svg { vertical-align: 0; }
+.drive button.round .q { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.drive button.round .q.good { background: var(--good); } .drive button.round .q.fair { background: var(--fair); }
+.drive button.round .q.poor, .drive button.round .q.stalled { background: var(--poor); }
 .wheel-btn { background: none; border: none; padding: 0; border-radius: 50%; }
 .wheel { width: 80%; height: 80%; color: var(--text); transition: transform .03s linear; display: block; }
 .wheel-btn.centred .wheel { color: var(--accent); }

@@ -13,9 +13,9 @@ import './Settings.css';
 
 const TABS = ['Steering', 'Pedals', 'Buttons', 'Feedback', 'Layout', 'Profiles'] as const;
 type Tab = (typeof TABS)[number];
-export interface TabProps { cfg: Config; update: Update }
+export interface TabProps { cfg: Config; update: Update; editLayout?: () => void }
 
-export function Settings({ store, setStore, cfg, update, close }: { store: Store; setStore: React.Dispatch<React.SetStateAction<Store>>; cfg: Config; update: Update; close: () => void }) {
+export function Settings({ store, setStore, cfg, update, close, editLayout }: { store: Store; setStore: React.Dispatch<React.SetStateAction<Store>>; cfg: Config; update: Update; close: () => void; editLayout: () => void }) {
   const [tab, setTab] = useState<Tab>(() => {
     try { const t = sessionStorage.getItem('pw-tab') as Tab; return TABS.includes(t) ? t : TABS[0]; } catch { return TABS[0]; }
   });
@@ -33,7 +33,7 @@ export function Settings({ store, setStore, cfg, update, close }: { store: Store
         {tab === 'Pedals' && <PedalsTab cfg={cfg} update={update} />}
         {tab === 'Buttons' && <ButtonsTab cfg={cfg} update={update} />}
         {tab === 'Feedback' && <FeedbackTab cfg={cfg} update={update} />}
-        {tab === 'Layout' && <LayoutTab cfg={cfg} update={update} />}
+        {tab === 'Layout' && <LayoutTab cfg={cfg} update={update} editLayout={editLayout} />}
         {tab === 'Profiles' && <ProfilesTab store={store} setStore={setStore} />}
       </section>
     </div>

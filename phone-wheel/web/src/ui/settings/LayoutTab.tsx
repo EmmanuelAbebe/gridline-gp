@@ -3,10 +3,14 @@ import { buzz } from '../screen.ts';
 import { Choice, Field, Slider, Toggle } from './controls.tsx';
 import type { TabProps } from './Settings.tsx';
 
-export function LayoutTab({ cfg, update }: TabProps) {
+export function LayoutTab({ cfg, update, editLayout }: TabProps) {
   const L = cfg.layout;
   return <>
     <h2>Layout</h2>
+    <Field label="Move and resize" hint={L.free ? 'your own layout: the pedal width, swap and shift key side options below don\'t apply to it' : 'drag any element on the driving screen to where you want it, its corner to resize it'}>
+      <div className="seg"><button className="primary" onClick={editLayout}>Edit layout</button>
+        {L.free && <button onClick={() => update((c) => { c.layout.free = null; })}>Standard</button>}</div>
+    </Field>
     <Toggle label="Swap pedals" hint="gas on the left, brake on the right" value={L.swapPedals} onChange={(v) => update((c) => { c.layout.swapPedals = v; })} />
     <Slider label="Pedal width" min={0.6} max={1.6} step={0.1} value={L.pedalSize} onChange={(v) => update((c) => { c.layout.pedalSize = v; })} fmt={(v) => v.toFixed(1) + '×'} />
     <Choice<ButtonSize> label="Button size" value={L.buttonSize} onChange={(v) => update((c) => { c.layout.buttonSize = v; })}
