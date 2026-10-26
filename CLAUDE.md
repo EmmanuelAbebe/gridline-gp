@@ -73,7 +73,8 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
   in base64 pieces: gridlineDebug.benchPart / benchCity / clearCity, src/game/bench.js, debug builds only) → report.md /
   .json + screenshots; results and conclusions in docs/city-benchmark.md (textures cost load time and memory, not frame
   time; triangles ~0.2–0.25 ms per million on the RX 9060 XT). `Display.info()` / `gridlineDebug.info()` = renderer.info.
-  Then the car (the garage's part editing would give way to a fixed model).
+  Then the car: plan + spec in docs/car-plan.md (2026-10-26; user chose realistic 2026, the old part-built car kept as an
+  option with its editor, livery pattern templates, one shape for every team; phase 0 spec done, phase 1 = blockout).
 - npm scripts: `dev` (Vite dev server, browser), `dev:app` (dev server inside Electron, `tools/dev-app.mjs`),
   `build`, `start` (build + Electron), `test` (node:test, `tests/*.test.js`), `lint` (ESLint 10, `eslint.config.js`:
   undefined/unused names; `src/sim` gets no browser globals), `typecheck` (`tsc -p .`, TypeScript 6 on plain JS + JSDoc,
