@@ -34,7 +34,7 @@ export const hasToken = () => !!getToken();
 let cfg: Config | null = null;
 let fullLockDeg = 45, follow = 0.8;
 let rawDeg = 0, smoothDeg = 0, offsetDeg = 0;
-let flipped = false, lastOrientation = 0;
+let lastOrientation = 0, lastGravity = 0;
 const held = new Map<number, number>();       // on-screen button index → bit it presses
 let buttonsKey = '';
 let ws: WebSocket | null = null, started = false, retryTimer = 0;
@@ -75,13 +75,31 @@ function keys() {
   return k;
 }
 
-export function center() { offsetDeg = smoothDeg; }
+// straight ahead = where the phone is now (and which way up it is held is decided again)
+export function center() {
+  if (base !== null) { const b = baseFor(lastUp, lastAngle); smoothDeg = rawDeg = wrap(smoothDeg + base - b); base = b; farSince = 0; }
+  offsetDeg = smoothDeg;
+}
 
 // ---------- force feedback: the game's {fx} → vibration (not while Settings is open, unless it is a test)
 let fxPlan = idlePlan(), testUntil = 0, testTimer = 0;
 const vibrate = (p: number[]) => { try { navigator.vibrate?.(p.length ? p : 0); } catch { /* not allowed yet */ } };
-export function feedback(fx: Fx, test = false) {
+// Full lock is felt from the phone's own steering (2026-10-26): at once, with any game or server, and never cut short by
+// the wheel's own reading folding back. The game's l / ls are ignored; the rest of its message is kept for 150 ms.
+const LOCK = { on: 0.98, off: 0.94, renew: 50, fresh: 150 };
+let locked = false, gameFx: Fx = {}, gameFxAt = -Infinity, lockSent = 0;
+function withLock(fx: Fx, knock = false): Fx { return { ...fx, l: locked ? 1 : 0, ls: knock ? 1 : undefined }; }
+function lockTick(now: number) {
+  const a = Math.abs(state.steer), was = locked;
+  locked = !state.away && !state.preview && (locked ? a >= LOCK.off : a >= LOCK.on);
+  const fx = now - gameFxAt < LOCK.fresh ? gameFx : {};
+  if (locked && !was) { feedback(withLock(fx, true), false, true); lockSent = now; }
+  else if (locked && now - lockSent >= LOCK.renew && now - gameFxAt >= LOCK.renew) { feedback(withLock(fx), false, true); lockSent = now; }
+  else if (!locked && was) feedback(withLock(fx), false, true);
+}
+export function feedback(fx: Fx, test = false, local = false) {
   if (!cfg || (!test && (state.paused || performance.now() < testUntil))) return;
+  if (!test && !local) { gameFx = fx; gameFxAt = performance.now(); fx = withLock(fx); }
   const r = planFeedback(fx, cfg.feedback, performance.now(), fxPlan);
   fxPlan = r.state;
   if (r.pattern) vibrate(r.pattern);
@@ -109,19 +127,30 @@ function screenAngle() {
   const w = window as unknown as { orientation?: number };
   return typeof w.orientation === 'number' ? w.orientation : 90;
 }
-// The steering angle (degrees) of "up" (ax, ay: the opposite of gravity in phone axes) for the current screen rotation.
-export function tiltDegrees(ax: number, ay: number, angle = screenAngle()) {
-  const a = ((angle % 360) + 360) % 360;
-  let ux = 0, uy = 1;                          // portrait fallback
-  if (a === 90) { ux = 1; uy = 0; }            // landscape, top of the phone on the left
-  if (a === 270) { ux = -1; uy = 0; }          // landscape, top of the phone on the right
-  // Some Android builds report gravity with the opposite sign. Only re-decide while the phone is near level, so a big
-  // tilt past 90 degrees can't flip it.
-  const dot = ax * ux + ay * uy;
-  if (Math.abs(dot) > 0.7 * Math.hypot(ax, ay)) flipped = dot < 0;
-  if (flipped) { ux = -ux; uy = -uy; }
-  return Math.atan2(ux * ay - uy * ax, ux * ax + uy * ay) * (180 / Math.PI);
+// Which way "up" points in the phone's own x-y plane when it is held straight (degrees: 0 = +x, landscape with the top on
+// the left; 180 = landscape the other way round, or a phone that reports gravity with the opposite sign; ±90 portrait).
+// Decided from the phone's position at the start and on every re-centre, then kept while driving (2026-10-26): it used
+// to follow the screen's rotation and re-decide whenever the phone looked nearly level, so turning the wheel past 90°
+// (the phone upright: the screen turns to portrait) or past 135° switched the steering round.
+let base: number | null = null, farSince = 0, lastUp = 0, lastAngle = 90;
+const TILT = { far: 150, farMs: 1500 };   // held further round than this for this long = the phone is held the other way up now
+function baseFor(up: number, angle: number) {
+  const a = ((angle % 360) + 360) % 360, portrait = a === 0 || a === 180;
+  const options = portrait ? [90, -90] : [0, 180];
+  return options.reduce((b, o) => (Math.abs(wrap(up - o)) < Math.abs(wrap(up - b)) ? o : b));
 }
+// The steering angle (degrees) of "up" (ax, ay: the opposite of gravity in phone axes).
+export function tiltDegrees(ax: number, ay: number, angle = screenAngle(), now = performance.now()) {
+  const up = Math.atan2(ay, ax) * (180 / Math.PI);
+  lastUp = up; lastAngle = angle;
+  if (base === null) base = baseFor(up, angle);
+  if (Math.abs(wrap(up - base)) > TILT.far) {
+    if (!farSince) farSince = now;
+    else if (now - farSince > TILT.farMs) { base = baseFor(up, angle); farSince = 0; }
+  } else farSince = 0;
+  return wrap(up - base);
+}
+export function resetTilt() { base = null; farSince = 0; }
 function steerFromDegrees(deg: number, smoothing: number) {
   if (!cfg) return;
   state.gotMotion = true;
@@ -131,10 +160,26 @@ function steerFromDegrees(deg: number, smoothing: number) {
   v = steerCurve(Math.max(-1, Math.min(1, v)), cfg.steer);
   state.steer = cfg.steer.invert ? -v : v;
 }
+// Best: Chrome's GravitySensor = the fused gravity vector itself (no angles to fold over when the phone stands upright).
+interface GravityReading { x: number | null; y: number | null; start(): void; addEventListener(t: string, f: () => void): void }
+function startGravity() {
+  const G = (window as unknown as { GravitySensor?: new (o: { frequency: number }) => GravityReading }).GravitySensor;
+  if (!G) return;
+  try {
+    const sensor = new G({ frequency: 60 });
+    sensor.addEventListener('reading', () => {
+      if (state.preview || sensor.x == null || sensor.y == null) return;
+      lastGravity = lastOrientation = performance.now();
+      steerFromDegrees(tiltDegrees(sensor.x, sensor.y), follow);
+    });
+    sensor.addEventListener('error', () => { lastGravity = 0; });
+    sensor.start();
+  } catch { /* not allowed: the orientation events do it */ }
+}
 // Chrome's deviceorientation is fused from gyro + accelerometer by Android, so it reacts much faster than raw
 // accelerometer data; devicemotion is only the fallback.
 function onOrientation(e: DeviceOrientationEvent) {
-  if (e.beta == null || e.gamma == null || state.preview) return;
+  if (e.beta == null || e.gamma == null || state.preview || performance.now() - lastGravity < 250) return;
   lastOrientation = performance.now();
   const R = Math.PI / 180, b = e.beta * R, c = e.gamma * R;      // "up" in phone axes from the beta / gamma angles
   steerFromDegrees(tiltDegrees(-Math.cos(b) * Math.sin(c), Math.sin(b)), follow);
@@ -235,6 +280,7 @@ export function reconnect() {
 export function start() {
   if (started) return;
   started = true;
+  startGravity();
   window.addEventListener('deviceorientation', onOrientation);
   window.addEventListener('devicemotion', onMotion);
   connect();
@@ -250,6 +296,7 @@ export function start() {
     }
     ws.send(JSON.stringify(msg));
     noteSend(now);
+    if (!p) lockTick(now);
     link.quality = grade();
   }, 16);
   setTimeout(center, 400);                      // the starting position is straight ahead

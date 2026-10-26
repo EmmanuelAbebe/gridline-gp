@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BUTTONS, DEFAULTS, bitOf, clone, createFlick, loadStore, pedalValue, sanitize, steerCurve } from '../src/settings/settings.ts';
-import { tiltDegrees } from '../src/engine/engine.ts';
+import { tiltDegrees, resetTilt } from '../src/engine/engine.ts';
 
 test('button bits match the wire protocol order (phonewheel/protocol.py, desktop/phone-link.cjs)', () => {
   assert.deepEqual(BUTTONS.map((b) => b[0]), ['A', 'B', 'X', 'Y', 'LB', 'RB', 'BACK', 'START', 'GUIDE', 'LS', 'RS', 'UP', 'DOWN', 'LEFT', 'RIGHT']);
@@ -44,10 +44,31 @@ test('flick to shift: a quick sideways flick counts, a slow or vertical one does
 });
 
 test('tilt: level = 0°, the steering angle follows the roll in landscape either way round', () => {
+  resetTilt();
   assert.ok(Math.abs(tiltDegrees(1, 0, 90)) < 1e-9, 'landscape, level');
   const r = 20 * Math.PI / 180;
   assert.ok(Math.abs(tiltDegrees(Math.cos(r), Math.sin(r), 90) - 20) < 1e-6);
+  resetTilt();
   assert.ok(Math.abs(tiltDegrees(-Math.cos(r), -Math.sin(r), 270) - 20) < 1e-6, 'turned the other way');
+  resetTilt();
+  assert.ok(Math.abs(tiltDegrees(-Math.cos(r), -Math.sin(r), 90) - 20) < 1e-6, 'a phone reporting gravity the other way');
+});
+
+test('tilt: turning the wheel past 90° and 135° keeps turning the same way, even when the screen turns to portrait', () => {
+  const up = (deg: number) => [Math.cos(deg * Math.PI / 180), Math.sin(deg * Math.PI / 180)] as const;
+  for (const dir of [1, -1]) {
+    resetTilt();
+    let t = 0, last = 0;
+    for (let d = 0; d <= 170; d += 5) {
+      const [x, y] = up(dir * d), screen = d > 80 && d < 120 ? 0 : d >= 120 ? 270 : 90;   // auto-rotate along the way
+      const a = tiltDegrees(x, y, screen, (t += 16));
+      assert.ok(Math.abs(a - dir * d) < 1e-6, `${dir * d}°: read ${a.toFixed(1)}`);
+      assert.ok(dir * a >= dir * last, 'never back the other way'); last = a;
+    }
+  }
+  // held the other way up for a while (not a turn of the wheel): that becomes straight ahead
+  resetTilt(); tiltDegrees(1, 0, 90, 0);
+  tiltDegrees(-1, 0, 270, 100); assert.ok(Math.abs(Math.abs(tiltDegrees(-1, 0, 270, 2000))) < 1e-6);
 });
 
 test('older stores get the REAR (look back) button once; removing it sticks', () => {

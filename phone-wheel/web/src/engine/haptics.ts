@@ -17,8 +17,8 @@ export const FFB = {
   floor: 0.05,                        // below this nothing plays
   hit: { base: 40, per: 170, max: 260 },  // a hit: base + per × strength ms
   shift: 16,                          // a gear change: one short tick
-  lockKnock: 34,                      // reaching full lock: one knock, like a wheel's end stop
-  lock: { period: 70, on: 9 },        // held at full lock: a light, slow buzz (only when nothing stronger plays)
+  lockKnock: 45,                      // reaching full lock: one knock, like a wheel's end stop
+  lock: { period: 70, on: 16 },       // held at full lock: a light, slow buzz (only when nothing stronger plays)
   kerb: { duty: 0.25, perLevel: 0.45 },
   slide: { period: 45, on: 6, perLevel: 24 },
   rough: { min: 35, max: 90, duty: 0.25, perLevel: 0.5 },
