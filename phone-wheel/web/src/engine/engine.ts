@@ -75,9 +75,10 @@ function keys() {
   return k;
 }
 
-// straight ahead = where the phone is now (and which way up it is held is decided again)
+// The Center buttons (the wheel, Settings → Steering), the only thing that moves straight ahead: where the phone is now
+// (and which way up it is held is decided again). Until the first press straight ahead = the phone level.
 export function center() {
-  if (base !== null) { const b = baseFor(lastUp, lastAngle); smoothDeg = rawDeg = wrap(smoothDeg + base - b); base = b; farSince = 0; }
+  if (base !== null) { const b = baseFor(lastUp, lastAngle); smoothDeg = rawDeg = wrap(smoothDeg + base - b); base = b; }
   offsetDeg = smoothDeg;
 }
 
@@ -129,28 +130,23 @@ function screenAngle() {
 }
 // Which way "up" points in the phone's own x-y plane when it is held straight (degrees: 0 = +x, landscape with the top on
 // the left; 180 = landscape the other way round, or a phone that reports gravity with the opposite sign; ±90 portrait).
-// Decided from the phone's position at the start and on every re-centre, then kept while driving (2026-10-26): it used
-// to follow the screen's rotation and re-decide whenever the phone looked nearly level, so turning the wheel past 90°
-// (the phone upright: the screen turns to portrait) or past 135° switched the steering round.
-let base: number | null = null, farSince = 0, lastUp = 0, lastAngle = 90;
-const TILT = { far: 150, farMs: 1500 };   // held further round than this for this long = the phone is held the other way up now
+// Decided from the phone's first reading, then only by the Center buttons (2026-10-26, user: straight ahead fixed to the
+// re-centre button only): it used to follow the screen's rotation and re-decide whenever the phone looked nearly level,
+// so turning the wheel past 90° (the phone upright: the screen turns to portrait) or past 135° switched the steering round.
+let base: number | null = null, lastUp = 0, lastAngle = 90;
 function baseFor(up: number, angle: number) {
   const a = ((angle % 360) + 360) % 360, portrait = a === 0 || a === 180;
   const options = portrait ? [90, -90] : [0, 180];
   return options.reduce((b, o) => (Math.abs(wrap(up - o)) < Math.abs(wrap(up - b)) ? o : b));
 }
 // The steering angle (degrees) of "up" (ax, ay: the opposite of gravity in phone axes).
-export function tiltDegrees(ax: number, ay: number, angle = screenAngle(), now = performance.now()) {
+export function tiltDegrees(ax: number, ay: number, angle = screenAngle()) {
   const up = Math.atan2(ay, ax) * (180 / Math.PI);
   lastUp = up; lastAngle = angle;
   if (base === null) base = baseFor(up, angle);
-  if (Math.abs(wrap(up - base)) > TILT.far) {
-    if (!farSince) farSince = now;
-    else if (now - farSince > TILT.farMs) { base = baseFor(up, angle); farSince = 0; }
-  } else farSince = 0;
   return wrap(up - base);
 }
-export function resetTilt() { base = null; farSince = 0; }
+export function resetTilt() { base = null; }
 function steerFromDegrees(deg: number, smoothing: number) {
   if (!cfg) return;
   state.gotMotion = true;
@@ -195,10 +191,10 @@ function watchPresence(e: DeviceMotionEvent) {
   state.away = presence.sample({ ax: g.x, ay: g.y, az: g.z, rate: r ? Math.hypot(r.alpha ?? 0, r.beta ?? 0, r.gamma ?? 0) : 0 }, performance.now());
   if (state.away && !before) { held.clear(); pulses = []; try { navigator.vibrate?.([120, 80, 120]); } catch { /* no motor */ } awayListeners.forEach((fn) => fn(state.away)); }
 }
-// "I'm here": straight ahead is where the phone is now, and the inputs flow again
+// "I'm here": the inputs flow again (straight ahead stays where the Center button put it)
 // Settings → Layout preview of the screen (and the desktop preview, which has no sensors)
 export function testAway() { state.away = 1; held.clear(); awayListeners.forEach((fn) => fn(1)); }
-export function back() { presence.back(); state.away = 0; center(); awayListeners.forEach((fn) => fn(0)); }
+export function back() { presence.back(); state.away = 0; awayListeners.forEach((fn) => fn(0)); }
 
 function onMotion(e: DeviceMotionEvent) {
   watchPresence(e);
@@ -299,5 +295,4 @@ export function start() {
     if (!p) lockTick(now);
     link.quality = grade();
   }, 16);
-  setTimeout(center, 400);                      // the starting position is straight ahead
 }

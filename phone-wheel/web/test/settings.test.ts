@@ -58,17 +58,17 @@ test('tilt: turning the wheel past 90° and 135° keeps turning the same way, ev
   const up = (deg: number) => [Math.cos(deg * Math.PI / 180), Math.sin(deg * Math.PI / 180)] as const;
   for (const dir of [1, -1]) {
     resetTilt();
-    let t = 0, last = 0;
+    let last = 0;
     for (let d = 0; d <= 170; d += 5) {
       const [x, y] = up(dir * d), screen = d > 80 && d < 120 ? 0 : d >= 120 ? 270 : 90;   // auto-rotate along the way
-      const a = tiltDegrees(x, y, screen, (t += 16));
+      const a = tiltDegrees(x, y, screen);
       assert.ok(Math.abs(a - dir * d) < 1e-6, `${dir * d}°: read ${a.toFixed(1)}`);
       assert.ok(dir * a >= dir * last, 'never back the other way'); last = a;
     }
   }
-  // held the other way up for a while (not a turn of the wheel): that becomes straight ahead
-  resetTilt(); tiltDegrees(1, 0, 90, 0);
-  tiltDegrees(-1, 0, 270, 100); assert.ok(Math.abs(Math.abs(tiltDegrees(-1, 0, 270, 2000))) < 1e-6);
+  // held the other way up for a while: still a turn of the wheel (only the Center button moves straight ahead)
+  resetTilt(); tiltDegrees(1, 0, 90);
+  for (let k = 0; k < 200; k++) assert.ok(Math.abs(Math.abs(tiltDegrees(-1, 0, 270)) - 180) < 1e-6);
 });
 
 test('older stores get the REAR (look back) button once; removing it sticks', () => {
