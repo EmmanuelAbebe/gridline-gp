@@ -17,6 +17,8 @@ const checks = [
   ['race clock running', r.race?.lapTime && r.race.lapTime !== '0:00.000'],
   ['time trial: you alone', r.trial?.cars === 1],
   ['ghost list filled', (r.trial?.ghosts || []).length >= 6],
+  ['sector panel: 3 sectors + mini-sectors', r.sectors?.cells === 3 && r.sectors.minis >= 4],
+  ['lap analysis opens and closes', r.analysis?.shown && r.analysis.corners >= 4 && r.analysis.refs >= 2 && r.analysis.backToPause],
   ['quit asks first', r.quitAsks === true && r.quitStay === true],
   ['quit closed the app', log.includes('quit via in-game button')],
   ['log file written', r.logFile === true],

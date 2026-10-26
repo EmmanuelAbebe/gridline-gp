@@ -372,6 +372,14 @@ export const ERS = Object.freeze({
                          // gearbox: its full power from fullRpm of the engine up, less below, torque-limited)   // m/s² at most from lifting (the motor's torque)   // m/s: deployment's force below this as at it (the motor's torque limit)
 });
 
+// Sectors and corners (sectors.js, 2026-10-26; user: sectors "to determine where a player is slow or faster"). Corners
+// = the minima of the ALIEN line's speed profile: two closer than `merge` m/s (the speed between them never rises more
+// than that above the faster one) are one corner, one dropping less than `minDrop` m/s from the speed before it is no
+// corner (a flat kink). A corner's mini-sector runs from its braking point to the next corner's; the `count` sectors
+// split at the braking points nearest equal shares of the ALIEN's lap time. launch = the acceleration cap (m/s²) of the
+// pass that turns the profile into speeds the car reaches.
+export const SECTORS = Object.freeze({ count: 3, merge: 6, minDrop: 6, launch: 13 });
+
 // kerbs where |curvature| > kerbK; runoff = the default barrier distance past the road edge (the layout varies it)
 // samples: fixed count, or (when absent) one sample every `ds` metres; Elkmoor fixes 1200 (≈ 2.06 m)
 export const TRACK_DEFAULTS = Object.freeze({ ds: 2.06, halfWidth: 7.5, kerb: 1.4, runoff: 14, kerbK: 0.0025, style: 'permanent' });

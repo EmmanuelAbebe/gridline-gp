@@ -77,6 +77,28 @@ export const Hud = (() => {
       const t = d === null || d === undefined ? '–' : (d > 0 ? '+' : d < 0 ? '−' : '±') + Math.abs(d).toFixed(2);
       setOnce('deltaTxt', t, v => { $('tDelta').textContent = v; $('tDelta').className = 'num ' + (d > 0.005 ? 'slower' : d < -0.005 ? 'faster' : ''); });
     },
+    // ---- sectors (sector-timing.js): a cell per sector, a bar per mini-sector; colour = purple / green / yellow / invalid /
+    // none; the last lap's stay dim until this lap's replace them ----
+    sectorSetup(L) {
+      const row = $('secRow'); row.style.setProperty('--n', L.sectors.length);
+      row.replaceChildren(...L.sectors.map((_, s) => { const d = document.createElement('div'); d.className = 'sec';
+        d.innerHTML = `<span class="lbl">S${s + 1}</span><b class="num">–</b><i class="num"></i>`; return d; }));
+      $('secMinis').replaceChildren(...L.minis.map(m => { const e = document.createElement('span'); e.title = m.name; return e; }));
+    },
+    sectorRef(text) { setText('secRef', text ? 'vs ' + text : ''); },
+    sectorNewLap() {
+      for (const d of $('secRow').children) d.classList.add('old');
+      for (const e of $('secMinis').children) e.classList.add('old');
+    },
+    sectorMini(m, colour) { const e = $('secMinis').children[m]; if (e) e.className = colour; },
+    sectorTime(s, time, delta, colour) {
+      const d = $('secRow').children[s]; if (!d) return;
+      d.className = 'sec ' + colour;
+      d.querySelector('b').textContent = time.toFixed(3);
+      const i = d.querySelector('i');
+      i.textContent = delta === null ? '' : (delta > 0 ? '+' : delta < 0 ? '−' : '±') + Math.abs(delta).toFixed(3);
+      i.className = 'num ' + (delta === null ? '' : delta < -0.0005 ? 'faster' : delta > 0.0005 ? 'slower' : '');
+    },
     // car condition rows (only what the race uses) and the pit status line
     updateCar(race, c) {
       const W = race.wear, on = !!(W && (W.fuelLaps || W.tyreLaps || W.damage));

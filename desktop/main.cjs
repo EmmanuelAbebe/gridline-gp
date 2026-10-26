@@ -286,6 +286,27 @@ async function smokeTest(win) {
   Object.assign(info.trial, await win.webContents.executeJavaScript(`({ cars: document.querySelectorAll('#towerList > *').length,
     delta: !document.getElementById('tDelta').hidden, lapTime: document.getElementById('tCur').textContent })`));
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-trial.png'), (await win.webContents.capturePage()).toPNG());
+  // the sector panel, and the lap analysis from the pause menu (screenshot), Done = back to the pause menu
+  info.sectors = await win.webContents.executeJavaScript(`({ cells: document.querySelectorAll('#secRow .sec').length, minis: document.querySelectorAll('#secMinis span').length,
+    ref: document.getElementById('secRef').textContent })`);
+  await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click(); document.getElementById('pauseAnaBtn').click()`);
+  await new Promise(r => setTimeout(r, 800));
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-analysis.png'), (await win.webContents.capturePage()).toPNG());
+  info.analysis = await win.webContents.executeJavaScript(`(() => { const shown = !document.getElementById('anaOv').hidden;
+    const corners = document.querySelectorAll('#anaCorners tr').length, refs = document.querySelectorAll('#anaRef option').length;
+    document.getElementById('anaClose').click(); return { shown, corners, refs, backToPause: !document.getElementById('pauseOv').hidden }; })()`);
+  // (GRIDLINE_SMOKE_LAP=1: the AI drives your car two full laps, then the sector panel and the analysis of those laps)
+  if (process.env.GRIDLINE_SMOKE_LAP) {
+    await win.webContents.executeJavaScript(`document.getElementById('resumeBtn').click(); gridlineDebug.autopilot(1)`);
+    for (let i = 0; i < 400 && (await win.webContents.executeJavaScript(`gridlineDebug.playerState().lap`)) < 3; i++) await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 9000));
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-sectors-lap.png'), (await win.webContents.capturePage()).toPNG());
+    info.sectorsLap = await win.webContents.executeJavaScript(`[...document.querySelectorAll('#secRow .sec, #secMinis span')].map(e => e.className + ' ' + e.textContent.replace(/\s+/g, ' '))`);
+    await win.webContents.executeJavaScript(`gridlineDebug.autopilot(0); document.getElementById('pauseBtn').click(); document.getElementById('pauseAnaBtn').click()`);
+    await new Promise(r => setTimeout(r, 800));
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-analysis-lap.png'), (await win.webContents.capturePage()).toPNG());
+    await win.webContents.executeJavaScript(`document.getElementById('anaClose').click()`);
+  }
   await win.webContents.executeJavaScript(`gridlineDebug.toMenu()`);
   // exercise the bridge the way a player would: full-screen button, then the quit button (which must end the app)
   await win.webContents.executeJavaScript(`document.getElementById('fullStartBtn').click()`);

@@ -182,6 +182,7 @@ export const DESIGN_DEFAULTS = {
         lights:   { anchor: 'cc', x: -16, y: -51, scale: 1, hidden: false },
         posPanel: { anchor: 'tl', x: 20, y: 238, scale: 1, hidden: false },
         teleBox:  { anchor: 'bl', x: 21, y: 33, scale: 1, hidden: false },
+        sectorBox: { anchor: 'br', x: 20, y: 20, scale: 1, hidden: false },
         hudBtns:  { anchor: 'tc', x: 0, y: 12, scale: 0.75, hidden: false },
       },
       cockpit: {

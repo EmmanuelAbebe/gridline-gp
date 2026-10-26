@@ -853,6 +853,34 @@ without a race (the --track-shots views use it).
 The smoke test screenshots the list (`out-trial-menu.png`) and races the live ALIEN ghost (autopilot, `out-ghost.png`). Smoke test: TIME TRIAL row and a
 solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-ghost.png`.
 
+## Sectors, corners and pace (2026-10-26; user, after a sub-1:15 lap in REAL F1: "include sectors to determine where a
+## player is slow or faster, as well as calculating pace"; chose 3 sectors + corners, live HUD + analysis screen + session
+## pace, compared with "the fastest lap from me or the AI and later on from other players")
+- SIM `sectors.js` `buildSectors(track)` (cached; `SECTORS` in tuning.js): corners = the minima of the ALIEN line's speed
+  profile after an acceleration pass (full power, drag, `launch` cap: without it every flat-out kink at 300 km/h was a
+  corner, Elkmoor had 19), merged when the speed between them rises < `merge` 6 m/s, dropped when < `minDrop` 6 m/s;
+  6–10 corners per circuit. Mini-sector = a corner's braking point to the next one's (+ 'start' = line → first braking
+  point); 3 sectors split at the mini boundaries nearest equal thirds of that profile's lap time. `key` = the layout
+  (saved bests only compare with the same one).
+- `lap-analysis.js` (pure, tests/lap-analysis.test.js): a lap trace = per track sample the lap time when the car first got
+  there (t), km/h, thr, brk (`createTraceRecorder`: a sample keeps the step it was first reached, so the HUD's live time
+  and the saved lap's agree; the AI lap recorder in ai-ghosts.js was changed the same way and now also records `t`);
+  `traceFromAi` (aiLap line), `traceFromGhost` (splits interpolated, speed from the pose; no pedals). `miniTimes`,
+  `sectorTimes`, `cornerMetrics` (braking point = where the speed first drops ≥ 6 m/s² before the apex, m before it; entry /
+  slowest / exit 100 m after the apex km/h; full gas m after the apex), `keepBests` (valid laps only; a lap from the grid
+  leaves out sector 1), `theoretical` (best mini-sectors summed), `referenceOf` (the fastest candidate lap + the best of all
+  per sector / mini = purple), `colourOf` (purple / green = your best / yellow), `sessionPace` (best, average and spread of
+  valid flying laps within 107 % of the best, laps within 0.5 s, theoretical, gap to each AI level in %), storage
+  `gridline.sectors.2` {v, physics, circuits: {id: {stock|modified: {key, sec, mini, best (compact trace)}}}}.
+- Game: `sector-timing.js` (newRace → start, lightsOut, every sim step, EV.LAP): candidates = your best (seeded from your
+  saved ghost laps the first time), the ALIEN's lap (race aero + AI assists), a loaded ghost file (= another player; the
+  online leaderboard's laps would join here); HUD `#sectorBox` (layout panel "Sectors", default bottom right): S1–S3 with the
+  gap to the reference, a bar per mini-sector, last lap dim. `analysis-screen.js` `#anaOv` (pause menu / results "Lap
+  analysis", start menu ANALYSIS = your best there): lap and reference pickers (fastest, candidates, every AI level),
+  map coloured by gain / loss per mini-sector, sector table, corner table (you / reference), session pace. Smoke test:
+  `out-analysis.png`, checks; `GRIDLINE_SMOKE_LAP=1` also drives two laps (autopilot) → `out-sectors-lap.png`,
+  `out-analysis-lap.png`.
+
 ## Ideas not done yet
 - Online leaderboard with replay validation: planned 2026-10-20 in `docs/leaderboard-plan.md` (not started; the user
   asked to be reminded). First step: deterministic sim math across JS engines + an input recorder / Node replay.

@@ -29,6 +29,8 @@ import { createAway } from './away.js';
 import { createHudMirror } from './hud-mirror.js';
 import { loadGhosts } from './ghost.js';
 import { createTimeTrial } from './time-trial.js';
+import { createSectorTiming } from './sector-timing.js';
+import { createAnalysis } from './analysis-screen.js';
 import { HudStyle } from './hud-style.js';
 import { LayoutEditor } from './layout-editor.js';
 import { TweakPanel } from './tweak-panel.js';
@@ -91,6 +93,9 @@ const hudMirror = createHudMirror(Display);        // the rear-view strip on the
 // ---- time trial and ghosts (time-trial.js) ----
 const trial = createTimeTrial({ game, track: () => track, saveSetup: () => saveSetup(),
   switchTrack: id => { game.setup.track = id; setTrack(id); renderSetup(); saveSetup(); } });
+// ---- sectors (sector-timing.js) and the lap analysis screen (analysis-screen.js) ----
+const sectors = createSectorTiming({ game, aiLapOf: (id, aero) => trial.aiLapOf(id, aero) });
+const analysis = createAnalysis({ game, sectors, aiLapOf: (id, aero) => trial.aiLapOf(id, aero), track: () => track });
 
 // ---- race setup and prefs (setup-store.js: loading, validation, what they mean for a race) ----
 const savePrefs = () => Settings.set(CONFIG.storageKeys.prefs, JSON.stringify(game.prefs));
@@ -132,6 +137,7 @@ function newRace() {
   player.spec = playerSpec(game.garage);             // the garage's setup + open mods (the rivals race SIM.STOCK)
   player.boostAuto = s.overtake === 'auto';
   trial.start(race, player);
+  sectors.start(race, player);
   racingLine.set(track, trial.aiLapOf('alien', race.activeAero)?.line);
   crews.build(race, Design.data.car); marks.clear();
   Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, pendingBoost: false, autoShiftHinted: false, queueHinted: false,
@@ -153,6 +159,7 @@ function stepStartLights(dt) {
 function lightsOut() {
   game.phase = PHASE.RACE; game.race.t = 0;
   trial.lightsOut();
+  sectors.lightsOut(game.player);
   setStartLights(0); Hud.flash('GO', 0.8); Sound.beep(...SFX.go);
   timers.after(CONFIG.lights.hideAfterGo, () => Hud.showLights(false));
 }
@@ -167,6 +174,7 @@ function onPlayerEvent(c, e) {
     case EV.LAP: {
       Hud.setLapTimes(e.time, c.bestLap, e.invalid);
       trial.onLap(race, c, e);                // the ghost: a new best lap becomes yours
+      sectors.onLap(race, c, e);              // sector times, bests, the session's laps
       if (!e.invalid && recordLap(game.records, race.track.id, c.spec.modified, e.time)) {
         Settings.set(CONFIG.storageKeys.records, JSON.stringify(game.records)); describeRecord();
         showMessage({ toast: `New lap record${c.spec.modified ? ' (modified car)' : ''}  ${fmtTime(e.time)}`, kind: 'purple' });
@@ -237,6 +245,7 @@ function simStep(dt) {
   }
   SIM.collide(race);
   trial.step(dt, game.player, race.t);
+  sectors.step(game.player, race);
   for (const c of race.cars) drainEvents(c);
   watchRace(race);
   if (game.resultsAt > 0 && race.t >= game.resultsAt && !game.resultsShown) showResults();
@@ -261,7 +270,7 @@ function shift(dir) {
 }
 function confirm() {                                   // pad A
   if (AppShell.quitOpen) { AppShell.cancelQuit(); return; }   // (A never quits: the safe answer)
-  if (SettingsScreen.open || InputMonitor.open) return;
+  if (SettingsScreen.open || InputMonitor.open || analysis.open) return;
   if (away.open) { away.confirm(); return; }
   if (game.phase === PHASE.MENU) startFromMenu();
   else if (game.resultsShown) newRace();
@@ -281,7 +290,7 @@ function toggleLayout() {
 // ---- "are you there?" (away.js) ----
 const away = createAway({ game, racing: () => racing(), togglePause: () => togglePause() });
 
-const escape = () => away.open ? away.toPauseMenu() : AppShell.quitOpen ? AppShell.cancelQuit() : Garage.open ? Garage.close() : InputMonitor.open ? InputMonitor.toggle(false) : SoundStudio.open ? SoundStudio.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
+const escape = () => away.open ? away.toPauseMenu() : AppShell.quitOpen ? AppShell.cancelQuit() : analysis.open ? analysis.close() : Garage.open ? Garage.close() : InputMonitor.open ? InputMonitor.toggle(false) : SoundStudio.open ? SoundStudio.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
   : LayoutEditor.active ? LayoutEditor.exit() : togglePause();
 // "Quit the game?" (Alt+F4 mid-race too): the race pauses behind it
 AppShell.onAskQuit(() => { if (isRunning() && !game.paused) togglePause(); });
@@ -368,6 +377,9 @@ $('resumeBtn').onclick = togglePause;
 $('restartBtn').onclick = () => newRace();
 $('againBtn').onclick = () => newRace();
 $('endBtn').onclick = endRace;
+$('pauseAnaBtn').onclick = () => analysis.show('pause');
+$('resAnaBtn').onclick = () => analysis.show('results');
+$('anaStartBtn').onclick = () => { if (game.phase === PHASE.MENU) analysis.show('start'); };
 $('menuBtn').onclick = toMenu;
 $('designBtn').onclick = () => TweakPanel.toggle();
 $('testCtlBtn').onclick = $('pauseInputsBtn').onclick = () => InputMonitor.toggle(true);
@@ -477,7 +489,7 @@ function frame(now) {
 function setTrack(id) {
   if (track && track.id === id) return track;
   track = trackOf(id); setPoseTrack(track);
-  if (game.race) { game.race = null; game.player = null; trial.reset(); wakes.hideAll(); crews.dispose(); marks.clear(); racingLine.set(track, null); }    // the last race was on the old circuit
+  if (game.race) { game.race = null; game.player = null; trial.reset(); sectors.reset(); wakes.hideAll(); crews.dispose(); marks.clear(); racingLine.set(track, null); }    // the last race was on the old circuit
   drawOutline($('trackPreview'), track); describeRecord();
   world?.dispose();
   world = buildWorld(Display.scene, track, SIM.DRIVERS);
