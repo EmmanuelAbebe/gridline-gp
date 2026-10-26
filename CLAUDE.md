@@ -183,6 +183,21 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   ALIEN paceOff hautvale 1.02, saltcross 1.02 (clean). Known, left: holding the brake at rest reverses to 32 km/h (stop /
   reverse on hold); lift-off at the limit in 3rd gives 15–17° (catchable); a sudden 2× lock at 200 km/h with no assists
   snaps (the speed-sensitive phone steering never asks for it). Scratch tools only (scratchpad audit/*.mjs).
+  Counter-steering (2026-10-26, measured): it works (steering into the slide + lifting catches it; ARCADE catches every
+  power slide even at 0.4 s), but in REAL F1 a power-on slide goes 4° → 20° in ~0.17 s at any gear / speed (no wheel
+  speed state: past the drive limit the rear is fully spinning in one step), so only a 0.15 s reaction saves it. Offered,
+  not done: progressive wheelspin (rear wheel speed), the automatic box kicking down two gears on full throttle (3rd → 1st
+  at 90 km/h).
+  Round 2 (2026-10-26; user: "why i slow down so much off gas", reverse "lags and brakes strangely", "on gravel and grass
+  i cant move forwards but i can reverse in full speed"; chose all four fixes): (1) reverse = the stop / reverse plan
+  that was on hold: brake alone at rest holds the car (it used to select reverse the moment it stopped), brake + gas held
+  `REVERSE_HOLD` 0.4 s at rest selects it (car `movedOff` / `revT`: never before the car first drove off), then gas backs
+  up, brake stops it, stopped on the brake alone = forward again; (2) reverse goes through the rear tyres' push on the
+  surface and the gravel dig-in (it was a flat 5 m/s²: 32 km/h on grass and in deep gravel, forward 7 / 0 km/h);
+  (3) grass rolling 2.2 → 1.0 (a spinning rear only matched 2.2: stuck at 7 km/h; now ~40 km/h after 10 s);
+  (4) lifting: `coastMax` 2.0 → 1.0 (100 km/h lift 0.39 → 0.28 g, 320 km/h 1.01 → 0.93 g), torque map 1.6 → 1.5
+  (1.4 and engineBrake 1.0 were tried: ALIEN without assists hit walls / spun at Marrow, Hautvale, Saltcross);
+  ALIEN paceOff marrow 1.16 → 1.14. tests/offtrack.test.js "stopped: the brake holds …".
 
 ## Architecture
 Tunables live in data tables (config modules), not inline in the logic.

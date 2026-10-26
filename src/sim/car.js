@@ -39,7 +39,8 @@ export function createCar(track, driver, slot, rng) {
     // performance spec (spec.js): STOCK, or the player's garage setup + mods (set by the game before the start)
     spec: STOCK,
     // drivetrain (vehicle.js): gear 1..8, -1 = reverse; autoShift = automatic gearbox; downQueue = manual downshifts waiting for the revs; slip = slipstream 0..1
-    gear: 1, rpm: 0, shiftT: 0, autoShift: true, autoDown: false, downQueue: 0, drive: 0, slip: 0, slipBy: null,
+    // movedOff: has driven off once (reverse can be selected from then on); revT: s brake + gas held at a standstill
+    gear: 1, rpm: 0, shiftT: 0, autoShift: true, autoDown: false, downQueue: 0, drive: 0, slip: 0, slipBy: null, movedOff: false, revT: 0,
     // active aero (active-aero.js): wings open 0..1 (straight mode); overtake mode: seconds left this lap, on, lap detected
     // boostAuto: a player car using overtake mode the way the AI does (the game's AUTO setting)
     aeroOpen: 0, boostLeft: 0, boostOn: false, boostLap: 0, boostAuto: false,

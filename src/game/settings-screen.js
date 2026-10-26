@@ -19,7 +19,7 @@ const C = RACE_SETUP.choices, WEAR = SIM.WEAR;
 
 const KEYS = `<div class="keys">
   <span><kbd>↑</kbd> <kbd>W</kbd></span><span>Throttle</span>
-  <span><kbd>↓</kbd> <kbd>S</kbd></span><span>Brake / reverse</span>
+  <span><kbd>↓</kbd> <kbd>S</kbd></span><span>Brake (stopped: hold brake + throttle for reverse, then throttle backs up)</span>
   <span><kbd>←</kbd><kbd>→</kbd> <kbd>A</kbd><kbd>D</kbd></span><span>Steer (eased in, so a tap is not full lock)</span>
   <span><kbd>Q</kbd> <kbd>E</kbd></span><span>Shift down / up (semi-auto and manual gearbox)</span>
   <span><kbd>B</kbd> <kbd>X</kbd></span><span>Box this lap, overtake mode (when set to BUTTON)</span>

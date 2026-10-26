@@ -101,12 +101,18 @@ export function stepChassis(race, c, inp, dt) {
     // reverse gear and crawling (by the real speed: a car sliding sideways at 90° is not crawling): kinematic steering
     if (d.reverse || speed < CH.lowSpeed) {
       let a = -d.resist - surfaceDrag(surf, v);
-      if (d.reverse) { a += v > 0 ? -CH.brakeSystem * 0.4 * inp.brk : -TUNING.REVERSE_ACC * inp.brk; if (inp.thr > 0 && v < 0) a += 20 * inp.thr; }
-      else { a += Math.min(d.drive, S.grip * surf.grip * dirt * gN * (1 - CH.frontWeight) * CH.longGrip) * dug; if (v > 0) a -= 20 * inp.brk * surf.grip; }
+      // what the rear tyres can push on this surface (per mass); reverse goes through the same limit and dig-in
+      const push = S.grip * surf.grip * dirt * gN * (1 - CH.frontWeight) * CH.longGrip;
+      if (d.reverse) {
+        // brake against the motion; gas backwards (asking more than the tyres give spins them, as forwards)
+        const ask = TUNING.REVERSE_ACC * inp.thr;
+        a += (v > 0 ? -20 : 20) * inp.brk * surf.grip - (ask > push ? push * CH.slideLong : ask) * dug;
+      } else { a += Math.min(d.drive, push) * dug; if (v > 0) a -= 20 * inp.brk * surf.grip; }
       if (E) a -= G * gx;
       if (inp.hb && v > 0) a -= HANDBRAKE.crawl * inp.hb;
       const v0 = c.v; c.v = clamp(c.v + a * h, -TUNING.REVERSE_MAX, TUNING.V_CAP);
       if (!d.reverse && v0 >= 0 && c.v < 0) c.v = 0;
+      if (d.reverse && v0 <= 0 && c.v > 0 && !(inp.thr > 0)) c.v = 0;   // braking a reversing car stops it, not more
       // the rear axle rolls straight: sideways speed at the centre of mass is B_REAR × yaw rate (no tyre slip)
       c.yawRate = c.v * Math.tan(delta) / L; c.vy = B_REAR * c.yawRate;
       c.h += c.yawRate * h;

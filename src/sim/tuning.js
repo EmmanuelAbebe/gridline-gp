@@ -5,8 +5,12 @@ export const TUNING = Object.freeze({
   PHYSICS: 2,
   VMAX: 82,           // nominal top speed (an endless straight, the battery empty: ERS clipping; 92 until 2026-10-24); camera FOV scales with it
   V_CAP: 100,         // hard speed cap, above anything the car can reach
+  // reverse (2026-10-26): stopped, brake + gas held together for REVERSE_HOLD s selects it (never before the car has
+  // first driven off: the launch); then gas = backwards (as fast as the rear tyres and the surface allow), brake = stop;
+  // stopped on the brake alone = forward again. Brake alone at rest only holds the car (it used to select reverse)
   REVERSE_MAX: 9,
   REVERSE_ACC: 5,
+  REVERSE_HOLD: 0.4,
   WHEEL_RADIUS: 0.36, // driven wheel: gearing and wheel spin
 });
 
@@ -87,7 +91,7 @@ export const AI = Object.freeze({
     pace: Object.freeze({ default: 1.13, harrow: 1.07, hautvale: 1.07, northfold: 1.07, saltcross: 1.07, cantera: 1.09, marrow: 1.16 }),
     // with no ABS / traction control (the player's assists, createRace aiAssists; 2026-10-24): where it differs, the most
     // that stays clean with active aero on and off (Saltcross cut corners at 1.14)
-    paceOff: Object.freeze({ default: 1.10, hautvale: 1.02, cantera: 1.04, saltcross: 1.02, marrow: 1.16, northfold: 1.07 }),
+    paceOff: Object.freeze({ default: 1.10, hautvale: 1.02, cantera: 1.04, saltcross: 1.02, marrow: 1.14, northfold: 1.07 }),
     // in traffic (a car ahead in its lane, alongside, or in a wake) its pace eases to `traffic` × that
     // over trafficTime s: the full push only works on the line in clean air (it put cars into walls in traffic)
     // clean air (no car in its lane or alongside, slip < cleanSlip) = 1; deep in a wake (slip > wakeSlip) or alongside
@@ -127,8 +131,9 @@ export const CAR = Object.freeze({
     power: [[3000, 53], [5000, 139], [7000, 229], [9000, 320], [10500, 381], [11500, 400], [12500, 392]],
     efficiency: 0.92,
     // torque map (2026-10-25): the pedal asks for torque ∝ pedal^pedalMap, as a real F1 car's progressive maps (a linear
-    // pedal left 15 % stable and 30 % a spin at the limit in 3rd without traction control)
-    pedalMap: 1.6,
+    // pedal left 15 % stable and 30 % a spin at the limit in 3rd without traction control; 2026-10-26 1.6 → 1.5, the user
+    // found part throttle weak; 1.4 made ALIEN hit walls / spin without assists. Stable at the limit to the same 40 %)
+    pedalMap: 1.5,
     engineBrake: 1.4, // extra deceleration off the throttle at redline, scaled by rpm
   }),
   gearbox: Object.freeze({
@@ -238,7 +243,9 @@ export const SURFACES = Object.freeze({
   sausage: S({ grip: 0.55, rolling: 3 }),
   turf:    S({ grip: 0.6, rolling: 1.2 }),
   tarmac:  S({ grip: 0.9, rolling: 0.3 }),
-  grass:   S({ grip: 0.35, rolling: 2.2 }),
+  // (2026-10-26: rolling 2.2 → 1.0, about real grass: a spinning rear's push on it only matched 2.2, so a car stopped
+  // on the grass could never get going faster than 7 km/h)
+  grass:   S({ grip: 0.35, rolling: 1.0 }),
   // (2026-10-24, real grip 1.8: rolling 1.5 → 0.4 and the bite built up to 20 m/s, or a car's drive in gravel never beat it)
   gravel:  S({ grip: 0.3, rolling: 0.4, bite: 6.5, biteFrom: 20, biteTo: 22, biteFade: 28, skim: 0.35 }),
 });
@@ -353,7 +360,9 @@ export const OVERTAKE = Object.freeze({ gap: 1.0, seconds: 5, fromLap: 2, energy
 export const ERS = Object.freeze({
   kw: 350, taperFrom: 290 / 3.6, taperFromBoost: 337 / 3.6, taperTo: 355 / 3.6,
   store: 4e6, start: 0.9, perLap: 8.5e6, harvestKw: 350, coastKw: 120,
-  low: 0.25, clipBelow: 0.3, clipKw: 200, minSpeed: 15, coastMax: 2.0, fullRpm: 10000,
+  // (coastMax: the lifting harvest's deceleration cap, m/s²; 2026-10-26 2.0 → 1.0: with the engine braking a lift at
+  // 100 km/h slowed the car at 0.39 g, now 0.26)
+  low: 0.25, clipBelow: 0.3, clipKw: 200, minSpeed: 15, coastMax: 1.0, fullRpm: 10000,
   // part throttle (below partBelow): the engine's spare power into the battery, up to partKw (2026-10-25: braking alone
   // gave ~3 MJ a lap at Hautvale and the battery sat empty; the rules allow 8.5)
   partBelow: 0.95, partKw: 200,

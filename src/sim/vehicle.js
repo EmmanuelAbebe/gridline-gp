@@ -108,9 +108,15 @@ const autoDown = (c, v, thr) => c.gear > 1 && (thr < 0.05
 function updateGear(c, thr, brk, shift, dt) {
   if (c.shiftT > 0) c.shiftT -= dt;
   const v = c.v, before = c.gear;
-  // reverse: brake held at a standstill engages it, gas or rolling forward leaves it
-  if (c.gear === -1) { if (v > 0.5 || (thr > 0.02 && v > -0.3)) c.gear = 1; }
-  else if (Math.hypot(v, c.vy || 0) <= 0.3 && brk > 0.1 && thr < 0.02) c.gear = -1;   // stopped, not sliding sideways
+  // reverse (TUNING.REVERSE_HOLD): stopped (not sliding sideways), brake + gas held together selects it once the car
+  // has driven off; rolling forward, or stopped on the brake alone, leaves it
+  const stopped = Math.hypot(v, c.vy || 0) <= 0.3;
+  if (v > 5) c.movedOff = true;
+  if (c.gear === -1) { if (v > 0.5 || (stopped && brk > 0.1 && thr < 0.02)) c.gear = 1; }
+  else {
+    c.revT = stopped && c.movedOff && brk > 0.1 && thr > 0.1 ? c.revT + dt : 0;
+    if (c.revT >= TUNING.REVERSE_HOLD) { c.gear = -1; c.revT = 0; }
+  }
   if (c.gear > 0) {
     if (c.autoShift) {
       if (c.gear < GEARS && rpmAt(v, c.gear, c.spec) > gearbox.autoUp) c.gear++;
@@ -201,7 +207,7 @@ export function drivetrain(c, { thr, brk, shift = 0 }, dt) {
   // drag: less in a slipstream and with the wings open (active-aero.js; aeroOpen 0 multiplies by exactly 1)
   const v = c.v, dragK = c.spec.dragK * (1 - SLIP.drag * (c.slip || 0)) * (1 - ACTIVE_AERO.dragCut * c.aeroOpen);
   let resist = dragK * v * Math.abs(v) + Math.sign(v) * aero.rolling;
-  if (c.gear === -1) { c.rpm = engine.idle + brk * 3000; c.drive = 0; return { drive: 0, resist, reverse: true }; }
+  if (c.gear === -1) { c.rpm = engine.idle + thr * 3000; c.drive = 0; return { drive: 0, resist, reverse: true }; }
   const rpm = engineRpm(v, c.gear, thr, c.spec);
   c.rpm = rpm;
   const tq = thr ** engine.pedalMap;                // the torque the pedal asks for (torque map)

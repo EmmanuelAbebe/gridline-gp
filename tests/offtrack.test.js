@@ -73,6 +73,26 @@ test('gravel: keep moving and the car drives out; stop deep in it and it is beac
   assert.ok(!c.beached && c.surface !== 'gravel' && Math.abs(c.lat) < R.turf[c.idx] + 3, `put back at lat ${c.lat.toFixed(1)} on ${c.surface}`);
 });
 
+// 2026-10-26 (user: "on gravel and grass I can't move forwards but I can reverse at full speed"; reverse came on by itself)
+test('stopped: the brake holds, brake + gas selects reverse, and reversing off track is no easier than driving forward', () => {
+  const still = (surface, inputs) => { const { race, c } = solo(); c.assists = S.ASSISTS.off; c.v = 0; c.movedOff = true; let d = 0;
+    for (const [secs, inp] of inputs) for (let k = 0; k < secs * 120; k++) {
+      race.t += DT; c.surface = surface; c.dirt = 0; S.drivePlayer(race, c, { thr: 0, brk: 0, steer: 0, analog: true, ...inp }, DT); d += c.v * DT; place(c, c.idx, 0); }
+    return { c, d }; };
+  const held = still('track', [[3, { brk: 1 }]]);
+  assert.ok(held.c.gear === 1 && Math.abs(held.c.v) < 0.05, `brake alone: gear ${held.c.gear}, ${held.c.v.toFixed(2)} m/s`);
+  const rev = still('track', [[0.5, { brk: 1, thr: 1 }], [3, { thr: 1 }]]);
+  assert.ok(rev.c.gear === -1 && rev.c.v < -5, `brake + gas, then gas: gear ${rev.c.gear}, ${rev.c.v.toFixed(1)} m/s`);
+  { const { race, c } = solo(); c.v = 0;          // on the grid, before driving off: never reverse (the launch)
+    for (let k = 0; k < 240; k++) { race.t += DT; S.drivePlayer(race, c, { thr: 1, brk: 1, steer: 0, analog: true }, DT); place(c, c.idx, 0); }
+    assert.equal(c.gear, 1); }
+  for (const s of ['grass', 'gravel']) {
+    const fwd = still(s, [[6, { thr: 0.5 }]]).d, back = -still(s, [[0.5, { brk: 1, thr: 1 }], [5.5, { thr: 1 }]]).d;
+    assert.ok(fwd > 10, `${s}: forward ${fwd.toFixed(0)} m in 6 s`);
+    assert.ok(back < fwd * 1.3, `${s}: reverse ${back.toFixed(0)} m vs forward ${fwd.toFixed(0)} m`);
+  }
+});
+
 test('run-off layout: kerb, artificial grass, then grass / tarmac / gravel and a barrier; street circuit walls close', () => {
   for (const [id, circuit] of Object.entries(S.CIRCUITS)) {
     const track = S.buildTrack(circuit);
