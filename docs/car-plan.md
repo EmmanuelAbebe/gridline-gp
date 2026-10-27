@@ -80,3 +80,22 @@ triangle budgets, every anchor present.
   edges, diffuser with strakes, faired halo pillar, front wing raised in the neutral middle and curling up at the tips,
   footplates, pylons, a spoon rear wing with rounded endplates and their lights, swan-neck pylon, wishbones with push /
   pull / track rods, streamlined mirrors, a visor. ~30k triangles, car.glb 1.4 MB (to shrink in phase 6).
+
+## The car is now based on an open model (2026-10-26/27)
+
+The user found the procedural car looked "like a bunch of attached fancy geometries" and asked for real references /
+free models. Four styles measured from the FIA's 2026 renders were offered, then a search of Sketchfab's CC-BY
+models; the user picked "F1 2026 concept (polygon model)" by Qvist_designs (CC-BY-4.0, credited in CREDITS.md, the
+README, Settings → Tools → Credits, the installers and car.glb's asset.copyright).
+- `tools/blender/qvist.py` (stage=build): the download is one fused CAD surface in mm (~1M faces). It is turned into
+  the game frame, split into its pieces (four wheels, two mirror glasses, the body), the rear wing's two flaps cut out
+  (separate elements in the model), the front wing's flaps cut from the fused wing (faces > 5 cm above the wing's lowest
+  across the span), each with a hinge axis (`extras.axis`, swept), painted by region on the full model (numpy), then
+  cut down to ~64k triangles keeping the borders between colours (a vertex group), AO baked. Brake lights, a helmet,
+  a steering wheel, `eye` / `steer` / `grip_*` / `screen` added. ~13 s plus renders (it took 46+ min with per-face
+  Python loops: keep the face work in numpy).
+- Game: car-glb.js turns every node with `extras.open` about its `extras.axis`; CarModels.eyeShift (the model's eye
+  − the classic seat) moves the cockpit camera (CameraRig.setEyeShift), the mirrors' viewpoint and the driver's body.
+- `car_own.py` = our own procedural car (four styles), kept as a fallback, writes tools/blender/out/car_own.glb only.
+- To do: car.glb is 4.8 MB (normals + colours per corner): shrink (quantize / weld) in phase 6; UVs for the livery
+  patterns (phase 3); the cockpit (phase 5); the car's own mirror glasses sit at the edge of the cockpit view.

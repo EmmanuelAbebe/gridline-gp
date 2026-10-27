@@ -153,7 +153,7 @@ export const Garage = (() => {
     if (tab === 'look') {
       const car = el('div', 'set-item'), ch = el('div', 'row');
       ch.append(el('span', 'lbl', 'Car'), seg(CAR_MODELS, L.model, v => { L.model = v; changed('look'); render(); }));
-      car.append(ch, el('p', 'note', L.model === '2026' ? 'The 2026 car made in Blender, being built (docs/car-plan.md): every car in the field.' : 'The part-built car: the design tools below change its shape.'));
+      car.append(ch, el('p', 'note', L.model === '2026' ? 'The 2026 car, based on "F1 2026 concept" by Qvist_designs (CC-BY): every car in the field.' : 'The part-built car: the design tools below change its shape.'));
       body.append(car, colourRow('Body colour', 'color'), colourRow('Accent colour', 'accent'), colourRow('Rims', 'rims'));
       const fin = el('div', 'set-item'), fh = el('div', 'row');
       fh.append(el('span', 'lbl', 'Paint finish'), seg(FINISHES, L.finish, v => { L.finish = v; changed('look'); render(); }));

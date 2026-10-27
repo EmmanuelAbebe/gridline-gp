@@ -9,7 +9,7 @@
     "dev": "vite",
     "dev:app": "node tools/dev-app.mjs",
     "build": "vite build && npm run phone:build",
-    "models": "tools/blender/run.sh trees && tools/blender/run.sh pits && tools/blender/run.sh stands && tools/blender/run.sh trackside && tools/blender/run.sh car",
+    "models": "tools/blender/run.sh trees && tools/blender/run.sh pits && tools/blender/run.sh stands && tools/blender/run.sh trackside && tools/blender/run.sh qvist stage=build",
     "bench:city": "tools/blender/run.sh city dir=tools/blender/out/city && vite build && electron desktop/main.cjs --track-shots=tools/blender/out/bench --bench-city=tools/blender/out/city",
     "start": "npm run build && electron .",
     "test": "node --test \"tests/**/*.test.js\" && node --experimental-strip-types --no-warnings --test \"phone-wheel/web/test/*.test.ts\"",
@@ -69,7 +69,9 @@
       "desktop/**",
       "dist/**",
       "public/icons/**",
-      "phone-wheel/web/dist/**"
+      "phone-wheel/web/dist/**",
+      "CREDITS.md",
+      "LICENSE"
     ],
     "asar": true,
     "linux": {

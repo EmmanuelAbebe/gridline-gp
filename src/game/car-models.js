@@ -293,7 +293,7 @@ export const CarModels = (() => {
   // ---- the stand-in every caller holds: remembers what was set, so a swap to the other kind looks the same
   let kind = 'classic';
   const live = new Set(), kindListeners = new Set();
-  const glbCtx = () => ({ template: Models.car, env, glow, SHADOW_GEO, SHADOW_MAT, GLOW_GEO, LIGHT_OFF, LIGHT_ON, FINISH_LOOKS, FRONT_STEER, DEG, createDriverBody, markShadows });
+  const glbCtx = () => ({ eyeShift: eyeShift(), template: Models.car, env, glow, SHADOW_GEO, SHADOW_MAT, GLOW_GEO, LIGHT_OFF, LIGHT_ON, FINISH_LOOKS, FRONT_STEER, DEG, createDriverBody, markShadows });
   function create(scene, driver, design) {
     const st = { design, livery: null, mats: null, shadows: true, visible: true, cockpit: false, screen: null, service: null, pedals: [0, 0] };
     const make = () => kind === '2026' && Models.car ? createGlbCar(scene, driver, st.design, glbCtx()) : createClassic(scene, driver, st.design);
@@ -336,7 +336,11 @@ export const CarModels = (() => {
     for (const fn of kindListeners) fn(k);
   }
 
-  return { create, measure, ghostMaterials, setKind, get kind() { return kind; }, onKind(fn) { kindListeners.add(fn); }, applyProfile(models, p) {
+  // the classic car's seat (design-defaults: the cockpit camera's back 0.33 / height 0.77, driver-body.js); a model
+  // with its own `eye` puts the driver, the cockpit camera and the mirrors' viewpoint that far from it
+  const CLASSIC_EYE = [-0.33, 0.77];
+  const eyeShift = () => { const e = kind === '2026' && Models.car?.getObjectByName('eye')?.position; return e ? [e.x - CLASSIC_EYE[0], e.y - CLASSIC_EYE[1]] : [0, 0]; };
+  return { create, measure, ghostMaterials, setKind, get kind() { return kind; }, get eyeShift() { return eyeShift(); }, onKind(fn) { kindListeners.add(fn); }, applyProfile(models, p) {
     const set = p.lambertCars ? MATS.fast : MATS.quality; for (const m of models) m.setMaterials(set);
     SHADOW_MAT.opacity = p.shadows ? 0.6 : 0.8;        // with sun shadows on, the contact shadow is only the ambient part
   } };

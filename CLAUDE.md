@@ -76,6 +76,8 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
   Then the car: plan + spec in docs/car-plan.md (2026-10-26; user chose realistic 2026, the old part-built car kept as an
   option with its editor, livery pattern templates, one shape for every team; phase 0 spec, phase 1 blockout done: tools/blender/car.py → car.glb,
   car-glb.js, garage Look → Car CLASSIC / 2026 (`livery.model`, CarModels.setKind swaps every car), GRIDLINE_SMOKE_CAR=2026).
+  Since 2026-10-27 car.glb is the user's pick of a CC-BY model, "F1 2026 concept" by Qvist_designs (CREDITS.md), adapted by
+  tools/blender/qvist.py (src = the download, ~/Downloads/f1-2026-concept); our own procedural car = car_own.py (fallback).
 - npm scripts: `dev` (Vite dev server, browser), `dev:app` (dev server inside Electron, `tools/dev-app.mjs`),
   `build`, `start` (build + Electron), `test` (node:test, `tests/*.test.js`), `lint` (ESLint 10, `eslint.config.js`:
   undefined/unused names; `src/sim` gets no browser globals), `typecheck` (`tsc -p .`, TypeScript 6 on plain JS + JSDoc,

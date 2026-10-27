@@ -36,7 +36,7 @@ export function createMirrors(renderTo) {
       target.texture.wrapS = THREE.RepeatWrapping; target.texture.repeat.x = -1; target.texture.offset.x = 1;   // left-right flip
       const plane = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: target.texture, color: MIRROR.tint }));
       plane.rotation.y = -Math.PI / 2;                 // faces -x (back at the driver); its width runs along +z
-      plane.position.x = -(t / 2 + 0.0008);            // just off the glass part's face
+      plane.position.x = -(t / 2 + (p.gap ?? 0.0008));  // just off the glass part's face (a curved glass: p.gap further)
       plane.visible = false;                           // shown once it has a picture
       holder.add(plane); root.add(holder);
       const cam = new THREE.PerspectiveCamera(MIRROR.fov, w / h, MIRROR.near, MIRROR.far);

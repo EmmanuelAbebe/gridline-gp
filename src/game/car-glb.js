@@ -38,7 +38,7 @@ export function createGlbCar(scene, driverIn, design, ctx) {
   model.updateMatrixWorld(true);
 
   const meshes = [];
-  model.traverse(o => { if (o.isMesh) { o.userData.role = o.material.name; meshes.push(o); } });
+  model.traverse(o => { if (o.isMesh) { o.userData.role = o.material.name; o.userData.show ??= o.parent?.userData.show; meshes.push(o); } });
   const node = name => model.getObjectByName(name);
 
   // wheels: the spin goes on a group inside the axle node, so the node can steer and slide out at a pit stop
@@ -48,7 +48,10 @@ export function createGlbCar(scene, driverIn, design, ctx) {
     pivot.add(spin);
     return { pivot, spin, z: pivot.position.z, front: name[6] === 'f' };
   });
-  const movers = ['fw_flap1', 'fw_flap2', 'rw_flap'].map(node).filter(Boolean).map(o => ({ o, open: (+o.userData.open || 0) * DEG }));
+  // every node with extras.open turns that many degrees in straight mode about extras.axis (its hinge line; default z)
+  const movers = [];
+  model.traverse(o => { if (+o.userData.open) movers.push({ o, open: +o.userData.open * DEG, base: o.quaternion.clone(),
+    axis: new THREE.Vector3(...(o.userData.axis ?? [0, 0, 1])).normalize(), q: new THREE.Quaternion() }); });
   const steer = node('steer'), grips = ['grip_r', 'grip_l'].map(n => node(n)?.position.clone() ?? new THREE.Vector3());
 
   // per-car materials: the livery's paint, the rims, the brake lights; the rest shared per graphics profile
@@ -83,7 +86,10 @@ export function createGlbCar(scene, driverIn, design, ctx) {
   function showView() {
     for (const m of meshes) m.visible = (m.userData.show ?? 'always') === 'always' || m.userData.show === (cockpitView ? 'cockpit' : 'outside');
     for (const s of glows) s.visible = !cockpitView && lit > 0.02;
-    if (cockpitView && !driverBody) { driverBody = ctx.createDriverBody(driver); root.add(driverBody.group); ctx.markShadows(driverBody.group, castsShadow); }
+    if (cockpitView && !driverBody) {
+      driverBody = ctx.createDriverBody(driver); root.add(driverBody.group); ctx.markShadows(driverBody.group, castsShadow);
+      driverBody.group.position.set(ctx.eyeShift[0], ctx.eyeShift[1], 0);      // (the body is laid out for the classic seat)
+    }
     if (driverBody) driverBody.group.visible = cockpitView;
     if (screen) screen.visible = screenSpec.show === 'always' || screenSpec.show === (cockpitView ? 'cockpit' : 'outside');
   }
@@ -123,7 +129,7 @@ export function createGlbCar(scene, driverIn, design, ctx) {
       return ['l', 'r'].map(n => node(`mirror_glass_${n}`)).filter(Boolean).map((o, i) => {
         box.setFromObject(o); box.getSize(size);
         const c = root.worldToLocal(box.getCenter(new THREE.Vector3()));
-        return { name: `mirror glass ${i ? 'R' : 'L'}`, size: [size.x, size.y, size.z], pos: [c.x, c.y, c.z], rot: [0, 0, 0], show: 'always' };
+        return { name: `mirror glass ${i ? 'R' : 'L'}`, size: [size.x, size.y, size.z], pos: [c.x, c.y, c.z], rot: [0, 0, 0], show: 'always', gap: 0.004 };
       });
     },
     sync(car, pose, dt = 1 / 60) {
@@ -133,7 +139,7 @@ export function createGlbCar(scene, driverIn, design, ctx) {
         w.spin.rotation.z = -car.roll;
         if (w.front) w.pivot.rotation.y = -car.steer * ctx.FRONT_STEER;
       });
-      for (const m of movers) m.o.rotation.z = m.open * (car.aeroOpen || 0);
+      for (const m of movers) m.o.quaternion.copy(m.base).multiply(m.q.setFromAxisAngle(m.axis, m.open * (car.aeroOpen || 0)));
       if (steer) steer.rotation.x = car.steer * steerSpec.lock * DEG;
       const want = car.brake > 0.05 ? Math.min(1, 0.6 + car.brake) : 0;
       lit += (want - lit) * Math.min(1, dt * (want > lit ? 30 : 12));
@@ -142,7 +148,7 @@ export function createGlbCar(scene, driverIn, design, ctx) {
       for (const s of glows) s.visible = !cockpitView && lit > 0.02;
       if (cockpitView && driverBody && steer) {
         root.updateMatrixWorld(true);
-        for (let i = 0; i < 2; i++) root.worldToLocal(hands[i].copy(grips[i]).applyMatrix4(steer.matrixWorld));
+        for (let i = 0; i < 2; i++) root.worldToLocal(hands[i].copy(grips[i]).applyMatrix4(steer.matrixWorld)).sub(driverBody.group.position);
         driverBody.update(hands, pedals[0], pedals[1], dt);
       }
     },

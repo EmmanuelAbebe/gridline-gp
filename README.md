@@ -97,3 +97,5 @@ it, and publishes a release with all the installers once every OS passes. A vers
 noncommercial purpose, as long as the licence and its copyright notice go with every copy. Selling it, or any other
 commercial use, needs the author's permission: ask in [Discussions](https://github.com/EmmanuelAbebe/gridline-gp/discussions).
 Streaming and videos of the game are welcome, monetised ones too.
+
+The 2026 car is based on "F1 2026 concept (polygon model)" by Qvist_designs (CC-BY-4.0): see [CREDITS.md](CREDITS.md).

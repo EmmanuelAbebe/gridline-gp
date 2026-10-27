@@ -63,7 +63,7 @@ const modelOf = new Map(SIM.DRIVERS.map((d, i) => [d.code, carModels[i]]));   //
 const playerModel0 = carModels[SIM.DRIVERS.findIndex(d => d.player)];
 playerModel0.mountScreen(WheelScreen.mesh);
 // the car model changed (garage: classic / 2026): the mirrors are on the new one
-CarModels.onKind(() => mirrors.build(playerModel0.object, playerModel0.mirrorParts()));
+CarModels.onKind(() => { mirrors.build(playerModel0.object, playerModel0.mirrorParts()); CameraRig.setEyeShift(CarModels.eyeShift); });
 // working rear-view mirrors on the player's car (mirrors.js), rebuilt with the car design
 const mirrors = createMirrors(Display.renderTo);
 mirrors.build(playerModel0.object, playerModel0.mirrorParts());
@@ -437,7 +437,8 @@ function renderFrame(dt) {
   CameraRig.update(dt, player, !isRunning());
   trial.frame(race, player, dt);
   const eye = Design.data.cameras.find(c => c.id === 'cockpit') || cam;
-  mirrors.update([-eye.back, eye.height, eye.side || 0], cockpit ? 'cockpit' : 'outside', Display.camera.position);
+  const es = CarModels.eyeShift;
+  mirrors.update([-eye.back + es[0], eye.height + es[1], eye.side || 0], cockpit ? 'cockpit' : 'outside', Display.camera.position);
   Display.render();
   hudMirror.render(player.finished ? null : player);
 

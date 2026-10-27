@@ -69,21 +69,25 @@ test('trackside.glb: the gantry, bridge, marshal post, TV tower and board frames
   assert.ok(Math.abs(size('truss-solid', 2) - 2) < 0.15 && Math.abs(size('post-solid', 1) - 10) < 0.1);
 });
 
-test('car.glb: the 2026 car on the physics\' wheelbase, the parts the game moves, within its triangle budget', () => {
+test('car.glb: the 2026 car (Qvist_designs, CC-BY) on the physics\' wheelbase, the parts the game moves, within budget', () => {
   const j = glbJson('../src/game/models/car.glb'), byName = new Map(j.nodes.map(n => [n.name, n]));
-  for (const name of ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr', 'fw_flap1', 'fw_flap2', 'rw_flap', 'steer', 'grip_l', 'grip_r', 'screen',
-    'eye', 'mirror_glass_l', 'mirror_glass_r', 'rain_light']) assert.ok(byName.has(name), `${name} is there`);
+  for (const name of ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr', 'rw_flap', 'rw_flap2', 'fw_flap_l', 'fw_flap_r', 'steer', 'grip_l', 'grip_r',
+    'screen', 'eye', 'mirror_glass_l', 'mirror_glass_r', 'rain_light', 'helmet']) assert.ok(byName.has(name), `${name} is there`);
   const at = n => byName.get(n).translation ?? [0, 0, 0];
-  assert.ok(Math.abs(at('wheel_fl')[0] - at('wheel_rl')[0] - SIM.CHASSIS.wheelbase) < 1e-4, 'the wheelbase is the physics\' one');
-  assert.ok(Math.abs(at('wheel_fr')[2] + at('wheel_fl')[2]) < 1e-6 && at('wheel_fr')[2] > 0, 'wheels mirrored, right = +z');
-  for (const n of ['fw_flap1', 'fw_flap2', 'rw_flap']) assert.ok(byName.get(n).extras?.open > 0, `${n} opens in straight mode`);
-  // the tyres: 2026 widths, 720 mm across
-  const size = mesh => { const a = j.accessors[j.meshes[mesh].primitives[0].attributes.POSITION]; return a.max.map((v, i) => v - a.min[i]); };
-  const tyre = n => size(byName.get(n).mesh);
-  assert.ok(Math.abs(tyre('tyre_fl')[0] - 0.72) < 0.01 && Math.abs(tyre('tyre_fl')[2] - 0.275) < 0.005, `front tyre ${tyre('tyre_fl')}`);
-  assert.ok(Math.abs(tyre('tyre_rl')[2] - 0.375) < 0.005, `rear tyre ${tyre('tyre_rl')}`);
+  assert.ok(Math.abs(at('wheel_fl')[0] - at('wheel_rl')[0] - SIM.CHASSIS.wheelbase) < 0.02, `wheelbase ${at('wheel_fl')[0] - at('wheel_rl')[0]}`);
+  assert.ok(Math.abs(at('wheel_fr')[2] + at('wheel_fl')[2]) < 0.01 && at('wheel_fr')[2] > 0, 'wheels mirrored, right = +z');
+  assert.ok(Math.abs(at('wheel_fl')[1] - 0.36) < 0.02, 'axles at the tyres\' radius');
+  for (const n of ['rw_flap', 'rw_flap2', 'fw_flap_l', 'fw_flap_r']) {
+    const e = byName.get(n).extras ?? {};
+    assert.ok(e.open > 0 && Array.isArray(e.axis) && Math.abs(Math.hypot(...e.axis) - 1) < 1e-3, `${n} opens about its hinge`);
+  }
+  assert.ok(at('eye')[1] > 0.75 && at('eye')[1] < 0.95, 'the eye at a driver\'s height');
+  const size = node => { const m = j.meshes[node.mesh]; const a = m.primitives.map(p => j.accessors[p.attributes.POSITION]);
+    return [0, 1, 2].map(i => Math.max(...a.map(x => x.max[i])) - Math.min(...a.map(x => x.min[i]))); };
+  for (const n of ['tyre_fl', 'tyre_rl']) { const d = size(byName.get(n)); assert.ok(Math.abs(d[1] - 0.72) < 0.02 && d[2] > 0.25 && d[2] < 0.45, `${n} ${d}`); }
   const roles = new Set(j.materials.map(m => m.name));
   for (const r of ['paint_main', 'paint_accent', 'carbon', 'rubber', 'metal', 'light']) assert.ok(roles.has(r), `material ${r}`);
   const tris = j.meshes.reduce((t, m) => t + m.primitives.reduce((s, p) => s + j.accessors[p.indices].count / 3, 0), 0);
-  assert.ok(tris < 60000, `${tris} triangles`);
+  assert.ok(tris < 75000, `${tris} triangles`);
+  assert.match(JSON.stringify(j.asset), /Qvist_designs|CC-BY/, 'the credit travels with the file');
 });

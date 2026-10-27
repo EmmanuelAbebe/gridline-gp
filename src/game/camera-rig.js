@@ -23,6 +23,7 @@ export const CameraRig = (() => {
   const pos = new THREE.Vector3(), look = new THREE.Vector3(), tPos = new THREE.Vector3(), tLook = new THREE.Vector3();
   const cams = () => Design.data.cameras;
   let idx = 0, shakeAmp = 0, buffetAmp = 0, shakeScale = 1, jolt = 0, turn = 0, side = 0, back = false, aimNow = false;
+  let eyeShift = [0, 0];   // the car model's eye minus the classic car's (CarModels eyeShift): cockpit cameras sit in its seat
   function aim(car) {
     const m = cams()[idx], p = poseOf(car);
     if (back) {                                           // the rear view
@@ -37,11 +38,14 @@ export const CameraRig = (() => {
     const ox = dx + (lx - dx) * orbit, oz = dz + (lz - dz) * orbit;
     // on a hill (pose.js y, pitch): up with the road, and along its slope (behind the car lower uphill, ahead higher)
     const y = p.y || 0, sl = Math.tan(p.pitch || 0);
-    tPos.set(p.x - ox*m.back + sx, m.height + y - m.back * sl, p.z - oz*m.back + sz);
+    const mb = m.cockpitBody ? m.back - eyeShift[0] : m.back, mh = m.cockpitBody ? m.height + eyeShift[1] : m.height;
+    tPos.set(p.x - ox*mb + sx, mh + y - mb * sl, p.z - oz*mb + sz);
     tLook.set(p.x + lx*m.ahead + sx, m.lookY + y + m.ahead * sl, p.z + lz*m.ahead + sz);
   }
   return {
     get mode() { return cams()[idx]; },
+    // [forward, up] metres from the classic car's seat to the current car model's (CarModels.eyeShift)
+    setEyeShift(d) { eyeShift = d; },
     cycle() { idx = (idx + 1) % cams().length; },
     select(id) { const i = cams().findIndex(c => c.id === id); if (i >= 0) idx = i; },
     snap(car) { aim(car); pos.copy(tPos); look.copy(tLook); },
