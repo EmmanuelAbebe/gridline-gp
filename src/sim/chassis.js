@@ -6,7 +6,8 @@
 //
 // State on the car: v (forward speed), vy (sideways speed, + = right), yawRate (rad/s, + = turning right), ax.
 // Everything is per unit mass, so forces read as accelerations (m/s²).
-import { TUNING, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT, ACTIVE_AERO, HANDBRAKE, ERS } from './tuning.js';
+import { TUNING, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT, ACTIVE_AERO, HANDBRAKE, ERS, TYRE_TEMP as TTC } from './tuning.js';
+import { axleTempGrip, stepTyreTemps, tyreEvents } from './tyre-temp.js';
 import { clamp, speedOf } from './math.js';
 import { lateralGrip, brakeMax, drivetrain, tyreGrip } from './vehicle.js';
 import { STOCK } from './spec.js';
@@ -86,6 +87,10 @@ export function stepChassis(race, c, inp, dt) {
   const T = race.track, E = T.elev, ei = c.idx, onRoad = Math.abs(c.lat) <= T.HW;
   const eSX = E ? E.SX[ei] : 0, eSN = E && onRoad ? E.SN[ei] : 0, eCA = E ? (onRoad ? E.CA[ei] : Math.sqrt(1 - eSX * eSX)) : 1;
   let slideF = 0, slideR = 0, lockF = false, lockR = false, spinR = false;
+  // tyre temperatures (tyre-temp.js; only when the race runs them): each axle's grip × its tyres' temperature factor,
+  // and the step's friction power and wheel loads back into their heat (heatF / heatR: J over the step)
+  const TT = race.tyreTemp ? c.tyreT : null, tg = TT ? axleTempGrip(TT) : null;
+  let heatF = 0, heatR = 0, wheelN = null, outF = 0, outR = 0;
   for (let s = 0; s < n; s++) {
     // v: along the car's heading (negative = travelling backwards, e.g. past 90° in a spin), vy: sideways
     const v = c.v, sp = Math.abs(v), vy = c.vy, w = c.yawRate, speed = Math.hypot(v, vy);
@@ -108,6 +113,8 @@ export function stepChassis(race, c, inp, dt) {
         const ask = TUNING.REVERSE_ACC * inp.thr;
         a += (v > 0 ? -20 : 20) * inp.brk * surf.grip - (ask > push ? push * CH.slideLong : ask) * dug;
       } else { a += Math.min(d.drive, push) * dug; if (v > 0) a -= 20 * inp.brk * surf.grip; }
+      // a wheelspin from (near) rest: the rears spin on the spot, the friction heats them (tyre-temp.js)
+      if (TT && d.drive > push) heatR += S.mass * push * Math.min(TTC.spinSlip.max, TTC.spinSlip.base + TTC.spinSlip.per * (d.drive / push - 1)) * h;
       if (E) a -= G * gx;
       if (inp.hb && v > 0) a -= HANDBRAKE.crawl * inp.hb;
       const v0 = c.v; c.v = clamp(c.v + a * h, -TUNING.REVERSE_MAX, TUNING.V_CAP);
@@ -133,8 +140,9 @@ export function stepChassis(race, c, inp, dt) {
     const lat = Math.abs(c.ay) * CH.cgHeight / CH.track, lf = lat * S.rollFront, lr = lat * (1 - S.rollFront);
     const loadF = Math.max(0.5, gN * CH.frontWeight + df * S.aeroFront * cond.front - transfer);
     const loadR = Math.max(0.5, gN * (1 - CH.frontWeight) + df * (1 - S.aeroFront) + transfer);
-    const Df = surfMu * S.frontGrip * axleGrip(loadF, lf, G * CH.frontWeight, S);
-    const Dr = surfMu * S.rearGrip * axleGrip(loadR, lr, G * (1 - CH.frontWeight), S);
+    const Df0 = surfMu * S.frontGrip * axleGrip(loadF, lf, G * CH.frontWeight, S);
+    const Dr0 = surfMu * S.rearGrip * axleGrip(loadR, lr, G * (1 - CH.frontWeight), S);
+    const Df = tg ? Df0 * tg.f : Df0, Dr = tg ? Dr0 * tg.r : Dr0;
     // slip angles (velocity at each axle vs where its wheels point)
     // (rolling backwards the steering acts the other way round)
     const back = v / Math.max(sp, 0.5);   // +1 forwards, −1 backwards, smooth through 0 (brakes then damp v to rest)
@@ -162,6 +170,18 @@ export function stepChassis(race, c, inp, dt) {
     if (front.over > 1 && brake > 0) lockF = true;
     if (rear.over > 1 && braking && !inp.hb) lockR = true;
     if (rear.over > 1 && !braking && d.drive > 0 && !inp.hb) spinR = true;
+    if (TT) {
+      // friction power = force × slip speed: sideways (slip angle) + lengthways (a gripping tyre's small slip; all of
+      // the speed once locked or spinning)
+      const slipL = o => speed * (o > 1 ? Math.min(1, TTC.longSlip + o - 1) : TTC.longSlip * o);
+      heatF += S.mass * (Math.abs(front.fy) * speed * Math.abs(Math.sin(alphaF)) + Math.abs(front.fx) * slipL(front.over)) * h;
+      // (a spinning rear slips by its wheel speed, which can be far more than the car's own: a locked wheel only by the car's)
+      const spinV = rear.over > 1 && rear.fx > 0 ? Math.max(slipL(rear.over), Math.min(TTC.spinSlip.max, TTC.spinSlip.base + TTC.spinSlip.per * (rear.over - 1))) : slipL(rear.over);
+      heatR += S.mass * (Math.abs(rear.fy) * speed * Math.abs(Math.sin(alphaR)) + Math.abs(rear.fx) * spinV) * h;
+      const hf = loadF / 2, hr = loadR / 2, df_ = Math.min(lf, hf), dr_ = Math.min(lr, hr), left = c.ay >= 0;   // (ay > 0: turning right, the left wheels outside)
+      wheelN = [left ? hf + df_ : hf - df_, left ? hf - df_ : hf + df_, left ? hr + dr_ : hr - dr_, left ? hr - dr_ : hr + dr_].map(x => x * S.mass);
+      outF = (left ? 1 : -1) * (hf + df_) / loadF; outR = (left ? 1 : -1) * (hr + dr_) / loadR;
+    }
     // equations of motion in the car's frame
     const cosD = Math.cos(delta), sinD = Math.sin(delta);
     // the surface drags against the car's whole motion (a car sliding sideways through gravel is slowed too)
@@ -199,6 +219,12 @@ export function stepChassis(race, c, inp, dt) {
   }
   c.slideF = clamp(slideF, 0, 1); c.slideR = clamp(slideR, 0, 1); c.lockF = lockF; c.lockR = lockR; c.spinR = spinR;
   c.roll += c.v * dt / TUNING.WHEEL_RADIUS;
+  if (TT) {
+    const st = S.mass * G / 2;    // (crawling: the static loads)
+    stepTyreTemps(TT, heatF / dt, heatR / dt, wheelN || [st * CH.frontWeight, st * CH.frontWeight, st * (1 - CH.frontWeight), st * (1 - CH.frontWeight)], speedOf(c), dt);
+    if (wheelN) TT.out = [outF, outR];
+    tyreEvents(c, dt);
+  }
 }
 
 // Angle between where the car points and where it is going (rad, + = sliding to the right).

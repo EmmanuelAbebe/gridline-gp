@@ -101,11 +101,19 @@ export const Hud = (() => {
     },
     // car condition rows (only what the race uses) and the pit status line
     updateCar(race, c) {
-      const W = race.wear, on = !!(W && (W.fuelLaps || W.tyreLaps || W.damage));
+      const W = race.wear, tt = !!(race.tyreTemp && c.tyreT), on = !!(W && (W.fuelLaps || W.tyreLaps || W.damage)) || tt;
       setOnce('carOn', on, v => { $('carState').hidden = !v; });
-      if (on) {
-        const showRow = (id, v) => { $(id).hidden = !v; $(id + 'Lbl').hidden = !v; };   // (fuelLbl, tyresLbl, dmgLbl)
-        setOnce('fuelOn', !!W.fuelLaps, v => showRow('fuel', v)); setOnce('tyresOn', !!W.tyreLaps, v => showRow('tyres', v)); setOnce('dmgOn', W.damage, v => showRow('dmg', v));
+      setOnce('ttOn', tt, v => { $('tt').hidden = !v; $('ttLbl').hidden = !v; });
+      if (tt) {                                    // the four tyres' grip temperatures, FL FR / RL RR
+        const [lo, hi] = SIM.TYRE_TEMP.window, cells = ($('tt').children);
+        for (let i = 0; i < 4; i++) {
+          const t = Math.round(SIM.gripTemp(c.tyreT, i));
+          setOnce('tt' + i, t, v => { cells[i].textContent = v; cells[i].className = v < lo - 5 ? 'cold' : v > hi + 5 ? 'hot' : 'ok'; });
+        }
+      }
+      const showRow = (id, v) => { $(id).hidden = !v; $(id + 'Lbl').hidden = !v; };   // (fuelLbl, tyresLbl, dmgLbl)
+      setOnce('fuelOn', !!W?.fuelLaps, v => showRow('fuel', v)); setOnce('tyresOn', !!W?.tyreLaps, v => showRow('tyres', v)); setOnce('dmgOn', !!W?.damage, v => showRow('dmg', v));
+      if (on && W) {
         if (W.fuelLaps) {
           const left = SIM.fuelLaps(race, c), short = left < SIM.lapsToGo(race, c);
           setOnce('fuelTxt', c.fuel <= 0 ? 'EMPTY' : left.toFixed(1) + ' laps', t => { $('fuel').textContent = t; });

@@ -23,6 +23,7 @@ export function loadSetup(json) {
     ai: oneOf('ai'),
     fuel: oneOf('fuel'),
     tyres: oneOf('tyres'),
+    tyreTemp: oneOf('tyreTemp'),
     damage: oneOf('damage'),
     aero: oneOf('aero'),
     overtake: oneOf('overtake'),

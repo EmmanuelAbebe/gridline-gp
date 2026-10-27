@@ -76,6 +76,10 @@
 #toast.show{opacity:1}
 #carState{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1)}
 #carState .warn{color:var(--amber)} #carState .bad{color:var(--red)}
+/* tyre temperatures (FL FR / RL RR): blue cold, green in the window, red hot */
+#carState .tt{display:inline-grid;grid-template-columns:repeat(2,auto);gap:2px 4px;justify-self:end}
+#carState .tt i{font-style:normal;font-size:.82em;padding:0 4px;border-radius:3px;background:rgba(255,255,255,.08);min-width:2.2em;text-align:center}
+#carState .tt i.cold{color:#7fb6ff} #carState .tt i.ok{color:#5be08f} #carState .tt i.hot{color:#ff6a5a}
 #pitState{margin-top:6px;padding:3px 8px;border-radius:var(--radius);font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.12em;text-align:center;background:rgba(255,194,26,.16);color:#ffc21a}
 #pitState.limiter{background:rgba(41,211,255,.16);color:#7fe3ff}
 #boxBtn.on{background:#ffc21a;color:#111}

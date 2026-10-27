@@ -4,4 +4,5 @@
 /** @typedef {ReturnType<typeof import('./car.js').createCar>} Car */
 /** @typedef {ReturnType<typeof import('./race.js').createRace>} Race */
 /** @typedef {ReturnType<typeof import('./track.js').buildTrack>} Track */
+/** @typedef {ReturnType<typeof import('./tyre-temp.js').tyreSet>} TyreSet */
 export {};

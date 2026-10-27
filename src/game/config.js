@@ -93,7 +93,7 @@ const AI_LEVELS = {
   alien:  { pace: 1.0, follow: 6, alien: true, note: 'Faster than a great lap, and they hunt you down: they sit in your tow and pull out late (Northfold: about 0:59.1, Elkmoor 29.1 s).' },
 };
 export const RACE_SETUP = Object.freeze({
-  defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10, gearbox: 'auto', assists: 'medium', ai: 'pro', fuel: 'normal', tyres: 'normal', damage: 'on', aero: 'on', overtake: 'auto', ghost: 'mine' },
+  defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10, gearbox: 'auto', assists: 'medium', ai: 'pro', fuel: 'normal', tyres: 'normal', tyreTemp: 'on', damage: 'on', aero: 'on', overtake: 'auto', ghost: 'mine' },
   aiLevels: AI_LEVELS,
   // Every setup choice that is one of a list: [value, button label]. The saved setup is checked against these (an
   // unknown value falls back to the default), the Settings screen and the start menu draw their buttons from them,
@@ -105,6 +105,7 @@ export const RACE_SETUP = Object.freeze({
     assists: levels([...Object.keys(SIM.ASSISTS), 'custom']),
     fuel: levels(Object.keys(SIM.WEAR.fuel)),
     tyres: levels(Object.keys(SIM.WEAR.tyres)),
+    tyreTemp: levels(['off', 'on']),
     damage: levels(['off', 'on']),
     aero: levels(['off', 'on']),
     overtake: [['auto', 'AUTO'], ['button', 'BUTTON'], ['off', 'OFF']],

@@ -8,12 +8,14 @@
 // (c.pitRequest, its plan), down to the limit, into its box (one per entrant, in front of its garage), service, back
 // out along the fast lane, and onto the track after the exit road. Its position follows a path along the track samples
 // at a lateral offset (c.pit.p = unwrapped sample position), so laps, timing and order carry on as usual.
+import { tyreSet, hotWear } from './tyre-temp.js';
 import { PIT, WEAR, EV, TUNING, RUNOFF } from './tuning.js';
 import { pitRange } from './runoff.js';
 import { DRIVERS } from './drivers.js';
 import { rpmAt, GEARS } from './vehicle.js';
 import { emit } from './events.js';
 import { clamp, wrapA, wrapIdx, smoothstep } from './math.js';
+/** @typedef {import('./types.js').TyreSet} TyreSet */
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
 /** @typedef {import('./types.js').Track} Track */
@@ -45,7 +47,7 @@ export function buildPitLane(track) {
 
 // A car's fuel, tyres, damage and pit-stop state (part of createCar; setupWear fills the tank for the race).
 export const pitState = slot => ({
-  fuel: Infinity, tyreWear: 0, damage: /** @type {Damage} */ ({ wing: 0, floor: 0, susp: 0 }), pullSide: slot % 2 ? 1 : -1,   // pullSide: where damaged suspension pulls
+  fuel: Infinity, tyreWear: 0, tyreT: /** @type {TyreSet} */ (null), damage: /** @type {Damage} */ ({ wing: 0, floor: 0, susp: 0 }), pullSide: slot % 2 ? 1 : -1,   // pullSide: where damaged suspension pulls
   pit: /** @type {PitStop} */ (null), pitRequest: false, pitLimiter: false, pitStops: 0,
   warned: /** @type {{ low?: boolean, box?: boolean, out?: boolean, tyres?: boolean }} */ ({}),   // pit = { p, phase, ... } while in the lane
 });
@@ -93,7 +95,7 @@ export function updateWear(race, c, thr, dt) {
     if (c.fuel <= 0 && !c.warned.out) { c.warned.out = true; emit(c, EV.FUEL_OUT); }
   }
   if (W.tyreLaps) {
-    c.tyreWear = Math.min(1, c.tyreWear + dist / (L * W.tyreLaps) * (1 + WEAR.slideWear * (c.slideF + c.slideR)));
+    c.tyreWear = Math.min(1, c.tyreWear + dist / (L * W.tyreLaps) * (1 + WEAR.slideWear * (c.slideF + c.slideR)) * (race.tyreTemp && c.tyreT ? hotWear(c.tyreT) : 1));
     if (c.tyreWear > WEAR.warn.tyres && !c.warned.tyres) { c.warned.tyres = true; emit(c, EV.TYRES_WORN); }
   }
 }
@@ -335,6 +337,6 @@ function service(race, c) {
 /** @param {Race} race @param {Car} c */
 function applyService(race, c, s) {
   if (Number.isFinite(s.fuelTo)) c.fuel = s.fuelTo;
-  c.tyreWear = 0; if (c.damage) c.damage = { wing: 0, floor: 0, susp: 0 };
+  c.tyreWear = 0; if (race.tyreTemp) c.tyreT = tyreSet(); if (c.damage) c.damage = { wing: 0, floor: 0, susp: 0 };
   c.pitStops++; c.dirt = 0; c.warned = {};
 }

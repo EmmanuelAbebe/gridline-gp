@@ -42,6 +42,8 @@ export const EVENT_MESSAGES = {
   [EV.FUEL_BOX]: () => ({ radio: 'Box this lap or you will run out of fuel!', secs: 5 }),
   [EV.FUEL_OUT]: () => ({ radio: 'We are out of fuel: limp mode. Bring it into the pits.', secs: 6 }),
   [EV.TYRES_WORN]: () => ({ radio: 'The tyres are going off. Box for fresh ones when you are ready.', secs: 5 }),
+  [EV.TYRES_WARM]: () => ({ radio: 'Tyres are up to temperature. Push now.', secs: 4 }),
+  [EV.TYRES_HOT]: e => ({ radio: `${e.axle === 'rear' ? 'Rears' : 'Fronts'} are overheating. Look after them: fewer slides${e.axle === 'rear' ? ' and less wheelspin' : ''}.`, secs: 5 }),
   [EV.DAMAGE]: e => ({ radio: DAMAGE[e.part], secs: 5 }),
   // overtake mode (active-aero.js)
   [EV.BOOST_READY]: (e, c) => ({ radio: `${e.gap.toFixed(1)} s to the car ahead: overtake mode this lap.`
@@ -54,6 +56,7 @@ export const messageFor = (e, c, race) => EVENT_MESSAGES[e.type]?.(e, c, race) ?
 // the other things said during a race
 export const SAY = {
   boxOn: { radio: 'Copy, box this lap. We are ready for you.', secs: 3 },
+  coldTyres: { radio: 'Tyres are cold off the blankets: take care into the first corners.', secs: 4 },
   boxOff: { radio: 'Understood, stay out.', secs: 3 },
   timeUp: { toast: 'Time up: the leader\'s next lap is the last' },
   autoShift: { toast: 'Automatic gearbox: pick SEMI-AUTO or MANUAL in Settings (O) to shift yourself' },

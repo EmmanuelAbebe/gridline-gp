@@ -130,7 +130,7 @@ function setStartLights(n) { Hud.setStartLamps(n); world.setStartLights(n); }
 function newRace() {
   timers.clear();
   const s = game.setup, field = buildField(s.cars, s.type === 'trial').map(d => d.player ? playerDriver(game.garage) : d);   // your livery in the tower, map, results
-  const race = SIM.createRace(raceFormat(s), { track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, aiFollow: RACE_SETUP.aiLevels[s.ai].follow || 1, aiAlien: !!RACE_SETUP.aiLevels[s.ai].alien, wear: raceWear(s), ...raceAero(s), aiAssists: aiAssistsOf(s) });
+  const race = SIM.createRace(raceFormat(s), { track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, aiFollow: RACE_SETUP.aiLevels[s.ai].follow || 1, aiAlien: !!RACE_SETUP.aiLevels[s.ai].alien, wear: raceWear(s), ...raceAero(s), aiAssists: aiAssistsOf(s), tyreTemp: s.tyreTemp === 'on' });
   for (const [code, m] of modelOf) m.setVisible(field.some(d => d.code === code));
   const L = CONFIG.lights;
   const player = race.cars.find(c => c.player);
@@ -162,6 +162,7 @@ function lightsOut() {
   game.phase = PHASE.RACE; game.race.t = 0;
   trial.lightsOut();
   sectors.lightsOut(game.player);
+  if (game.race.tyreTemp) showMessage(SAY.coldTyres);
   setStartLights(0); Hud.flash('GO', 0.8); Sound.beep(...SFX.go);
   timers.after(CONFIG.lights.hideAfterGo, () => Hud.showLights(false));
 }

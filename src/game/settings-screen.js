@@ -53,6 +53,9 @@ const TABS = [
         + ' Box with B, pad X or the BOX button: the car drives itself through the pit lane.'),
     seg('tyres', 'Tyre wear', C.tyres, v => !WEAR.tyres[v] ? 'Tyres never wear.'
       : `Worn out after about ${WEAR.tyres[v]} laps (sliding wears them faster): less grip.`),
+    seg('tyreTemp', 'Tyre temperature', C.tyreTemp, v => v === 'on'
+      ? 'Tyres grip best at 90–110 °C. Off the blankets (70 °C) at the start and after a pit stop they grip less until you warm them up; sliding and wheelspin overheat them. Every car, the AI too.'
+      : 'Tyres always grip as if at their best temperature.'),
     seg('damage', 'Damage', C.damage, v => v === 'on'
       ? 'Hits break the front wing (understeer), the floor (less downforce) or the suspension (the car pulls). Repaired in the pits.'
       : 'Hits never damage the car.'),

@@ -57,6 +57,7 @@ export const AI = Object.freeze({
   // the same per gear, from wheel spin and the rear sliding (`slide`).
   feel: Object.freeze({ brake: 0.95, brakeMin: 0.8, brakeMax: 1.05, learn: 0.02, cut: 0.97, nowCut: 0.88, recover: 1.5, thr: 1, thrLearn: 0.05, thrCut: 0.9, slide: 0.7, floor: 0.25,
     counter: 1.0,      // opposite lock: × the drift angle, once the rear slides (driving.js steering)
+    coldThr: 4,        // cold / overheated rears (tyre-temp.js): the throttle cap × their grip factor^coldThr
     trail: 0.6,        // brake × (1 − trail × |steering|): trail braking
     slideDrift: 0.14 }),   // rad of drift above which it only touches the throttle (none by twice that)
   // racecraft (driving.js; m unless noted). Drivers' traits 0..1 (drivers.js `traits`, 0.5 when missing) scale them.
@@ -446,10 +447,38 @@ export const WEAR = Object.freeze({
     suspPull: 0.02, suspGrip: 0.06, steps: 4 }),               // steps: a message each time a part crosses a 1/steps mark
 });
 
+// Tyre temperatures (2026-10-27, tyre-temp.js; user: "tyre temperature vs grip"). Off unless a race asks for it
+// (createRace tyreTemp): every path below then multiplies by nothing. Per tyre (FL, FR, RL, RR) two temperatures: the
+// surface (thin, quick) and the core (the carcass and its air, slow). Heat in: the friction power where the tyre slides
+// over the road (slip angle × cornering force, wheelspin / lock-ups, the small longitudinal slip of braking and drive),
+// `share` of it into the tyre, split between an axle's wheels by their loads (the outer one in a corner gets more), and
+// the rubber flexing under load at speed (into the core). Heat out: the surface to the air (more with speed), to the
+// track and to the core; the core to the rim / air. Grip: full in the window, less below (cold) and above (overheated);
+// the grip temperature mixes `mix` of the surface with the core. Real numbers: blankets 70 °C, the window ~90-110 °C.
+export const TYRE_TEMP = Object.freeze({
+  blanket: 70, air: 25, track: 35,                    // °C: off the blankets (start, pit stop), the air and the track
+  window: Object.freeze([90, 110]), mix: 0.7,
+  cold: Object.freeze({ loss: 0.25, scale: 50 }),     // grip × (1 − loss·(1 − e^(−(lo − T)/scale))): 70 °C ≈ −8 %, 30 °C ≈ −17 %
+  hot: Object.freeze({ loss: 0.12, scale: 40, pow: 1.5, max: 0.2 }),   // grip × (1 − loss·((T − hi)/scale)^pow): 130 °C ≈ −4 %, 150 °C ≈ −12 %
+  share: 0.27,                                        // of the friction power that heats the tyre (the rest: the road)
+  longSlip: 0.08,                                     // slip ratio at the grip limit (a gripping tyre's longitudinal slip)
+  spinSlip: Object.freeze({ base: 8, per: 25, max: 40 }),   // m/s the rears' surface slips in a wheelspin at walking pace (by drive / grip)
+  roll: 0.0075,                                       // W of flexing heat per N of load per m/s (into the core)
+  // cooling: W/K × the temperature difference × (difference / ref)^grow (convection grows faster than linear: keeps
+  // the outer and inner tyres within ~10-20 °C of each other, as real ones)
+  surface: Object.freeze({ C: 4000, core: 300, air: 10, airV: 0.45, road: 8 }),   // J/K, W/K, W/K + W/K per m/s, W/K
+  core: Object.freeze({ C: 9000, air: 2, airV: 0.08 }),
+  grow: 0.6, ref: 60,
+  front: 0.73,                                        // a front tyre's size against a rear's (2026: 275 / 375 mm): its heat capacity and cooling
+  hotWear: 15,                                        // wear × (1 + (T − hi)/hotWear) above the window
+  // events: TYRES_WARM once all four reach the window after a cold set; TYRES_HOT when an axle stays `over` °C above it for `for` s
+  warn: Object.freeze({ warmAt: -3, over: 12, for: 3, calm: 6 }),
+});
+
 // Things that happen to a car during a step: the `type` of the event objects in car.events (events.js `emit`).
 export const EV = Object.freeze({ LAP: 'lap', FASTEST: 'fastest', FINISH: 'finish', WALL: 'wall', CONTACT: 'contact',
   SHIFT: 'shift', SHIFT_DENIED: 'shift-denied', CUT: 'cut', PENALTY: 'penalty',
   SAUSAGE: 'sausage', BEACHED: 'beached', RECOVERED: 'recovered',
   PIT_IN: 'pit-in', PIT_STOP: 'pit-stop', PIT_READY: 'pit-ready', PIT_GO: 'pit-go', PIT_OUT: 'pit-out', DAMAGE: 'damage',
-  FUEL_LOW: 'fuel-low', FUEL_BOX: 'fuel-box', FUEL_OUT: 'fuel-out', TYRES_WORN: 'tyres-worn',
+  FUEL_LOW: 'fuel-low', FUEL_BOX: 'fuel-box', FUEL_OUT: 'fuel-out', TYRES_WORN: 'tyres-worn', TYRES_WARM: 'tyres-warm', TYRES_HOT: 'tyres-hot',
   BOOST_READY: 'boost-ready', BOOST: 'boost' });

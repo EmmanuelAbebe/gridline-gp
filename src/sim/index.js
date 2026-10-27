@@ -19,7 +19,9 @@ import { gapAhead } from './active-aero.js';
 import { surfaceY, samplePos, cornerSpeedAt, brakeLimitAt } from './elevation.js';
 import { rpmAt, cornerSpeed, lateralGrip, brakeLimit, brakeMax, tyreGrip, wakeHalfWidth, VEHICLE_INFO } from './vehicle.js';
 
-export const SIM = Object.freeze({ TUNING, AI, CONTACT, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, HANDBRAKE, SPEED_STEER, CIRCUITS,
+import { tyreSet, tempGrip, axleTempGrip, gripTemp } from './tyre-temp.js';
+import { TYRE_TEMP } from './tuning.js';
+export const SIM = Object.freeze({ TYRE_TEMP, tyreSet, tempGrip, axleTempGrip, gripTemp, TUNING, AI, CONTACT, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, HANDBRAKE, SPEED_STEER, CIRCUITS,
   SURFACES, OFFTRACK, WALLS, RUNOFF, BARRIER, BARRIERS, ZONE, surfaceAt, PIT, WEAR, fuelLaps, lapsToGo, carCondition, laneCentre, laneOuter, alongLane, serviceSteps,
   steerLock, tyreCurve, driftAngle, DRIVERS, EV, track: DEFAULT_TRACK,
   SETUP, MODS, ACTIVE_AERO, OVERTAKE, ERS, gapAhead, carSpec, STOCK, validSetup, validMods, isModified, specStats, balanceAt,

@@ -175,7 +175,7 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
 - Lap times (best, aero on, medium assists): LEGEND Elkmoor 40.1, Harrow 65.4, Cobalt 72.4, Marrow 54.2, Northfold 80.2,
   Hautvale 76.2, Saltcross 82.4, Cantera 60.8, Ironvale Park 61.2; ALIEN 36.8 / 60.9 / 62.4 / 46.8 / 73.4 / 69.6 / 76.8 / 54.1 /
   53.1 (no assists: LEGEND +1–6 %, ALIEN Elkmoor 39.3, Harrow 62.0, Northfold 75.6 …). sim-trace baseline changed.
-  Not done: tyre temperature / warm-up.
+  Tyre temperature: done 2026-10-27 (see below).
 - Behaviour audit (2026-10-25; user: "reevaluate the car behaviour in different conditions"; launches, straight / trail
   braking, skidpad, lift-off, power-on, phone full tilt, off track, low speed, full-field AI races; no NaNs, soc in range,
   steady grip within 5 % of the plan). Fixed, the user's choice: (1) trail-braking locked the rears first at a light pedal
