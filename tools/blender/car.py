@@ -1,5 +1,5 @@
 # Gridline GP's 2026 car, made in Blender: tools/blender/run.sh car [preview=dir] [ao=0]
-# Phase 1 of docs/car-plan.md (2026-10-26): the blockout. Every main part in its place and to the 2026 measurements,
+# Phases 1–2 of docs/car-plan.md (2026-10-26): the blockout, then the body (one skin with the cockpit and inlets cut in). Every main part in its place and to the 2026 measurements,
 # with the objects the game drives (the contract in docs/car-plan.md):
 #   wheel_fl / _fr / _rl / _rr   empties at the axle centres (the game spins them about z, steers the fronts about y),
 #                                tyre_* and rim_* inside
@@ -133,90 +133,155 @@ def both(fn):
   """build a left/right pair: fn(side) with side = −1 (left) / +1 (right)"""
   return [fn(-1, 'l'), fn(1, 'r')]
 
+# ---------------------------------------------------------------- phase 2 tools: smooth lofts, plates, booleans
+def smooth(keys, x):
+  """the key values at x: cubic Hermite through keys [(x, a, b, ...)] (x falling), tangents from the neighbours"""
+  xs = [k[0] for k in keys]
+  if x >= xs[0]: return list(keys[0][1:])
+  if x <= xs[-1]: return list(keys[-1][1:])
+  i = next(j for j in range(len(xs) - 1) if xs[j] >= x >= xs[j + 1])
+  x0, x1 = xs[i], xs[i + 1]; t = (x - x0) / (x1 - x0); h = x1 - x0
+  def tan(j, c):
+    a, b = max(0, j - 1), min(len(keys) - 1, j + 1)
+    return (keys[b][c] - keys[a][c]) / (xs[b] - xs[a])
+  out = []
+  for c in range(1, len(keys[0])):
+    p0, p1, m0, m1 = keys[i][c], keys[i + 1][c], tan(i, c) * h, tan(i + 1, c) * h
+    out.append((2*t**3 - 3*t*t + 1) * p0 + (t**3 - 2*t*t + t) * m0 + (-2*t**3 + 3*t*t) * p1 + (t**3 - t*t) * m1)
+  return out
+
+def body_loft(keys, step=0.05, k=36, bottom=None):
+  """a smooth body through key sections [(x, yc, hw, hh, e, zc)] from the front back"""
+  x0, x1 = keys[0][0], keys[-1][0]; n = max(2, round((x0 - x1) / step))
+  rings = []
+  for i in range(n + 1):
+    x = x0 + (x1 - x0) * i / n; yc, hw, hh, e, zc = smooth(keys, x)
+    rings.append(section(x, yc, max(hw, 0.004), max(hh, 0.004), e=max(e, 2), k=k, zc=zc, bottom=bottom))
+  return Mesh().grid(rings)
+
+def plate(profile, z, thick):
+  """a flat plate: a side-view outline [(x, y)] (convex, either winding) at z, `thick` across"""
+  ring0 = [(x, y, z - thick / 2) for x, y in profile]; ring1 = [(x, y, z + thick / 2) for x, y in profile]
+  return Mesh().grid([ring0, ring1])
+
+def boolean(target, cutter, op='DIFFERENCE'):
+  """target ± cutter (Blender's exact solver; the cutter's faces keep its material), the cutter removed"""
+  if cutter.data.materials[0].name not in [m.name for m in target.data.materials]: target.data.materials.append(cutter.data.materials[0])
+  m = target.modifiers.new('b', 'BOOLEAN'); m.operation = op; m.object = cutter; m.solver = 'EXACT'
+  try: m.material_mode = 'TRANSFER'
+  except (AttributeError, TypeError): pass
+  bpy.context.view_layer.objects.active = target; bpy.ops.object.modifier_apply(modifier=m.name)
+  bpy.data.objects.remove(cutter, do_unlink=True)
+
+def resmooth(ob, sharp=40):
+  me = ob.data; me.polygons.foreach_set('use_smooth', [True] * len(me.polygons)); me.set_sharp_from_angle(angle=math.radians(sharp))
+
 # ---------------------------------------------------------------- the car
 def build():
   objs = []
-  # survival cell + nose: from the nose tip back to the engine cover; the top dips at the cockpit opening
-  tub = [section(2.66, 0.215, 0.05, 0.045), section(2.45, 0.25, 0.10, 0.075), section(2.10, 0.31, 0.16, 0.11),
-         section(1.70, 0.38, 0.215, 0.15), section(1.20, 0.43, 0.26, 0.19), section(0.70, 0.45, 0.29, 0.21),
-         section(0.45, 0.43, 0.30, 0.18), section(-0.15, 0.42, 0.30, 0.17), section(-0.35, 0.45, 0.30, 0.21)]
-  objs.append(obj('tub', Mesh().grid(tub), 'paint_main'))
-  objs.append(obj('cockpit_floor', boxmesh(-0.32, 0.46, 0.585, 0.6, -0.24, 0.24), 'dark'))
-  objs += both(lambda s, n: obj(f'cockpit_side_{n}', boxmesh(-0.36, 0.48, 0.55, 0.665, s * 0.30 - 0.03, s * 0.30 + 0.03), 'paint_main'))
-  objs.append(obj('headrest', Mesh().grid([section(x, 0.62, 0.26, 0.07, e=3) for x in (-0.36, -0.16)]), 'carbon'))
-  # engine cover, airbox over the driver's head, the fin to the rear wing
-  cover = [section(-0.35, 0.47, 0.30, 0.23), section(-0.80, 0.47, 0.27, 0.24), section(-1.30, 0.41, 0.19, 0.19),
-           section(-1.70, 0.35, 0.11, 0.13), section(-2.02, 0.31, 0.055, 0.07)]
-  objs.append(obj('engine_cover', Mesh().grid(cover), 'paint_main'))
-  airbox = [section(-0.24, 0.84, 0.085, 0.10, e=2.2), section(-0.42, 0.82, 0.11, 0.14), section(-0.80, 0.70, 0.09, 0.10), section(-1.15, 0.62, 0.04, 0.05)]
-  objs.append(obj('airbox', Mesh().grid(airbox), 'paint_main'))
-  objs.append(obj('airbox_inlet', Mesh().grid([section(x, 0.85, 0.065, 0.075, e=2.2) for x in (-0.235, -0.25)]), 'dark'))
-  fin = [[(x, y0, -0.008), (x, y0, 0.008), (x, y1, 0.008), (x, y1, -0.008)] for x, y0, y1 in ((-0.85, 0.66, 0.78), (-1.5, 0.48, 0.80), (-2.05, 0.36, 0.84))]
-  objs.append(obj('fin', Mesh().grid(fin), 'paint_accent'))
-  # sidepods: an inlet at the front, an undercut below, tapering into the coke bottle
-  def pod(s, n):
-    rings = [section(x, yc, hw, hh, e=3.2, zc=s * zc) for x, yc, hw, hh, zc in
-             ((0.42, 0.46, 0.15, 0.12, 0.47), (0.30, 0.44, 0.19, 0.15, 0.50), (-0.20, 0.42, 0.20, 0.15, 0.48),
-              (-0.70, 0.37, 0.16, 0.13, 0.42), (-1.20, 0.30, 0.09, 0.09, 0.30), (-1.55, 0.25, 0.04, 0.05, 0.18))]
-    return obj(f'sidepod_{n}', Mesh().grid(rings), 'paint_main')
-  objs += both(pod)
-  objs += both(lambda s, n: obj(f'pod_inlet_{n}', Mesh().grid([section(x, 0.46, 0.13, 0.10, e=3.2, zc=s * 0.47) for x in (0.425, 0.43)]), 'dark'))
-  # floor: a plate from behind the front wheels to the diffuser, which kicks up behind the rear axle
-  floor = []
-  for x, hw, y in ((1.15, 0.38, 0.035), (0.80, 0.62, 0.035), (-1.10, 0.66, 0.035), (-1.55, 0.56, 0.05), (-1.95, 0.52, 0.22)):
-    floor.append(section(x, y, hw, 0.012, e=8))
-  objs.append(obj('floor', Mesh().grid(floor), 'carbon', sharp=30))
-  # halo: a hoop round the driver's head on two rear mounts, a centre pillar up from the cell
+  # ---- the body: survival cell + nose, engine cover, airbox and sidepods joined into one skin, then the cockpit, the
+  # sidepod inlets, the airbox inlet and the cooling outlet cut into it (their walls: material dark)
+  #            x     yc     hw     hh     e    zc
+  tub = [(2.64, 0.200, 0.040, 0.040, 2.2, 0), (2.48, 0.222, 0.080, 0.060, 2.3, 0), (2.20, 0.262, 0.130, 0.085, 2.5, 0),
+         (1.90, 0.308, 0.172, 0.108, 2.6, 0), (1.55, 0.360, 0.205, 0.135, 2.7, 0), (1.20, 0.405, 0.236, 0.162, 2.8, 0),
+         (0.85, 0.440, 0.262, 0.185, 3.0, 0), (0.50, 0.458, 0.288, 0.198, 3.2, 0), (0.10, 0.460, 0.305, 0.200, 3.3, 0),
+         (-0.35, 0.470, 0.310, 0.215, 3.3, 0), (-0.55, 0.480, 0.300, 0.24, 3.0, 0)]
+  cover = [(-0.30, 0.480, 0.300, 0.240, 3.0, 0), (-0.70, 0.495, 0.270, 0.255, 2.8, 0), (-1.10, 0.440, 0.210, 0.220, 2.7, 0),
+           (-1.45, 0.385, 0.150, 0.170, 2.6, 0), (-1.75, 0.340, 0.100, 0.130, 2.5, 0), (-2.00, 0.310, 0.066, 0.085, 2.4, 0),
+           (-2.12, 0.300, 0.050, 0.062, 2.3, 0)]
+  airbox = [(-0.18, 0.865, 0.060, 0.080, 2.2, 0), (-0.30, 0.872, 0.098, 0.115, 2.3, 0), (-0.50, 0.842, 0.115, 0.150, 2.4, 0),
+            (-0.80, 0.760, 0.100, 0.150, 2.5, 0), (-1.10, 0.640, 0.070, 0.110, 2.5, 0), (-1.40, 0.520, 0.045, 0.075, 2.4, 0)]
+  pod = lambda s: [(x, yc, hw, hh, e, s * zc) for x, yc, hw, hh, e, zc in (
+         (0.60, 0.470, 0.090, 0.085, 3.4, 0.455), (0.50, 0.468, 0.160, 0.128, 3.6, 0.470), (0.30, 0.462, 0.190, 0.150, 3.5, 0.480),
+         (-0.05, 0.445, 0.192, 0.156, 3.3, 0.470), (-0.42, 0.405, 0.172, 0.150, 3.0, 0.440), (-0.78, 0.345, 0.140, 0.130, 2.8, 0.385),
+         (-1.12, 0.278, 0.100, 0.100, 2.6, 0.305), (-1.42, 0.225, 0.060, 0.070, 2.4, 0.225), (-1.64, 0.200, 0.030, 0.040, 2.2, 0.160))]
+  body = obj('body', body_loft(tub, bottom=0.075), 'paint_main', sharp=50)
+  for name, keys in (('cover', cover), ('airbox', airbox), ('pod_l', pod(-1)), ('pod_r', pod(1))):
+    boolean(body, obj(name, body_loft(keys), 'paint_main'), 'UNION')
+  cuts = [('cockpit', [(0.44, 0.80, 0.19, 0.27, 4.0, 0), (0.30, 0.80, 0.225, 0.27, 4.5, 0), (-0.20, 0.80, 0.235, 0.27, 4.5, 0), (-0.32, 0.80, 0.20, 0.27, 4.0, 0)]),
+          ('airbox_in', [(-0.14, 0.870, 0.050, 0.062, 2.2, 0), (-0.40, 0.870, 0.050, 0.062, 2.2, 0)]),
+          ('outlet', [(-1.98, 0.305, 0.038, 0.045, 2.2, 0), (-2.30, 0.305, 0.038, 0.045, 2.2, 0)])]
+  cuts += [(f'inlet_{n}', [(0.70, 0.470, 0.150, 0.090, 4.0, s * 0.475), (0.36, 0.470, 0.150, 0.090, 4.0, s * 0.475)]) for s, n in ((-1, 'l'), (1, 'r'))]
+  for name, keys in cuts: boolean(body, obj(name, body_loft(keys, step=0.04), 'dark'))
+  resmooth(body, 50); objs.append(body)
+  objs.append(obj('headrest', body_loft([(-0.20, 0.64, 0.23, 0.06, 3, 0), (-0.33, 0.66, 0.23, 0.08, 3, 0)], step=0.03), 'carbon'))
+  objs.append(obj('seat_back', plate([(-0.30, 0.50), (-0.25, 0.50), (-0.27, 0.70), (-0.32, 0.70)], 0, 0.40), 'dark'))
+  # the T-camera on the airbox and the fin from the airbox to the rear wing
+  objs.append(obj('tcam', body_loft([(-0.24, 0.965, 0.022, 0.018, 2.2, 0), (-0.30, 0.975, 0.07, 0.022, 2.6, 0), (-0.40, 0.970, 0.07, 0.020, 2.6, 0)], step=0.02), 'paint_accent'))
+  objs.append(obj('fin', plate([(-0.95, 0.74), (-2.02, 0.48), (-2.02, 0.36), (-1.20, 0.60)], 0, 0.01), 'paint_main'))
+  # ---- floor: the plank and floor with the edge turned up, cut in ahead of the rear tyres, the diffuser behind them
+  fl = [(1.05, 0.30), (0.78, 0.55), (0.30, 0.70), (-1.05, 0.70), (-1.32, 0.58)]
+  rings = [[(x, 0.035, -hw), (x, 0.035, hw), (x, 0.055, hw), (x, 0.055, -hw)] for x, hw in fl]
+  objs.append(obj('floor', Mesh().grid(rings), 'carbon', sharp=30))
+  for s, n in ((-1, 'l'), (1, 'r')):
+    objs.append(obj(f'floor_edge_{n}', plate([(0.55, 0.055), (-1.05, 0.055), (-1.05, 0.11), (0.30, 0.13), (0.55, 0.075)], s * 0.695, 0.012), 'carbon'))
+  dif = [(-1.32, 0.055, 0.035, 0.58), (-1.60, 0.10, 0.06, 0.54), (-1.88, 0.20, 0.09, 0.52), (-2.02, 0.27, 0.11, 0.50)]
+  rings = [[(x, yb, -hw), (x, yb, hw), (x, yb + 0.02, hw), (x, yb + 0.02, -hw)] for x, yb, _, hw in dif]
+  objs.append(obj('diffuser', Mesh().grid(rings), 'carbon', sharp=25))
+  for z in (-0.50, -0.25, 0.25, 0.50):
+    objs.append(obj(f'strake_{"lr"[z > 0]}{abs(round(z * 4))}', plate([(-1.32, 0.04), (-2.02, 0.04), (-2.02, 0.28), (-1.32, 0.06)], z, 0.01), 'carbon'))
+  # ---- halo: the hoop round the head on two rear mounts, a faired centre pillar
   def halo_side(s, n):
-    pts = [(0.40, 0.83, 0.0), (0.30, 0.84, s * 0.15), (0.12, 0.84, s * 0.25), (-0.12, 0.81, s * 0.275), (-0.26, 0.70, s * 0.28), (-0.30, 0.62, s * 0.28)]
-    return obj(f'halo_{n}', tube(pts, 0.028, sides=12, flat=0.7), 'carbon')
+    pts = [(0.42, 0.835, 0.0), (0.33, 0.845, s * 0.14), (0.16, 0.85, s * 0.245), (-0.06, 0.835, s * 0.275), (-0.20, 0.775, s * 0.28), (-0.27, 0.68, s * 0.28), (-0.29, 0.62, s * 0.28)]
+    return obj(f'halo_{n}', tube(pts, 0.026, sides=14, flat=0.75), 'carbon')
   objs += both(halo_side)
-  objs.append(obj('halo_pillar', tube([(0.62, 0.62, 0), (0.52, 0.76, 0), (0.40, 0.83, 0)], 0.022, sides=10), 'carbon'))
-  # front wing: the main plane with the tips curling up, a two-element flap that opens (X-mode), endplates, nose pylons
-  span = 0.94
-  fw_main = airfoil([(z, 2.82, 0.10 + 0.05 * (abs(z) / span) ** 3, 1.0, 4) for z in (-span, -0.6, -0.25, 0.25, 0.6, span)], 0.32, camber=0.06)
-  objs.append(obj('fw_main', fw_main, 'carbon'))
-  for k, (xh, yh, ch, pitch, open_) in enumerate(((2.52, 0.150, 0.20, 16, 11), (2.36, 0.215, 0.15, 30, 20)), 1):
-    flap = airfoil([(z, xh, yh + 0.04 * (abs(z) / 0.90) ** 3, 1.0, pitch) for z in (-0.90, -0.3, 0.3, 0.90)], ch, camber=0.07)
+  objs.append(obj('halo_pillar', tube([(0.64, 0.60, 0), (0.58, 0.70, 0), (0.50, 0.79, 0), (0.42, 0.835, 0)], 0.024, sides=12, flat=0.6), 'carbon'))
+  # ---- front wing (2026: narrower, a two-element flap that opens in straight mode): the main plane raised in the
+  # neutral middle, curling up at the tips into the endplates; footplates; nose pylons
+  span = 0.92
+  rise = lambda z: 0.035 if abs(z) < 0.25 else 0.035 * max(0.0, 1 - (abs(z) - 0.25) / 0.10) + 0.06 * max(0.0, (abs(z) - 0.55) / 0.37) ** 2
+  zs = [-span, -0.82, -0.70, -0.55, -0.42, -0.34, -0.25, 0, 0.25, 0.34, 0.42, 0.55, 0.70, 0.82, span]
+  objs.append(obj('fw_main', airfoil([(z, 2.84, 0.085 + rise(z), 1.0, 3) for z in zs], 0.31, camber=0.06), 'carbon'))
+  for k, (xh, yh, ch, pitch, open_) in enumerate(((2.56, 0.135, 0.19, 15, 11), (2.41, 0.195, 0.15, 30, 20)), 1):
+    flap = airfoil([(z, xh - 0.04 * (abs(z) / 0.88) ** 2, yh + rise(z) * 0.9, 1.0, pitch) for z in zs[1:-1]], ch, camber=0.07)
     objs.append(obj(f'fw_flap{k}', flap, 'paint_accent' if k == 2 else 'carbon', at=(xh, yh, 0), open=open_))
-  objs += both(lambda s, n: obj(f'fw_endplate_{n}', boxmesh(2.24, 2.86, 0.04, 0.33, s * span - 0.006, s * span + 0.006), 'paint_accent'))
-  objs += both(lambda s, n: obj(f'fw_pylon_{n}', boxmesh(2.45, 2.62, 0.13, 0.24, s * 0.06 - 0.006, s * 0.06 + 0.006), 'carbon'))
-  # rear wing: main plane + the flap that opens, curved endplates, a swan-neck pylon, the rain light below
+  for s, n in ((-1, 'l'), (1, 'r')):
+    objs.append(obj(f'fw_endplate_{n}', plate([(2.86, 0.03), (2.30, 0.03), (2.24, 0.10), (2.30, 0.25), (2.52, 0.27), (2.80, 0.16), (2.87, 0.09)], s * (span + 0.006), 0.012), 'paint_accent'))
+    objs.append(obj(f'fw_foot_{n}', boxmesh(2.20, 2.88, 0.03, 0.04, s * (span + 0.006) - s * 0.06, s * (span + 0.006)) if s > 0 else boxmesh(2.20, 2.88, 0.03, 0.04, s * (span + 0.006), s * (span + 0.006) + 0.06), 'carbon'))
+    objs.append(obj(f'fw_pylon_{n}', plate([(2.62, 0.115), (2.40, 0.12), (2.34, 0.25), (2.58, 0.21)], s * 0.065, 0.01), 'carbon'))
+  # ---- rear wing (no beam wing in 2026): a spoon-shaped main plane, the flap that opens, rounded endplates, a swan-neck
+  # pylon over the crash structure, the rain light under it
   rw = 0.50
-  objs.append(obj('rw_main', airfoil([(z, -2.12, 0.80, 1.0, 8) for z in (-rw, 0, rw)], 0.30, camber=0.08), 'carbon'))
-  objs.append(obj('rw_flap', airfoil([(z, -2.30, 0.92, 1.0, 34) for z in (-rw, 0, rw)], 0.22, camber=0.08), 'paint_accent', at=(-2.30, 0.92, 0), open=24))
-  objs += both(lambda s, n: obj(f'rw_endplate_{n}', boxmesh(-2.62, -2.06, 0.50, 1.02, s * (rw + 0.008) - 0.006, s * (rw + 0.008) + 0.006), 'paint_main'))
-  objs.append(obj('rw_pylon', tube([(-1.98, 0.36, 0), (-2.10, 0.62, 0), (-2.22, 0.86, 0)], 0.02, sides=8, flat=2.5), 'carbon'))
-  objs.append(obj('crash_structure', Mesh().grid([section(x, 0.30, hw, hh, e=3) for x, hw, hh in ((-1.95, 0.08, 0.08), (-2.42, 0.05, 0.05))]), 'carbon'))
-  objs.append(obj('rain_light', boxmesh(-2.47, -2.43, 0.24, 0.30, -0.035, 0.035), 'light'))
-  objs += both(lambda s, n: obj(f'ep_light_{n}', boxmesh(-2.63, -2.61, 0.62, 0.98, s * (rw + 0.008) - 0.007, s * (rw + 0.008) + 0.007), 'light'))
-  # suspension: wishbones and push / pull rods from the cell (front) and the gearbox (rear) to the uprights
+  spoon = lambda z: -0.025 * (1 - (z / rw) ** 2)
+  objs.append(obj('rw_main', airfoil([(z, -2.10, 0.80 + spoon(z), 1.0, 7) for z in (-rw, -0.35, -0.15, 0, 0.15, 0.35, rw)], 0.30, camber=0.08), 'carbon'))
+  objs.append(obj('rw_flap', airfoil([(z, -2.36, 0.915 + spoon(z) * 0.6, 1.0, 32) for z in (-rw, -0.25, 0, 0.25, rw)], 0.23, camber=0.08), 'paint_accent', at=(-2.36, 0.915, 0), open=24))
+  for s, n in ((-1, 'l'), (1, 'r')):
+    objs.append(obj(f'rw_endplate_{n}', plate([(-2.06, 0.70), (-2.05, 0.92), (-2.10, 0.98), (-2.20, 1.01), (-2.44, 1.02), (-2.56, 0.98), (-2.60, 0.90), (-2.60, 0.66), (-2.50, 0.60), (-2.22, 0.60)],
+                    s * (rw + 0.008), 0.012), 'paint_main'))
+    objs.append(obj(f'ep_light_{n}', boxmesh(-2.608, -2.596, 0.68, 0.92, s * (rw + 0.008) - 0.004, s * (rw + 0.008) + 0.004), 'light'))
+  objs.append(obj('rw_pylon', plate([(-1.96, 0.38), (-2.04, 0.36), (-2.26, 0.84), (-2.18, 0.86)], 0, 0.014), 'carbon'))
+  objs.append(obj('crash_structure', body_loft([(-2.00, 0.30, 0.075, 0.085, 3, 0), (-2.25, 0.29, 0.06, 0.065, 3, 0), (-2.46, 0.28, 0.04, 0.045, 2.6, 0)], step=0.04), 'carbon'))
+  objs.append(obj('rain_light', boxmesh(-2.475, -2.455, 0.235, 0.29, -0.03, 0.03), 'light'))
+  # ---- suspension: wishbones (two legs to the upright), push rods at the front, pull rods at the rear, track rods
   def arms(s, n):
     out = []
-    for tag, x, z0, zw, y0, yw, uprights in (('f', XF, 0.22, ZF - W_FRONT / 2 - 0.03, 0.0, 0.0, None), ('r', XR, 0.16, ZR - W_REAR / 2 - 0.03, 0.0, 0.0, None)):
-      for lvl, yi, yo in (('up', 0.50 if tag == 'f' else 0.44, 0.52), ('lo', 0.28, 0.18)):
-        pts = [(x + 0.30, yi, s * z0), (x, yo, s * zw), (x - 0.30, yi, s * z0)]
-        out.append(obj(f'arm_{tag}{lvl}_{n}', tube(pts, 0.016, sides=8, flat=0.45), 'carbon'))
-      out.append(obj(f'rod_{tag}_{n}', tube([(x - 0.02, 0.20 if tag == 'f' else 0.48, s * zw), (x - 0.10, 0.50 if tag == 'f' else 0.24, s * z0)], 0.012, sides=8), 'carbon'))
+    for tag, x, z0, zw in (('f', XF, 0.20, ZF - W_FRONT / 2 - 0.03), ('r', XR, 0.15, ZR - W_REAR / 2 - 0.03)):
+      for lvl, yi, yo in (('up', 0.50 if tag == 'f' else 0.44, 0.54), ('lo', 0.26, 0.17)):
+        pts = [(x + 0.32, yi, s * z0), (x, yo, s * zw), (x - 0.28, yi, s * z0)]
+        out.append(obj(f'arm_{tag}{lvl}_{n}', tube(pts, 0.017, sides=8, flat=0.4), 'carbon'))
+      rod = [(x - 0.02, 0.19, s * zw), (x - 0.12, 0.50, s * z0)] if tag == 'f' else [(x + 0.02, 0.52, s * zw), (x + 0.15, 0.22, s * z0)]
+      out.append(obj(f'rod_{tag}_{n}', tube(rod, 0.012, sides=8), 'carbon'))
+      out.append(obj(f'track_{tag}_{n}', tube([(x + (0.10 if tag == 'f' else -0.12), 0.36, s * (z0 + 0.02)), (x + (0.10 if tag == 'f' else -0.12), 0.36, s * zw)], 0.011, sides=8, flat=0.5), 'carbon'))
     return out
   for side in both(arms): objs += side
-  # mirrors: a housing on a stalk each side of the cockpit, the glass facing back at the driver
+  # ---- mirrors: a streamlined housing on two stalks each side of the cockpit, the glass facing back at the driver
   def mirror(s, n):
-    z = s * 0.46
-    house = obj(f'mirror_{n}', Mesh().grid([section(x, 0.73, 0.085, 0.045, e=3, zc=z) for x in (0.60, 0.53)]), 'paint_main')
-    stalk = obj(f'mirror_stalk_{n}', tube([(0.56, 0.64, s * 0.28), (0.565, 0.72, z - s * 0.06)], 0.01, sides=8, flat=3), 'carbon')
-    glass = obj(f'mirror_glass_{n}', boxmesh(0.524, 0.528, 0.695, 0.765, z - 0.075, z + 0.075), 'glass', at=(0.526, 0.73, z))
+    z = s * 0.47
+    house = obj(f'mirror_{n}', body_loft([(0.62, 0.735, 0.03, 0.02, 2.2, z), (0.58, 0.735, 0.085, 0.045, 2.8, z), (0.535, 0.735, 0.088, 0.046, 3.2, z)], step=0.012), 'paint_main')
+    stalk = obj(f'mirror_stalk_{n}', plate([(0.60, 0.62), (0.55, 0.62), (0.555, 0.70), (0.59, 0.70)], s * 0.36, 0.008), 'carbon')
+    glass = obj(f'mirror_glass_{n}', boxmesh(0.530, 0.533, 0.70, 0.77, z - 0.08, z + 0.08), 'glass', at=(0.5315, 0.735, z))
     return [house, stalk, glass]
   for side in both(mirror): objs += side
-  # the driver: helmet (seen from outside), the eye, the seat; the steering wheel with the grips and the screen
-  objs.append(obj('helmet', Mesh().grid([section(x, 0.80, hw, hh, e=2.1) for x, hw, hh in
-                  ((-0.22, 0.07, 0.07), (-0.27, 0.12, 0.13), (-0.37, 0.135, 0.14), (-0.47, 0.11, 0.11), (-0.51, 0.05, 0.05))]), 'paint_accent', show='outside'))
+  # ---- the driver: helmet with its visor (seen from outside), the eye, the seat; the steering wheel with the grips and the screen
+  objs.append(obj('helmet', body_loft([(-0.20, 0.80, 0.05, 0.05, 2.1, 0), (-0.24, 0.80, 0.115, 0.125, 2.1, 0), (-0.34, 0.80, 0.135, 0.14, 2.1, 0),
+                  (-0.45, 0.80, 0.115, 0.115, 2.1, 0), (-0.50, 0.80, 0.05, 0.05, 2.1, 0)], step=0.02), 'paint_accent', show='outside'))
+  objs.append(obj('visor', body_loft([(-0.215, 0.825, 0.07, 0.03, 2.4, 0), (-0.25, 0.825, 0.11, 0.035, 2.4, 0)], step=0.01), 'glass', show='outside'))
   empty('eye', EYE); empty('seat', (-0.45, 0.30, 0))
   steer = empty('steer', STEER)
   objs.append(obj('steer_wheel', Mesh().grid([section(x, STEER[1], 0.135, 0.075, e=4) for x in (STEER[0] + 0.025, STEER[0] - 0.025)]), 'carbon', at=STEER, parent=steer))
   for n, z in (('l', -0.135), ('r', 0.135)): empty(f'grip_{n}', (STEER[0], STEER[1], z), parent=steer)
   empty('screen', (STEER[0] - 0.0255, STEER[1] + 0.017, 0), parent=steer)
-  # wheels: an empty at each axle centre, the tyre (rounded shoulders) and the rim inside
+  # ---- wheels: an empty at each axle centre, the tyre (rounded shoulders) and the rim inside
   for n, x, z, w in (('fl', XF, -ZF, W_FRONT), ('fr', XF, ZF, W_FRONT), ('rl', XR, -ZR, W_REAR), ('rr', XR, ZR, W_REAR)):
     hub = empty(f'wheel_{n}', (x, R_TYRE, z), front=n[0] == 'f')
     h = w / 2; c = Vector((x, R_TYRE, z))

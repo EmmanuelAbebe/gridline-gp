@@ -19,7 +19,7 @@ Each phase ends with renders / screenshots for the user to look at before the ne
 |---|---|---|
 | 0. Spec | This page: measurements, the points the game relies on, the object and material contract | this page |
 | 1. Blockout **(done 2026-10-26)** | car.py: a rough car to the spec → car.glb; the game loads it behind a switch (garage: car model) next to the current car; the anchors drive the wheels, wings, steering, mirrors, eye | Blender renders + in-game shots side by side |
-| 2. Body | survival cell, nose, sidepods (inlets, undercut), engine cover + fin, floor (edge wings, diffuser), halo, front and rear wings with the active-aero elements as hinged objects, suspension, mirrors, cameras | 6 views |
+| 2. Body **(first pass 2026-10-26)** | survival cell, nose, sidepods (inlets, undercut), engine cover + fin, floor (edge wings, diffuser), halo, front and rear wings with the active-aero elements as hinged objects, suspension, mirrors, cameras | 6 views |
 | 3. Paint and livery | UVs, material per role, livery pattern masks (garage colours paint them), number panels, invented sponsors | garage shots, several liveries |
 | 4. Wheels | rims, wheel covers, tyre sidewalls (invented brand), brake ducts; spin, steer, come off at a pit stop | close-ups, a stop |
 | 5. Cockpit | interior, steering wheel (screen mount, grips for the arms), halo inside, mirror housings, helmet | cockpit shots |
@@ -74,3 +74,9 @@ triangle budgets, every anchor present.
   (`livery.model`, default classic until the model is finished). Mirrors come from `mirror_glass_*`, the steering screen
   from `screen`, the hands from `grip_*`. Smoke test with `GRIDLINE_SMOKE_CAR=2026`. tests/models.test.js checks the
   wheelbase against SIM.CHASSIS, the 2026 tyre sizes, the moving parts and the budget.
+- Phase 2, first pass (2026-10-26): the survival cell, engine cover, airbox and sidepods are smooth lofts (key sections
+  through a cubic Hermite, `body_loft`) joined into one skin with Blender's exact boolean, the cockpit, the sidepod
+  inlets, the airbox inlet and the cooling outlet cut into it (their walls in `dark`); T-camera, fin, floor with turned-up
+  edges, diffuser with strakes, faired halo pillar, front wing raised in the neutral middle and curling up at the tips,
+  footplates, pylons, a spoon rear wing with rounded endplates and their lights, swan-neck pylon, wishbones with push /
+  pull / track rods, streamlined mirrors, a visor. ~30k triangles, car.glb 1.4 MB (to shrink in phase 6).
