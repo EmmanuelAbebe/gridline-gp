@@ -99,3 +99,13 @@ README, Settings → Tools → Credits, the installers and car.glb's asset.copyr
 - `car_own.py` = our own procedural car (four styles), kept as a fallback, writes tools/blender/out/car_own.glb only.
 - To do: car.glb is 4.8 MB (normals + colours per corner): shrink (quantize / weld) in phase 6; UVs for the livery
   patterns (phase 3); the cockpit (phase 5); the car's own mirror glasses sit at the edge of the cockpit view.
+
+### Clean colours and joints (2026-10-27; user: glitches and wrong colours at sharp curves, thin pieces and the joints round the wheels)
+The body is one fused surface (one 22 m² patch: no creases between the arms, the floor and the bodywork) made of long
+thin CAD triangles, so a colour rule by position cut them into a sawtooth. Now `cut_borders` bisects the faces near
+every colour border with its plane first (`body_cuts`: suspension inner ends |z| 0.30 and its box, floor line, wing
+edges, endplates, diffuser, T-camera; ~15k faces added), then `body_role` colours per face with exactly those limits:
+straight borders. The wheels are coloured by patch (`paint_islands`, faces joined across edges flatter than 30°, a
+patch's mean distance from the axle: tyre / rim / nut). Keeping sharp creases in the cut-down was tried and dropped
+(everything else flattened into panels). Wheels at 9 % (were 6 %: faceted rims). ~74k triangles. car-glb.js: metal
+inside a wheel takes the livery's rim colour.

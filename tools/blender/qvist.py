@@ -30,7 +30,7 @@ def load():
   bm = bmesh.new(); bm.from_mesh(ob.data); bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.00005); bm.to_mesh(ob.data); bm.free()
   return ob
 
-def decimate(ob, ratio, keep_borders=False):
+def decimate(ob, ratio, keep_borders=False, keep_sharp=None):
   log('decimate', ob.name, len(ob.data.polygons), '→', ratio)
   """collapse to `ratio` of the faces; keep_borders: the vertices where two materials meet (and open edges) keep
   their detail, so a colour border stays a clean line instead of a sawtooth of big triangles"""
@@ -46,6 +46,15 @@ def decimate(ob, ratio, keep_borders=False):
     open_e = np.flatnonzero(np.bincount(le, minlength=ne) == 1)
     ev = np.empty(ne * 2, dtype=np.int64); me.edges.foreach_get('vertices', ev); ev = ev.reshape(ne, 2)
     border = np.zeros(nv, bool); border[lo != hi] = True; border[ev[open_e].ravel()] = True
+    # sharp creases (> keep_sharp°, if given): their vertices stay too (tried for thin pieces 2026-10-27: everything else
+    # then flattened into panels to make the ratio, so off)
+    if keep_sharp:
+     nfn = np.empty(len(me.polygons) * 3); me.polygons.foreach_get('normal', nfn); nfn = nfn.reshape(-1, 3)
+     lp = np.repeat(np.arange(len(me.polygons)), tot)
+     o2 = np.argsort(le, kind='stable'); les, lps = le[o2], lp[o2]
+     f1 = np.flatnonzero(np.r_[True, les[1:] != les[:-1]]); cnt = np.diff(np.r_[f1, len(les)])
+     t2 = f1[cnt == 2]; sharp = (nfn[lps[t2]] * nfn[lps[t2 + 1]]).sum(1) < math.cos(math.radians(keep_sharp))
+     border[ev[les[t2][sharp]].ravel()] = True
     g = ob.vertex_groups.new(name='free'); g.add(np.flatnonzero(~border).tolist(), 1.0, 'REPLACE')
     m.vertex_group = 'free'; m.vertex_group_factor = 1.0
     border = np.flatnonzero(border)
@@ -147,6 +156,50 @@ def centres(o):
   n = len(o.data.polygons); c = np.empty(n * 3); o.data.polygons.foreach_get('center', c); c = c.reshape(n, 3)
   return c[:, 0], c[:, 2], -c[:, 1]
 
+def islands(o, angle=40):
+  """each face's patch: the faces joined across edges flatter than `angle` (a CAD model's surfaces, between its sharp
+  creases). Union-find with pointer jumping in numpy (the full model has ~1M faces). Returns (labels, n)"""
+  me = o.data; nf, nl, ne = len(me.polygons), len(me.loops), len(me.edges)
+  tot = np.empty(nf, dtype=np.int64); me.polygons.foreach_get('loop_total', tot)
+  le = np.empty(nl, dtype=np.int64); me.loops.foreach_get('edge_index', le)
+  lp = np.repeat(np.arange(nf), tot)
+  order = np.argsort(le, kind='stable'); le, lp = le[order], lp[order]
+  first = np.flatnonzero(np.r_[True, le[1:] != le[:-1]]); count = np.diff(np.r_[first, len(le)])
+  two = first[count == 2]; a, b = lp[two], lp[two + 1]
+  nr = np.empty(nf * 3); me.polygons.foreach_get('normal', nr); nr = nr.reshape(nf, 3)
+  keep = (nr[a] * nr[b]).sum(1) > math.cos(math.radians(angle)); a, b = a[keep], b[keep]
+  parent = np.arange(nf)
+  while True:
+    pa, pb = parent[a], parent[b]
+    if not (pa != pb).any(): break
+    lo, hi = np.minimum(pa, pb), np.maximum(pa, pb)
+    np.minimum.at(parent, hi, lo)
+    while True:
+      nxt = parent[parent]
+      if (nxt == parent).all(): break
+      parent = nxt
+  labels, inv = np.unique(parent, return_inverse=True)
+  return inv, len(labels)
+
+def paint_islands(o, rule, angle=40, feature=None):
+  """colour whole patches (islands): rule(lo, hi, centre: arrays per patch, game frame; area) → a role per patch, so a
+  colour border always follows a crease of the model"""
+  role_mats(o)
+  lab, n = islands(o, angle)
+  x, y, z = centres(o)
+  ar = np.empty(len(lab)); o.data.polygons.foreach_get('area', ar)
+  P = np.stack([x, y, z], 1)
+  lo = np.full((n, 3), np.inf); hi = np.full((n, 3), -np.inf)
+  for k in range(3): np.minimum.at(lo[:, k], lab, P[:, k]); np.maximum.at(hi[:, k], lab, P[:, k])
+  w = np.bincount(lab, ar, n) + 1e-12
+  c = np.stack([np.bincount(lab, ar * P[:, k], n) / w for k in range(3)], 1)
+  # (feature: an optional per-face value the rule wants averaged over each patch by area, e.g. the distance from an axle)
+  roles = np.asarray(rule(lo, hi, c, w) if not feature else rule(lo, hi, c, w, np.bincount(lab, ar * feature(P), n) / w))
+  idx = np.zeros(n, dtype=np.int32)
+  for i, r in enumerate(ROLES): idx[roles == r] = i
+  o.data.polygons.foreach_set('material_index', idx[lab]); o.data.update()
+  log('patches', n)
+
 def split_mask(src, name, mask):
   """the faces where mask (a bool array over src's faces) is set, moved into a new object"""
   me = src.data
@@ -209,14 +262,71 @@ def join_into(dst, srcs):
   for q in srcs: q.select_set(True)
   dst.select_set(True); bpy.context.view_layer.objects.active = dst; bpy.ops.object.join()
 
+def body_patch_role(lo, hi, c, area):
+  """the body's paint by patch (whole surfaces between creases): its box lo / hi and centre c (game frame)"""
+  n = len(c); r = np.full(n, 'paint_main', dtype='<U12')
+  x, y, z, a = c[:, 0], c[:, 1], c[:, 2], np.abs(c[:, 2])
+  # suspension and uprights: patches wholly out between the body and the wheels at an axle
+  # (by the patch's centre: the arms, the floor and the fences run on smoothly into their neighbours)
+  out_wide = np.minimum(np.abs(lo[:, 2]), np.abs(hi[:, 2])) * (np.sign(lo[:, 2]) == np.sign(hi[:, 2]))
+  r[((np.abs(x - 1.70) < 0.55) | (np.abs(x + 1.70) < 0.5)) & (a > 0.30) & (y > 0.12) & (y < 0.62) & (out_wide > 0.10)] = 'carbon'
+  r[(y < 0.07) & (hi[:, 1] < 0.25)] = 'carbon'                                                     # floor, plank, its edges
+  r[(x < -1.45) & (x > -2.6) & (y < 0.32) & (a < 0.62) & (hi[:, 1] < 0.45)] = 'carbon'               # the diffuser and its fences
+  fw = (lo[:, 0] > 1.90) & (hi[:, 1] < 0.46) & ~((a < 0.24) & (y > 0.18))
+  r[fw] = 'carbon'; r[fw & (a > 0.84)] = 'paint_accent'                                            # front wing, endplates
+  rw = (hi[:, 0] < -1.80) & (lo[:, 1] > 0.55)
+  r[rw] = 'carbon'; r[rw & (a > 0.48)] = 'paint_main'                                               # rear wing, endplates
+  r[(lo[:, 0] > -0.38) & (hi[:, 0] < -0.10) & (lo[:, 1] > 0.93)] = 'paint_accent'                   # T-camera
+  return r
+
+# The colour borders of the body (body_role) as planes in the game frame: (point, normal, where) — each cuts only the
+# faces where(x, y, z) of their centre holds. Cut first, so every border is a straight edge of the mesh, not the
+# sawtooth of the CAD model's long thin triangles across it (2026-10-27, user: wrong colours at the joints).
+def body_cuts():
+  axle = lambda x: (np.abs(x - 1.70) < 0.62) | (np.abs(x + 1.70) < 0.56)
+  zone = lambda x, y, z: axle(x) & (y > 0.08) & (y < 0.76)
+  out = []
+  for s in (-1, 1):
+    out += [((0, 0, s * 0.30), (0, 0, 1), zone),                                                    # suspension: inner ends
+            ((0, 0, s * 0.875), (0, 0, 1), lambda x, y, z: (x > 1.9) & (y < 0.46)),                   # front endplates
+            ((0, 0, s * 0.13), (0, 0, 1), lambda x, y, z: (x > 1.9) & (y < 0.46)),                    # front wing / pylons
+            ((0, 0, s * 0.24), (0, 0, 1), lambda x, y, z: (x > 1.9) & (y < 0.46)),                    # the nose's sides
+            ((0, 0, s * 0.48), (0, 0, 1), lambda x, y, z: (x < -1.8) & (y > 0.55)),                   # rear endplates
+            ((0, 0, s * 0.62), (0, 0, 1), lambda x, y, z: (x < -1.4) & (y < 0.4))]                    # diffuser sides
+  for xc in (1.70 - 0.55, 1.70 + 0.55, -1.70 - 0.5, -1.70 + 0.5): out.append(((xc, 0, 0), (1, 0, 0), lambda x, y, z: (y > 0.08) & (y < 0.76) & (np.abs(z) > 0.25)))
+  out += [((0, 0.12, 0), (0, 1, 0), lambda x, y, z: axle(x) & (np.abs(z) > 0.25)), ((0, 0.70, 0), (0, 1, 0), lambda x, y, z: axle(x) & (np.abs(z) > 0.25)),
+          ((0, 0.075, 0), (0, 1, 0), lambda x, y, z: np.ones(len(x), bool)),                         # floor line
+          ((0, 0.18, 0), (0, 1, 0), lambda x, y, z: x > 1.9), ((0, 0.42, 0), (0, 1, 0), lambda x, y, z: x > 1.9),
+          ((1.95, 0, 0), (1, 0, 0), lambda x, y, z: y < 0.46),                                         # front wing's start
+          ((-1.85, 0, 0), (1, 0, 0), lambda x, y, z: y > 0.55), ((0, 0.62, 0), (0, 1, 0), lambda x, y, z: x < -1.8),
+          ((-1.45, 0, 0), (1, 0, 0), lambda x, y, z: y < 0.4), ((0, 0.32, 0), (0, 1, 0), lambda x, y, z: x < -1.4),
+          ((-0.35, 0, 0), (1, 0, 0), lambda x, y, z: y > 0.9), ((-0.12, 0, 0), (1, 0, 0), lambda x, y, z: y > 0.9), ((0, 0.95, 0), (0, 1, 0), lambda x, y, z: (x > -0.4) & (x < -0.05))]
+  return out
+
+def cut_borders(o):
+  """bisect the faces near each colour border with its plane"""
+  bm = bmesh.new(); bm.from_mesh(o.data); n0 = len(bm.faces)
+  for co, no, where in body_cuts():
+    bm.faces.ensure_lookup_table()
+    cs = np.array([f.calc_center_median()[:] for f in bm.faces]); x, y, z = cs[:, 0], cs[:, 2], -cs[:, 1]
+    d = (x - co[0]) * no[0] + (y - co[1]) * no[1] + (z - co[2]) * no[2]
+    # (only faces the plane could cross: their centre within 0.4 m of it, and where the border applies)
+    pick = np.flatnonzero(where(x, y, z) & (np.abs(d) < 0.4))
+    faces = [bm.faces[i] for i in pick]
+    if not faces: continue
+    geom = list({v for f in faces for v in f.verts}) + list({e for f in faces for e in f.edges}) + faces
+    bmesh.ops.bisect_plane(bm, geom=geom, plane_co=G(*co), plane_no=G(*no) - G(0, 0, 0))
+  log('border cuts:', n0, '→', len(bm.faces), 'faces')
+  bm.to_mesh(o.data); bm.free(); o.data.update()
+
 def body_role(x, y, z):
-  """the body's paint roles by where a face is (arrays); later rules win"""
+  """the body's paint roles by where a face is (arrays; later rules win); every limit is one of body_cuts' planes"""
   a = np.abs(z); r = np.full(len(x), 'paint_main', dtype='<U12')
-  r[(np.abs(x - 1.70) < 0.5) & (a > 0.36) & (y > 0.12) & (y < 0.62)] = 'carbon'                              # front suspension
-  r[(x > -1.95) & (x < -1.25) & (a > 0.30) & (y > 0.12) & (y < 0.55)] = 'carbon'                              # rear suspension
+  r[((np.abs(x - 1.70) < 0.55) | (np.abs(x + 1.70) < 0.5)) & (a > 0.30) & (y > 0.12) & (y < 0.70)] = 'carbon'   # suspension (the upper arms meet the body at up to 0.7 m)
   r[(x < -1.85) & (y > 0.62)] = 'carbon'; r[(x < -1.85) & (y > 0.62) & (a > 0.48)] = 'paint_main'              # rear wing, endplates
   fw = (x > 1.95) & (y < 0.42) & (a > 0.13) & ~((a < 0.24) & (y > 0.18))                                        # (not the nose)
   r[fw] = 'carbon'; r[fw & (a > 0.875)] = 'paint_accent'                                                         # front wing, endplates
+  r[(x < -1.45) & (y < 0.32) & (a < 0.62)] = 'carbon'                                                            # diffuser, fences
   r[y < 0.075] = 'carbon'                                                                                         # floor, plank
   r[(x > -0.35) & (x < -0.12) & (y > 0.95)] = 'paint_accent'                                                     # T-camera
   return r
@@ -286,14 +396,17 @@ def build():
     L = math.sqrt(sum(c * c for c in ax)); q['axis'] = [round(c / L, 4) for c in ax]; q['open'] = 14
     origin_to(q, root); movers.append(q)
   # paint (on the full model), then cut down
-  log('paint'); paint(body, body_role); cockpit_dark(body); decimate(body, RATIO, keep_borders=True)
+  log('paint'); cut_borders(body); paint(body, body_role); cockpit_dark(body); decimate(body, RATIO, keep_borders=True)
   for q in movers:
     paint(q, lambda x, y, z, q=q: 'paint_accent' if q.name == 'rw_flap2' else 'carbon'); decimate(q, RATIO * 1.5)
   wheels = []
   for p, (n, ax, side), c in tyres:
     lo, hi = box_of(p); centre = ((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2)
-    paint(p, lambda x, y, z, c=centre: np.where(np.hypot(x - c[0], y - c[1]) > 0.236, 'rubber', np.where(np.hypot(x - c[0], y - c[1]) > 0.07, 'metal', 'paint_accent')))  # (18" rim: 0.229 m)
-    decimate(p, 0.06, keep_borders=True)
+    # by patch: the tyre's surfaces out past the 18" rim (0.229 m) rubber, the rim / cover metal, the hub nut the accent
+    # (each patch by its mean distance from the axle: a ring's centre is the axle itself)
+    wheel_role = lambda lo, hi, cc, area, rad: np.where(rad > 0.245, 'rubber', np.where(rad > 0.06, 'metal', 'paint_accent'))
+    paint_islands(p, wheel_role, angle=30, feature=lambda P, c=centre: np.hypot(P[:, 0] - c[0], P[:, 1] - c[1]))
+    decimate(p, 0.09, keep_borders=True)
     hub = empty(f'wheel_{n}', centre, front=n[0] == 'f'); p.parent = hub; p.location = p.location - hub.location
     wheels.append(hub)
   for g in glasses: paint(g, lambda x, y, z: 'glass'); lo, hi = box_of(g); origin_to(g, [(a + b) / 2 for a, b in zip(lo, hi)])
@@ -335,6 +448,10 @@ if os.path.basename(A.get('stage', 'raw')) == 'build':
     sc.render.engine = 'CYCLES'; sc.cycles.samples = 40; sc.cycles.device = 'CPU'; sc.render.resolution_x, sc.render.resolution_y = 1400, 760
     cam = bpy.data.objects.new('cam', bpy.data.cameras.new('cam')); sc.collection.objects.link(cam); sc.camera = cam; cam.data.lens = 50
     os.makedirs(PREVIEW, exist_ok=True)
-    for name, eye, look in (('front34', (5.2, 2.0, 3.6), (0.2, 0.35, 0)), ('side', (0, 1.0, 8.5), (0, 0.45, 0)), ('rear34', (-5.4, 2.2, -3.4), (-0.3, 0.4, 0)), ('wing', (3.9, 0.8, 1.6), (2.5, 0.2, 0))):
+    for name, eye, look in (('front34', (5.2, 2.0, 3.6), (0.2, 0.35, 0)), ('side', (0, 1.0, 8.5), (0, 0.45, 0)), ('rear34', (-5.4, 2.2, -3.4), (-0.3, 0.4, 0)), ('wing', (3.9, 0.8, 1.6), (2.5, 0.2, 0)),
+                            # close-ups (2026-10-27, user: glitches and wrong colours at sharp curves, thin pieces and the joints round the wheels)
+                            ('fwheel-out', (2.3, 0.75, 1.9), (1.7, 0.35, 0.75)), ('fwheel-top', (1.75, 1.9, 1.1), (1.7, 0.3, 0.55)),
+                            ('fwheel-in', (1.1, 0.6, 0.35), (1.7, 0.35, 0.75)), ('rwheel-out', (-1.0, 0.8, 1.9), (-1.7, 0.35, 0.7)),
+                            ('rwheel-in', (-1.15, 0.65, 0.15), (-1.7, 0.35, 0.7)), ('rear-low', (-3.2, 0.35, 1.0), (-2.0, 0.35, 0.3))):
       cam.location = G(*eye); d = G(*look) - G(*eye); cam.rotation_euler = d.to_track_quat('-Z', 'Y').to_euler()
       sc.render.filepath = os.path.join(os.path.abspath(PREVIEW), f'built-{name}.png'); bpy.ops.render.render(write_still=True)

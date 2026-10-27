@@ -40,6 +40,8 @@ export function createGlbCar(scene, driverIn, design, ctx) {
   const meshes = [];
   model.traverse(o => { if (o.isMesh) { o.userData.role = o.material.name; o.userData.show ??= o.parent?.userData.show; meshes.push(o); } });
   const node = name => model.getObjectByName(name);
+  // (the livery's rim colour: any metal inside a wheel)
+  const inWheel = o => { for (let p = o.parent; p; p = p.parent) if (/^wheel_/.test(p.name)) return true; return false; };
 
   // wheels: the spin goes on a group inside the axle node, so the node can steer and slide out at a pit stop
   const wheels = ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr'].map(name => {
@@ -68,7 +70,7 @@ export function createGlbCar(scene, driverIn, design, ctx) {
     own = ghost ? {} : { paint_main: paint(driver.color), paint_accent: paint(driver.accent),
       rim: profile === 'fast' ? new THREE.MeshLambertMaterial({ color: rims, vertexColors: true }) : new THREE.MeshStandardMaterial({ color: rims, vertexColors: true, roughness: 0.3, metalness: 0.8, envMap: ctx.env }) };
     for (const m of meshes) {
-      const role = m.userData.role, rim = role === 'metal' && m.name.startsWith('rim');
+      const role = m.userData.role, rim = role === 'metal' && (m.name.startsWith('rim') || inWheel(m));
       m.material = ghost ? (role === 'rubber' ? ghost.tyre : role.startsWith('paint') ? ghost.paint : ghost.carbon)
         : role === 'light' ? light : rim ? own.rim : own[role] ?? sharedMat(profile, role, ctx.env);
     }

@@ -88,6 +88,6 @@ test('car.glb: the 2026 car (Qvist_designs, CC-BY) on the physics\' wheelbase, t
   const roles = new Set(j.materials.map(m => m.name));
   for (const r of ['paint_main', 'paint_accent', 'carbon', 'rubber', 'metal', 'light']) assert.ok(roles.has(r), `material ${r}`);
   const tris = j.meshes.reduce((t, m) => t + m.primitives.reduce((s, p) => s + j.accessors[p.indices].count / 3, 0), 0);
-  assert.ok(tris < 75000, `${tris} triangles`);
+  assert.ok(tris < 80000, `${tris} triangles`);
   assert.match(JSON.stringify(j.asset), /Qvist_designs|CC-BY/, 'the credit travels with the file');
 });
