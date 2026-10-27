@@ -203,6 +203,29 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   (1.4 and engineBrake 1.0 were tried: ALIEN without assists hit walls / spun at Marrow, Hautvale, Saltcross);
   ALIEN paceOff marrow 1.16 → 1.14. tests/offtrack.test.js "stopped: the brake holds …".
 
+## Tyre temperature (2026-10-27; user: "tyre temperature vs grip"; chose temperature, compounds, brake temperature,
+## fuel weight, in that order; cold-tyre severity to follow car feel on that branch)
+- SIM `tyre-temp.js` + `TYRE_TEMP` (tuning.js). Race option `createRace(…, { tyreTemp })` (off by default: sim-trace
+  identical, every path multiplies by nothing); `c.tyreT` = `tyreSet()` {s, k: surface / core °C per tyre FL FR RL RR,
+  out (outer wheel's load share per axle, signed), heat, warm, hot} at the blankets' 70 °C (start, every pit stop: pit.js
+  service). Grip × `tempGrip(gripTemp)` per tyre (gripTemp = 0.7 surface + 0.3 core; window 90–110 °C; cold −25 % ×
+  (1 − e^(−Δ/50)): 70 °C −8 %; hot −12 % × (Δ/40)^1.5, max −20 %), axle factor weighted by the wheels' loads (`axleTempGrip`),
+  chassis.js Df / Dr. Heat (chassis.js, per sub-step): friction power = force × slip speed (slip angle × speed; lengthways
+  `longSlip` × use, locked = the car's speed, a spinning rear = its wheel speed: `spinSlip`, also at walking pace) × `share`
+  0.27, split by wheel load; flexing `roll` 0.0075 W/N per m/s into the core. Cooling: surface ↔ core, air (more with
+  speed), road; nonlinear (`grow`: keeps outer / inner within ~10–25 °C); the 275 mm fronts `front` 0.73 of a rear's
+  capacity and cooling. Hot tyres wear faster (`hotWear`). Events TYRES_WARM / TYRES_HOT {axle} (`tyreEvents`).
+- Measured (AI VOS alone): fast circuits settle ~88–110 °C, slow ones' fronts 79–90 (low-energy circuits, as real ones);
+  lap 1 off the blankets +1–2.7 s, lap 6 within 0.4 s of no temperatures; a 15 s donut takes the rears to ~115 °C; a
+  slow lap cools them 5–8 °C. AI: corner speeds × √(tyre factor) (`tyreK` in driveAI); ALIEN takes the whole factor as
+  margin when properly cold (exponent 0.5 → 1 below 0.97); its brake limit × factor; without TC the learnt throttle cap ×
+  rear factor^`AI.feel.coldThr` 4 (it spun out of Cantera's corkscrew on cold rears). tests/tyre-temp.test.js (window,
+  warm-up, cooling, wheelspin, pit stop, ALIEN + LEGEND without assists clean from cold on every circuit).
+- Game: Settings → Driving Tyre temperature ON (default) / OFF (`setup.tyreTemp`, setup-store loadSetup); the AI ghosts /
+  live rival use the race's setting (ai-ghosts.js `tyreTemp`, cache key); HUD position panel "Tyre °C" FL FR / RL RR (blue
+  cold / green / red hot); radio at lights out (cold), TYRES_WARM, TYRES_HOT. Physics version not bumped (flying laps
+  match within ~0.4 s).
+
 ## Architecture
 Tunables live in data tables (config modules), not inline in the logic.
 1. **SIM** (`src/sim/`, exported as one `SIM` object from `index.js`):
