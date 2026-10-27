@@ -8,7 +8,9 @@ const PLAYER = SIM.DRIVERS.find(d => d.player);
 
 // paint finishes for the body (car-models.js FINISH_LOOKS has the material for each)
 export const FINISHES = [['gloss', 'GLOSS'], ['metallic', 'METALLIC'], ['satin', 'SATIN'], ['matte', 'MATTE']];
-export const LIVERY_DEFAULTS = Object.freeze({ color: PLAYER.color, accent: PLAYER.accent, number: PLAYER.number, finish: 'gloss', rims: 0x3a3d42 });
+// the car model (docs/car-plan.md): the part-built car the design tools edit, or the Blender one (2026, being built)
+export const CAR_MODELS = [['classic', 'CLASSIC'], ['2026', '2026 (IN PROGRESS)']];
+export const LIVERY_DEFAULTS = Object.freeze({ color: PLAYER.color, accent: PLAYER.accent, number: PLAYER.number, finish: 'gloss', rims: 0x3a3d42, model: 'classic' });
 // quick colour choices next to the colour pickers
 export const SWATCHES = [0xffc21a, 0xd7261e, 0x2e6bff, 0x12a150, 0xff7a00, 0x8e44ff, 0xf2f3f0, 0x111111, 0x0fb5c9, 0xff4fa3, 0x8a929c, 0x5b3a1e];
 
@@ -26,6 +28,7 @@ export function validLivery(l = {}) {
     color: colourOf(l.color) ?? d.color, accent: colourOf(l.accent) ?? d.accent, rims: colourOf(l.rims) ?? d.rims,
     number: Number.isFinite(n) && n >= 0 && n <= 99 && l.number !== '' && l.number !== null ? n : d.number,
     finish: FINISHES.some(([f]) => f === l.finish) ? l.finish : d.finish,
+    model: CAR_MODELS.some(([m]) => m === l.model) ? l.model : d.model,
   };
 }
 

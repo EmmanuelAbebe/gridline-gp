@@ -5,11 +5,15 @@ import { BODY_ROLES } from './car-body.js';
 import { createDriverBody } from './driver-body.js';
 import { carbonTexture, tyreTexture, skyEnvironment, glowTexture, numberTexture } from './car-textures.js';
 import { markShadows } from './shadows.js';
+import { createGlbCar } from './car-glb.js';
+import { Models } from './models.js';
 
 // Built from Design.data.car. Per car: fixed parts merged into one mesh with a group per finish (paint, carbon,
 // rubber, metal, light, decal), parts that turn with the steering in a second mesh, one mesh per wheel, brake-light
 // glows and a blob shadow. The player's cockpit view adds the driver's arms and legs (driver-body.js). In cameras with `cockpitBody` the player car switches to its cockpit-view parts
 // (show: always + cockpit) instead of the outside ones (always + outside).
+// Two kinds of car (2026-10-26, docs/car-plan.md): 'classic' = this part-built one (the design tools edit it), '2026' =
+// the Blender model (car-glb.js). create() hands out a stand-in that forwards to either; setKind swaps every car's.
 export const CarModels = (() => {
   // finish order = material index. A part's finish defaults from its colour role (dark → carbon, tyre → rubber).
   const FINISHES = ['paint', 'carbon', 'rubber', 'metal', 'light', 'decal'];
@@ -17,14 +21,14 @@ export const CarModels = (() => {
   const env = skyEnvironment(), carbon = carbonTexture(), tyre = tyreTexture(), glow = glowTexture();
   // shared materials for the two graphics profiles (light and decal are per car, see create)
   const MATS = {
-    quality: {
+    quality: { kind: 'quality',
       paint:  new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.32, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.06, envMap: env, envMapIntensity: 0.45 }),
       carbon: new THREE.MeshPhysicalMaterial({ vertexColors: true, map: carbon, roughness: 0.38, metalness: 0.25, clearcoat: 0.8, clearcoatRoughness: 0.1, envMap: env, envMapIntensity: 0.5 }),
       rubber: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }),
       metal:  new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.85, envMap: env }),
       tyre:   new THREE.MeshStandardMaterial({ map: tyre, roughness: 0.85 }),
     },
-    fast: {
+    fast: { kind: 'fast',
       paint:  new THREE.MeshLambertMaterial({ vertexColors: true }),
       carbon: new THREE.MeshLambertMaterial({ vertexColors: true, map: carbon }),
       rubber: new THREE.MeshLambertMaterial({ vertexColors: true }),
@@ -125,7 +129,7 @@ export const CarModels = (() => {
   ];
 
   // driver = colours (color, accent, optional rims) and number; the garage changes them with setLivery
-  function create(scene, driverIn, design) {
+  function createClassic(scene, driverIn, design) {
     let driver = driverIn, lastDesign = design, ownPaint = null;
     // per-car materials: the brake lights (brightness follows the brake) and the race number
     const light = new THREE.MeshBasicMaterial({ color: LIGHT_OFF.clone() });
@@ -215,7 +219,16 @@ export const CarModels = (() => {
     rebuild(design);
 
     return {
+      kind: 'classic',
       rebuild,
+      mirrorParts: () => lastDesign.parts,
+      dispose() {
+        scene.remove(root);
+        if (geo) for (const g of Object.values(geo)) g.dispose();
+        for (const g of wheelGeos) g.dispose();
+        for (const m of movers) m.mesh.geometry.dispose();
+        light.dispose(); decal.map.dispose(); decal.dispose(); glowMat.dispose(); ownPaint?.dispose();
+      },
       // the garage's livery: { color, accent, number, finish (gloss / metallic / satin / matte), rims }
       setLivery(l) {
         driver = { ...driver, color: l.color, accent: l.accent, number: l.number, rims: l.rims };
@@ -273,11 +286,57 @@ export const CarModels = (() => {
   function ghostMaterials() {
     if (!ghostSet) {
       const m = o => new THREE.MeshLambertMaterial({ transparent: true, opacity: 0.32, depthWrite: false, ...o });
-      ghostSet = { paint: m({ vertexColors: true }), carbon: m({ vertexColors: true }), rubber: m({ vertexColors: true }), metal: m({ vertexColors: true }), tyre: m({ color: 0x2a2c30 }) };
+      ghostSet = { kind: 'ghost', paint: m({ vertexColors: true }), carbon: m({ vertexColors: true }), rubber: m({ vertexColors: true }), metal: m({ vertexColors: true }), tyre: m({ color: 0x2a2c30 }) };
     }
     return ghostSet;
   }
-  return { create, measure, ghostMaterials, applyProfile(models, p) {
+  // ---- the stand-in every caller holds: remembers what was set, so a swap to the other kind looks the same
+  let kind = 'classic';
+  const live = new Set(), kindListeners = new Set();
+  const glbCtx = () => ({ template: Models.car, env, glow, SHADOW_GEO, SHADOW_MAT, GLOW_GEO, LIGHT_OFF, LIGHT_ON, FINISH_LOOKS, FRONT_STEER, DEG, createDriverBody, markShadows });
+  function create(scene, driver, design) {
+    const st = { design, livery: null, mats: null, shadows: true, visible: true, cockpit: false, screen: null, service: null, pedals: [0, 0] };
+    const make = () => kind === '2026' && Models.car ? createGlbCar(scene, driver, st.design, glbCtx()) : createClassic(scene, driver, st.design);
+    let inner = make();
+    const w = {
+      get kind() { return inner.kind; },
+      rebuild(d) { st.design = d; inner.rebuild(d); },
+      setLivery(l) { st.livery = l; const before = kind; if (l.model) setKind(l.model); if (kind === before) inner.setLivery(l); },
+      setMaterials(set) { st.mats = set; inner.setMaterials(set); },
+      setShadows(on) { st.shadows = on; inner.setShadows(on); },
+      useCockpitView(on) { st.cockpit = on; inner.useCockpitView(on); },
+      setPedals(thr, brk) { st.pedals = [thr, brk]; inner.setPedals(thr, brk); },
+      setService(s) { st.service = s; inner.setService(s); },
+      mountScreen(mesh) { st.screen = mesh; inner.mountScreen(mesh); },
+      place(...a) { inner.place(...a); },
+      setVisible(on) { st.visible = on; inner.setVisible(on); },
+      get object() { return inner.object; },
+      mirrorParts() { return inner.mirrorParts(); },
+      sync(car, pose, dt) { inner.sync(car, pose, dt); },
+      swap() {
+        const was = inner.object, at = [was.position.clone(), was.rotation.clone()];
+        inner.dispose(); inner = make();
+        inner.object.position.copy(at[0]); inner.object.rotation.copy(at[1]);
+        if (st.livery) inner.setLivery(st.livery);
+        if (st.mats) inner.setMaterials(st.mats);
+        inner.setShadows(st.shadows); inner.setVisible(st.visible); inner.useCockpitView(st.cockpit);
+        inner.setPedals(...st.pedals); inner.setService(st.service);
+        if (st.screen) inner.mountScreen(st.screen);
+      },
+      dispose() { live.delete(w); inner.dispose(); },
+    };
+    live.add(w);
+    return w;
+  }
+  // 'classic' | '2026': every car in the game (the field, the garage's, the ghost) turns into that kind
+  function setKind(k) {
+    if (k === kind || (k === '2026' && !Models.car)) return;
+    kind = k;
+    for (const w of live) w.swap();
+    for (const fn of kindListeners) fn(k);
+  }
+
+  return { create, measure, ghostMaterials, setKind, get kind() { return kind; }, onKind(fn) { kindListeners.add(fn); }, applyProfile(models, p) {
     const set = p.lambertCars ? MATS.fast : MATS.quality; for (const m of models) m.setMaterials(set);
     SHADOW_MAT.opacity = p.shadows ? 0.6 : 0.8;        // with sun shadows on, the contact shadow is only the ambient part
   } };

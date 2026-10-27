@@ -68,3 +68,22 @@ test('trackside.glb: the gantry, bridge, marshal post, TV tower and board frames
   const size = (n, i) => { const a = j.accessors[j.meshes[j.nodes.find(x => x.name === n).mesh].primitives[0].attributes.POSITION]; return a.max[i] - a.min[i]; };
   assert.ok(Math.abs(size('truss-solid', 2) - 2) < 0.15 && Math.abs(size('post-solid', 1) - 10) < 0.1);
 });
+
+test('car.glb: the 2026 car on the physics\' wheelbase, the parts the game moves, within its triangle budget', () => {
+  const j = glbJson('../src/game/models/car.glb'), byName = new Map(j.nodes.map(n => [n.name, n]));
+  for (const name of ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr', 'fw_flap1', 'fw_flap2', 'rw_flap', 'steer', 'grip_l', 'grip_r', 'screen',
+    'eye', 'mirror_glass_l', 'mirror_glass_r', 'rain_light']) assert.ok(byName.has(name), `${name} is there`);
+  const at = n => byName.get(n).translation ?? [0, 0, 0];
+  assert.ok(Math.abs(at('wheel_fl')[0] - at('wheel_rl')[0] - SIM.CHASSIS.wheelbase) < 1e-4, 'the wheelbase is the physics\' one');
+  assert.ok(Math.abs(at('wheel_fr')[2] + at('wheel_fl')[2]) < 1e-6 && at('wheel_fr')[2] > 0, 'wheels mirrored, right = +z');
+  for (const n of ['fw_flap1', 'fw_flap2', 'rw_flap']) assert.ok(byName.get(n).extras?.open > 0, `${n} opens in straight mode`);
+  // the tyres: 2026 widths, 720 mm across
+  const size = mesh => { const a = j.accessors[j.meshes[mesh].primitives[0].attributes.POSITION]; return a.max.map((v, i) => v - a.min[i]); };
+  const tyre = n => size(byName.get(n).mesh);
+  assert.ok(Math.abs(tyre('tyre_fl')[0] - 0.72) < 0.01 && Math.abs(tyre('tyre_fl')[2] - 0.275) < 0.005, `front tyre ${tyre('tyre_fl')}`);
+  assert.ok(Math.abs(tyre('tyre_rl')[2] - 0.375) < 0.005, `rear tyre ${tyre('tyre_rl')}`);
+  const roles = new Set(j.materials.map(m => m.name));
+  for (const r of ['paint_main', 'paint_accent', 'carbon', 'rubber', 'metal', 'light']) assert.ok(roles.has(r), `material ${r}`);
+  const tris = j.meshes.reduce((t, m) => t + m.primitives.reduce((s, p) => s + j.accessors[p.indices].count / 3, 0), 0);
+  assert.ok(tris < 60000, `${tris} triangles`);
+});

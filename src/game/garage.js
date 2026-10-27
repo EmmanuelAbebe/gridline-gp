@@ -10,7 +10,7 @@ import { CarModels } from './car-models.js';
 import { Design } from './design.js';
 import { $, createEmitter } from './util.js';
 import { orbitState, orbitPosition, attachOrbit, clampOrbit, ORBIT } from './orbit-camera.js';
-import { FINISHES, SWATCHES, LIVERY_DEFAULTS, hexOf, playerDriver, playerSpec } from './garage-store.js';
+import { FINISHES, CAR_MODELS, SWATCHES, LIVERY_DEFAULTS, hexOf, playerDriver, playerSpec } from './garage-store.js';
 
 const SETUP_UI = {
   wing: { label: 'Wing level', fmt: v => String(v), note: () => 'More wing: more grip in corners and under braking, more drag on the straights (lower top speed).' },
@@ -75,6 +75,7 @@ export const Garage = (() => {
     frameCar();
     attachOrbit(stage, orbit, { onUser: () => { idle = 0; } });
     Design.on('change', section => { if (model && (section === 'car' || section === 'all')) { model.rebuild(Design.data.car); frameCar(); } });
+    CarModels.onKind(() => { if (model) frameCar(); });   // classic ↔ 2026: a new root to centre
   }
   // centre the car on the turntable and aim at its middle
   function frameCar() {
@@ -150,7 +151,10 @@ export const Garage = (() => {
     body.replaceChildren();
     const L = garage.livery;
     if (tab === 'look') {
-      body.append(colourRow('Body colour', 'color'), colourRow('Accent colour', 'accent'), colourRow('Rims', 'rims'));
+      const car = el('div', 'set-item'), ch = el('div', 'row');
+      ch.append(el('span', 'lbl', 'Car'), seg(CAR_MODELS, L.model, v => { L.model = v; changed('look'); render(); }));
+      car.append(ch, el('p', 'note', L.model === '2026' ? 'The 2026 car made in Blender, being built (docs/car-plan.md): every car in the field.' : 'The part-built car: the design tools below change its shape.'));
+      body.append(car, colourRow('Body colour', 'color'), colourRow('Accent colour', 'accent'), colourRow('Rims', 'rims'));
       const fin = el('div', 'set-item'), fh = el('div', 'row');
       fh.append(el('span', 'lbl', 'Paint finish'), seg(FINISHES, L.finish, v => { L.finish = v; changed('look'); render(); }));
       fin.append(fh, el('p', 'note', 'Metallic, satin and matte show in the Quality graphics mode.')); body.append(fin);

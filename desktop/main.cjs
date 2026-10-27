@@ -123,6 +123,11 @@ async function smokeTest(win) {
   const shot = name => win.webContents.capturePage().then(img => fs.writeFileSync(smokeOut.replace(/(\.png)?$/, `-${name}.png`), img.toPNG()));
   await win.webContents.executeJavaScript(`document.getElementById('garageBtn').click()`);
   await new Promise(r => setTimeout(r, 1200));
+  // (GRIDLINE_SMOKE_CAR=2026: the Blender car in every shot, picked the way a player does in Look)
+  if (process.env.GRIDLINE_SMOKE_CAR === '2026') {
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('#garageOv .seg button')].find(b => /^2026/.test(b.textContent))?.click()`);
+    await new Promise(r => setTimeout(r, 800));
+  }
   await shot('garage');
   for (const [type, x] of [['mouseDown', 300], ['mouseMove', 380], ['mouseMove', 460], ['mouseUp', 460]]) {
     win.webContents.sendInputEvent({ type, x, y: 360, button: 'left', clickCount: 1 }); await new Promise(r => setTimeout(r, 60));

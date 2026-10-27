@@ -62,9 +62,11 @@ const carModels = SIM.DRIVERS.map(d => CarModels.create(Display.scene, d, Design
 const modelOf = new Map(SIM.DRIVERS.map((d, i) => [d.code, carModels[i]]));   // car model by driver code
 const playerModel0 = carModels[SIM.DRIVERS.findIndex(d => d.player)];
 playerModel0.mountScreen(WheelScreen.mesh);
+// the car model changed (garage: classic / 2026): the mirrors are on the new one
+CarModels.onKind(() => mirrors.build(playerModel0.object, playerModel0.mirrorParts()));
 // working rear-view mirrors on the player's car (mirrors.js), rebuilt with the car design
 const mirrors = createMirrors(Display.renderTo);
-mirrors.build(playerModel0.object, Design.data.car.parts);
+mirrors.build(playerModel0.object, playerModel0.mirrorParts());
 const wakes = createSlipstreamFx(Display.scene, SIM.DRIVERS);
 const raceAudio = createRaceAudio();
 const timers = createTimers();
@@ -112,7 +114,7 @@ function setGfx(id, announce) {
   const p = GFX_PROFILES[id], gpu = Display.gpu;
   game.gfx = id;
   Display.applyProfile(p); world?.applyProfile(p); CarModels.applyProfile(carModels, p); hudMirror.setPerformance(id === 'perf');
-  mirrors.setQuality(!p.lambertCars); mirrors.build(playerModel0.object, Design.data.car.parts);   // resolution follows the mode
+  mirrors.setQuality(!p.lambertCars); mirrors.build(playerModel0.object, playerModel0.mirrorParts());   // resolution follows the mode
   game.gfxNote = (gpu.short ? 'Graphics: ' + gpu.short + '. ' : '') + p.note(gpu.weak);
   if (announce) { Settings.set(CONFIG.storageKeys.gfx, id); Hud.toast(p.label); }
   describeSetup(); SettingsScreen.redraw();
@@ -480,7 +482,7 @@ function frame(now) {
   away.watch(dt);
   InputMonitor.sample(dt, Input.drive, Input.pad);
   SettingsScreen.tick(Input.pad, Input.shapeSteer(Input.pad.steerRaw));
-  if (game.carsDirty) { game.carsDirty = false; for (const m of carModels) m.rebuild(Design.data.car); trial.model.rebuild(Design.data.car); mirrors.build(playerModel0.object, Design.data.car.parts); }
+  if (game.carsDirty) { game.carsDirty = false; for (const m of carModels) m.rebuild(Design.data.car); trial.model.rebuild(Design.data.car); mirrors.build(playerModel0.object, playerModel0.mirrorParts()); }
   const running = isRunning();
   if (running) { game.acc += dt; while (game.acc >= STEP) { simStep(STEP); game.acc -= STEP; } }
   else game.acc = 0;

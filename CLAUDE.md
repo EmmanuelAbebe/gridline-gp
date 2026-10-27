@@ -74,7 +74,8 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
   .json + screenshots; results and conclusions in docs/city-benchmark.md (textures cost load time and memory, not frame
   time; triangles ~0.2–0.25 ms per million on the RX 9060 XT). `Display.info()` / `gridlineDebug.info()` = renderer.info.
   Then the car: plan + spec in docs/car-plan.md (2026-10-26; user chose realistic 2026, the old part-built car kept as an
-  option with its editor, livery pattern templates, one shape for every team; phase 0 spec done, phase 1 = blockout).
+  option with its editor, livery pattern templates, one shape for every team; phase 0 spec, phase 1 blockout done: tools/blender/car.py → car.glb,
+  car-glb.js, garage Look → Car CLASSIC / 2026 (`livery.model`, CarModels.setKind swaps every car), GRIDLINE_SMOKE_CAR=2026).
 - npm scripts: `dev` (Vite dev server, browser), `dev:app` (dev server inside Electron, `tools/dev-app.mjs`),
   `build`, `start` (build + Electron), `test` (node:test, `tests/*.test.js`), `lint` (ESLint 10, `eslint.config.js`:
   undefined/unused names; `src/sim` gets no browser globals), `typecheck` (`tsc -p .`, TypeScript 6 on plain JS + JSDoc,
