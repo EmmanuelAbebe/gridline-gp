@@ -1,5 +1,5 @@
 import { RACE_SETUP } from './config.js';
-import { $, ordinal, NUMBER_WORDS, ORDINAL_WORDS } from './util.js';
+import { $, ordinal, fmtTime, NUMBER_WORDS, ORDINAL_WORDS } from './util.js';
 
 // Overlays (start / pause / results) and the start-menu controls.
 export const Screens = (() => {
@@ -17,26 +17,30 @@ export const Screens = (() => {
     onShow(fn) { shown = fn; },          // fn(name) each time an overlay (or none) is shown
     current() { return Object.keys(overlays).find(k => !overlays[k].hidden) || null; },
     hud(on) { $('hud').hidden = !on; },
-    describeEvent(track, cars, playerSlot) {
+    // grid: { slot, yourTime, level } from starting-grid.js (null: still working the rivals' times out), quali minutes or 0
+    describeEvent(track, cars, grid, quali = 0) {
       $('eventLine').textContent = `Round 1 · ${track.name} Circuit · ${(track.L / 1000).toFixed(2)} km`;
-      const n = NUMBER_WORDS[cars] || String(cars), word = n[0].toUpperCase() + n.slice(1);
+      const n = NUMBER_WORDS[cars] || String(cars), word = n[0].toUpperCase() + n.slice(1), slot = grid && (ORDINAL_WORDS[grid.slot] || ordinal(grid.slot + 1));
       $('introText').textContent = cars === 1 ? 'Just you and the circuit: no rivals, so learn your lines.'
-        : `${word} cars, five red lights. You start ${ORDINAL_WORDS[playerSlot] || ordinal(playerSlot + 1)} on the grid.`;
+        : quali ? `${word} cars. Qualifying first: ${quali} minutes alone on the circuit; your fastest lap against the rivals' times sets your place on the grid.`
+        : !grid ? `${word} cars, five red lights. Timing the rivals for the grid…`
+        : grid.yourTime ? `${word} cars, five red lights. Your best here (${fmtTime(grid.yourTime)}) puts you ${slot} on the grid.`
+        : `${word} cars, five red lights. No lap here yet: you start ${slot}, at the back. Qualifying or a time trial sets a time.`;
     },
     // Race setup controls (cars, race type, laps or minutes, rivals; gearbox and assists are on the Settings screen).
     // `setup` is edited in place; onChange after each edit. Returns render(), for edits made elsewhere.
     // circuits: [{ id, name, blurb }]; the length is filled in by trackInfo() once the circuit is built
     bindSetup(setup, maxCars, circuits, onChange) {
       const minIdx = () => Math.max(0, RACE_SETUP.minutes.indexOf(setup.minutes));
-      fillSeg($('typeSeg'), 't', RACE_SETUP.choices.type); fillSeg($('aiSeg'), 'l', RACE_SETUP.choices.ai);
+      fillSeg($('typeSeg'), 't', RACE_SETUP.choices.type); fillSeg($('aiSeg'), 'l', RACE_SETUP.choices.ai); fillSeg($('qualiSeg'), 'q', RACE_SETUP.choices.quali);
       function render() {
         $('trackVal').textContent = circuits.find(c => c.id === setup.track)?.name ?? setup.track;
         $('carsVal').textContent = setup.cars === 1 ? '1 (solo)' : String(setup.cars);
         markSeg($('typeSeg'), 't', setup.type);
-        markSeg($('aiSeg'), 'l', setup.ai);
+        markSeg($('aiSeg'), 'l', setup.ai); markSeg($('qualiSeg'), 'q', setup.quali);
         $('aiNote').textContent = RACE_SETUP.aiLevels[setup.ai].note;
         const trial = setup.type === 'trial';
-        $('aiSeg').closest('.row').hidden = $('aiNote').hidden = setup.cars === 1 || trial;
+        $('aiSeg').closest('.row').hidden = $('aiNote').hidden = $('qualiRow').hidden = setup.cars === 1 || trial;
         $('carsStep').closest('.row').hidden = trial; $('ghostRow').hidden = !trial;
         $('amountRow').hidden = setup.type === 'unlimited' || trial;
         $('amountLbl').textContent = setup.type === 'timed' ? 'Race time' : 'Laps';
@@ -69,6 +73,7 @@ export const Screens = (() => {
       });
       bindSeg($('typeSeg'), 't', t => { setup.type = t; change(); });
       bindSeg($('aiSeg'), 'l', l => { setup.ai = l; change(); });
+      bindSeg($('qualiSeg'), 'q', q => { setup.quali = q; change(); });
       render();
       return render;
     },

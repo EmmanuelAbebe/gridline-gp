@@ -338,7 +338,33 @@ async function smokeTest(win) {
     const sliders = document.querySelectorAll('#studio input[type=range]').length;
     [...document.querySelectorAll('#studio button')].find(b => b.textContent === 'CLOSE').click();
     return { shown, sliders, closed: document.getElementById('studio').hidden }; })()`);
-  // time trial: back to the menu, pick TIME TRIAL (ghost row shows, cars / rivals hidden), start: you alone, ghost delta row
+  // the grid by lap time (the menu's line, once the rivals are timed), then qualifying: 5 minutes, the timing screen,
+  // ended early from the pause menu (no lap: the back of the grid), on to the race from that grid
+  await win.webContents.executeJavaScript(`document.getElementById('setClose')?.click(); gridlineDebug.toMenu()`);
+  for (let i = 0; i < 40 && /Timing the rivals/.test(await win.webContents.executeJavaScript(`document.getElementById('introText').textContent`)); i++) await new Promise(r => setTimeout(r, 250));
+  info.quali = { menu: await win.webContents.executeJavaScript(`document.getElementById('introText').textContent`) };
+  await win.webContents.executeJavaScript(`document.querySelector('#qualiSeg [data-q="5"]').click(); document.getElementById('startBtn').click()`);
+  await new Promise(r => setTimeout(r, 2500));
+  Object.assign(info.quali, await win.webContents.executeJavaScript(`({ title: document.getElementById('towerLap').textContent, rows: document.querySelectorAll('#towerList > *').length,
+    first: document.querySelector('#towerList li .g').textContent, timeLeft: document.getElementById('timeLeft').textContent, cars: gridlineDebug.playerState() && document.querySelectorAll('#towerList li.me').length })`));
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-quali.png'), (await win.webContents.capturePage()).toPNG());
+  if (process.env.GRIDLINE_SMOKE_LAP) {        // (GRIDLINE_SMOKE_LAP: the autopilot drives a lap in qualifying: a time on the timing screen)
+    await win.webContents.executeJavaScript(`gridlineDebug.autopilot(0.9)`);
+    for (let i = 0; i < 400 && !(await win.webContents.executeJavaScript(`gridlineDebug.playerState().lap >= 2`)); i++) await new Promise(r => setTimeout(r, 250));
+    await new Promise(r => setTimeout(r, 600));
+    info.quali.lapRow = await win.webContents.executeJavaScript(`document.querySelector('#towerList li.me').textContent`);
+    await win.webContents.executeJavaScript(`gridlineDebug.autopilot(0)`);
+  }
+  await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click(); document.getElementById('endBtn').click()`);
+  await new Promise(r => setTimeout(r, 500));
+  Object.assign(info.quali, await win.webContents.executeJavaScript(`({ verdict: document.getElementById('verdict').textContent, next: document.getElementById('againBtn').textContent,
+    requali: !document.getElementById('requaliBtn').hidden, table: document.querySelectorAll('#resBody tr').length, pole: document.querySelector('#resBody tr td.r').textContent })`));
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-quali-results.png'), (await win.webContents.capturePage()).toPNG());
+  await win.webContents.executeJavaScript(`document.getElementById('againBtn').click()`);
+  await new Promise(r => setTimeout(r, 1500));
+  Object.assign(info.quali, await win.webContents.executeJavaScript(`({ raceCars: document.querySelectorAll('#towerList > *').length, raceTitle: document.getElementById('towerLap').textContent,
+    startSlot: [...document.querySelectorAll('#towerList li')].findIndex(li => li.classList.contains('me')) + 1 })`));
+  await win.webContents.executeJavaScript(`gridlineDebug.toMenu(); document.querySelector('#qualiSeg [data-q="off"]').click()`);
   await win.webContents.executeJavaScript(`document.getElementById('setClose')?.click(); gridlineDebug.toMenu();
     document.querySelector('#typeSeg [data-t="trial"]').click()`);
   // (GRIDLINE_SMOKE_GHOST=file: race that ghost lap, loaded the way the LOAD button does)

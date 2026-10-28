@@ -309,6 +309,24 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   (sector-timing.js cls) all use it; the start menu's record line and ghost list show the layout the next race would use;
   a loaded file on other zones is kept and says so (raced once your zones match).
 
+## Starting grid by lap time and qualifying (2026-10-28; user: "instead of putting the player in a specific position every
+## time … qualifying rounds to set pole positions or better yet use the player fastest time"; chose grid + qualifying now,
+## the all-time best when not qualifying; practice mode (specific turns / sections, timed, vs AI or self) waits for details)
+- `grid.js` (pure, tests/grid.test.js): `rivalsOf(cars)` (the fastest cars − 1, as before), `gridOrder(rivals, times, you,
+  yourTime)` (rivals by time, no time behind; you in front of the first rival slower than you, a tie to the rival, no time =
+  last), `qualiPlan` (each rival's first run + best appear at seeded times in the session: GRID_RULES), `qualiStandings`.
+- Rival times: ai-ghosts.js `driverLap(track, driver, levelId, level, opts)` = that driver alone at the race's level (best
+  clean flying lap of 3, fixed seed, `aiTop` = the field's fastest for ALIEN gaps; cached per conditions: aero, AI assists,
+  tyre temperatures, your start compound, zones). ~0.1–0.16 s per driver: `starting-grid.js` makes them on the start menu one
+  per tick (intro line "Timing the rivals…" → "Your best here (…) puts you 4th"), a race made before then makes them at once.
+- Without qualifying your time = your lap record there (garage-store records, your class + zone layout); with no record you
+  start last. Setup `quali` OFF / 5 / 10 / 15 MIN (start menu row, hidden solo and in a time trial): `game.session` 'quali' =
+  you alone, a timed session (no lights, wear off, your start compound), the tower is the timing screen (Hud.updateQualiTower),
+  your best valid lap counts (the standing first lap too), the flag at time up lets you finish the lap; results = the
+  classification (Hud.renderQualiResults) with START THE RACE (`game.qualiGrid`, kept for Race again until the menu) / QUALIFY
+  AGAIN; End race from the pause menu ends the session. Smoke test: out-quali.png, out-quali-results.png (GRIDLINE_SMOKE_LAP:
+  the autopilot sets a time).
+
 ## Architecture
 Tunables live in data tables (config modules), not inline in the logic.
 1. **SIM** (`src/sim/`, exported as one `SIM` object from `index.js`):
@@ -1003,5 +1021,7 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   lap times stay put unless the user says otherwise), (2) an "ALIEN" level above LEGEND = theoretical max, no
   mistakes, (3) rivals that learn from the player: record the player's line/speed per corner on valid laps, adopt it
   where the player is faster (blended), saved per circuit, toggle + reset in settings.
-- Qualifying session, tyre wear + pit stops, more circuits (only CTRL needs changing), halo pillar/mirrors
+- Practice mode (asked 2026-10-28, details to come): practise specific turns and sections of a circuit, timed, against the
+  AI or yourself.
+- Tyre wear + pit stops, more circuits (only CTRL needs changing), halo pillar/mirrors
   as an optional cockpit detail, force feedback via phone vibration.

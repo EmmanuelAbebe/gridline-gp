@@ -42,10 +42,11 @@ import { createSlipstreamFx } from './slipstream-fx.js';
 import { createRaceAudio } from './race-audio.js';
 import { poseOf, savePoses, interpolatePoses, setPoseTrack } from './pose.js';
 import { Debris } from './debris.js';
-import { loadSetup, loadPrefs, steerRate, raceFormat, raceWear, raceAero, buildField, playerSlotOf, assistsOf, aiAssistsOf, setupSummary } from './setup-store.js';
+import { loadSetup, loadPrefs, steerRate, raceFormat, raceWear, raceAero, buildField, assistsOf, aiAssistsOf, setupSummary } from './setup-store.js';
 import { messageFor, SAY, boxMessage } from './race-messages.js';
 import { loadButtonMaps } from './button-map.js';
 import { loadAeroZones, zonesFor, withZones, zoneTag, lapClass } from './aero-zones.js';
+import { createStartingGrid } from './starting-grid.js';
 import { createZoneEditor } from './zone-editor.js';
 import { bindSettings } from './settings-binding.js';
 import { installDebug } from './debug.js';
@@ -108,6 +109,10 @@ const trial = createTimeTrial({ game, track: () => track, saveSetup: () => saveS
 const sectors = createSectorTiming({ game, aiLapOf: (id, aero) => trial.aiLapOf(id, aero) });
 const analysis = createAnalysis({ game, sectors, aiLapOf: (id, aero) => trial.aiLapOf(id, aero), track: () => track });
 
+// ---- the starting grid by lap time and qualifying (starting-grid.js, grid.js) ----
+const grid = createStartingGrid({ game, track: () => track, onReady: () => describeEvent() });
+const qualifying = () => game.session === 'quali';
+
 // ---- race setup and prefs (setup-store.js: loading, validation, what they mean for a race) ----
 const savePrefs = () => Settings.set(CONFIG.storageKeys.prefs, JSON.stringify(game.prefs));
 // Push the prefs into the modules that use them.
@@ -136,11 +141,18 @@ function snapCamera() { interpolatePoses(game.race.cars, 1); CameraRig.snap(game
 // ---- race flow: menu → lights → race → done (results) ----
 function setStartLights(n) { Hud.setStartLamps(n); world.setStartLights(n); }
 
+// The field in grid order: a time trial or qualifying is you alone; a race with rivals = qualifying's grid, else your best
+// lap here against the rivals' times (starting-grid.js)
+function fieldOf(s) {
+  if (s.type === 'trial' || s.cars === 1 || qualifying()) return buildField(1, true);
+  const q = game.qualiGrid;
+  return q && q.circuit === track.id && q.order.length === s.cars ? q.order : grid.forRace({ sync: true }).order;
+}
 function newRace() {
   timers.clear();
-  const s = game.setup, field = buildField(s.cars, s.type === 'trial').map(d => d.player ? playerDriver(game.garage) : d);   // your livery in the tower, map, results
-  const race = SIM.createRace(raceFormat(s), { track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, aiFollow: RACE_SETUP.aiLevels[s.ai].follow || 1, aiAlien: !!RACE_SETUP.aiLevels[s.ai].alien, wear: raceWear(s), ...raceAero(s), aiAssists: aiAssistsOf(s), tyreTemp: s.tyreTemp === 'on',
-    compound: s.type === 'trial' ? game.garage.tyres.start : 'auto',      // (the rivals' teams pick their tyres: SIM bestCompound)
+  const s = game.setup, quali = qualifying(), field = fieldOf(s).map(d => d.player ? playerDriver(game.garage) : d);   // your livery in the tower, map, results
+  const race = SIM.createRace(quali ? { type: 'timed', minutes: +s.quali } : raceFormat(s), { track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, aiFollow: RACE_SETUP.aiLevels[s.ai].follow || 1, aiAlien: !!RACE_SETUP.aiLevels[s.ai].alien, wear: quali ? {} : raceWear(s), ...raceAero(s), aiAssists: aiAssistsOf(s), tyreTemp: s.tyreTemp === 'on',
+    compound: s.type === 'trial' || quali ? game.garage.tyres.start : 'auto',      // (the rivals' teams pick their tyres: SIM bestCompound)
     hitbox: CarModels.hitbox(Design.data.car) });                        // (the shape of the cars in the race: 2026 or classic)
   for (const [code, m] of modelOf) m.setVisible(field.some(d => d.code === code));
   const L = CONFIG.lights;
@@ -161,6 +173,7 @@ function newRace() {
   setStartLights(0); Hud.showLights(true); Hud.setLapTimes(0, 0); raceAudio.reset();
   Screens.show(null); Screens.hud(true);
   snapCamera();
+  if (quali) { grid.startQuali(race); lightsOut(); showMessage(SAY.qualiStart); }   // (a session: no start lights, the clock runs)
 }
 
 function stepStartLights(dt) {
@@ -191,6 +204,7 @@ function onPlayerEvent(c, e) {
       Hud.setLapTimes(e.time, c.bestLap, e.invalid);
       trial.onLap(race, c, e);                // the ghost: a new best lap becomes yours
       sectors.onLap(race, c, e);              // sector times, bests, the session's laps
+      if (qualifying()) grid.qualiLap(e);     // your best in qualifying sets your grid slot
       const zones = zoneTag(race.track, race.activeAero);   // (laps on your own straight-mode zones are kept apart)
       if (!e.invalid && recordLap(game.records, race.track.id, c.spec.modified, e.time, zones)) {
         Settings.set(CONFIG.storageKeys.records, JSON.stringify(game.records)); describeRecord();
@@ -238,7 +252,7 @@ function announceFinalLap() {
 }
 // Race-wide moments the player should hear about: time running out, and the flag ahead of them.
 function watchRace(race) {
-  if (race.t >= race.duration && !game.timeUpShown) { game.timeUpShown = true; showMessage(SAY.timeUp); }
+  if (race.t >= race.duration && !game.timeUpShown) { game.timeUpShown = true; showMessage(qualifying() ? SAY.qualiTimeUp : SAY.timeUp); }
   if (race.chequered && !game.player.finished) announceFinalLap();
 }
 // Pause menu "End race": classify everyone where they are now.
@@ -250,9 +264,14 @@ function endRace() {
 
 function showResults() {
   game.resultsShown = true;
-  Hud.renderResults(game.race, game.player);
+  const quali = qualifying();
+  if (quali) { grid.finishQuali(); Hud.renderQualiResults(grid.standings(game.race, true)); }
+  else Hud.renderResults(game.race, game.player);
+  $('againBtn').textContent = quali ? 'Start the race' : 'Race again'; $('requaliBtn').hidden = !quali;
   Screens.show('results', 'againBtn');
 }
+// results: on to the race after qualifying (from that grid), else the same race again (the same grid)
+function again() { if (qualifying()) game.session = 'race'; newRace(); }
 
 function simStep(dt) {
   const race = game.race;
@@ -306,7 +325,12 @@ function drawPitBox() {
 }
 const SIM_COMPOUNDS = Object.keys(SIM.COMPOUNDS);
 Screens.onShow(name => { if (name === 'pause') drawPitBox(); });
-function startFromMenu() { Sound.init(); newRace(); }
+function startFromMenu() {
+  Sound.init();
+  const s = game.setup;
+  game.session = s.quali !== 'off' && s.cars > 1 && s.type !== 'trial' ? 'quali' : 'race'; game.qualiGrid = null;
+  newRace();
+}
 function toMenu() { game.phase = PHASE.MENU; game.resultsShown = false; Screens.hud(false); Screens.show('start', 'startBtn'); }
 // auto: the car shifts; semi: you shift up, the car shifts down (you may click down too); manual: you shift.
 function setGearbox(car, mode) { car.autoShift = mode === 'auto'; car.autoDown = mode === 'semi'; car.downQueue = 0; }
@@ -322,7 +346,7 @@ function confirm() {                                   // pad A
   if (SettingsScreen.open || InputMonitor.open || analysis.open) return;
   if (away.open) { away.confirm(); return; }
   if (game.phase === PHASE.MENU) startFromMenu();
-  else if (game.resultsShown) newRace();
+  else if (game.resultsShown) again();
   else if (game.paused) togglePause();
 }
 function onCameraChanged() {
@@ -382,7 +406,10 @@ const describeSetup = () => {
 };
 // the start menu's circuit line: your records here
 // the start menu's intro line (a time trial is you alone)
-const describeEvent = () => { const trial = game.setup.type === 'trial'; Screens.describeEvent(track, trial ? 1 : game.setup.cars, playerSlotOf(game.setup.cars, trial)); };
+const describeEvent = () => {
+  const s = game.setup, cars = s.type === 'trial' ? 1 : s.cars, quali = s.quali !== 'off' ? +s.quali : 0;
+  Screens.describeEvent(track, cars, cars > 1 ? grid.forRace() : null, quali);   // (the rivals' times are made in the background)
+};
 function describeRecord() {
   // (on the zones the next race would use: yours there, else the automatic ones)
   const r = game.records[track.id] || {}, parts = [], zones = zoneTag(track, raceAero(game.setup).activeAero), mine = zones ? ' on your zones' : '';
@@ -455,7 +482,8 @@ $('settingsBtn').onclick = $('pauseSettingsBtn').onclick = $('setBtn').onclick =
 $('pauseBtn').onclick = togglePause;
 $('resumeBtn').onclick = togglePause;
 $('restartBtn').onclick = () => newRace();
-$('againBtn').onclick = () => newRace();
+$('againBtn').onclick = again;
+$('requaliBtn').onclick = () => { game.session = 'quali'; newRace(); };
 $('endBtn').onclick = endRace;
 $('pauseAnaBtn').onclick = () => analysis.show('pause');
 $('resAnaBtn').onclick = () => analysis.show('results');
@@ -551,8 +579,8 @@ function renderFrame(dt) {
   if (onLights) wakes.hideAll(); else wakes.update(race, player, dt);
   if ((game.towerT -= dt) <= 0) {
     game.towerT = CONFIG.towerInterval;
-    Hud.updateTower(race, player, !onLights);
-    if (game.resultsShown) Hud.renderResults(race, player);
+    if (qualifying() && game.quali) Hud.updateQualiTower(race, grid.standings(race));   // (the timing screen)
+    else { Hud.updateTower(race, player, !onLights); if (game.resultsShown) Hud.renderResults(race, player); }
   }
   if ((game.mapT -= dt) <= 0) { game.mapT = CONFIG.mapInterval; minimap.draw(race.cars); }
   Hud.tick(dt);

@@ -161,6 +161,25 @@ export const Hud = (() => {
       setText('pos', 'P' + (ord.indexOf(player) + 1));
       setText('lap', lapOf(race, player));
     },
+    // qualifying (starting-grid.js): the timing screen instead of the running order. rows = grid.js qualiStandings
+    updateQualiTower(race, rows) {
+      const left = race.duration - race.t;
+      setText('towerLap', race.chequered || left <= 0 ? 'FINISH YOUR LAP' : 'QUALIFYING');
+      setText('posOf', '/' + rows.length);
+      $('timeLeftBox').hidden = false; setText('timeLeft', fmtClock(left));
+      $('towerList').innerHTML = rows.map((r, i) =>
+        `<li class="${r.driver.player ? 'me' : ''}"><span class="p">${i+1}</span><i style="background:${hexCss(r.driver.color)}"></i><span class="c">${r.driver.code}</span><span class="g num">${r.time === null ? 'NO TIME' : i === 0 ? fmtTime(r.time) : '+' + r.gap.toFixed(3)}</span></li>`).join('');
+      setText('pos', 'P' + (rows.findIndex(r => r.driver.player) + 1));
+      setText('lap', String(Math.max(1, race.cars.find(c => c.player).lap)));
+    },
+    // the qualifying classification (results screen): your slot on the grid
+    renderQualiResults(rows) {
+      const pos = rows.findIndex(r => r.driver.player) + 1, me = rows[pos - 1];
+      $('verdict').innerHTML = me.time === null ? 'No time set: <em>back of the grid</em>' : pos === 1 ? '<em>Pole</em> position' : `Qualified <em>${ordinal(pos)}</em>`;
+      $('verdict').title = '';
+      $('resBody').innerHTML = rows.map((r, i) =>
+        `<tr class="${r.driver.player ? 'me' : ''}"><td class="num">${i+1}</td><td><i style="background:${hexCss(r.driver.color)}"></i>${r.driver.name}</td><td class="team">${r.driver.team}</td><td class="r num">${r.time === null ? 'no time' : i === 0 ? 'POLE' : '+' + r.gap.toFixed(3)}</td><td class="r num${i === 0 && r.time !== null ? ' best' : ''}">${r.time === null ? '–' : fmtTime(r.time)}</td></tr>`).join('');
+    },
     renderResults(race, player) {
       const ord = SIM.order(race), leader = ord[0], pos = ord.indexOf(player) + 1, gained = (player.slot + 1) - pos;
       $('verdict').innerHTML = pos === 1 ? 'Race <em>winner</em>' : `Finished <em>${ordinal(pos)}</em>`;

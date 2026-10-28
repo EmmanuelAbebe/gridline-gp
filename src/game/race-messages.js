@@ -66,6 +66,9 @@ export const SAY = {
   coldTyres: { radio: 'Tyres are cold off the blankets: take care into the first corners.', secs: 4 },
   boxOff: { radio: 'Understood, stay out.', secs: 3 },
   timeUp: { toast: 'Time up: the leader\'s next lap is the last' },
+  // qualifying (starting-grid.js)
+  qualiStart: { radio: 'Qualifying: your fastest clean lap sets the grid. Build the tyres up, then push.', secs: 5 },
+  qualiTimeUp: { toast: 'Chequered flag: finish this lap, it still counts' },
   autoShift: { toast: 'Automatic gearbox: pick SEMI-AUTO or MANUAL in Settings (O) to shift yourself' },
   downQueued: { toast: 'Too fast for that gear: the downshift goes in as you slow down' },
   noHud: { toast: 'Start a race to arrange the HUD' },

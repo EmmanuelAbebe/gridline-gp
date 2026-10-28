@@ -30,6 +30,7 @@ export function loadSetup(json) {
     straight: oneOf('straight'),
     limiter: oneOf('limiter'),
     ghost: oneOf('ghost'),
+    quali: oneOf('quali'),
     track: Object.hasOwn(SIM.CIRCUITS, s.track || '') ? s.track : SIM.track.id,
   };
 }

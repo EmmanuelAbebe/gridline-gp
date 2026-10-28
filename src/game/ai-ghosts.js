@@ -19,9 +19,13 @@ export const ghostDriver = () => SIM.DRIVERS.filter(d => !d.player).reduce((a, d
 // The ghost's own race: the fastest driver alone at that level, on the trial's active-aero setting
 // (aiAssists: the player's ABS / traction control, setup-store aiAssistsOf: the ghost drives on the same terms)
 // (tyreTemp: tyre temperatures as in your race, so off the line it is on cold tyres too; compound: your tyres)
-function rivalRace(track, level, activeAero, aiAssists = null, tyreTemp = false, compound = 'medium') {
-  return SIM.createRace({ type: 'unlimited' }, { track, drivers: [ghostDriver()], aiPace: level.pace, aiFollow: level.follow || 1,
+// (driver: another driver alone, for the grid's lap times: grid.js; aiTop = the fastest driver in the real field, which
+// sets an ALIEN driver's pace gap: SIM race.aiTop)
+function rivalRace(track, level, activeAero, aiAssists = null, tyreTemp = false, compound = 'medium', driver = ghostDriver(), aiTop = driver.skill) {
+  const race = SIM.createRace({ type: 'unlimited' }, { track, drivers: [driver], aiPace: level.pace, aiFollow: level.follow || 1,
     aiAlien: !!level.alien, seed: AI_GHOSTS.seed, activeAero, overtake: false, aiAssists, tyreTemp, compound });
+  race.aiTop = aiTop;
+  return race;
 }
 
 // A live AI ghost: step(dt) once per sim step after lights out (its race.t follows yours). car = its car (pose,
@@ -45,8 +49,8 @@ export function rivalGap(player, now, rival) {
 
 // One level's lap: { time, line } of its best clean flying lap (null if none). ~50 ms of sim.
 // line: that lap per track sample: x, z, kmh, thr, brk, t (s into the lap) (Float32Arrays of N)
-export function aiLapRun(track, level, { activeAero = false, aiAssists = null, tyreTemp = false, compound = 'medium' } = {}) {
-  const A = AI_GHOSTS, race = rivalRace(track, level, activeAero, aiAssists, tyreTemp, compound), c = race.cars[0], N = track.N;
+export function aiLapRun(track, level, { activeAero = false, aiAssists = null, tyreTemp = false, compound = 'medium', driver = undefined, aiTop = undefined } = {}) {
+  const A = AI_GHOSTS, race = rivalRace(track, level, activeAero, aiAssists, tyreTemp, compound, driver, aiTop), c = race.cars[0], N = track.N;
   const fresh = () => ({ x: new Float32Array(N), z: new Float32Array(N), kmh: new Float32Array(N), thr: new Float32Array(N), brk: new Float32Array(N), t: new Float32Array(N) });
   let cur = fresh(), best = null, last = c.idx;
   while (c.lap <= A.laps && race.t < A.maxTime) {
@@ -77,4 +81,16 @@ export function aiLap(track, id, level, activeAero, aiAssists = null, tyreTemp =
   const k = keyOf(track, id, activeAero, aiAssists, tyreTemp, compound);
   if (!cache.has(k)) cache.set(k, aiLapRun(track, level, { activeAero, aiAssists, tyreTemp, compound }));
   return cache.get(k);
+}
+
+// One driver's lap alone at a level (the grid: grid.js), the same way as aiLap: best clean flying lap of AI_GHOSTS.laps,
+// cached per circuit × layout × driver × level × conditions × the field's fastest driver. → seconds or null (no clean lap)
+const driverCache = new Map();
+export const driverLapKey = (track, driver, levelId, { activeAero = false, aiAssists = null, tyreTemp = false, compound = 'medium', aiTop = driver.skill } = {}) =>
+  `${keyOf(track, levelId, activeAero, aiAssists, tyreTemp, compound)}:${driver.code}:${aiTop}`;
+export const driverLapReady = (track, driver, levelId, opts) => driverCache.has(driverLapKey(track, driver, levelId, opts));
+export function driverLap(track, driver, levelId, level, opts = {}) {
+  const k = driverLapKey(track, driver, levelId, opts);
+  if (!driverCache.has(k)) driverCache.set(k, aiLapRun(track, level, { ...opts, driver })?.time ?? null);
+  return driverCache.get(k);
 }
