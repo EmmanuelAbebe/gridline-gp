@@ -80,6 +80,7 @@ test('messages: every player event the game reports has one, built from the even
   assert.match(messageFor({ type: EV.DAMAGE, part: 'floor' }, c, race).radio, /Floor damage/);
   const stop = messageFor({ type: EV.PIT_STOP, service: { fuel: 20.4, wing: true, repair: false, time: 4.2 } }, c, race);
   assert.deepEqual(stop, { radio: 'Stop: tyres, 20 kg of fuel, a new front wing. 4.2 s.', secs: 4.7 });
+  assert.match(messageFor({ type: EV.PIT_STOP, service: { fuel: 0, wing: false, repair: false, compound: 'soft', time: 2.4 } }, c, race).radio, /^Stop: softs\. 2\.4 s/);
   assert.equal(messageFor({ type: EV.SHIFT }, c, race), null);
   for (const k of [EV.PIT_IN, EV.PIT_GO, EV.PIT_OUT, EV.FUEL_LOW, EV.FUEL_BOX, EV.FUEL_OUT, EV.TYRES_WORN, EV.BEACHED, EV.RECOVERED])
     assert.ok(EVENT_MESSAGES[k] && (messageFor({ type: k }, c, race).radio || messageFor({ type: k }, c, race).toast), k);

@@ -11,8 +11,10 @@ export const Screens = (() => {
     b.setAttribute('aria-pressed', 'false'); return b;
   }));
   const bindSeg = (seg, attr, fn) => seg.addEventListener('click', e => { const b = e.target.closest('button'); if (b) fn(b.dataset[attr]); });
+  let shown = null;
   return {
-    show(name, focusId) { for (const [k, el] of Object.entries(overlays)) el.hidden = k !== name; if (focusId) $(focusId).focus(); },
+    show(name, focusId) { for (const [k, el] of Object.entries(overlays)) el.hidden = k !== name; shown?.(name); if (focusId) $(focusId).focus(); },
+    onShow(fn) { shown = fn; },          // fn(name) each time an overlay (or none) is shown
     current() { return Object.keys(overlays).find(k => !overlays[k].hidden) || null; },
     hud(on) { $('hud').hidden = !on; },
     describeEvent(track, cars, playerSlot) {

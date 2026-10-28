@@ -120,6 +120,12 @@ table.res i{display:inline-block;width:4px;height:14px;vertical-align:-2px;margi
 .gar-balword{font-family:var(--display);font-size:12px;letter-spacing:.08em;color:var(--muted);text-align:right}
 .gar-warn{border:1px solid rgba(255,194,26,.45);background:rgba(255,194,26,.07);border-radius:4px;padding:10px 12px;display:grid;gap:4px}
 .gar-warn b{font-family:var(--display);letter-spacing:.08em;color:var(--amber);text-transform:uppercase}
+/* tyres & pit: the compounds side by side (badge, name, grip, life, window) */
+.gar-cmp{display:grid;gap:4px;padding:8px 10px;border:1px solid var(--rule);border-radius:4px;background:rgba(255,255,255,.02)}
+.gar-cmp-row{display:grid;grid-template-columns:auto 5.5em 1fr 1fr 1fr;gap:8px;align-items:center;font-size:13px}
+.gar-cmp-row .cmp{font-size:14px}
+.gar-head{margin:12px 0 2px;font-family:var(--display);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--amber);font-size:13px}
+@media (max-width:560px){.gar-cmp-row{grid-template-columns:auto 1fr 1fr;row-gap:0}.gar-cmp-row>span:nth-child(n+4){grid-column:2/-1;opacity:.8}}
 .res td .mod{margin-left:8px;font-family:var(--display);font-size:11px;letter-spacing:.1em;color:var(--amber);border:1px solid rgba(255,194,26,.5);border-radius:2px;padding:0 4px}
 
 /* time trial: the ghost row on the start menu */
@@ -163,3 +169,8 @@ table.ana-corners caption{caption-side:bottom;text-align:left;font-size:12px;col
 .ana-stats div{display:grid;gap:2px;padding:6px 8px;background:rgba(255,255,255,.05);border-radius:3px}
 .ana-stats b{font-family:var(--display);font-size:20px;font-weight:700}
 @media (max-width:760px){.ana-grid{grid-template-columns:1fr}}
+/* the pause menu's pit box */
+.pit-box{display:grid;gap:6px;margin:4px 0 12px;padding:10px 12px;border:1px solid var(--rule);border-radius:4px;background:rgba(255,255,255,.03);text-align:left}
+.pit-box .row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px}
+.pit-box .seg button{font-size:12px;padding:5px 9px}
+.pit-head{margin:0 0 2px;font-family:var(--display);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:13px;color:var(--muted)}

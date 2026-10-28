@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { SIM as S } from '../src/sim/index.js';
-import { loadGarage, validLivery, colourOf, hexOf, LIVERY_DEFAULTS, playerDriver, playerSpec, loadRecords, recordLap } from '../src/game/garage-store.js';
+import { loadGarage, validLivery, colourOf, hexOf, LIVERY_DEFAULTS, playerDriver, playerSpec, loadRecords, recordLap, validStrategy, pitPlanOf, STRATEGY_DEFAULTS } from '../src/game/garage-store.js';
 import { orbitState, orbitPosition, turn, zoom, pan, clampOrbit, ORBIT } from '../src/game/orbit-camera.js';
 
 test('garage: nothing saved gives the stock car in its own colours', () => {
@@ -69,4 +69,11 @@ test('a car saved before physics 2 with the old stock mass loads as stock', () =
   assert.equal(S.isModified(old.mods), false);
   const now = loadGarage(JSON.stringify({ physics: 2, mods: { mass: 800 } }));
   assert.equal(now.mods.mass, 800);                    // saved since: 800 kg is a real mod
+});
+
+test('tyres & pit: the starting compound and the pit plan, validated (defaults: medium, AUTO, change the wing, fix)', () => {
+  assert.deepEqual(loadGarage(null).tyres, STRATEGY_DEFAULTS);
+  assert.deepEqual(validStrategy({ start: 'soft', next: 'hard', wing: false, repair: false }), { start: 'soft', next: 'hard', wing: false, repair: false });
+  assert.deepEqual(validStrategy({ start: 'wet', next: 7, wing: 'no', repair: null }), STRATEGY_DEFAULTS);
+  assert.deepEqual(pitPlanOf(validStrategy({ next: 'soft', wing: false })), { tyres: 'soft', wing: false, repair: true });
 });

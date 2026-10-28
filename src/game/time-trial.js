@@ -31,9 +31,10 @@ export function createTimeTrial({ game, track, saveSetup, switchTrack }) {
   const carModified = () => SIM.isModified(game.garage.mods);
   // AI laps (ai-ghosts.js): the fastest AI driver alone at each level, made once per circuit and active-aero setting
   const aiPick = () => Object.hasOwn(LEVELS, game.setup.ghost) ? game.setup.ghost : null;
-  const tyreTemp = () => game.setup.tyreTemp === 'on';
-  const aiLapsReady = aero => Object.keys(LEVELS).every(id => aiLapReady(track(), id, aero, aiAssistsOf(game.setup), tyreTemp()));
-  const aiLapOf = (id, aero = raceAero(game.setup).activeAero) => aiLap(track(), id, LEVELS[id], aero, aiAssistsOf(game.setup), tyreTemp());
+  // (on your tyres: the garage's starting compound, and the temperatures as in your race)
+  const tyreTemp = () => game.setup.tyreTemp === 'on', compound = () => game.garage.tyres.start;
+  const aiLapsReady = aero => Object.keys(LEVELS).every(id => aiLapReady(track(), id, aero, aiAssistsOf(game.setup), tyreTemp(), compound()));
+  const aiLapOf = (id, aero = raceAero(game.setup).activeAero) => aiLap(track(), id, LEVELS[id], aero, aiAssistsOf(game.setup), tyreTemp(), compound());
   // the recorded ghost to race on this circuit in this car class (game.setup.ghost): the one loaded from a file (else
   // your best), or your best; start = the standing-start lap (your lap 1 from the grid), else the flying lap. (An AI
   // pick races a live car instead: game.rival.)
@@ -111,7 +112,7 @@ export function createTimeTrial({ game, track, saveSetup, switchTrack }) {
     start(race, player) {
       const s = game.setup, trial = s.type === 'trial', pick = trial ? aiPick() : null;
       game.trial = trial; recorder.stop();
-      game.rival = pick ? createRival(track(), pick, LEVELS[pick], { activeAero: race.activeAero, aiAssists: aiAssistsOf(game.setup), tyreTemp: !!race.tyreTemp }) : null;
+      game.rival = pick ? createRival(track(), pick, LEVELS[pick], { activeAero: race.activeAero, aiAssists: aiAssistsOf(game.setup), tyreTemp: !!race.tyreTemp, compound: compound() }) : null;
       game.ghost = trial && !pick ? activeGhost(player.spec.modified) : null;            // laps 2..
       game.ghostStart = trial && !pick ? activeGhost(player.spec.modified, true) : null; // lap 1, from the grid
       Hud.setDelta(null, trial); model.setVisible(false);

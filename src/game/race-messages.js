@@ -29,7 +29,7 @@ export const EVENT_MESSAGES = {
   // pit stops and the car's condition: the team on the radio
   [EV.PIT_IN]: () => ({ radio: 'Pit limiter on, 80. Stop in your box for the crew.', secs: 3 }),
   [EV.PIT_STOP]: e => {
-    const s = e.service, jobs = ['tyres'];
+    const s = e.service, jobs = [s.compound ? `${s.compound}s` : 'tyres'];
     if (s.fuel > 0.5) jobs.push(`${Math.round(s.fuel)} kg of fuel`);
     if (s.wing) jobs.push('a new front wing');
     if (s.repair) jobs.push('repairs');
@@ -55,7 +55,6 @@ export const messageFor = (e, c, race) => EVENT_MESSAGES[e.type]?.(e, c, race) ?
 
 // the other things said during a race
 export const SAY = {
-  boxOn: { radio: 'Copy, box this lap. We are ready for you.', secs: 3 },
   coldTyres: { radio: 'Tyres are cold off the blankets: take care into the first corners.', secs: 4 },
   boxOff: { radio: 'Understood, stay out.', secs: 3 },
   timeUp: { toast: 'Time up: the leader\'s next lap is the last' },
@@ -65,3 +64,5 @@ export const SAY = {
   boostNone: { toast: 'No overtake mode this lap: cross the line within 1 s of the car ahead' },
   boostAuto: { toast: 'Overtake mode is on AUTO: pick BUTTON in Settings → Driving to fire it yourself' },
 };
+// box this lap, with the tyres the crew has ready: the pit plan's compound, or the team's choice
+export const boxMessage = plan => ({ radio: `Copy, box this lap. ${plan.tyres === 'auto' ? 'We pick the tyres' : plan.tyres === 'same' ? 'Same tyres' : `${plan.tyres[0].toUpperCase()}${plan.tyres.slice(1)}s`} ready for you.`, secs: 3 });

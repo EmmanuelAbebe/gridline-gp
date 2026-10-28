@@ -32,13 +32,26 @@ export function validLivery(l = {}) {
   };
 }
 
-// saved JSON (or null) → { livery, setup, mods }
+// tyres and the pit box (SIM COMPOUNDS, a car's pitPlan): the compound you start on, and what the crew does at your
+// stops: the next set (AUTO = the team's choice for the laps left, as the AI teams do), a new front wing if it is
+// damaged, repairs to the floor and suspension. The pause menu changes the plan for the race you are in.
+export const COMPOUND_NAMES = Object.keys(SIM.COMPOUNDS);
+export const STRATEGY_DEFAULTS = Object.freeze({ start: 'medium', next: 'auto', wing: true, repair: true });
+export function validStrategy(t = {}) {
+  const d = STRATEGY_DEFAULTS, bool = (v, def) => typeof v === 'boolean' ? v : def;
+  return { start: COMPOUND_NAMES.includes(t.start) ? t.start : d.start, next: t.next === 'auto' || t.next === 'same' || COMPOUND_NAMES.includes(t.next) ? t.next : d.next,
+    wing: bool(t.wing, d.wing), repair: bool(t.repair, d.repair) };
+}
+// the race car's pit plan (SIM PitPlan) from it
+export const pitPlanOf = t => ({ tyres: t.next, wing: t.wing, repair: t.repair });
+
+// saved JSON (or null) → { livery, setup, mods, tyres }
 // (physics 2 made the stock car 770 kg: a car saved before it with the old stock 800 kg is stock, not a mass mod)
 const OLD_STOCK = { 1: { mass: 800 } };
 export function loadGarage(json) {
   const s = parse(json), old = OLD_STOCK[s.physics ?? 1], mods = s.mods && typeof s.mods === 'object' ? { ...s.mods } : s.mods;
   if (old && mods) for (const [k, v] of Object.entries(old)) if (mods[k] === v) delete mods[k];
-  return { physics: SIM.TUNING.PHYSICS, livery: validLivery(s.livery), setup: SIM.validSetup(s.setup), mods: SIM.validMods(mods) };
+  return { physics: SIM.TUNING.PHYSICS, livery: validLivery(s.livery), setup: SIM.validSetup(s.setup), mods: SIM.validMods(mods), tyres: validStrategy(s.tyres) };
 }
 // the player's car for the race: their driver entry with the livery on it, and the spec from setup + mods
 export const playerDriver = g => ({ ...PLAYER, color: g.livery.color, accent: g.livery.accent, number: g.livery.number });

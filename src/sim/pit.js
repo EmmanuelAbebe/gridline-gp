@@ -9,7 +9,7 @@
 // out along the fast lane, and onto the track after the exit road. Its position follows a path along the track samples
 // at a lateral offset (c.pit.p = unwrapped sample position), so laps, timing and order carry on as usual.
 import { tyreSet, hotWear } from './tyre-temp.js';
-import { PIT, WEAR, EV, TUNING, RUNOFF } from './tuning.js';
+import { PIT, WEAR, EV, TUNING, RUNOFF, COMPOUNDS, STRATEGY } from './tuning.js';
 import { pitRange } from './runoff.js';
 import { DRIVERS } from './drivers.js';
 import { rpmAt, GEARS } from './vehicle.js';
@@ -26,7 +26,10 @@ import { clamp, wrapA, wrapIdx, smoothstep } from './math.js';
  *   garageLat: number, roadIn: number, roadOut: number, boxes: number[] }} PitLane */
 /** @typedef {{ fuelLaps: number, tyreLaps: number, damage: boolean, burnLap: number }} Wear */
 /** @typedef {{ wing: number, floor: number, susp: number }} Damage */   // each 0..1
-/** @typedef {{ fuel: number, fuelTo: number, wing: boolean, repair: boolean, tyres: boolean, time: number }} Service */
+/** @typedef {{ fuel: number, fuelTo: number, wing: boolean, repair: boolean, tyres: boolean, compound: string, keep: { wing: boolean, repair: boolean }, time: number }} Service */
+/** What the crew does at the next stop (the pit box options): tyres = a COMPOUNDS name, 'same' (the compound on the
+ *  car) or 'auto' (the team's choice, bestCompound), wing = fit a new front wing if it is damaged, repair = fix the floor and suspension
+ * @typedef {{ tyres: string, wing: boolean, repair: boolean }} PitPlan */
 /** In the pit lane: p = unwrapped sample position (from p0, lateral lat0 at the entry), the car's box, phase, service
  * done at the stop (from race time `at` until `until`); done = service finished. drive = the driver drives (the
  * player): entered = past the pit wall's start (limiter on), hold = where the car is held during the stop, request =
@@ -49,6 +52,8 @@ export function buildPitLane(track) {
 export const pitState = slot => ({
   fuel: Infinity, tyreWear: 0, tyreT: /** @type {TyreSet} */ (null), damage: /** @type {Damage} */ ({ wing: 0, floor: 0, susp: 0 }), pullSide: slot % 2 ? 1 : -1,   // pullSide: where damaged suspension pulls
   pit: /** @type {PitStop} */ (null), pitRequest: false, pitLimiter: false, pitStops: 0,
+  // the tyres on the car (COMPOUNDS), the wear at which the AI's plan stops for the next set, the next stop's jobs
+  compound: 'medium', planWear: /** @type {number} */ (PIT.ai.tyres), pitPlan: /** @type {PitPlan} */ ({ tyres: 'same', wing: true, repair: true }),
   warned: /** @type {{ low?: boolean, box?: boolean, out?: boolean, tyres?: boolean }} */ ({}),   // pit = { p, phase, ... } while in the lane
 });
 
@@ -95,7 +100,7 @@ export function updateWear(race, c, thr, dt) {
     if (c.fuel <= 0 && !c.warned.out) { c.warned.out = true; emit(c, EV.FUEL_OUT); }
   }
   if (W.tyreLaps) {
-    c.tyreWear = Math.min(1, c.tyreWear + dist / (L * W.tyreLaps) * (1 + WEAR.slideWear * (c.slideF + c.slideR)) * (race.tyreTemp && c.tyreT ? hotWear(c.tyreT) : 1));
+    c.tyreWear = Math.min(1, c.tyreWear + dist / (L * W.tyreLaps * COMPOUNDS[c.compound].life) * (1 + WEAR.slideWear * (c.slideF + c.slideR)) * (race.tyreTemp && c.tyreT ? hotWear(c.tyreT) : 1));
     if (c.tyreWear > WEAR.warn.tyres && !c.warned.tyres) { c.warned.tyres = true; emit(c, EV.TYRES_WORN); }
   }
 }
@@ -116,9 +121,9 @@ export function addDamage(race, c, impact, front, hard = 1) {
 // what the damage and tyres do to the car (chassis.js): grip, front / total downforce, drag, steering pull
 /** @param {Car} c */
 export function carCondition(c) {
-  const d = c.damage, D = WEAR.damage, w = c.tyreWear || 0;
-  if (!d) return { grip: 1, front: 1, aero: 1, drag: 1, pull: 0, power: 1 };
-  return { grip: (1 - WEAR.drop * w * w) * (1 - D.suspGrip * d.susp), front: 1 - D.wingLoss * d.wing, aero: 1 - D.floorLoss * d.floor,
+  const d = c.damage, D = WEAR.damage, w = c.tyreWear || 0, k = COMPOUNDS[c.compound].grip;
+  if (!d) return { grip: k, front: 1, aero: 1, drag: 1, pull: 0, power: 1 };
+  return { grip: (1 - WEAR.drop * w * w) * (1 - D.suspGrip * d.susp) * k, front: 1 - D.wingLoss * d.wing, aero: 1 - D.floorLoss * d.floor,
     drag: 1 + D.floorDrag * d.floor, pull: D.suspPull * d.susp * c.pullSide, power: c.fuel > 0 ? 1 : WEAR.limp };
 }
 
@@ -128,7 +133,7 @@ export function aiWantsPit(race, c) {
   const togo = lapsToGo(race, c), A = PIT.ai;
   if (togo < A.late) return false;                                    // too late to be worth it
   if (fuelLaps(race, c) < togo + A.margin && fuelLaps(race, c) < A.fuelBelow) return true;
-  if (c.tyreWear > A.tyres && togo > A.tyresLeft) return true;
+  if (c.tyreWear > Math.min(A.tyres, c.planWear) && togo > A.tyresLeft) return true;   // (planWear: its tyre plan's stint)
   return c.damage?.wing > A.wing && togo > A.wingLeft;
 }
 
@@ -324,19 +329,53 @@ export function serviceSteps(s) {
   return out;
 }
 
-// what the crew does: always tyres; fuel for the rest of the race (+ reserve, at most a full tank); a new front
-// wing if it is damaged; floor and suspension repaired
+// what the crew does (the car's pitPlan): always tyres, of the plan's compound (auto: bestCompound for the laps left);
+// fuel for the rest of the race (+ reserve, at most a full tank); a new front wing if it is damaged and the plan says
+// so; floor and suspension repaired unless the plan skips them (then they stay as they are)
 /** @param {Race} race @param {Car} c @returns {Service} */
 function service(race, c) {
-  const W = race.wear, d = c.damage || { wing: 0, floor: 0, susp: 0 };
+  const W = race.wear, d = c.damage || { wing: 0, floor: 0, susp: 0 }, plan = c.pitPlan;
   const fuelTo = W?.fuelLaps ? Math.min(WEAR.tank, (lapsToGo(race, c) + WEAR.reserve) * W.burnLap) : c.fuel;
-  const fuel = Math.max(0, fuelTo - c.fuel), wing = d.wing > PIT.wingFrom, repair = d.floor + d.susp;
+  const fuel = Math.max(0, fuelTo - c.fuel), wing = plan.wing && d.wing > PIT.wingFrom, repair = plan.repair ? d.floor + d.susp : 0;
+  const compound = Object.hasOwn(COMPOUNDS, plan.tyres) ? plan.tyres : plan.tyres === 'auto' ? bestCompound(race, c).compound : c.compound;
   const time = PIT.base + (Number.isFinite(fuel) ? fuel / PIT.refuel : 0) + (wing ? PIT.wing : 0) + PIT.repair * Math.min(1, repair);
-  return { fuel, fuelTo, wing, repair: repair > PIT.repairFrom, tyres: true, time };
+  return { fuel, fuelTo, wing, repair: repair > PIT.repairFrom, tyres: true, compound, keep: { wing: !plan.wing, repair: !plan.repair }, time };
 }
-/** @param {Race} race @param {Car} c */
+/** @param {Race} race @param {Car} c @param {Service} s */
 function applyService(race, c, s) {
   if (Number.isFinite(s.fuelTo)) c.fuel = s.fuelTo;
-  c.tyreWear = 0; if (race.tyreTemp) c.tyreT = tyreSet(); if (c.damage) c.damage = { wing: 0, floor: 0, susp: 0 };
+  fitTyres(race, c, s.compound);
+  const d = c.damage, keep = s.keep;
+  if (d) c.damage = { wing: keep.wing ? d.wing : 0, floor: keep.repair ? d.floor : 0, susp: keep.repair ? d.susp : 0 };
   c.pitStops++; c.dirt = 0; c.warned = {};
+}
+
+// ---------- tyre compounds (COMPOUNDS, STRATEGY) ----------
+// a new set of `compound` on the car: no wear, off the blankets (with tyre temperatures); in a race where the teams
+// choose (race.compounds 'auto'), the wear at which the AI plans its next stop
+/** @param {Race} race @param {Car} c */
+export function fitTyres(race, c, compound) {
+  if (!Object.hasOwn(COMPOUNDS, compound)) compound = 'medium';
+  c.compound = compound; c.tyreWear = 0;
+  if (race.tyreTemp) c.tyreT = tyreSet(undefined, compound);
+  c.planWear = race.compounds === 'auto' ? bestCompound(race, c, compound).wear : PIT.ai.tyres;
+}
+// The team's choice for the laps still to go: the compound (and its number of stops) that costs the least time
+// (STRATEGY). wear = how worn the set will be at its planned stop (PIT.ai.tyres when it runs to the flag).
+// only = cost that compound alone. Without tyre wear: the softest. An endless race plans for STRATEGY.endless laps.
+/** @param {Race} race @param {Car} c */
+export function bestCompound(race, c, only = null) {
+  const laps = race.wear?.tyreLaps, S = STRATEGY;
+  if (!laps) return { compound: only || 'soft', wear: PIT.ai.tyres, stops: 0 };
+  const left = lapsToGo(race, c), togo = Math.max(0.5, Number.isFinite(left) ? left : S.endless);
+  let best = null;
+  for (const [name, k] of Object.entries(COMPOUNDS)) {
+    if (only && name !== only) continue;
+    const life = laps * k.life, n0 = Math.max(0, Math.ceil(togo / (life * S.maxWear)) - 1);
+    for (let n = n0; n <= n0 + S.more; n++) {
+      const w = togo / (n + 1) / life, cost = togo * ((k.grip * (1 - WEAR.drop * w * w / 3)) ** -0.5 - 1) + n * S.stopLaps;
+      if (!best || cost < best.cost) best = { compound: name, wear: n ? Math.min(w, PIT.ai.tyres) : PIT.ai.tyres, stops: n, cost };
+    }
+  }
+  return best;
 }

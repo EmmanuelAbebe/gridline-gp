@@ -102,28 +102,30 @@ export const Hud = (() => {
     // car condition rows (only what the race uses) and the pit status line
     updateCar(race, c) {
       const W = race.wear, tt = !!(race.tyreTemp && c.tyreT), on = !!(W && (W.fuelLaps || W.tyreLaps || W.damage)) || tt;
-      setOnce('carOn', on, v => { $('carState').hidden = !v; });
+      setOnce('carOn', true, v => { $('carState').hidden = !v; });   // (the tyres row always: the compound)
       setOnce('ttOn', tt, v => { $('tt').hidden = !v; $('ttLbl').hidden = !v; });
       if (tt) {                                    // the four tyres' grip temperatures, FL FR / RL RR
-        const [lo, hi] = SIM.TYRE_TEMP.window, cells = ($('tt').children);
+        const [lo, hi] = c.tyreT.win, cells = ($('tt').children);   // (the compound's window)
         for (let i = 0; i < 4; i++) {
           const t = Math.round(SIM.gripTemp(c.tyreT, i));
           setOnce('tt' + i, t, v => { cells[i].textContent = v; cells[i].className = v < lo - 5 ? 'cold' : v > hi + 5 ? 'hot' : 'ok'; });
         }
       }
       const showRow = (id, v) => { $(id).hidden = !v; $(id + 'Lbl').hidden = !v; };   // (fuelLbl, tyresLbl, dmgLbl)
-      setOnce('fuelOn', !!W?.fuelLaps, v => showRow('fuel', v)); setOnce('tyresOn', !!W?.tyreLaps, v => showRow('tyres', v)); setOnce('dmgOn', !!W?.damage, v => showRow('dmg', v));
+      setOnce('fuelOn', !!W?.fuelLaps, v => showRow('fuel', v)); setOnce('tyresOn', true, v => showRow('tyres', v)); setOnce('dmgOn', !!W?.damage, v => showRow('dmg', v));
+      // the compound on the car (S / M / H in Pirelli's colours) and, with tyre wear, how much is left
+      const q = W?.tyreLaps ? Math.round((1 - c.tyreWear) * 100) : null;
+      setOnce('tyreTxt', `${c.compound}:${q}`, () => {
+        const k = el => { const b = document.createElement('b'); b.className = 'cmp ' + c.compound; b.textContent = el; return b; };
+        $('tyres').replaceChildren(k(c.compound[0].toUpperCase()), q === null ? ' ' + c.compound.toUpperCase() : ` ${q} %`);
+      });
       if (on && W) {
         if (W.fuelLaps) {
           const left = SIM.fuelLaps(race, c), short = left < SIM.lapsToGo(race, c);
           setOnce('fuelTxt', c.fuel <= 0 ? 'EMPTY' : left.toFixed(1) + ' laps', t => { $('fuel').textContent = t; });
           setOnce('fuelCls', c.fuel <= 0 || (short && left < 1) ? 'bad' : short ? 'warn' : '', k => { $('fuel').className = k; });
         }
-        if (W.tyreLaps) {
-          const q = Math.round((1 - c.tyreWear) * 100);
-          setOnce('tyreTxt', q + ' %', t => { $('tyres').textContent = t; });
-          setOnce('tyreCls', q < 25 ? 'bad' : q < 45 ? 'warn' : '', k => { $('tyres').className = k; });
-        }
+        if (W.tyreLaps) setOnce('tyreCls', q < 25 ? 'bad' : q < 45 ? 'warn' : '', k => { $('tyres').className = k; });
         if (W.damage) {
           const d = c.damage, parts = [['wing', 'WING'], ['floor', 'FLOOR'], ['susp', 'SUSP']].filter(([k]) => d[k] > 0.08);
           const worst = Math.max(d.wing, d.floor, d.susp);

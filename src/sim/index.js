@@ -6,7 +6,7 @@ import { buildSectors } from './sectors.js';
 import { carSpec, STOCK, validSetup, validMods, isModified } from './spec.js';
 import { specStats, balanceAt } from './spec-stats.js';
 import { surfaceAt } from './runoff.js';
-import { fuelLaps, lapsToGo, carCondition, laneCentre, laneOuter, alongLane, serviceSteps } from './pit.js';
+import { fuelLaps, lapsToGo, fitTyres, bestCompound, carCondition, laneCentre, laneOuter, alongLane, serviceSteps } from './pit.js';
 import { steerLock, tyreCurve, driftAngle } from './chassis.js';
 import { CIRCUITS } from './circuits.js';
 import { DRIVERS } from './drivers.js';
@@ -20,8 +20,8 @@ import { surfaceY, samplePos, cornerSpeedAt, brakeLimitAt } from './elevation.js
 import { rpmAt, cornerSpeed, lateralGrip, brakeLimit, brakeMax, tyreGrip, wakeHalfWidth, VEHICLE_INFO } from './vehicle.js';
 
 import { tyreSet, tempGrip, axleTempGrip, gripTemp } from './tyre-temp.js';
-import { TYRE_TEMP } from './tuning.js';
-export const SIM = Object.freeze({ TYRE_TEMP, tyreSet, tempGrip, axleTempGrip, gripTemp, TUNING, AI, CONTACT, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, HANDBRAKE, SPEED_STEER, CIRCUITS,
+import { TYRE_TEMP, COMPOUNDS, STRATEGY } from './tuning.js';
+export const SIM = Object.freeze({ TYRE_TEMP, COMPOUNDS, STRATEGY, fitTyres, bestCompound, tyreSet, tempGrip, axleTempGrip, gripTemp, TUNING, AI, CONTACT, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, HANDBRAKE, SPEED_STEER, CIRCUITS,
   SURFACES, OFFTRACK, WALLS, RUNOFF, BARRIER, BARRIERS, ZONE, surfaceAt, PIT, WEAR, fuelLaps, lapsToGo, carCondition, laneCentre, laneOuter, alongLane, serviceSteps,
   steerLock, tyreCurve, driftAngle, DRIVERS, EV, track: DEFAULT_TRACK,
   SETUP, MODS, ACTIVE_AERO, OVERTAKE, ERS, gapAhead, carSpec, STOCK, validSetup, validMods, isModified, specStats, balanceAt,

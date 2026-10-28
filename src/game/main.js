@@ -42,7 +42,7 @@ import { createSlipstreamFx } from './slipstream-fx.js';
 import { createRaceAudio } from './race-audio.js';
 import { poseOf, savePoses, interpolatePoses, setPoseTrack } from './pose.js';
 import { loadSetup, loadPrefs, steerRate, raceFormat, raceWear, raceAero, buildField, playerSlotOf, assistsOf, aiAssistsOf, setupSummary } from './setup-store.js';
-import { messageFor, SAY } from './race-messages.js';
+import { messageFor, SAY, boxMessage } from './race-messages.js';
 import { bindSettings } from './settings-binding.js';
 import { installDebug } from './debug.js';
 import { PhoneWheel } from './phone-wheel.js';
@@ -50,7 +50,7 @@ import { createHaptics } from './haptics.js';
 import { createPitCrews } from './pit-crew.js';
 import { createTyreMarks } from './tyre-marks.js';
 import { Garage } from './garage.js';
-import { loadGarage, loadRecords, recordLap, playerSpec, playerDriver } from './garage-store.js';
+import { loadGarage, loadRecords, recordLap, playerSpec, playerDriver, pitPlanOf } from './garage-store.js';
 import { loadModels } from './models.js';
 
 const { EV } = SIM;
@@ -131,13 +131,15 @@ function setStartLights(n) { Hud.setStartLamps(n); world.setStartLights(n); }
 function newRace() {
   timers.clear();
   const s = game.setup, field = buildField(s.cars, s.type === 'trial').map(d => d.player ? playerDriver(game.garage) : d);   // your livery in the tower, map, results
-  const race = SIM.createRace(raceFormat(s), { track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, aiFollow: RACE_SETUP.aiLevels[s.ai].follow || 1, aiAlien: !!RACE_SETUP.aiLevels[s.ai].alien, wear: raceWear(s), ...raceAero(s), aiAssists: aiAssistsOf(s), tyreTemp: s.tyreTemp === 'on' });
+  const race = SIM.createRace(raceFormat(s), { track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, aiFollow: RACE_SETUP.aiLevels[s.ai].follow || 1, aiAlien: !!RACE_SETUP.aiLevels[s.ai].alien, wear: raceWear(s), ...raceAero(s), aiAssists: aiAssistsOf(s), tyreTemp: s.tyreTemp === 'on',
+    compound: s.type === 'trial' ? game.garage.tyres.start : 'auto' });   // (the rivals' teams pick their tyres: SIM bestCompound)
   for (const [code, m] of modelOf) m.setVisible(field.some(d => d.code === code));
   const L = CONFIG.lights;
   const player = race.cars.find(c => c.player);
   setGearbox(player, game.setup.gearbox);
   player.assists = assistsOf(game.setup);
   player.spec = playerSpec(game.garage);             // the garage's setup + open mods (the rivals race SIM.STOCK)
+  SIM.fitTyres(race, player, game.garage.tyres.start); player.pitPlan = pitPlanOf(game.garage.tyres);   // garage: tyres + pit box
   player.boostAuto = s.overtake === 'auto';
   trial.start(race, player);
   sectors.start(race, player);
@@ -261,6 +263,30 @@ function togglePause() {
   game.paused = !game.paused;
   Screens.show(game.paused ? 'pause' : null, game.paused ? 'resumeBtn' : null);
 }
+// the pause menu's pit box (a race, not a time trial): your next stop's tyres, front wing and repairs (SIM pitPlan), for
+// this race only (the garage's Tyres & pit tab sets what every race starts with)
+function drawPitBox() {
+  const box = $('pitBox'), c = game.player, on = !!(c && game.race && !game.trial && c.pitPlan);
+  box.hidden = !on; if (!on) return;
+  const P = c.pitPlan, seg = (label, list, value, set) => {
+    const row = document.createElement('div'), s = document.createElement('div'), l = document.createElement('span');
+    row.className = 'row'; s.className = 'seg'; l.className = 'lbl'; l.textContent = label;
+    for (const [v, text] of list) {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = text; b.setAttribute('aria-pressed', String(v === value));
+      b.onclick = () => { set(v); drawPitBox(); }; s.append(b);
+    }
+    row.append(l, s); return row;
+  };
+  const head = document.createElement('p'), badge = document.createElement('b');
+  head.className = 'pit-head'; badge.className = 'cmp ' + c.compound; badge.textContent = c.compound[0].toUpperCase();
+  head.append('Pit box · on ', badge, ` ${c.compound}${game.race.wear?.tyreLaps ? `, ${Math.round((1 - c.tyreWear) * 100)} % left` : ''}`);
+  box.replaceChildren(head,
+    seg('Next tyres', [['auto', 'AUTO'], ...SIM_COMPOUNDS.map(k => [k, k.toUpperCase()])], P.tyres, v => { P.tyres = v; }),
+    seg('Front wing', [[true, 'CHANGE IF DAMAGED'], [false, 'KEEP']], P.wing, v => { P.wing = v; }),
+    seg('Repairs', [[true, 'FIX'], [false, 'SKIP']], P.repair, v => { P.repair = v; }));
+}
+const SIM_COMPOUNDS = Object.keys(SIM.COMPOUNDS);
+Screens.onShow(name => { if (name === 'pause') drawPitBox(); });
 function startFromMenu() { Sound.init(); newRace(); }
 function toMenu() { game.phase = PHASE.MENU; game.resultsShown = false; Screens.hud(false); Screens.show('start', 'startBtn'); }
 // auto: the car shifts; semi: you shift up, the car shifts down (you may click down too); manual: you shift.
@@ -359,7 +385,7 @@ function requestBox() {
   const p = game.player;
   if (!racing() || !p || p.pit || p.finished || !game.race.track.pit) return;
   p.pitRequest = !p.pitRequest;
-  showMessage(p.pitRequest ? SAY.boxOn : SAY.boxOff);
+  showMessage(p.pitRequest ? boxMessage(p.pitPlan) : SAY.boxOff);
 }
 $('boxBtn').onclick = requestBox;
 // overtake mode (X, pad View, the HUD button) when set to BUTTON: on / off while it is available this lap

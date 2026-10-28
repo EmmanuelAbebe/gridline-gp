@@ -146,6 +146,16 @@ async function smokeTest(win) {
     return { shown, stats, sliders: document.querySelectorAll('#garBody input[type=range]').length };
   })()`);
   await shot('garage-setup');
+  // Tyres & pit: start on softs, next stop hards (screenshot), then back to the defaults
+  Object.assign(info.garage, await win.webContents.executeJavaScript(`(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms)), pick = (label, text) => [...document.querySelectorAll('#garBody .set-item')]
+      .find(r => r.querySelector('.lbl')?.textContent === label).querySelectorAll('.seg button').forEach(b => { if (b.textContent === text) b.click(); });
+    [...document.querySelectorAll('#garTabs button')].find(b => b.textContent === 'Tyres & pit').click(); await wait(200);
+    pick('Start on', 'SOFT'); pick('Next tyres', 'HARD'); await wait(200);
+    return { tyres: document.querySelectorAll('.gar-cmp-row').length + ' compounds, ' + [...document.querySelectorAll('#garBody [aria-pressed=true]')].map(b => b.textContent).join(' ') };
+  })()`));
+  await shot('garage-tyres');
+  await win.webContents.executeJavaScript(`[...document.querySelectorAll('#garBody button')].find(b => b.textContent === 'Reset tyres & pit').click()`);
   Object.assign(info.garage, await win.webContents.executeJavaScript(`(async () => {
     const wait = ms => new Promise(r => setTimeout(r, ms));
     [...document.querySelectorAll('#garTabs button')].find(b => b.textContent === 'Open mods').click(); await wait(200);
@@ -210,6 +220,10 @@ async function smokeTest(win) {
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-lookback.png'), (await win.webContents.capturePage()).toPNG());
   await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyR', key: 'r' }))`);
   await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click()`);
+  // the pause menu's pit box (screenshot): the compound on the car and the next stop's plan
+  await new Promise(r => setTimeout(r, 200));
+  info.pitBox = await win.webContents.executeJavaScript(`(() => { const b = document.getElementById('pitBox'); return b.hidden ? 'hidden' : b.textContent; })()`);
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-pause.png'), (await win.webContents.capturePage()).toPNG());
   // settings from the pause menu, Controller tab (screenshot), then Done returns to the pause menu
   await win.webContents.executeJavaScript(`document.getElementById('pauseSettingsBtn').click();
     [...document.querySelectorAll('#setTabs button')].find(b => b.textContent === 'Controller').click()`);

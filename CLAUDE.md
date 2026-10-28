@@ -231,6 +231,24 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   cold / green / red hot); radio at lights out (cold), TYRES_WARM, TYRES_HOT. Physics version not bumped (flying laps
   match within ~0.4 s).
 
+## Tyre compounds and the pit box (2026-10-28; user: "soft, medium and hard tyres in the garage, and pit box options")
+- SIM `COMPOUNDS` (tuning.js): soft grip × 1.03, life × 0.6, window 85–105 °C; medium = the old tyre (× 1, 90–110); hard × 0.97,
+  life × 1.6, 98–118. Car fields `compound`, `planWear`, `pitPlan` {tyres: compound | 'same' | 'auto', wing, repair} (pit.js
+  pitState); `fitTyres(race, c, k)`; grip in carCondition, wear in updateWear, the window per set (`tyreSet(t, k).win`,
+  tempGrip(t, win)). createRace `compound` ('medium' default = nothing changes: sim-trace identical; a name = every car;
+  'auto' = each team's `bestCompound` (STRATEGY: equal stints, cost = wear grip loss + stopLaps per stop), again at each
+  stop; the AI pits at its plan's wear). The AI feels the compound like the temperatures (driving.js tyreK = tempK × compK).
+  Measured (VOS solo, LEGEND / ALIEN): soft ≈ −0.2…0.4 s, hard ≈ +0.2…0.4 s a lap at grip 1.02 / 0.98, so widened to
+  1.03 / 0.97; on cold blankets the hard needs 2–4 laps to come in on slow circuits. Service: tyres of the plan's compound,
+  wing / repairs unless the plan says KEEP / SKIP (`service.keep`). tests/compounds.test.js.
+- Game: garage tab Tyres & pit (`garage.tyres` {start, next, wing, repair}, garage-store validStrategy / pitPlanOf): start
+  compound, next tyres AUTO/S/M/H, front wing CHANGE IF DAMAGED / KEEP, repairs FIX / SKIP; pause menu `#pitBox` changes
+  the plan for the race in progress (Screens.onShow); races: the rivals 'auto', the player fitTyres(start); time trial:
+  one compound for all, the AI ghosts / racing line / ALIEN reference on your compound (ai-ghosts cache key). HUD Tyres row
+  always shows the compound badge (`.cmp` S red / M yellow / H white) + wear; tyre °C colours by the compound's window;
+  radio "Stop: softs, …", the box request names the tyres ready. Smoke test: out-garage-tyres.png, out-pause.png. Not done:
+  the compound colour on the tyre model, the two-compound rule, lap records apart per compound.
+
 ## Architecture
 Tunables live in data tables (config modules), not inline in the logic.
 1. **SIM** (`src/sim/`, exported as one `SIM` object from `index.js`):

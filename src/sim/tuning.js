@@ -475,6 +475,22 @@ export const TYRE_TEMP = Object.freeze({
   warn: Object.freeze({ warmAt: -3, over: 12, for: 3, calm: 6 }),
 });
 
+// Tyre compounds (2026-10-28; user: "soft, medium and hard tyres in the garage, and pit box options"). Medium is the tyre
+// every number above was tuned on (grip × 1, WEAR tyres laps, TYRE_TEMP window), so a race that picks none is unchanged.
+// grip: × the tyre's grip; life: × the WEAR tyres laps; window: °C where it grips fully (tyre-temp.js). Real Pirelli
+// spread: a soft ~0.5-0.8 s a lap quicker than a medium, a medium ~0.4-0.6 s quicker than a hard; the soft lasts about
+// half as long as the hard, works cooler (quick to warm, overheats sooner), the hard needs more heat.
+export const COMPOUNDS = Object.freeze({
+  soft:   Object.freeze({ grip: 1.03, life: 0.6, window: Object.freeze([85, 105]) }),
+  medium: Object.freeze({ grip: 1, life: 1, window: TYRE_TEMP.window }),
+  hard:   Object.freeze({ grip: 0.97, life: 1.6, window: Object.freeze([98, 118]) }),
+});
+// The team's tyre choice (pit.js bestCompound; the AI's, and the player's AUTO): every plan of `stops` to `stops + more`
+// stops, equal stints, costed in laps: the grip lost to wear (lap time ≈ grip^−0.5, the average of drop·wear² over a
+// stint = drop·end²/3) plus `stopLaps` laps per stop; worn tyres past `maxWear` don't count as a plan; an endless race
+// plans for `endless` laps.
+export const STRATEGY = Object.freeze({ stopLaps: 0.3, maxWear: 0.8, more: 2, endless: 30 });
+
 // Things that happen to a car during a step: the `type` of the event objects in car.events (events.js `emit`).
 export const EV = Object.freeze({ LAP: 'lap', FASTEST: 'fastest', FINISH: 'finish', WALL: 'wall', CONTACT: 'contact',
   SHIFT: 'shift', SHIFT_DENIED: 'shift-denied', CUT: 'cut', PENALTY: 'penalty',

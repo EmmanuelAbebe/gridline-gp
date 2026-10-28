@@ -4,7 +4,7 @@ import { EV, CP, LAP_ZONE, LIMITS, AI } from './tuning.js';
 import { DRIVERS } from './drivers.js';
 import { DEFAULT_TRACK } from './track.js';
 import { createCar } from './car.js';
-import { setupWear } from './pit.js';
+import { setupWear, fitTyres, bestCompound } from './pit.js';
 import { wrapIdx, speedOf, mulberry32 } from './math.js';
 const randomSeed = () => Math.floor(Math.random() * 2 ** 32);   // the only Math.random in the sim
 import { emit } from './events.js';
@@ -22,14 +22,14 @@ function normalizeFormat(f) {
 }
 // aiPace scales every AI driver's skill (difficulty, 1 = their own). wear = { fuel, tyres, damage } (pit.js setupWear).
 // seed: the race's random numbers (AI line biases and mistakes: race.rng); the same seed and inputs = the same race.
-export function createRace(format, { track = DEFAULT_TRACK, drivers = DRIVERS, aiPace = 1, wear = {}, seed = randomSeed(), activeAero = false, overtake = activeAero, aiFollow = 1, aiAlien = false, aiAssists = null, tyreTemp = false } = {}) {
+export function createRace(format, { track = DEFAULT_TRACK, drivers = DRIVERS, aiPace = 1, wear = {}, seed = randomSeed(), activeAero = false, overtake = activeAero, aiFollow = 1, aiAlien = false, aiAssists = null, tyreTemp = false, compound = 'medium' } = {}) {
   const fmt = normalizeFormat(format), rng = mulberry32(seed);
   // aiFollow: how tightly the AI follows its line (× lineSlope / lineSpeed, driving.js): ALIEN drives it closer
   // aiAlien: the ALIEN level (driving.js): its own line, pedals and attack, at its own pace per circuit
   // (without ABS or traction control a few circuits need it gentler: AI.alien.paceOff)
   if (aiAlien) aiPace = (aiAssists && (!aiAssists.abs || !aiAssists.tc) ? AI.alien.paceOff[track.id] ?? AI.alien.paceOff.default : undefined) ?? AI.alien.pace[track.id] ?? AI.alien.pace.default;
   const aiTop = Math.max(0, ...drivers.filter(d => !d.player).map(d => d.skill));   // the fastest AI driver (ALIEN spread)
-  const race = { track, format: fmt, aiPace, aiFollow, aiAlien, aiTop, seed, rng, activeAero, overtake, tyreTemp,   // active-aero.js; tyre-temp.js
+  const race = { track, format: fmt, aiPace, aiFollow, aiAlien, aiTop, seed, rng, activeAero, overtake, tyreTemp, compounds: compound,   // active-aero.js; tyre-temp.js; pit.js
     laps: fmt.type === 'laps' ? fmt.laps : Infinity,               // distance; Infinity for timed / unlimited
     duration: fmt.type === 'timed' ? fmt.minutes * 60 : Infinity,  // seconds; the clock starts at lights out
     chequered: false, t: 0, fastest: Infinity, fastestBy: /** @type {Car} */ (null), wear: /** @type {Wear} */ (null), cars: drivers.map((d, slot) => createCar(track, d, slot, rng)) };
@@ -39,6 +39,12 @@ export function createRace(format, { track = DEFAULT_TRACK, drivers = DRIVERS, a
   setupWear(race, wear);
   // tyre temperatures (tyre-temp.js): every car on a fresh set off the blankets (after setupWear: it resets the pit state)
   if (tyreTemp) for (const c of race.cars) c.tyreT = tyreSet();
+  // tyre compounds (pit.js): every car on medium unless the race says otherwise: one compound for every car, or 'auto' =
+  // each team picks its own (bestCompound) and again at every stop (the player's car: the game fits its own choice)
+  if (compound !== 'medium') for (const c of race.cars) {
+    if (compound === 'auto') c.pitPlan = { ...c.pitPlan, tyres: 'auto' };
+    fitTyres(race, c, compound === 'auto' ? bestCompound(race, c).compound : compound);
+  }
   return race;
 }
 

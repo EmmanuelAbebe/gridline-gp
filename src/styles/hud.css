@@ -158,3 +158,6 @@
 #ers.out u{background:#ffd21f}
 #ers.in u{background:#3fa9ff}
 #ers .num{min-width:3.2em;text-align:right;font-size:12px}
+/* tyre compounds (S / M / H): a ring in the compound's colour, as on the sidewall */
+.cmp{display:inline-grid;place-items:center;width:1.45em;height:1.45em;border-radius:50%;border:2px solid currentColor;font-family:var(--display);font-weight:800;font-size:.78em;line-height:1;vertical-align:middle}
+.cmp.soft{color:#ff3b3b} .cmp.medium{color:#ffd21e} .cmp.hard{color:#f2f3f0}

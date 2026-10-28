@@ -1,7 +1,7 @@
 // The player's and the AI's driving. Every car is the same car (vehicle.js engine/gearbox/aero, chassis.js tyres);
 // the player and the AI only decide steering, throttle, brake and shifts.
 import { axleTempGrip } from './tyre-temp.js';
-import { AI, ASSISTS, CHASSIS, TUNING, SPEED_STEER, CAR } from './tuning.js';
+import { AI, ASSISTS, CHASSIS, TUNING, SPEED_STEER, CAR, COMPOUNDS } from './tuning.js';
 import { STOCK } from './spec.js';
 import { clamp, wrapA, wrapIdx } from './math.js';
 import { progress } from './race.js';
@@ -149,9 +149,10 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   // (smoothed over AI.dirtyTime s: the wake comes and goes, the speed shouldn't)
   const wantDirty = Math.sqrt(1 - CHASSIS.dirtyAir * (c.slip || 0) * (1 - c.spec.grip * 9.81 / lateralGrip(Math.max(sp, 1), c.spec)));
   c.dirtyK += (wantDirty - c.dirtyK) * Math.min(1, dt / AI.dirtyTime);
-  // tyre temperatures (tyre-temp.js): it feels its tyres like a driver, cornering on the grip they have now
-  const tyreK = race.tyreTemp && c.tyreT ? Math.min(...Object.values(axleTempGrip(c.tyreT))) : 1;
-  const dirty = tyreK < 1 ? c.dirtyK * Math.sqrt(tyreK) : c.dirtyK;
+  // tyre temperatures (tyre-temp.js) and the compound (COMPOUNDS): it feels its tyres like a driver, cornering on the
+  // grip they have now
+  const tempK = race.tyreTemp && c.tyreT ? Math.min(...Object.values(axleTempGrip(c.tyreT))) : 1, compK = COMPOUNDS[c.compound].grip, tyreK = tempK * compK;
+  const dirty = tyreK !== 1 ? c.dirtyK * Math.sqrt(tyreK) : c.dirtyK;
   const vp = j => VP[j] < TUNING.V_CAP * 0.97 ? VP[j] * dirty : VP[j];
   let targetV = Math.min(vp((c.idx+2)%N), vp((c.idx+6)%N)) * skill;
   // the cars around: ahead in our lane (follow / pass), alongside (keep room), close behind (pressure, defending)
@@ -255,13 +256,13 @@ export function driveAI(race, c, dt, skillOverride = 0) {
     // over the target, brake once the hardest deceleration ahead passes brakeAt × the limit (late and hard); in
     // traffic with AI cars it drives like the others (a whole ALIEN field braking that late: 4× the hard contacts)
     // (cold tyres: it takes their whole grip loss as margin when properly cold, only the square root once nearly warm)
-    const A = AI.alien, tk = tyreK ** (0.5 + 0.5 * clamp((0.97 - tyreK) / 0.03, 0, 1)), vt = j => VP[j] >= TUNING.V_CAP - 1e-3 ? TUNING.V_CAP : tyreK < 1 ? VP[j] * skill * offLine(j) * tk : VP[j] * skill * offLine(j);
+    const A = AI.alien, tk = tempK ** (0.5 + 0.5 * clamp((0.97 - tempK) / 0.03, 0, 1)) * Math.sqrt(compK), vt = j => VP[j] >= TUNING.V_CAP - 1e-3 ? TUNING.V_CAP : tyreK !== 1 ? VP[j] * skill * offLine(j) * tk : VP[j] * skill * offLine(j);
     const target = lost ? AI.recoverSpeed : Math.min(vt((c.idx + 2) % N), vt((c.idx + 5) % N), followCap);   // (never into the car ahead)
     let need2 = 0;
     for (let k = 2; k <= A.brakeLook; k += k < 12 ? 2 : 4) { const w = vt((c.idx + k) % N); need2 = Math.max(need2, (sp * sp - w * w) / (2 * k * ds)); }
     // (without ABS: what its feet can do, the pedal it has learnt the fronts take × the full pedal's force)
     const lim0 = (E ? brakeLimitAt(E, c.idx, sp, c.spec) : brakeLimit(sp, c.spec)) * (c.assists.abs ? 0.97 : Math.min(0.97, c.feelBrake)), o2 = sp - target;
-    const lim = tyreK < 1 ? lim0 * tyreK : lim0;                // (cold or hot tyres: it brakes earlier)
+    const lim = tyreK !== 1 ? lim0 * tyreK : lim0;                // (cold or hot tyres: it brakes earlier)
     if (need2 > lim * A.brakeAt || o2 > A.overBrake) brk = clamp(need2 / (lim * A.brakeScale) + Math.max(0, o2) * A.brakeGain, 0, 1);
     else thr = o2 > 0 ? clamp(1 - o2 * A.thrGain, 0, 1) : 1;
   }

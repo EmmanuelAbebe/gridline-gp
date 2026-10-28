@@ -10,7 +10,7 @@ import { CarModels } from './car-models.js';
 import { Design } from './design.js';
 import { $, createEmitter } from './util.js';
 import { orbitState, orbitPosition, attachOrbit, clampOrbit, ORBIT } from './orbit-camera.js';
-import { FINISHES, CAR_MODELS, SWATCHES, LIVERY_DEFAULTS, hexOf, playerDriver, playerSpec } from './garage-store.js';
+import { FINISHES, CAR_MODELS, SWATCHES, LIVERY_DEFAULTS, STRATEGY_DEFAULTS, COMPOUND_NAMES, hexOf, playerDriver, playerSpec } from './garage-store.js';
 
 const SETUP_UI = {
   wing: { label: 'Wing level', fmt: v => String(v), note: () => 'More wing: more grip in corners and under braking, more drag on the straights (lower top speed).' },
@@ -28,7 +28,14 @@ const MODS_UI = {
   downforce: { label: 'Downforce', fmt: v => v + ' %' }, drag: { label: 'Drag', fmt: v => v + ' %' }, brakes: { label: 'Brake force', fmt: v => v + ' %' },
 };
 const PRESETS = [['STOCK', {}], ['LOW DOWNFORCE', { wing: 2, gearing: 370 }], ['HIGH DOWNFORCE', { wing: 10, gearing: 320 }]];
-const TABS = [['look', 'Look'], ['setup', 'Setup'], ['mods', 'Open mods']];
+const TABS = [['look', 'Look'], ['setup', 'Setup'], ['tyres', 'Tyres & pit'], ['mods', 'Open mods']];
+// the compounds (SIM COMPOUNDS) in words
+const COMPOUND_UI = {
+  soft: { label: 'SOFT', note: 'The most grip: about half a second a lap quicker than the medium. Wears out soonest, warms up quickest, overheats first.' },
+  medium: { label: 'MEDIUM', note: 'The all-rounder: the tyre the car was set up on.' },
+  hard: { label: 'HARD', note: 'The least grip: about half a second a lap slower than the medium, but lasts the longest. Needs more heat: slow to warm up off the blankets.' },
+};
+const NEXT = [['auto', 'AUTO'], ...COMPOUND_NAMES.map(k => [k, COMPOUND_UI[k].label])];
 const VIEWS = [['three', '3/4'], ['front', 'FRONT'], ['side', 'SIDE'], ['rear', 'REAR'], ['top', 'TOP']];
 
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
@@ -173,6 +180,26 @@ export const Garage = (() => {
       body.append(pre);
       for (const [k, ui] of Object.entries(SETUP_UI)) body.append(slider(ui.label, SIM.SETUP[k], garage.setup[k], ui.fmt, ui.note, v => { garage.setup[k] = v; changed('setup'); }));
       queueStats();
+    } else if (tab === 'tyres') {
+      const T = garage.tyres, W = SIM.WEAR.tyres, set = (k, v) => { T[k] = v; changed('tyres'); render(); };
+      const row = (label, control, note) => { const r = el('div', 'set-item'), h = el('div', 'row'); h.append(el('span', 'lbl', label), control); r.append(h); if (note) r.append(el('p', 'note', note)); return r; };
+      const table = el('div', 'gar-cmp');
+      for (const k of COMPOUND_NAMES) {
+        const c = SIM.COMPOUNDS[k], d = Math.round((c.grip - 1) * 100), cell = el('div', 'gar-cmp-row'), badge = el('b', 'cmp ' + k, k[0].toUpperCase());
+        cell.append(badge, el('span', 'lbl', COMPOUND_UI[k].label), el('span', '', d ? `grip ${d > 0 ? '+' : '−'}${Math.abs(d)} %` : 'grip ±0'),
+          el('span', '', `${Math.round(W.normal * c.life)} laps`), el('span', '', `${c.window[0]}–${c.window[1]} °C`));
+        table.append(cell);
+      }
+      body.append(table, el('p', 'note', 'Laps = until worn out on normal Tyre wear (half that on high; Settings → Driving). The rival teams pick their own tyres for the race and their stops.'));
+      body.append(row('Start on', seg(COMPOUND_NAMES.map(k => [k, COMPOUND_UI[k].label]), T.start, v => set('start', v)), COMPOUND_UI[T.start].note));
+      body.append(el('p', 'gar-head', 'Pit box: what the crew does at your stops'));
+      body.append(row('Next tyres', seg(NEXT, T.next, v => set('next', v)), T.next === 'auto' ? 'AUTO: the team picks the best compound for the laps you have left.' : COMPOUND_UI[T.next].note));
+      body.append(row('Front wing', seg([[true, 'CHANGE IF DAMAGED'], [false, 'KEEP']], T.wing, v => set('wing', v)), T.wing ? 'A new nose costs 3 s.' : 'A damaged wing stays on: understeer, but a quicker stop.'));
+      body.append(row('Repairs', seg([[true, 'FIX'], [false, 'SKIP']], T.repair, v => set('repair', v)), T.repair ? 'Floor and suspension damage fixed: up to 5 s more.' : 'Floor and suspension damage stay as they are.'));
+      body.append(el('p', 'note', 'Pit with B (pad X, the BOX button). The pause menu changes the plan for the race you are in.'));
+      const btns = el('div', 'set-item btns');
+      btns.append(button('Reset tyres & pit', () => { garage.tyres = { ...STRATEGY_DEFAULTS }; changed('tyres'); render(); }));
+      body.append(btns);
     } else {
       const warn = el('div', 'gar-warn');
       warn.append(el('b', '', 'Open mods: no limits'), el('p', 'note', 'Change anything about the car. Any mod marks it MODIFIED: the results say so and its lap records are kept apart from stock ones. The rivals stay stock.'));
