@@ -75,6 +75,11 @@ export function createGlbCar(scene, driverIn, design, ctx) {
   const movers = [];
   model.traverse(o => { if (+o.userData.open) movers.push({ o, open: +o.userData.open * DEG, base: o.quaternion.clone(),
     axis: new THREE.Vector3(...(o.userData.axis ?? [0, 0, 1])).normalize(), q: new THREE.Quaternion() }); });
+  // the front wing's halves (main plane + flap, qvist.py fw_main_* / fw_flap_*): gone once SIM c.wingOff says so, a copy
+  // thrown down the road (debris.js)
+  const wingHalves = ['l', 'r'].map(n => [node(`fw_main_${n}`), node(`fw_flap_${n}`)].filter(Boolean));
+  const wingGone = [false, false];
+  for (const [k, list] of wingHalves.entries()) for (const o of list) o.traverse(x => { x.userData.wing = k; });
   const steer = node('steer'), grips = ['grip_r', 'grip_l'].map(n => node(n)?.position.clone() ?? new THREE.Vector3());
   const seated = ctx.driverTemplate?.clip ? seatDriver(ctx.driverTemplate, model, steer) : null;
 
@@ -108,7 +113,8 @@ export function createGlbCar(scene, driverIn, design, ctx) {
   });
 
   function showView() {
-    for (const m of meshes) m.visible = !(seated && m.userData.standIn) && ((m.userData.show ?? 'always') === 'always' || m.userData.show === (cockpitView ? 'cockpit' : 'outside'));
+    for (const m of meshes) m.visible = !(seated && m.userData.standIn) && !(m.userData.wing !== undefined && wingGone[m.userData.wing])
+      && ((m.userData.show ?? 'always') === 'always' || m.userData.show === (cockpitView ? 'cockpit' : 'outside'));
     if (seated) {   // (the ghost car is empty; from the cockpit the camera is inside the helmet)
       seated.group.visible = !ghost; for (const w of seated.wheel) w.visible = !ghost;
       if (seated.helmet) seated.helmet.visible = !cockpitView;
@@ -168,6 +174,19 @@ export function createGlbCar(scene, driverIn, design, ctx) {
     },
     sync(car, pose, dt = 1 / 60) {
       this.place(pose.x, pose.z, pose.h, (pose.y || 0) + (service?.lift ?? 0), pose.pitch || 0, pose.roll || 0);
+      shadow.visible = castsShadow && !car.air;           // (the contact shadow is for a car on the ground)
+      // a wing half breaking off: a copy flies on with the car (as it was a moment ago: before it is hidden), a new nose
+      // at the pit stop brings both back
+      for (const k of [0, 1]) {
+        const off = !!car.wingOff?.[k];
+        if (off === wingGone[k]) continue;
+        if (off && !ghost && root.visible) {
+          root.updateMatrixWorld(true);
+          const c = Math.cos(car.h), s = Math.sin(car.h);
+          ctx.debris?.spawn(scene, wingHalves[k], { x: c * car.v - s * car.vy, z: s * car.v + c * car.vy }, pose.roadY || 0);
+        }
+        wingGone[k] = off; showView();
+      }
       wheels.forEach((w, i) => {
         w.pivot.position.z = w.z + Math.sign(w.z) * (service?.outs[i] ?? 0);
         w.spin.rotation.z = -car.roll;

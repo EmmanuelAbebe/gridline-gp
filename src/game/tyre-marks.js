@@ -59,13 +59,13 @@ export function createTyreMarks(scene) {
       const W = design.wheels;
       for (const c of race.cars) {
         if (c.pit || SIM.speedOf(c) < M.minSpeed) { wheels.delete(c); continue; }
-        const p = poseOf(c), ch = Math.cos(p.h), sh = Math.sin(p.h), st = strengths(c), tp = Math.tan(p.pitch), tr = Math.tan(p.roll);
+        const p = poseOf(c), ch = Math.cos(p.h), sh = Math.sin(p.h), st = strengths(c), tp = Math.tan(p.roadPitch), tr = Math.tan(p.roadRoll);
         let last = wheels.get(c); if (!last) { last = W.map(() => null); wheels.set(c, last); }
         W.forEach((w, k) => {
           const x = p.x + ch * w.pos[0] - sh * w.pos[2], z = p.z + sh * w.pos[0] + ch * w.pos[2];
           const s = st[k] ?? 0, on = s > M.from || (c.offTrack && c.surface !== 'tarmac');
           if (!on) { last[k] = null; return; }
-          const here = { x, z, y: p.y + w.pos[0] * tp - w.pos[2] * tr, w: w.width * 0.9, fresh: false };   // (y: on a hill, pose.js)
+          const here = { x, z, y: p.roadY + w.pos[0] * tp - w.pos[2] * tr, w: w.width * 0.9, fresh: false };   // (y: on a hill, pose.js)
           const prev = last[k];
           if (!prev) { last[k] = { ...here, fresh: true }; return; }
           if (Math.hypot(x - prev.x, z - prev.z) < M.step) return;

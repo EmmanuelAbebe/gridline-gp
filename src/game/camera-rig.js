@@ -28,7 +28,7 @@ export const CameraRig = (() => {
     const m = cams()[idx], p = poseOf(car);
     if (back) {                                           // the rear view
       const B = LOOK.back, dx = Math.cos(p.h), dz = Math.sin(p.h);
-      const sl = Math.tan(p.pitch || 0), y = p.y || 0;
+      const sl = Math.tan(p.roadPitch || 0), y = p.y || 0;
       tPos.set(p.x + dx * B.ahead, B.height + y + B.ahead * sl, p.z + dz * B.ahead); tLook.set(p.x - dx * B.behind, B.lookY + y - B.behind * sl, p.z - dz * B.behind);
       return;
     }
@@ -37,7 +37,7 @@ export const CameraRig = (() => {
     const lx = Math.cos(p.h + turn), lz = Math.sin(p.h + turn), orbit = m.cockpitBody ? 0 : 1;
     const ox = dx + (lx - dx) * orbit, oz = dz + (lz - dz) * orbit;
     // on a hill (pose.js y, pitch): up with the road, and along its slope (behind the car lower uphill, ahead higher)
-    const y = p.y || 0, sl = Math.tan(p.pitch || 0);
+    const y = p.y || 0, sl = Math.tan(p.roadPitch || 0);   // (the road's slope: in the air the car's own tilt goes on top, below)
     const mb = m.cockpitBody ? m.back - eyeShift[0] : m.back, mh = m.cockpitBody ? m.height + eyeShift[1] : m.height;
     tPos.set(p.x - ox*mb + sx, mh + y - mb * sl, p.z - oz*mb + sz);
     tLook.set(p.x + lx*m.ahead + sx, m.lookY + y + m.ahead * sl, p.z + lz*m.ahead + sz);
@@ -84,7 +84,7 @@ export const CameraRig = (() => {
       camera.lookAt(look);
       if (!still && jolt > 1e-4) camera.rotateZ((Math.random() - 0.5) * jolt * 0.35);   // a little roll with the shake
       if (m.lean && !back) camera.rotateZ(-car.steer * Math.min(1, Math.abs(car.v) / 40) * m.lean);   // head leans into corners
-      if (m.cockpitBody && !back) camera.rotateZ(-(poseOf(car).roll || 0));                          // and with the car on a banked road
+      if (m.cockpitBody && !back) { const p = poseOf(car); camera.rotateZ(-(p.roll || 0)); if (p.airPitch) camera.rotateX(p.airPitch); }   // and with the car on a banked road, or tumbling in the air
       const fov = (back ? LOOK.back.fov : m.fov) + Math.max(0, car.v) / TUNING.VMAX * m.fovGain;
       if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, dt*3); camera.updateProjectionMatrix(); }
     },

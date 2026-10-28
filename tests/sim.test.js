@@ -96,7 +96,7 @@ test('contact: an off-centre tap turns the cars only as much as their inertia al
   assert.ok(b.v - 45 < 0.6 * 15, `shove ${(b.v - 45).toFixed(1)} m/s`);
 });
 
-test('contact: hit from behind on a rear corner: the front wing breaks off, then the nose shoves the car forward, hardly sideways', () => {
+test('contact: hit from behind on a rear corner: half the front wing breaks off, then the nose shoves the car forward, hardly sideways', () => {
   // (as capsules with round ends this shoved it ~25° sideways and spun cars hit in braking zones)
   const race = S.createRace(1, { drivers: S.DRIVERS.slice(0, 2), wear: { damage: true } }), [a, b] = race.cars, C = HB;
   // on the grid straight, pointing along it: b runs into a's left rear
@@ -107,14 +107,39 @@ test('contact: hit from behind on a rear corner: the front wing breaks off, then
   let gave = false, drift = 0;
   for (let k = 0; k < 30; k++) {        // (no tyres here: the bodies alone, moving on as they go)
     const m0 = mom(); S.collide(race); const m1 = mom(); drift = Math.max(drift, Math.hypot(m1[0] - m0[0], m1[1] - m0[1]));
-    gave ||= b.wingLoad >= S.HITBOX.wingStrength;
+    gave ||= b.wingOff[1];                            // (its right half: the one that hit)
     for (const c of [a, b]) { c.x += (Math.cos(c.h) * c.v - Math.sin(c.h) * c.vy) / 120; c.z += (Math.sin(c.h) * c.v + Math.cos(c.h) * c.vy) / 120; c.h += c.yawRate / 120; }
   }
   const dv = a.v - 40;
-  assert.ok(gave && b.damage.wing > 0.9, `b's wing gave way (damage ${b.damage.wing.toFixed(2)})`);
+  assert.ok(gave && b.damage.wing >= 0.5, `b's right wing half broke off (damage ${b.damage.wing.toFixed(2)})`);
   assert.ok(dv > 3 && drift < 1e-9, `shoved ${dv.toFixed(2)} m/s, momentum kept (${drift})`);
   assert.ok(Math.abs(a.vy) < 0.2 * dv, `sideways ${a.vy.toFixed(3)} m/s`);
   assert.ok(Math.abs(a.yawRate) < 1, `yaw ${a.yawRate.toFixed(2)} rad/s`);
+});
+
+test('airborne: a front tyre into the back of a rear tyre climbs it: a hop at 10 m/s, a flight and a flip at 30 m/s', () => {
+  const T = S.track, fly = dv => {
+    const race = S.createRace({ type: 'unlimited' }, { drivers: S.DRIVERS.slice(0, 2), seed: 1, wear: { damage: true } }), [a, b] = race.cars;
+    let i0 = 0; for (let i = 0, run = 0; i < T.N; i++) { run = Math.abs(T.K[i]) < 0.002 ? run + 1 : 0; if (run > 60) { i0 = i - 40; break; } }
+    const put = (c, i, lat, v) => { c.idx = i; c.x = T.PX[i] + T.NX[i] * lat; c.z = T.PZ[i] + T.NZ[i] * lat; c.h = S.headingAt(T, i); c.v = v; c.vy = 0; c.yawRate = 0; c.lap = 1; c.gear = 7; };
+    put(a, i0, -0.7, 60); put(b, i0 - 4, 0.79, 60 + dv);         // b's left front tyre behind a's right rear one
+    let top = 0; const seen = [];
+    for (let k = 0; k < 480; k++) {
+      race.t += DT;
+      for (const c of [a, b]) S.drivePlayer(race, c, { thr: 0.3, brk: 0, steer: 0, analog: true }, DT);
+      S.collide(race);
+      top = Math.max(top, b.air?.y || 0);
+      for (const c of [a, b]) { for (const e of c.events) if (c === b) seen.push(e); c.events.length = 0; }
+    }
+    return { top, seen, b };
+  };
+  const tap = fly(10), crash = fly(30);
+  assert.ok(tap.top > 0.02 && tap.top < 0.5 && tap.seen.some(e => e.type === S.EV.LANDED && !e.flipped), `10 m/s: ${tap.top.toFixed(2)} m up, back on its wheels`);
+  assert.ok(crash.top > 2 && crash.seen.some(e => e.type === S.EV.LANDED && e.flipped) && crash.b.beached, `30 m/s: ${crash.top.toFixed(2)} m up, landed upside down, stuck`);
+  assert.ok(tap.seen.some(e => e.type === S.EV.WING_OFF), 'its front wing broke');
+  // nobody flies in a race without contact
+  const solo = S.createRace(2, { drivers: S.DRIVERS.slice(0, 1) }); run(S, solo, 200, aiDriver(S));
+  assert.equal(solo.cars[0].air, null);
 });
 
 test('contact: cars fit side by side a car width apart; a side swipe pushes sideways', () => {

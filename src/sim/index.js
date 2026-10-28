@@ -20,8 +20,9 @@ import { surfaceY, samplePos, cornerSpeedAt, brakeLimitAt } from './elevation.js
 import { rpmAt, cornerSpeed, lateralGrip, brakeLimit, brakeMax, tyreGrip, wakeHalfWidth, VEHICLE_INFO } from './vehicle.js';
 
 import { tyreSet, tempGrip, axleTempGrip, gripTemp } from './tyre-temp.js';
-import { TYRE_TEMP, COMPOUNDS, STRATEGY } from './tuning.js';
-export const SIM = Object.freeze({ TYRE_TEMP, COMPOUNDS, STRATEGY, fitTyres, bestCompound, tyreSet, tempGrip, axleTempGrip, gripTemp, TUNING, AI, CONTACT, HITBOX, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, HANDBRAKE, SPEED_STEER, CIRCUITS,
+import { TYRE_TEMP, COMPOUNDS, STRATEGY, AIR } from './tuning.js';
+import { hitboxFrom, HITBOX_FIT } from './hitbox.js';
+export const SIM = Object.freeze({ TYRE_TEMP, COMPOUNDS, STRATEGY, AIR, hitboxFrom, HITBOX_FIT, fitTyres, bestCompound, tyreSet, tempGrip, axleTempGrip, gripTemp, TUNING, AI, CONTACT, HITBOX, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, HANDBRAKE, SPEED_STEER, CIRCUITS,
   SURFACES, OFFTRACK, WALLS, RUNOFF, BARRIER, BARRIERS, ZONE, surfaceAt, PIT, WEAR, fuelLaps, lapsToGo, carCondition, laneCentre, laneOuter, alongLane, serviceSteps,
   steerLock, tyreCurve, driftAngle, DRIVERS, EV, track: DEFAULT_TRACK,
   SETUP, MODS, ACTIVE_AERO, OVERTAKE, ERS, gapAhead, carSpec, STOCK, validSetup, validMods, isModified, specStats, balanceAt,

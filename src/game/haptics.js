@@ -29,6 +29,7 @@ export function createHaptics() {
       if (e.type === EV.WALL) hit = Math.max(hit, Math.min(1, e.impact / H.wall) * (e.hard ?? 1));
       else if (e.type === EV.CONTACT && e.impact >= H.contactMin) hit = Math.max(hit, Math.min(1, e.impact / H.contact));
       else if (e.type === EV.SAUSAGE) hit = Math.max(hit, Math.min(H.sausageMax, e.impact / H.sausage));
+      else if (e.type === EV.LANDED) hit = Math.max(hit, Math.min(1, e.impact / H.wall));   // (back down from the air: as hard as a wall at that speed)
       else if (e.type === EV.SHIFT && e.from > 0 && e.to > 0) shift = 1;
     },
     // what the car feels now: { k, kh, o, s, l }

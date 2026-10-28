@@ -7,27 +7,40 @@
 // how much it is shoved, turned or dragged along. Overlaps are pushed apart. EV.CONTACT fires once per touch with
 // `impact` = closing speed (m/s); damage goes to the part that hit (front wing; a tyre hit bends the suspension).
 // (Before: one capsule per car, then a rounded box; the capsules' round ends shoved a car hit on a rear corner sideways.)
-import { HITBOX, CONTACT, EV, CHASSIS, ELEVATION } from './tuning.js';
+import { HITBOX, CONTACT, EV, CHASSIS, ELEVATION, AIR } from './tuning.js';
 import { afterMove } from './motion.js';
 import { addDamage } from './pit.js';
+import { lift } from './airborne.js';
 import { emit } from './events.js';
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
 
 const K2 = CHASSIS.gyration * CHASSIS.gyration;
-// the parts, mirrored twins added; each with a bounding circle for a quick reject
-const PARTS = HITBOX.parts.flatMap(p => p.mirror ? [p, { ...p, name: p.name + ' L', pts: p.pts.map(([a, b]) => [a, -b]).reverse() }] : [p]).map(p => {
-  const n = p.pts.length, ca = p.pts.reduce((s, q) => s + q[0], 0) / n, cb = p.pts.reduce((s, q) => s + q[1], 0) / n;
-  return { ...p, ca, cb, r: Math.max(...p.pts.map(([a, b]) => Math.hypot(a - ca, b - cb))) };
-});
-// the whole car's bounding circle (about its origin), for the pair test
-const REACH = Math.max(...PARTS.flatMap(p => p.pts.map(([a, b]) => Math.hypot(a, b))));
+// A hitbox ready for the solver (cached per parts list: createRace `hitbox`, HITBOX.parts by default): mirrored twins
+// added; each part with its side (−1 left, +1 right, 0 across the middle), a bounding circle for a quick reject, and
+// `front` / `rear` for the front and rear tyres (a front tyre climbing a rear one: airborne.js); reach = the whole car's
+// bounding circle about its origin
+const prepared = new WeakMap();
+export function prepareHitbox(parts = HITBOX.parts) {
+  let H = prepared.get(parts);
+  if (H) return H;
+  const list = parts.flatMap(p => p.mirror ? [p, { ...p, name: p.name + ' L', pts: p.pts.map(([a, b]) => [a, -b]).reverse() }] : [p]).map(p => {
+    const n = p.pts.length, ca = p.pts.reduce((s, q) => s + q[0], 0) / n, cb = p.pts.reduce((s, q) => s + q[1], 0) / n;
+    return { ...p, ca, cb, side: Math.abs(cb) < 0.05 ? 0 : Math.sign(cb), r: Math.max(...p.pts.map(([a, b]) => Math.hypot(a - ca, b - cb))),
+      front: p.kind === 'tyre' && ca > 0, rear: (p.kind === 'tyre' && ca < 0) || !!p.ramp };
+  });
+  H = { parts: list, reach: Math.max(...list.flatMap(p => p.pts.map(([a, b]) => Math.hypot(a, b)))) };
+  prepared.set(parts, H);
+  return H;
+}
+const wingIdx = p => p.side < 0 ? 0 : 1;
 
-// world-space corners of every part of car c (the car's frame: along = heading, right = the right-hand normal)
+// world-space corners of every part of car c (the car's frame: along = heading, right = the right-hand normal); a
+// front wing half that broke off is gone
 /** @param {Car} c */
-function world(c) {
+function world(c, H) {
   const fx = Math.cos(c.h), fz = Math.sin(c.h);
-  return PARTS.map(p => ({ part: p, cx: c.x + fx * p.ca - fz * p.cb, cz: c.z + fz * p.ca + fx * p.cb,
+  return H.parts.filter(p => !(p.kind === 'wing' && c.wingOff?.[wingIdx(p)])).map(p => ({ part: p, cx: c.x + fx * p.ca - fz * p.cb, cz: c.z + fz * p.ca + fx * p.cb,
     pts: p.pts.map(([a, b]) => [c.x + fx * a - fz * b, c.z + fz * a + fx * b]) }));
 }
 const cross = (ax, az, bx, bz) => ax * bz - az * bx;
@@ -89,8 +102,8 @@ function contacts(WA, WB) {
 }
 // clearance between two cars' bodies (m); < 0 = overlapping (by the deepest contact)
 /** @param {Car} a @param {Car} b */
-export function carGap(a, b) {
-  const WA = world(a), WB = world(b), touch = contacts(WA, WB);
+export function carGap(a, b, H = prepareHitbox()) {
+  const WA = world(a, H), WB = world(b, H), touch = contacts(WA, WB);
   if (touch.length) return -Math.max(...touch.map(t => t.pen));
   return Math.min(...WA.flatMap(pa => WB.map(pb => apart(pa.pts, pb.pts))));
 }
@@ -117,16 +130,17 @@ function effMass(a, b, mx, mz, ux, uz) {
 
 /** @param {Race} race */
 export function collide(race) {
-  const cars = race.cars, elev = race.track.elev, C = CONTACT, H = HITBOX;
-  for (const c of cars) { c.wasTouching = c.touching; if (!c.wasTouching) c.wingLoad = 0; c.touching = false; }
+  const cars = race.cars, elev = race.track.elev, C = CONTACT, H = HITBOX, HB = prepareHitbox(race.hitbox);
+  for (const c of cars) { c.wasTouching = c.touching; if (!c.wasTouching) { c.wingLoad = [0, 0]; c.climbed = 0; } c.touching = false; }
   for (let i = 0; i < cars.length; i++) for (let j = i+1; j < cars.length; j++) {
     const a = cars[i], b = cars[j];
     if ((a.pit && !a.pit.drive) || (b.pit && !b.pit.drive)) continue;   // AI cars on their pit-lane path (pit.js) don't touch
-    if (Math.hypot(b.x - a.x, b.z - a.z) > 2 * REACH) continue;
+    if (Math.hypot(b.x - a.x, b.z - a.z) > 2 * HB.reach) continue;
     if (elev && Math.abs(elev.Y[a.idx] - elev.Y[b.idx]) > ELEVATION.apart) continue;   // one on a bridge, the other under it
-    // (a front wing that gave way this touch passes through: HITBOX.wingStrength)
-    const gone = c => c.wingLoad >= HITBOX.wingStrength;
-    const touch = contacts(world(a), world(b)).filter(t => !(t.a.kind === 'wing' && gone(a)) && !(t.b.kind === 'wing' && gone(b)));
+    if (Math.abs((a.air?.y || 0) - (b.air?.y || 0)) > AIR.over) continue;               // one flying over the other
+    // (a front wing half that gave way this touch passes through: HITBOX.wingStrength)
+    const gone = (c, p) => c.wingLoad[wingIdx(p)] >= H.wingStrength;
+    const touch = contacts(world(a, HB), world(b, HB)).filter(t => !(t.a.kind === 'wing' && gone(a, t.a)) && !(t.b.kind === 'wing' && gone(b, t.b)));
     if (!touch.length) continue;
     // the closing speed at each contact before any impulse: the bounce aims at it, the impact is the largest
     for (const t of touch) {
@@ -145,23 +159,37 @@ export function collide(race) {
       const vn = (vax - vbx) * t.nx + (vaz - vbz) * t.nz;
       let jn = Math.max(0, t.jn + t.mn * (vn + t.e * Math.max(0, t.closing)));
       // a front wing pushes at most what it takes before it breaks off (per touch): the rest goes into the wing
-      for (const [c, p] of [[a, t.a], [b, t.b]]) if (p.kind === 'wing') jn = Math.min(jn, t.jn + Math.max(0, HITBOX.wingStrength - c.wingLoad));
+      for (const [c, p] of [[a, t.a], [b, t.b]]) if (p.kind === 'wing') jn = Math.min(jn, t.jn + Math.max(0, H.wingStrength - c.wingLoad[wingIdx(p)]));
       const dn = jn - t.jn; t.jn = jn;
-      for (const [c, p] of [[a, t.a], [b, t.b]]) if (p.kind === 'wing') c.wingLoad += dn;
+      for (const [c, p] of [[a, t.a], [b, t.b]]) if (p.kind === 'wing') c.wingLoad[wingIdx(p)] += dn;
       kick(a, -t.nx * dn, -t.nz * dn, t.mx, t.mz); kick(b, t.nx * dn, t.nz * dn, t.mx, t.mz);
       [vax, vaz] = pointVelocity(a, t.mx, t.mz); [vbx, vbz] = pointVelocity(b, t.mx, t.mz);
       const tx = -t.nz, tz = t.nx, vt = (vax - vbx) * tx + (vaz - vbz) * tz, lim = t.mu * t.jn;
       const jt = Math.min(lim, Math.max(-lim, t.jt + t.mt * vt)), dt = jt - t.jt; t.jt = jt;
       kick(a, -tx * dt, -tz * dt, t.mx, t.mz); kick(b, tx * dt, tz * dt, t.mx, t.mz);
     }
+    // a front tyre pushing into the back of a rear tyre climbs it (airborne.js): the treads rub in opposite directions,
+    // the friction of the push lifts it at the contact point
+    for (const t of touch) for (const [c, p, q, s] of [[a, t.a, t.b, 1], [b, t.b, t.a, -1]]) {
+      if (!p.front || !q.rear || t.jn <= 0) continue;
+      const fx = Math.cos(c.h), fz = Math.sin(c.h);
+      if (s * (t.nx * fx + t.nz * fz) < 0.6) continue;              // (the other car ahead of this one, roughly in line)
+      const rx = t.mx - c.x, rz = t.mz - c.z, up = Math.min(t.mu * t.jn, Math.max(0, AIR.climb * t.closing - c.climbed));
+      if (up > 0) { c.climbed += up; lift(c, up, rx * fx + rz * fz, -rx * fz + rz * fx); }
+    }
+    // front wing halves that gave way break off (with damage on: a new nose at the pit stop)
+    if (race.wear?.damage) for (const c of [a, b]) for (const k of [0, 1]) if (!c.wingOff[k] && c.wingLoad[k] >= H.wingStrength) {
+      c.wingOff[k] = true; c.damage.wing = Math.max(c.damage.wing, 0.5 * c.wingOff.filter(Boolean).length);
+      emit(c, EV.WING_OFF, { side: k ? 'right' : 'left' });
+    }
     // push apart along the deepest contact's normal, again while another pair of parts still overlaps
-    for (let k = 0, left = touch; k < C.pushes && left.length; k++, left = contacts(world(a), world(b))) {
+    for (let k = 0, left = touch; k < C.pushes && left.length; k++, left = contacts(world(a, HB), world(b, HB))) {
       const deep = left.reduce((m, t) => t.pen > m.pen ? t : m), push = (deep.pen + C.slop) / 2;
       a.x -= deep.nx * push; a.z -= deep.nz * push; b.x += deep.nx * push; b.z += deep.nz * push;
     }
     // damage (on a new touch): the parts that hit, by the closing speed there
     if (!a.wasTouching || !b.wasTouching) for (const t of touch) if (t.closing > 0) {
-      for (const [c, p] of [[a, t.a], [b, t.b]]) addDamage(race, c, t.closing, p.kind === 'wing' ? (gone(c) ? 2 : 1) : 0, C.damageHard, p.kind === 'tyre' ? C.wheelFrom : 0);
+      for (const [c, p] of [[a, t.a], [b, t.b]]) addDamage(race, c, t.closing, p.kind === 'wing' ? (gone(c, p) ? 2 : 1) : 0, C.damageHard, p.kind === 'tyre' ? C.wheelFrom : 0);
     }
     afterMove(race, a); afterMove(race, b);
   }

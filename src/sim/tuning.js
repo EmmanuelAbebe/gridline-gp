@@ -23,20 +23,33 @@ export const TUNING = Object.freeze({
 // the larger (as Box2D). 5.44 m long, 1.88 m wide (the 2026 rules: 1.90 m).
 export const HITBOX = Object.freeze({
   parts: [
-    { name: 'front wing', kind: 'wing', pts: [[2.05, -0.9], [2.6, -0.9], [2.75, -0.68], [2.85, -0.45], [2.95, -0.19], [2.95, 0.19], [2.85, 0.45], [2.75, 0.68], [2.6, 0.9], [2.05, 0.9]] },
+    { name: 'front wing', kind: 'wing', mirror: true, pts: [[2.05, 0], [2.95, 0], [2.95, 0.19], [2.85, 0.45], [2.75, 0.68], [2.6, 0.9], [2.05, 0.9]] },
     { name: 'nose', kind: 'body', pts: [[1.08, -0.26], [2.05, -0.22], [2.05, 0.22], [1.08, 0.26]] },
     { name: 'front tyre', kind: 'tyre', mirror: true, pts: [[1.34, 0.6], [2.06, 0.6], [2.06, 0.93], [1.34, 0.93]] },
     { name: 'sidepods', kind: 'body', pts: [[-0.75, -0.68], [-0.3, -0.74], [0.65, -0.85], [1.08, -0.87], [1.08, 0.87], [0.65, 0.85], [-0.3, 0.74], [-0.75, 0.68]] },
     { name: 'engine cover', kind: 'body', pts: [[-1.45, -0.48], [-0.75, -0.58], [-0.75, 0.58], [-1.45, 0.48]] },
     { name: 'rear tyre', kind: 'tyre', mirror: true, pts: [[-2.06, 0.51], [-1.34, 0.51], [-1.34, 0.94], [-2.06, 0.94]] },
-    { name: 'rear', kind: 'body', pts: [[-2.5, -0.57], [-1.45, -0.57], [-1.45, 0.57], [-2.5, 0.57]] },
+    { name: 'rear', kind: 'body', ramp: true, pts: [[-2.5, -0.57], [-1.45, -0.57], [-1.45, 0.57], [-2.5, 0.57]] },
   ],
   mu: Object.freeze({ body: 0.3, wing: 0.3, tyre: 0.8 }),
   restitution: Object.freeze({ body: 0.1, wing: 0.05, tyre: 0.3 }),
-  // a front wing is built to break: per touch it pushes the other car by at most this (m/s, per unit mass), then it
-  // gives way (passes through, damaged) and the nose / tyres behind it take the hit
-  wingStrength: 0.5,
+  // a front wing is built to break: per touch each half pushes the other car by at most this (m/s, per unit mass), then
+  // it gives way: with damage on it breaks off (c.wingOff; a new nose at the pit stop), else it passes through; the nose
+  // and tyres behind it take the hit
+  wingStrength: 0.8,
 });
+// Airborne (airborne.js, 2026-10-28; user: launches over a wheel, airborne crashes). A front tyre that runs into the back
+// of another car's rear tyre (or its diffuser, a `ramp` part) climbs it: the treads rub in opposite directions there (the
+// rear one's moving up), so the friction of the push (the contact's mu × its normal impulse) lifts the car behind at its
+// front wheel, at most `climb` × the closing speed per touch (the wheel rides up the other one). Lifted faster than `min`
+// m/s the car leaves the ground: height, vertical speed, pitch (nose up +) and roll (right side down +) with their rates,
+// as a rigid body (gyration `pitchK` / `rollK` m) of which `turn` of the kick turns it (the wheels still on the ground
+// take the rest); in the air the tyres give nothing, gravity and the downforce pull it down, and pitched nose-up past
+// `liftFrom` rad the floor's downforce turns into lift (by `liftAt`: `lift` × the downforce), which is how real cars flip. Landing: on its wheels (pitch and roll within `flipAt` rad) it
+// takes damage by the landing speed (× `land` as an impact, the suspension bending from `landSusp` m/s); on its side or
+// upside down it is stuck (beached: the marshals put it back). Cars more than `over` m apart in height don't touch.
+export const AIR = Object.freeze({ min: 1.0, climb: 0.35, pitchK: 1.3, rollK: 0.6, turn: 0.35, liftFrom: 0.08, liftAt: 0.2, lift: 0.6, damp: 0.4, flipAt: 1.3,
+  land: 2.5, landSusp: 3, over: 0.9 });
 // The contact solver: `iterations` passes of impulses over a pair's contact points; positions pushed apart along the
 // deepest overlap (+ `slop` m), at most `pushes` times while parts still overlap. Real yaw inertia (CHASSIS.gyration). damageHard = how hard a car feels to hit (walls 1);
 // a tyre hit above `wheelFrom` m/s also bends the suspension (WEAR.damage.susp per m/s over it).
@@ -519,4 +532,4 @@ export const EV = Object.freeze({ LAP: 'lap', FASTEST: 'fastest', FINISH: 'finis
   SAUSAGE: 'sausage', BEACHED: 'beached', RECOVERED: 'recovered',
   PIT_IN: 'pit-in', PIT_STOP: 'pit-stop', PIT_READY: 'pit-ready', PIT_GO: 'pit-go', PIT_OUT: 'pit-out', DAMAGE: 'damage',
   FUEL_LOW: 'fuel-low', FUEL_BOX: 'fuel-box', FUEL_OUT: 'fuel-out', TYRES_WORN: 'tyres-worn', TYRES_WARM: 'tyres-warm', TYRES_HOT: 'tyres-hot',
-  BOOST_READY: 'boost-ready', BOOST: 'boost' });
+  BOOST_READY: 'boost-ready', BOOST: 'boost', LAUNCHED: 'launched', LANDED: 'landed', WING_OFF: 'wing-off' });

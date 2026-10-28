@@ -110,28 +110,52 @@ test('driver.glb: the driver (skinned, a steering clip), the helmet and the stee
   assert.match(JSON.stringify(j.asset), /BELAZ.*MizuCorp.*OscarContrerasLithgow/, 'the credits travel with the file');
 });
 
-test('car.glb: the cars\' hitbox (SIM HITBOX) follows the body and tyres seen from above, within ~10 cm', () => {
+// car.glb seen from above: [x, z] of every vertex of the nodes whose name matches `re`, in the car's frame
+function planPoints(re) {
   const b = readFileSync(new URL('../src/game/models/car.glb', import.meta.url)), jl = b.readUInt32LE(12), bin = b.subarray(20 + jl + 8), j = glbJson('../src/game/models/car.glb');
   const parent = {}; j.nodes.forEach((n, i) => (n.children || []).forEach(c => { parent[c] = i; }));
   const at = i => { let t = [0, 0, 0]; for (let k = i; k !== undefined; k = parent[k]) { const u = j.nodes[k].translation || [0, 0, 0]; t = t.map((v, q) => v + u[q]); } return t; };
-  const pts = [];                 // plan view [x forward, z right] of the body, wings and tyres
+  const pts = [];
   j.nodes.forEach((n, i) => {
-    if (n.mesh === undefined || !/^(body|tyre_|fw_flap|rw_flap)/.test(n.name)) return;
+    if (n.mesh === undefined || !re.test(n.name)) return;
     const t = at(i);
     for (const p of j.meshes[n.mesh].primitives) {
       const a = j.accessors[p.attributes.POSITION], v = j.bufferViews[a.bufferView], o = (v.byteOffset || 0) + (a.byteOffset || 0), st = v.byteStride || 12;
       for (let k = 0; k < a.count; k++) pts.push([bin.readFloatLE(o + k * st) + t[0], bin.readFloatLE(o + k * st + 8) + t[2]]);
     }
   });
+  return pts;
+}
+// the widest of a hitbox's parts at x (m either side), and a check that it follows the shape `pts` within ~10 cm
+const hitboxWidth = (parts, x) => { let w = 0; for (const { pts: P } of parts) for (let i = 0; i < P.length; i++) {
+  const [a0, b0] = P[i], [a1, b1] = P[(i + 1) % P.length];
+  if (a0 !== a1 && (a0 - x) * (a1 - x) <= 0) w = Math.max(w, Math.abs(b0 + (b1 - b0) * (x - a0) / (a1 - a0)));
+} return w; };
+function followsShape(parts, pts) {
   const width = (x, d = 0.05) => Math.max(0, ...pts.filter(p => Math.abs(p[0] - x) < d).map(p => Math.abs(p[1])));
-  const hitbox = x => { let w = 0; for (const { pts: P } of SIM.HITBOX.parts) for (let i = 0; i < P.length; i++) {
-    const [a0, b0] = P[i], [a1, b1] = P[(i + 1) % P.length];
-    if (a0 !== a1 && (a0 - x) * (a1 - x) <= 0) w = Math.max(w, Math.abs(b0 + (b1 - b0) * (x - a0) / (a1 - a0)));
-  } return w; };
   const xs = pts.map(p => p[0]), lo = Math.min(...xs), hi = Math.max(...xs);
   for (let x = lo + 0.05; x < hi - 0.05; x += 0.1) {
-    const h = hitbox(x), near = [-0.1, 0, 0.1].map(d => width(x + d));   // (the model's width steps at its edges)
+    const h = hitboxWidth(parts, x), near = [-0.1, 0, 0.1].map(d => width(x + d));   // (the model's width steps at its edges)
     assert.ok(h > Math.min(...near) - 0.12 && h < Math.max(...near) + 0.1, `x ${x.toFixed(2)}: hitbox ±${h.toFixed(2)} m, the car ±${near[1].toFixed(2)}`);
   }
-  for (const { pts: P } of SIM.HITBOX.parts) assert.ok(P.every(([a]) => a > lo - 0.05 && a < hi + 0.05), 'within the car\'s length');
+  for (const { pts: P } of parts) assert.ok(P.every(([a]) => a > lo - 0.05 && a < hi + 0.05), 'within the car\'s length');
+}
+
+test('car.glb: the cars\' hitbox (SIM HITBOX) follows the body and tyres seen from above, within ~10 cm', () => {
+  followsShape(SIM.HITBOX.parts, planPoints(/^(body|tyre_|fw_flap|fw_main|rw_flap)/));
+});
+
+test('hitboxFrom: a hitbox made from a car\'s shape (the classic car\'s) follows it too: front wing halves, ramp, tyres', () => {
+  const body = planPoints(/^(body|fw_flap|fw_main|rw_flap)/), wheels = ['fl', 'fr', 'rl', 'rr'].map(n => {
+    const p = planPoints(new RegExp(`^tyre_${n}$`)), xs = p.map(q => q[0]), zs = p.map(q => q[1]);
+    return { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) };
+  });
+  const parts = SIM.hitboxFrom(body, wheels);
+  followsShape(parts, planPoints(/^(body|tyre_|fw_flap|fw_main|rw_flap)/));
+  assert.ok(parts.length < 24, `${parts.length} parts`);
+  assert.ok(parts.some(p => p.kind === 'wing' && p.mirror) && parts.some(p => p.ramp) && parts.filter(p => p.kind === 'tyre').length === 4);
+  for (const p of parts) {                       // convex, clockwise or not, every one
+    const P = p.pts, s = P.map((q, i) => { const r = P[(i + 1) % P.length], t = P[(i + 2) % P.length]; return Math.sign((r[0] - q[0]) * (t[1] - r[1]) - (r[1] - q[1]) * (t[0] - r[0])); }).filter(Boolean);
+    assert.ok(s.every(x => x === s[0]), `${p.name} convex`);
+  }
 });

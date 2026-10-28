@@ -32,10 +32,12 @@ export function createCar(track, driver, slot, rng) {
     // pedals as applied this step (driving.js / pit.js: brake lights, HUD, sound)
     thr: 0, brake: 0,
     // walls and contact (car.js resolveWalls, collide.js); surface under the car (updateSurface)
-    wallHit: false, touching: false, wasTouching: false, wingLoad: 0,   // wingLoad: collide.js, the front wing's push this touch
+    wallHit: false, touching: false, wasTouching: false, wingLoad: [0, 0], climbed: 0,   // collide.js, this touch: each front wing half's push (left, right), how far a wheel has climbed (m/s up)
      onKerb: false, offTrack: false, surface: 'track',
     // off track: tyre dirt 0..1, depth in a gravel trap, beached (stuck in gravel, waiting for the marshals);
     // beachClock = race time of the last updateBeached (null before the first)
+    // air: airborne.js, null on the ground
+    air: /** @type {import('./airborne.js').Air} */ (null), upset: /** @type {{ pitch: number, roll: number }} */ (null),   // upset: on its side / back after a flip
     dirt: 0, gravelDepth: 0, beached: false, beachedAt: 0, stuckT: 0, beachClock: null,
     // performance spec (spec.js): STOCK, or the player's garage setup + mods (set by the game before the start)
     spec: STOCK,
@@ -124,7 +126,7 @@ export function updateBeached(race, c) {
     const i = c.idx, s = c.lat < 0 ? -1 : 1, R = track.runoff[s < 0 ? 0 : 1];
     const lat = s * Math.min(R.turf[i] + O.recoverLat, R.wall[i] - O.recoverWall);
     c.x = track.PX[i] + track.NX[i] * lat; c.z = track.PZ[i] + track.NZ[i] * lat; c.lat = lat; c.h = headingAt(track, i);
-    c.v = c.vy = c.yawRate = 0; c.beached = false; c.stuckT = 0; c.dirt = 1; c.gear = 1; c.cutRun = 0;
+    c.v = c.vy = c.yawRate = 0; c.beached = false; c.upset = null; c.stuckT = 0; c.dirt = 1; c.gear = 1; c.cutRun = 0;
     updateSurface(track, c); emit(c, EV.RECOVERED);
     return;
   }

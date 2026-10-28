@@ -443,6 +443,11 @@ def build():
   log('paint'); cockpit_dip(body); cut_borders(body); paint(body, body_role); cockpit_dark(body); decimate(body, RATIO, keep_borders=True)
   for q in movers:
     paint(q, lambda x, y, z, q=q: 'paint_accent' if q.name == 'rw_flap2' else 'carbon'); decimate(q, RATIO * 1.5)
+  # the front wing's main plane, endplates and footplates beside the nose, each half its own object (2026-10-28: a half
+  # breaks off in a crash, SIM wingOff; the game hides it and throws a copy down the road), extras side −1 left / +1 right
+  for s, n in ((-1, 'l'), (1, 'r')):
+    x, y, z = centres(body)               # (again for each half: the first split took faces out of the body)
+    q = split_mask(body, f'fw_main_{n}', (x > 2.0) & (y < 0.42) & (z * s > 0.22)); q['side'] = s
   wheels = []
   for p, (n, ax, side), c in tyres:
     lo, hi = box_of(p); centre = ((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2)

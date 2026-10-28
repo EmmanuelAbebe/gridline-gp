@@ -9,7 +9,7 @@ import { Input } from './input.js';
 import { benchCity, clearCity } from './bench.js';
 import { Design } from './design.js';
 
-export function installDebug(setTrack, current, player = () => null, toMenu = () => {}, loadGhost = () => {}, autopilot = () => {}, showLine = () => {}, setPref = () => {}, spots = () => null) {
+export function installDebug(setTrack, current, player = () => null, toMenu = () => {}, loadGhost = () => {}, autopilot = () => {}, showLine = () => {}, setPref = () => {}, spots = () => null, race = () => null) {
   window.gridlineDebug = { soundReady: () => Sound.ready,
     // setCamera('cockpit', { back, height, fov }): a camera's settings, as the design tools would (screenshots of a player's view)
     setCamera: (id, fields) => { const c = Design.data.cameras.find(x => x.id === id); if (c) Object.assign(c, fields); return c; },
@@ -46,6 +46,18 @@ export function installDebug(setTrack, current, player = () => null, toMenu = ()
       if (c.damage) Object.assign(c.damage, { wing: 0.5, floor: 0.2 });
       return true;
     },
+    // crash(dv): stage a launch: your car on the track at 216 km/h, another car 9 m ahead in your path dv m/s slower, your
+    // left front wheel lined up with its right rear one (SIM AIR); returns the other car's code
+    crash(dv = 22) {
+      const c = player(), r = race(), track = current(); if (!c || !r) return null;
+      const o = r.cars.find(x => !x.player && !x.finished); if (!o) return null;
+      const i = c.idx, j = SIM.wrapIdx(i + Math.round(9 / track.ds), track.N), put = (x, k, lat, v) => Object.assign(x, { idx: k, lat,
+        x: track.PX[k] + track.NX[k] * lat, z: track.PZ[k] + track.NZ[k] * lat, h: Math.atan2(track.TZ[k], track.TX[k]), v, vy: 0, yawRate: 0, gear: 7, pit: null, air: null });
+      put(c, i, 0.75, 60); put(o, j, -0.75, 60 - dv);
+      return o.code;
+    },
+    hitbox: () => race()?.hitbox?.map(p => `${p.kind}${p.mirror ? '×2' : ''}${p.ramp ? ' ramp' : ''} ${p.pts.map(q => q.map(v => v.toFixed(2)).join(',')).join(' ')}`),
+    air: () => { const c = player(); return c?.air ? { y: +c.air.y.toFixed(2), pitch: +(c.air.pitch * 57.3).toFixed(0), roll: +(c.air.roll * 57.3).toFixed(0) } : null; },
     pitState: () => { const c = player(); return c?.pit ? { phase: c.pit.phase, done: c.pit.done, kmh: Math.round(c.v * 3.6) } : null; },
     // a hilly circuit: where it climbs and drops the most (fractions of the lap), or null on the flat
     hills() { const E = current().elev; if (!E) return null; let up = 0, down = 0;

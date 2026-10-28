@@ -41,6 +41,7 @@ import { SoundStudio } from './sound-studio.js';
 import { createSlipstreamFx } from './slipstream-fx.js';
 import { createRaceAudio } from './race-audio.js';
 import { poseOf, savePoses, interpolatePoses, setPoseTrack } from './pose.js';
+import { Debris } from './debris.js';
 import { loadSetup, loadPrefs, steerRate, raceFormat, raceWear, raceAero, buildField, playerSlotOf, assistsOf, aiAssistsOf, setupSummary } from './setup-store.js';
 import { messageFor, SAY, boxMessage } from './race-messages.js';
 import { bindSettings } from './settings-binding.js';
@@ -132,7 +133,8 @@ function newRace() {
   timers.clear();
   const s = game.setup, field = buildField(s.cars, s.type === 'trial').map(d => d.player ? playerDriver(game.garage) : d);   // your livery in the tower, map, results
   const race = SIM.createRace(raceFormat(s), { track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, aiFollow: RACE_SETUP.aiLevels[s.ai].follow || 1, aiAlien: !!RACE_SETUP.aiLevels[s.ai].alien, wear: raceWear(s), ...raceAero(s), aiAssists: aiAssistsOf(s), tyreTemp: s.tyreTemp === 'on',
-    compound: s.type === 'trial' ? game.garage.tyres.start : 'auto' });   // (the rivals' teams pick their tyres: SIM bestCompound)
+    compound: s.type === 'trial' ? game.garage.tyres.start : 'auto',      // (the rivals' teams pick their tyres: SIM bestCompound)
+    hitbox: CarModels.hitbox(Design.data.car) });                        // (the shape of the cars in the race: 2026 or classic)
   for (const [code, m] of modelOf) m.setVisible(field.some(d => d.code === code));
   const L = CONFIG.lights;
   const player = race.cars.find(c => c.player);
@@ -144,7 +146,7 @@ function newRace() {
   trial.start(race, player);
   sectors.start(race, player);
   racingLine.set(track, trial.aiLapOf('alien', race.activeAero)?.line);
-  crews.build(race, Design.data.car); marks.clear();
+  crews.build(race, Design.data.car); marks.clear(); Debris.clear();
   Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, pendingBoost: false, autoShiftHinted: false, queueHinted: false,
     resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
     lights: { t: 0, lit: 0, hold: L.holdMin + Math.random() * L.holdRand } });
@@ -202,6 +204,12 @@ function onPlayerEvent(c, e) {
       if (e.impact >= sfx.min) { const k = Math.min(1, e.impact / sfx.fullAt) * hard; Sound.impact(k, sfx); CameraRig.shake(k * (wall ? 0.6 : 0.35)); }
       break;
     }
+    case EV.LAUNCHED:         // over another car's wheel
+      Sound.impact(Math.min(1, e.up / 4), SFX.contact); CameraRig.shake(Math.min(0.8, e.up / 5));
+      break;
+    case EV.LANDED:           // back down: a thump by the landing speed
+      Sound.impact(Math.min(1, e.impact / 6), SFX.wall); CameraRig.shake(Math.min(1, e.impact / 5));
+      break;
     case EV.SAUSAGE:          // a raised kerb: a bang and a jolt
       Sound.impact(Math.min(0.5, e.impact / 20), SFX.kerbStrike); CameraRig.shake(Math.min(0.5, e.impact / 15));
       break;
@@ -514,6 +522,7 @@ function frame(now) {
   if (game.carsDirty) { game.carsDirty = false; for (const m of carModels) m.rebuild(Design.data.car); trial.model.rebuild(Design.data.car); mirrors.build(playerModel0.object, playerModel0.mirrorParts()); }
   const running = isRunning();
   if (running) { game.acc += dt; while (game.acc >= STEP) { simStep(STEP); game.acc -= STEP; } }
+  if (running) Debris.step(dt);
   else game.acc = 0;
   if (Garage.open) Garage.frame(dt);
   else if (game.race) {
@@ -531,7 +540,7 @@ function frame(now) {
 function setTrack(id) {
   if (track && track.id === id) return track;
   track = trackOf(id); setPoseTrack(track);
-  if (game.race) { game.race = null; game.player = null; trial.reset(); sectors.reset(); wakes.hideAll(); crews.dispose(); marks.clear(); racingLine.set(track, null); }    // the last race was on the old circuit
+  if (game.race) { game.race = null; game.player = null; trial.reset(); sectors.reset(); wakes.hideAll(); crews.dispose(); marks.clear(); Debris.clear(); racingLine.set(track, null); }    // the last race was on the old circuit
   drawOutline($('trackPreview'), track); describeRecord();
   world?.dispose();
   world = buildWorld(Display.scene, track, SIM.DRIVERS);
@@ -549,7 +558,7 @@ function setTrack(id) {
 // ---- boot ----
 // the test hooks: the dev server, or the desktop app's own test runs (smoke test, track shots: main.cjs DEBUG)
 if (import.meta.env.DEV || window.gridlineApp?.debug) installDebug(setTrack, () => track, () => game.player, () => { game.paused = false; toMenu(); }, trial.loadText, skill => { game.autopilot = skill; },
-  () => racingLine.set(track, trial.aiLapOf('alien', true)?.line), setPref, () => world?.spots);
+  () => racingLine.set(track, trial.aiLapOf('alien', true)?.line), setPref, () => world?.spots, () => game.race);
 await loadModels();                                                 // (the Blender models: trees)
 setTrack(game.setup.track);
 { const saved = Settings.get(CONFIG.storageKeys.gfx);

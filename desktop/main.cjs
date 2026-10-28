@@ -180,6 +180,16 @@ async function smokeTest(win) {
     lapTime: document.getElementById('tCur').textContent, position: document.getElementById('pos').textContent,
     cars: document.querySelectorAll('#towerList > *').length, sound: window.gridlineDebug.soundReady() })`);
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-race.png'), (await win.webContents.capturePage()).toPNG());
+  // (GRIDLINE_SMOKE_CRASH=dv: a staged launch from behind the car: screenshots in the air and after the landing, the
+  // debris of the front wing on the road)
+  if (process.env.GRIDLINE_SMOKE_CRASH) {
+    info.crash = { hitbox: await win.webContents.executeJavaScript(`gridlineDebug.hitbox()`), with: await win.webContents.executeJavaScript(`gridlineDebug.crash(${+process.env.GRIDLINE_SMOKE_CRASH || 22})`), air: [] };
+    for (const [ms, name] of [[250, 'crash-1'], [250, 'crash-2'], [300, 'crash-3'], [2500, 'crash-4']]) {
+      await new Promise(r => setTimeout(r, ms));
+      info.crash.air.push(await win.webContents.executeJavaScript(`gridlineDebug.air()`));
+      fs.writeFileSync(smokeOut.replace(/(\.png)?$/, `-${name}.png`), (await win.webContents.capturePage()).toPNG());
+    }
+  }
   // BOX: the request shows in the HUD and the team answers on the radio
   await win.webContents.executeJavaScript(`document.getElementById('boxBtn').click()`);
   await new Promise(r => setTimeout(r, 300));

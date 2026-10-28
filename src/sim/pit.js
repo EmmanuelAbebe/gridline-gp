@@ -50,7 +50,7 @@ export function buildPitLane(track) {
 
 // A car's fuel, tyres, damage and pit-stop state (part of createCar; setupWear fills the tank for the race).
 export const pitState = slot => ({
-  fuel: Infinity, tyreWear: 0, tyreT: /** @type {TyreSet} */ (null), damage: /** @type {Damage} */ ({ wing: 0, floor: 0, susp: 0 }), pullSide: slot % 2 ? 1 : -1,   // pullSide: where damaged suspension pulls
+  fuel: Infinity, tyreWear: 0, tyreT: /** @type {TyreSet} */ (null), damage: /** @type {Damage} */ ({ wing: 0, floor: 0, susp: 0 }), wingOff: [false, false], pullSide: slot % 2 ? 1 : -1,   // pullSide: where damaged suspension pulls
   pit: /** @type {PitStop} */ (null), pitRequest: false, pitLimiter: false, pitStops: 0,
   // the tyres on the car (COMPOUNDS), the wear at which the AI's plan stops for the next set, the next stop's jobs
   compound: 'medium', planWear: /** @type {number} */ (PIT.ai.tyres), pitPlan: /** @type {PitPlan} */ ({ tyres: 'same', wing: true, repair: true }),
@@ -337,7 +337,7 @@ export function serviceSteps(s) {
 function service(race, c) {
   const W = race.wear, d = c.damage || { wing: 0, floor: 0, susp: 0 }, plan = c.pitPlan;
   const fuelTo = W?.fuelLaps ? Math.min(WEAR.tank, (lapsToGo(race, c) + WEAR.reserve) * W.burnLap) : c.fuel;
-  const fuel = Math.max(0, fuelTo - c.fuel), wing = plan.wing && d.wing > PIT.wingFrom, repair = plan.repair ? d.floor + d.susp : 0;
+  const fuel = Math.max(0, fuelTo - c.fuel), wing = plan.wing && (d.wing > PIT.wingFrom || c.wingOff.some(Boolean)), repair = plan.repair ? d.floor + d.susp : 0;
   const compound = Object.hasOwn(COMPOUNDS, plan.tyres) ? plan.tyres : plan.tyres === 'auto' ? bestCompound(race, c).compound : c.compound;
   const time = PIT.base + (Number.isFinite(fuel) ? fuel / PIT.refuel : 0) + (wing ? PIT.wing : 0) + PIT.repair * Math.min(1, repair);
   return { fuel, fuelTo, wing, repair: repair > PIT.repairFrom, tyres: true, compound, keep: { wing: !plan.wing, repair: !plan.repair }, time };
@@ -348,6 +348,7 @@ function applyService(race, c, s) {
   fitTyres(race, c, s.compound);
   const d = c.damage, keep = s.keep;
   if (d) c.damage = { wing: keep.wing ? d.wing : 0, floor: keep.repair ? d.floor : 0, susp: keep.repair ? d.susp : 0 };
+  if (!keep.wing) c.wingOff = [false, false];        // (a new nose: both halves of the front wing back on)
   c.pitStops++; c.dirt = 0; c.warned = {};
 }
 

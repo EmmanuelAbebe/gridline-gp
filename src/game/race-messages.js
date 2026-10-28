@@ -24,7 +24,10 @@ export const EVENT_MESSAGES = {
   [EV.CUT]: (e, c) => c.cuts <= LIMITS.warnings
     ? { toast: `Track limits${e.wide ? ' (ran wide)' : ''}  warning ${c.cuts}/${LIMITS.warnings}  ·  lap invalid`, kind: 'warn', secs: 3 } : null,
   [EV.PENALTY]: e => ({ toast: `+${e.seconds} s penalty  ·  track limits  (total +${e.total} s)`, kind: 'warn', secs: 3.5 }),
-  [EV.BEACHED]: () => ({ toast: 'Beached in the gravel  ·  the marshals are recovering the car', kind: 'warn', secs: SIM.OFFTRACK.recoverTime }),
+  [EV.BEACHED]: e => ({ toast: `${e.flipped ? 'Over on its side' : 'Beached in the gravel'}  ·  the marshals are recovering the car`, kind: 'warn', secs: SIM.OFFTRACK.recoverTime }),
+  // airborne (SIM airborne.js) and a front wing half breaking off
+  [EV.LANDED]: e => e.flipped || e.impact < 2 ? null : ({ radio: `Big landing${e.impact > 5 ? ': check the floor and suspension' : ''}. Are you OK?`, secs: 4 }),
+  [EV.WING_OFF]: e => ({ radio: `You've lost the ${e.side} side of the front wing: understeer. Box for a new nose.`, secs: 5 }),
   [EV.RECOVERED]: () => ({ toast: 'Back on track  ·  dirty tyres, take it easy' }),
   // pit stops and the car's condition: the team on the radio
   [EV.PIT_IN]: () => ({ radio: 'Pit limiter on, 80. Stop in your box for the crew.', secs: 3 }),

@@ -12,6 +12,7 @@ import { clamp, speedOf } from './math.js';
 import { lateralGrip, brakeMax, drivetrain, tyreGrip } from './vehicle.js';
 import { STOCK } from './spec.js';
 import { carCondition } from './pit.js';
+import { stepAir } from './airborne.js';
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
 
@@ -81,6 +82,7 @@ export function stepChassis(race, c, inp, dt) {
   else if (c.dirt) c.dirt = Math.max(0, c.dirt - dt / OT.clean);
   const dirt = (1 - OT.loss * (c.dirt || 0)) * cond.grip;
   if (c.beached) { c.v = c.vy = c.yawRate = 0; c.slideF = c.slideR = 0; return; }   // stuck: waiting for the marshals
+  if (c.air) { stepAir(race, c, d.resist, dt); return; }                       // in the air (airborne.js): no tyres
   // deep in gravel at walking pace the wheels dig in
   const dug = c.surface === 'gravel' && c.gravelDepth > OT.deep && speedOf(c) < OT.digSpeed ? OT.dig : 1;
   // hills and banking (elevation.js; null on a flat circuit: nothing below changes then): the road at this sample

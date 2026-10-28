@@ -6,7 +6,9 @@ import { createDriverBody } from './driver-body.js';
 import { carbonTexture, tyreTexture, skyEnvironment, glowTexture, numberTexture } from './car-textures.js';
 import { markShadows } from './shadows.js';
 import { createGlbCar } from './car-glb.js';
+import { Debris } from './debris.js';
 import { Models } from './models.js';
+import { SIM } from '../sim/index.js';
 
 // Built from Design.data.car. Per car: fixed parts merged into one mesh with a group per finish (paint, carbon,
 // rubber, metal, light, decal), parts that turn with the steering in a second mesh, one mesh per wheel, brake-light
@@ -293,7 +295,7 @@ export const CarModels = (() => {
   // ---- the stand-in every caller holds: remembers what was set, so a swap to the other kind looks the same
   let kind = 'classic';
   const live = new Set(), kindListeners = new Set();
-  const glbCtx = () => ({ eyeShift: eyeShift(), template: Models.car, driverTemplate: Models.driver, env, glow, SHADOW_GEO, SHADOW_MAT, GLOW_GEO, LIGHT_OFF, LIGHT_ON, FINISH_LOOKS, FRONT_STEER, DEG, createDriverBody, markShadows });
+  const glbCtx = () => ({ debris: Debris, eyeShift: eyeShift(), template: Models.car, driverTemplate: Models.driver, env, glow, SHADOW_GEO, SHADOW_MAT, GLOW_GEO, LIGHT_OFF, LIGHT_ON, FINISH_LOOKS, FRONT_STEER, DEG, createDriverBody, markShadows });
   function create(scene, driver, design) {
     const st = { design, livery: null, mats: null, shadows: true, visible: true, cockpit: false, screen: null, service: null, pedals: [0, 0] };
     const make = () => kind === '2026' && Models.car ? createGlbCar(scene, driver, st.design, glbCtx()) : createClassic(scene, driver, st.design);
@@ -340,7 +342,21 @@ export const CarModels = (() => {
   // with its own `eye` puts the driver, the cockpit camera and the mirrors' viewpoint that far from it
   const CLASSIC_EYE = [-0.33, 0.77];
   const eyeShift = () => { const e = kind === '2026' && Models.car?.getObjectByName('eye')?.position; return e ? [e.x - CLASSIC_EYE[0], e.y - CLASSIC_EYE[1]] : [0, 0]; };
-  return { create, measure, ghostMaterials, setKind, get kind() { return kind; }, get eyeShift() { return eyeShift(); }, onKind(fn) { kindListeners.add(fn); }, applyProfile(models, p) {
+  // The cars' hitbox for a race (SIM createRace hitbox): the 2026 car's is measured (SIM HITBOX); the classic car's is
+  // made from its design (SIM hitboxFrom: the bodywork seen from above, the wheels' footprints), once per design
+  let classicBox = null;
+  function hitbox(design) {
+    if (kind === '2026' && Models.car) return SIM.HITBOX.parts;
+    if (classicBox?.design === design) return classicBox.parts;
+    const g = mergeParts(design.parts.filter(p => !p.steer && p.show !== 'off' && p.show !== 'cockpit'), { color: 0, accent: 0, number: 0 });
+    const pos = g.getAttribute('position'), pts = [];
+    for (let i = 0; i < pos.count; i++) pts.push([pos.getX(i), pos.getZ(i)]);
+    g.dispose();
+    const wheels = design.wheels.map(w => ({ x0: w.pos[0] - w.radius, x1: w.pos[0] + w.radius, z0: w.pos[2] - w.width / 2, z1: w.pos[2] + w.width / 2 }));
+    classicBox = { design, parts: SIM.hitboxFrom(pts, wheels) };
+    return classicBox.parts;
+  }
+  return { create, measure, ghostMaterials, setKind, hitbox, get kind() { return kind; }, get eyeShift() { return eyeShift(); }, onKind(fn) { kindListeners.add(fn); }, applyProfile(models, p) {
     const set = p.lambertCars ? MATS.fast : MATS.quality; for (const m of models) m.setMaterials(set);
     SHADOW_MAT.opacity = p.shadows ? 0.6 : 0.8;        // with sun shadows on, the contact shadow is only the ambient part
   } };
