@@ -98,9 +98,14 @@ export function driveAccel(rpm, gear, s = STOCK) {
 // Without full traction control a part-throttle kick-down (e.g. into 1st at 90 km/h) would spin the rears, so then
 // the box only kicks down on (nearly) full throttle or when the revs are really low (autoLug).
 /** @param {Car} c */
+// (without full traction control the lower gear has to be well inside the band, below autoKick, braking or on the
+// throttle: 1st at ~98 km/h, 10900 rpm, out of Harrow's hairpin put far more torque on the rears than they could hold:
+// 2026-10-28, with the wheelspin)
+const fullTc = c => (c.assists?.tc ?? 1) >= 1;
 const autoDown = (c, v, thr) => c.gear > 1 && (thr < 0.05
-  ? rpmAt(v, c.gear - 1, c.spec) < gearbox.autoBrakeDown
-  : rpmAt(v, c.gear, c.spec) < ((c.assists?.tc ?? 1) >= 1 || thr > 0.9 ? gearbox.autoDown : gearbox.autoLug) && rpmAt(v, c.gear - 1, c.spec) < gearbox.autoUp - 400);
+  ? rpmAt(v, c.gear - 1, c.spec) < (fullTc(c) ? gearbox.autoBrakeDown : gearbox.autoKick)
+  : rpmAt(v, c.gear, c.spec) < (fullTc(c) || thr > 0.9 ? gearbox.autoDown : gearbox.autoLug)
+    && rpmAt(v, c.gear - 1, c.spec) < (fullTc(c) ? gearbox.autoUp - 400 : gearbox.autoKick));
 
 // c.autoShift: automatic gearbox. Otherwise paddles (shift -1/+1); c.autoDown = semi-automatic: the player shifts up,
 // the car also shifts down by itself (the player can still click down earlier).

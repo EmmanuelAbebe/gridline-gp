@@ -104,10 +104,19 @@ function feelPedals(c, thr, brk, dt) {
   }
   if (!c.assists.tc) {
     const T = (c.feelThr ||= new Array(10).fill(F.thr)), g = Math.max(0, c.gear);
-    if (c.spinR || (c.slideR > F.slide && c.thr > F.floor)) {
-      if (c.spinR && c.surface === 'track') T[g] = Math.max(F.floor, T[g] * F.thrCut, Math.min(T[g], c.thr) * F.thrCut);
+    // the wheelspin `react` s ago: a driver feels it that late (2026-10-28: reacting within the step, the AI held the
+    // rears at the edge of grip like traction control, out-accelerating anyone without it)
+    const lag = (c.feelLag ||= []), n = Math.max(1, Math.round(F.react / dt));
+    lag.push(c.rearSpin > F.feelAt * CHASSIS.spin.peak ? 1 : 0); while (lag.length > n) lag.shift();   // (the rears starting to spin: before the spin is full)
+    const spun = lag.length >= n && (lag[0] & 1) === 1, slid = c.slideR > F.slide;   // (the slide it feels in the seat at once)
+    // (once per spin it learns and eases off; for as long as it still feels it spinning it keeps easing off)
+    const feel = spun || (slid && c.thr > F.floor), first = feel && !c.feelSpun;
+    c.feelSpun = feel;
+    if (first) {
+      if (spun && c.surface === 'track') T[g] = Math.max(F.floor, T[g] * F.thrCut, Math.min(T[g], c.thr) * F.thrCut);
       c.feelThrNow = Math.max(F.floor, Math.min(1, c.thr / T[g]) * F.nowCut);
-    } else {
+    } else if (feel) c.feelThrNow = Math.max(F.floor, c.feelThrNow - F.ease * dt);
+    else {
       if (thr > 0 && c.thr >= T[g] * c.feelThrNow * 0.98) T[g] = Math.min(1, T[g] + F.thrLearn * dt);
       c.feelThrNow = Math.min(1, c.feelThrNow + F.recover * dt);
     }
@@ -115,6 +124,10 @@ function feelPedals(c, thr, brk, dt) {
     // as a driver on cold tyres without traction control)
     const rk = c.tyreT ? axleTempGrip(c.tyreT).r : 1;
     thr = Math.min(thr, rk < 1 ? T[g] * c.feelThrNow * rk ** F.coldThr : T[g] * c.feelThrNow);
+    // feeding the power in as the cornering eases (the grip left for the drive on the friction circle, by the cornering
+    // it feels in the seat), and squeezing it on at a foot's pace (its speed control would stab it from 0 to 0.8)
+    const lat = Math.min(1, Math.abs(c.ay) / lateralGrip(Math.max(Math.abs(c.v), 1), c.spec));
+    thr = Math.min(thr, T[g] * Math.max(F.floor, Math.sqrt(1 - lat * lat)), c.thr + F.rise * dt);
     // sliding: only a touch of throttle until the car points where it goes again
     const drift = Math.abs(driftAngle(c));
     if (drift > F.slideDrift) thr = Math.min(thr, F.floor * clamp(1 - (drift - F.slideDrift) / F.slideDrift, 0, 1));

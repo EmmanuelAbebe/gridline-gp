@@ -94,7 +94,11 @@ export const AI = Object.freeze({
     counter: 1.0,      // opposite lock: × the drift angle, once the rear slides (driving.js steering)
     coldThr: 4,        // cold / overheated rears (tyre-temp.js): the throttle cap × their grip factor^coldThr
     trail: 0.6,        // brake × (1 − trail × |steering|): trail braking
-    slideDrift: 0.14 }),   // rad of drift above which it only touches the throttle (none by twice that)
+    slideDrift: 0.14,      // rad of drift above which it only touches the throttle (none by twice that)
+    react: 0.12,           // s: it feels the rears starting to spin (feelAt × CHASSIS.spin.peak) and sliding this late
+    feelAt: 0.7,
+    ease: 3,               // /s: easing off the throttle while it still feels them spinning
+    rise: 3 }),            // /s: the throttle goes on at most this fast
   // racecraft (driving.js; m unless noted). Drivers' traits 0..1 (drivers.js `traits`, 0.5 when missing) scale them.
   // racecraft (driving.js; m unless noted). Drivers' traits 0..1 (drivers.js `traits`, 0.5 when missing) scale them.
   craft: Object.freeze({ squeeze: 0.96,
@@ -127,7 +131,7 @@ export const AI = Object.freeze({
     pace: Object.freeze({ default: 1.13, harrow: 1.07, hautvale: 1.07, northfold: 1.07, saltcross: 1.07, cantera: 1.09, marrow: 1.16 }),
     // with no ABS / traction control (the player's assists, createRace aiAssists; 2026-10-24): where it differs, the most
     // that stays clean with active aero on and off (Saltcross cut corners at 1.14)
-    paceOff: Object.freeze({ default: 1.10, hautvale: 1.02, cantera: 1.04, saltcross: 1.02, marrow: 1.14, northfold: 1.07 }),
+    paceOff: Object.freeze({ default: 1.10, hautvale: 1.01, cantera: 1.04, saltcross: 1.02, marrow: 1.14, northfold: 1.07 }),
     // in traffic (a car ahead in its lane, alongside, or in a wake) its pace eases to `traffic` × that
     // over trafficTime s: the full push only works on the line in clean air (it put cars into walls in traffic)
     // clean air (no car in its lane or alongside, slip < cleanSlip) = 1; deep in a wake (slip > wakeSlip) or alongside
@@ -176,7 +180,7 @@ export const CAR = Object.freeze({
     top: [0, 108, 142, 174, 205, 235, 265, 296, 340],   // km/h at redline per gear (1..8); ratios are derived from it
     shiftTime: 0.06,  // s of reduced drive during a shift
     shiftCut: 0.3,    // drive kept during the shift
-    autoUp: 11800, autoDown: 8000, autoBrakeDown: 11000, autoLug: 6000,   // automatic gearbox shift points (rpm), see vehicle.js
+    autoUp: 11800, autoDown: 8000, autoBrakeDown: 11000, autoLug: 6000, autoKick: 8500,   // automatic gearbox shift points (rpm), see vehicle.js
   }),
 });
 
@@ -250,6 +254,14 @@ export const CHASSIS = Object.freeze({
   lockLateral: 0.35,    // cornering grip left on a locked or spinning axle
   slideLong: 0.75,      // braking / drive force of a sliding tyre, relative to its peak (2026-10-25: 0.9 made a locked stop
                         // from 300 km/h only 1 % longer than with ABS; real locked slicks lose a good deal more)
+  // wheelspin builds up (2026-10-28; user: the AI accelerates harder out of slow corners without spinning or marks).
+  // Before, a rear asked for more than it could give spun fully in one step (drive × slideLong at once): the fast window
+  // was ±1 % of pedal, which only the AI (feeling it every step) could hold. Now the rear wheels' spin `c.rearSpin` (0..1:
+  // 1 = slip ratio `full`) rises with the drive beyond the grip, as fast as the wheels and drivetrain (mass / `mass` of
+  // the car, reflected) spin up at this speed, and falls back as soon as the tyres can take it again; the drive force
+  // stays full up to `peak` of the spin (the tyre's peak slip), then falls to slideLong at a full spin, the cornering
+  // grip with it to lockLateral. Only without traction control (TC keeps the drive under the limit: nothing changes).
+  spin: Object.freeze({ full: 0.3, peak: 0.3, mass: 6, minSpeed: 5 }),
   maxSteer: 0.3,        // rad of road-wheel angle at full lock (no steering assist)
   // player analog steering at speed (driving.js, inp.calm 0..1): the slope near the centre is cut so a small tilt
   // turns the car like the original game (37 m/s² at full tilt; the tyres give ~1.35× their share at small angles,

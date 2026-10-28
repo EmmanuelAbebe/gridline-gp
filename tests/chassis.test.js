@@ -90,7 +90,9 @@ test('ABS: a full stop from 120 km/h locks the fronts only without it, and ABS s
 
 // a circuit 160 m wide, so a car can turn as hard as it likes without leaving the asphalt
 const OPEN = S.buildTrack({ name: 'Pad', ctrl: [[0, 0], [1500, 0], [1500, 1500], [0, 1500]] }, { halfWidth: 160 });
-test('stability: full lock held at 250 km/h stays controlled on medium, rotates the car more with assists off', () => {
+test('stability: full lock held at 250 km/h stays controlled, on medium and with assists off', () => {
+  // (assists off used to rotate it more: the instant full wheelspin; at 250 km/h in 6th the engine can't overpower the
+  // rears held down by the downforce, so there is no power oversteer to show)
   const drift = assists => {
     const race = S.createRace(1, { track: OPEN, drivers: S.DRIVERS.filter(d => d.player) }), c = race.cars[0];
     c.assists = S.ASSISTS[assists]; c.v = 250 / 3.6; c.gear = 6; let maxDrift = 0;
@@ -102,8 +104,32 @@ test('stability: full lock held at 250 km/h stays controlled on medium, rotates 
     return maxDrift;
   };
   const medium = drift('medium'), off = drift('off');
-  assert.ok(medium < 0.12, `medium drift ${medium.toFixed(3)} rad`);
-  assert.ok(off > medium, `off ${off.toFixed(3)} vs medium ${medium.toFixed(3)}`);
+  assert.ok(medium < 0.12 && off < 0.12, `drift: medium ${medium.toFixed(3)}, off ${off.toFixed(3)} rad`);
+});
+
+// pulling away in 1st from 5 km/h on a straight for 3 s: the km/h reached, and how long the rears spun
+function pullAway(drive, assists = 'off') {
+  const race = S.createRace(1, { track: OPEN, drivers: S.DRIVERS.filter(d => d.player), aiAssists: S.ASSISTS[assists] }), c = race.cars[0];
+  c.assists = S.ASSISTS[assists]; c.v = 5 / 3.6; c.gear = 1; c.movedOff = true; let spun = 0;
+  for (let i = 0; i < 360; i++) { race.t += DT; drive(race, c); if (c.spinR) spun += DT; }
+  return { kmh: c.v * 3.6, spun };
+}
+test('wheelspin builds up: just over the grip costs little, flooring it spins the rears; traction control never lets them', () => {
+  const at = thr => pullAway((r, c) => S.drivePlayer(r, c, { thr, brk: 0, steer: 0, analog: true }, DT));
+  const runs = [0.5, 0.6, 0.7, 0.8, 0.9].map(t => ({ t, ...at(t) })), best = runs.reduce((a, r) => r.kmh > a.kmh ? r : a), floor = at(1);
+  assert.ok(floor.spun > 2 && floor.kmh < best.kmh - 3, `flooring it: ${floor.kmh.toFixed(0)} km/h, spinning ${floor.spun.toFixed(1)} s; best ${best.kmh.toFixed(0)} at ${best.t}`);
+  const over = runs.find(r => r.t === Math.round((best.t + 0.1) * 10) / 10);
+  assert.ok(over && over.spun > 0 && over.kmh > floor.kmh, `just over the best (${over?.t}): it spins a little, ${over?.kmh.toFixed(0)} km/h, better than flooring it`);
+  const bestKmh = best.kmh;
+  const tc = pullAway((r, c) => S.drivePlayer(r, c, { thr: 1, brk: 0, steer: 0, analog: true }, DT), 'medium');
+  assert.ok(tc.spun === 0 && tc.kmh > bestKmh - 2, `traction control: ${tc.kmh.toFixed(0)} km/h, no spin`);
+});
+test('the AI without traction control pulls away no harder than a person can (2026-10-28: it out-accelerated everyone)', () => {
+  // (the AI felt wheelspin within the step and held the rears at the edge of grip like traction control: 112 km/h here)
+  const person = Math.max(...[0.5, 0.6, 0.7, 0.8, 0.9, 1].map(thr => pullAway((r, c) => S.drivePlayer(r, c, { thr, brk: 0, steer: 0, analog: true }, DT)).kmh));
+  const ai = pullAway((r, c) => { c.player = false; S.driveAI(r, c, DT); });
+  assert.ok(ai.kmh < person * 1.03, `AI ${ai.kmh.toFixed(0)} km/h, the best steady throttle ${person.toFixed(0)}`);
+  assert.ok(ai.spun > 0.2, `its rears spin too (${ai.spun.toFixed(2)} s): marks on the road`);
 });
 
 test('spins: with no assists, full lock and full throttle spins the car right round, keeping its speed through 90°', () => {

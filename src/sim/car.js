@@ -43,6 +43,7 @@ export function createCar(track, driver, slot, rng) {
     spec: STOCK,
     // drivetrain (vehicle.js): gear 1..8, -1 = reverse; autoShift = automatic gearbox; downQueue = manual downshifts waiting for the revs; slip = slipstream 0..1
     // movedOff: has driven off once (reverse can be selected from then on); revT: s brake + gas held at a standstill
+    rearSpin: 0,   // chassis.js: the rear wheels' wheelspin 0..1 (CHASSIS.spin)
     gear: 1, rpm: 0, shiftT: 0, autoShift: true, autoDown: false, downQueue: 0, drive: 0, slip: 0, slipBy: null, movedOff: false, revT: 0,
     // active aero (active-aero.js): wings open 0..1 (straight mode); overtake mode: seconds left this lap, on, lap detected
     // boostAuto: a player car using overtake mode the way the AI does (the game's AUTO setting)
@@ -54,7 +55,7 @@ export function createCar(track, driver, slot, rng) {
     vy: 0, yawRate: 0, ax: 0, ay: 0, slideF: 0, slideR: 0, lockF: false, lockR: false, spinR: false, assists: null,
     // an AI driver without ABS / traction control (driving.js feelPedals): what it has learnt the car takes, brake pedal
     // (straight-line) and throttle per gear, and how much it is holding back right now
-    feelBrake: Number(AI.feel.brake), feelBrakeNow: 1, feelThr: /** @type {number[]} */ (null), feelThrNow: 1,
+    feelBrake: Number(AI.feel.brake), feelBrakeNow: 1, feelThr: /** @type {number[]} */ (null), feelThrNow: 1, feelLag: /** @type {number[]} */ (null), feelSpun: false,
     // trail: lateral offset and time when this car last passed each track sample (its wake, for slipstream)
     trailLat: new Float32Array(track.N), trailT: new Float32Array(track.N).fill(-1),
     // player driving (driving.js drivePlayer): smoothed steering input (null until the first player step)

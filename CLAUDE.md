@@ -208,6 +208,25 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   (1.4 and engineBrake 1.0 were tried: ALIEN without assists hit walls / spun at Marrow, Hautvale, Saltcross);
   ALIEN paceOff marrow 1.16 → 1.14. tests/offtrack.test.js "stopped: the brake holds …".
 
+## Wheelspin and the AI's throttle (2026-10-28; user: no AI skid marks or slipping when accelerating, yet it pulls away
+## faster "in the exact same situation")
+- Measured: from 5 km/h in 1st the AI (assists off) reached 112 km/h in 3 s, the player 89 at any steady throttle (0.4 → 87):
+  past the drive limit the rears spun fully in one step (drive × slideLong, the cornering gone), so the fast window was
+  ±1 % pedal, and the AI's feelPedals sat in it by reacting within the step (= traction control). From 60 km/h up flooring
+  it matched the AI.
+- Physics: `CHASSIS.spin` (chassis.js `spinStep`, car `rearSpin` 0..1 = slip ratio `full` 0.3): without traction control the
+  rears' spin rises with the drive beyond the grip × the drivetrain's reflected inertia (`mass` 6: car mass / ~100 kg) per
+  m/s, falls back under the limit; drive full up to `peak` 0.3 of it, then down to slideLong; cornering down to lockLateral.
+  TC on = never past the limit = unchanged (sim-trace identical).
+- AI (`AI.feel`): feels the rears starting to spin (`feelAt` 0.7 × peak) `react` 0.12 s late, cuts its learnt cap once per
+  spin and eases off `ease` 3/s while it lasts; throttle ≤ cap × √(1 − (|ay| / lateral grip)²) (the friction circle, felt in
+  the seat) and rises ≤ `rise` 3/s (its speed control stabbed it 0 → 0.8). Gearbox without full TC: the lower gear only
+  below `autoKick` 8500 rpm, braking or on the throttle (it took 1st at 98 km/h out of Harrow's hairpin and spun).
+  ALIEN paceOff hautvale 1.02 → 1.01 (ran wide out of turn 1). Now: AI 94 km/h in that test (best steady human 95, flat
+  out 89), its rears spin 0.3–1.4 s a lap (marks); assists-off lap times: LEGEND / ALIEN Marrow and Cantera 2–4 s quicker
+  (the gradual spin gives everyone more drive), others ±1 s. tests/chassis.test.js "wheelspin builds up", "the AI … pulls
+  away no harder than a person can".
+
 ## Tyre temperature (2026-10-27; user: "tyre temperature vs grip"; chose temperature, compounds, brake temperature,
 ## fuel weight, in that order; cold-tyre severity to follow car feel on that branch)
 - SIM `tyre-temp.js` + `TYRE_TEMP` (tuning.js). Race option `createRace(…, { tyreTemp })` (off by default: sim-trace
