@@ -1,6 +1,6 @@
 // The Settings screen's wiring: what each setting reads and writes, its actions, and opening it over the start or
 // pause menu (a running race pauses first; closing goes back to that menu). main.js passes the game state and the
-// commands that change it (`act`: setGfx, setPref, setDriving, togglePause, toggleLayout, setButtonMaps).
+// commands that change it (`act`: setGfx, setPref, setDriving, togglePause, toggleLayout, setButtonMaps, openZones).
 import { PREFS, PHASE, RACE_SETUP } from './config.js';
 import { Screens } from './screens.js';
 import { Sound } from './sound.js';
@@ -19,6 +19,7 @@ export function bindSettings(game, act) {
     get(key) {
       if (key === 'noiseColour') return SOUND.noise.colour;
       if (key === 'buttonMaps') return game.buttonMaps;
+      if (key === 'inMenu') return game.phase === PHASE.MENU;
       return isDriving(key) ? (key.startsWith('a.') ? game.setup.custom[key.slice(2)] : game.setup[key]) : key === 'gfx' ? game.gfx
         : key === 'sound' ? !game.prefs.muted : game.prefs[key];
     },
@@ -41,6 +42,7 @@ export function bindSettings(game, act) {
       else if (name === 'fullscreen') AppShell.toggleFullscreen();
       else if (name === 'tweak') { SettingsScreen.close(); TweakPanel.toggle(); }
       else if (name === 'layout') { SettingsScreen.close(); act.toggleLayout(); }
+      else if (name === 'zones') act.openZones();
       else if (name === 'logs') window.gridlineApp?.openLogs?.();
     },
   });

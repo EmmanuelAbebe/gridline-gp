@@ -290,6 +290,20 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   page's own buttons each send a standard button (phone Settings → Buttons); the game maps those. Smoke test:
   out-buttons.png (the phone's View shows its action, SET + Guide binds straight mode).
 
+## Your own straight-mode zones (2026-10-28; user: "override and adjust the automatic DRS system on the map")
+- SIM active-aero.js: `setAeroZones(track, [{ from, to }] metres | null)` replaces track.aeroZone / aeroZones (merging
+  overlaps; null = the automatic ones, kept in `track.aeroAuto`), `track.aeroKey` ('auto' / 'none' / the zones' metres);
+  `aeroZonesInMetres(track, auto?)`, `aeroSafe` / `aeroSafeOf` (per sample: the automatic rule before its minimum length),
+  `zoneRisk(track, z)` = the share of a zone where that rule says no. buildAeroZones unchanged (sim-trace identical).
+  Every car on that track uses them (the AI still opens only flat out and nearly straight). tests: active-aero.test.js.
+- Game: `aero-zones.js` (pure, tests/aero-zones.test.js; localStorage `gridline.aeroZones` {circuitId: zones}); main.js
+  `trackOf` applies them when a circuit is built, the editor's change re-applies, rebuilds the minimap, re-times the AI
+  ghosts (ai-ghosts cache key has track.aeroKey). `zone-editor.js` `#zoneOv` (start menu AERO ZONES, Settings → Driving
+  "Edit the zones on the map" from the start menu): the circuit with zones (ring = start, square = end handles, drag along
+  the track), amber where unsafe, the automatic ones faint underneath, list with ±10 m nudges / delete, click the track +
+  Add zone here (250 m), Back to automatic. Smoke test: out-zones.png (drag zone 1's end +60 m, delete, reset). Not done:
+  lap records / ghosts aren't kept apart per zone layout.
+
 ## Architecture
 Tunables live in data tables (config modules), not inline in the logic.
 1. **SIM** (`src/sim/`, exported as one `SIM` object from `index.js`):

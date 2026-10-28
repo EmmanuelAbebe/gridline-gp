@@ -171,6 +171,28 @@ async function smokeTest(win) {
   await new Promise(r => setTimeout(r, 1500));
   info.circuit = await win.webContents.executeJavaScript(`document.getElementById('eventLine').textContent`);
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-circuit.png'), (await win.webContents.capturePage()).toPNG());
+  // Aero zones: drag zone 1's end 60 m further (screenshot), delete it, back to automatic, Done → the start menu
+  info.zones = await win.webContents.executeJavaScript(`(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms)), E = window.__zoneEditor;
+    document.getElementById('zonesBtn').click(); await wait(300);
+    const before = E.zones, z = before[0], mode0 = document.getElementById('zoneMode').textContent;
+    const fire = (type, [x, y]) => document.getElementById('zoneMap').dispatchEvent(new PointerEvent(type, { clientX: x, clientY: y, pointerId: 1, bubbles: true }));
+    fire('pointerdown', E.pointAt(z.to)); fire('pointermove', E.pointAt(z.to + 30)); fire('pointermove', E.pointAt(z.to + 60)); fire('pointerup', E.pointAt(z.to + 60));
+    await wait(200);
+    const dragged = E.zones[0], mode1 = document.getElementById('zoneMode').textContent;
+    const warn = [...document.querySelectorAll('#zoneList .warn')].map(e => e.textContent);
+    return { count: before.length, mode0, mode1, grew: Math.round((dragged.to - dragged.from) - (z.to - z.from)), warn };
+  })()`);
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-zones.png'), (await win.webContents.capturePage()).toPNG());
+  Object.assign(info.zones, await win.webContents.executeJavaScript(`(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms)), E = window.__zoneEditor, n = E.zones.length;
+    [...document.querySelectorAll('#zoneList button')].find(b => b.textContent === 'Delete').click(); await wait(100);
+    const deleted = n - E.zones.length;
+    document.getElementById('zoneReset').click(); await wait(100);
+    const mode = document.getElementById('zoneMode').textContent;
+    document.getElementById('zoneClose').click(); await wait(200);
+    return { deleted, reset: mode, backToMenu: !document.getElementById('startOv').hidden };
+  })()`));
   // start a race: lights take about 5-7 s, so after 9 s the race clock must be running; second screenshot in-race
   await win.webContents.executeJavaScript(`document.getElementById('startBtn').click()`);
   // lights out takes ~5-7 s; on a slow machine (CI: software rendering) longer, so wait for the race clock (≤ 60 s)

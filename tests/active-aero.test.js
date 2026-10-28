@@ -106,3 +106,34 @@ test('straight mode on a button (aeroAuto off): opens only when asked inside a z
   assert.ok(c.aeroOpen === 0 && !c.aeroWant);
   assert.deepEqual(aero(), ['off (no zone)', 'on', 'off', 'on', 'off', 'on', 'off (no zone)']);
 });
+
+test('your own zones (setAeroZones): round trip, merging, over the line, back to automatic; the risk of a zone in a bend', () => {
+  const T = S.buildTrack(S.CIRCUITS.harrow), auto = T.aeroZones, L = T.N * T.ds;
+  S.setAeroZones(T, S.aeroZonesInMetres(T));
+  assert.deepEqual(T.aeroZones, auto);
+  assert.equal(T.aeroKey.length > 0 && T.aeroKey !== 'auto', true);
+  for (const z of S.aeroZonesInMetres(T)) assert.equal(S.zoneRisk(T, z), 0, 'the automatic zones are safe');
+  // two overlapping zones merge; one over the line wraps
+  S.setAeroZones(T, [{ from: 100, to: 400 }, { from: 300, to: 600 }, { from: L - 150, to: 50 }]);
+  const m = S.aeroZonesInMetres(T);
+  assert.equal(m.length, 2);
+  assert.ok(Math.abs(m[0].from - 100) < T.ds && Math.abs(m[0].to - 600) < T.ds, JSON.stringify(m));
+  assert.ok(T.aeroZone[0] && T.aeroZone[T.N - 2] && !T.aeroZone[Math.round(700 / T.ds)]);
+  // a zone through the slowest corner: mostly unsafe
+  let slow = 0; for (let i = 0; i < T.N; i++) if (T.VP[i] < T.VP[slow]) slow = i;
+  assert.ok(S.zoneRisk(T, { from: slow * T.ds - 50, to: slow * T.ds + 50 }) > 0.9);
+  S.setAeroZones(T, []);
+  assert.ok(T.aeroZones.length === 0 && T.aeroKey === 'none');
+  S.setAeroZones(T, null);
+  assert.ok(T.aeroZones === auto && T.aeroKey === 'auto');
+});
+
+test('your own zones: the AI opens its wings in them, never in the automatic ones you took away', () => {
+  const T = S.buildTrack(S.CIRCUITS.harrow), longest = T.aeroZones.reduce((a, z) => ((z.to - z.from + T.N) % T.N) > ((a.to - a.from + T.N) % T.N) ? z : a);
+  const keep = { from: longest.from * T.ds, to: longest.to * T.ds };
+  S.setAeroZones(T, [keep]);
+  const r = S.createRace(2, { track: T, drivers: [S.DRIVERS.find(d => !d.player)], activeAero: true, seed: 3 });
+  let inside = 0, outside = 0;
+  run(S, r, 200, (race, c) => { aiDriver(S)(race, c); if (c.aeroOpen > 0.99) (T.aeroZone[c.idx] ? inside++ : outside++); });
+  assert.ok(inside > 100 && outside < 30, `open ${inside} steps in the zone, ${outside} past its end (closing)`);
+});

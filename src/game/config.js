@@ -9,7 +9,8 @@ export const CONFIG = Object.freeze({
     // (records and ghosts per physics version, SIM.TUNING.PHYSICS: version 1's are left in 'gridline.records' etc.)
     ghosts: 'gridline.ghosts.2', ghostsLoaded: 'gridline.ghosts-loaded.2',
     sectors: 'gridline.sectors.2',   // best sectors / mini-sectors and the best lap's trace (sector-timing.js)
-    buttons: 'gridline.buttons' },   // what each controller button does, per device (button-map.js)
+    buttons: 'gridline.buttons',     // what each controller button does, per device (button-map.js)
+    aeroZones: 'gridline.aeroZones' },   // your straight-mode zones per circuit (aero-zones.js)
   lights: { count: 5, interval: 0.9, holdMin: 0.4, holdRand: 1.8, hideAfterGo: 0.7 },
   resultsDelay: 2.2,           // seconds of race time after the chequered flag
   finalLapFlashDelay: 0.9,

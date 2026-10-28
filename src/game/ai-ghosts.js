@@ -69,9 +69,9 @@ export function aiLapRun(track, level, { activeAero = false, aiAssists = null, t
 }
 
 // Each level's lap on a circuit, made once per session (circuit × level × active aero × the AI's ABS / TC / stability
-// × tyre temperatures × compound)
+// × tyre temperatures × compound × the circuit's straight-mode zones: track.aeroKey)
 const cache = new Map();
-const keyOf = (track, id, aero, a, tt, cmp) => `${track.id}:${id}:${aero}:${a ? `${a.abs}/${a.tc}/${a.stability}` : '-'}:${tt ? 'tt' : ''}:${cmp}`;
+const keyOf = (track, id, aero, a, tt, cmp) => `${track.id}:${track.aeroKey}:${id}:${aero}:${a ? `${a.abs}/${a.tc}/${a.stability}` : '-'}:${tt ? 'tt' : ''}:${cmp}`;
 export const aiLapReady = (track, id, aero, aiAssists = null, tyreTemp = false, compound = 'medium') => cache.has(keyOf(track, id, aero, aiAssists, tyreTemp, compound));
 export function aiLap(track, id, level, activeAero, aiAssists = null, tyreTemp = false, compound = 'medium') {
   const k = keyOf(track, id, activeAero, aiAssists, tyreTemp, compound);

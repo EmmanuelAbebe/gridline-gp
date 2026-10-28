@@ -14,6 +14,11 @@ import { emit } from './events.js';
 // `look` m (racing line or centre line) is one a car with open wings takes at full speed.
 /** @param {{ N: number, ds: number, K: Float32Array, LK: Float32Array, VP: Float32Array }} t */
 export function buildAeroZones(t) {
+  return runsOf(aeroSafe(t), t.N, Math.round(AA.zone.minLength / t.ds));
+}
+// per sample: 1 where opening the wings is safe (the automatic zones' rule above), before the minimum length
+/** @param {{ N: number, ds: number, K: Float32Array, LK: Float32Array, VP: Float32Array }} t */
+export function aeroSafe(t) {
   const { N, ds, K, LK, VP } = t, Z = AA.zone, open = { ...STOCK, dfK: STOCK.dfK * (1 - AA.downforceCut) };
   const flatOut = k => cornerSpeed(k, AI.grip, open) >= TUNING.V_CAP;
   const look = Math.round(Z.look / ds), ahead = Math.round(Z.closeAhead / ds), ok = new Uint8Array(N);
@@ -26,8 +31,11 @@ export function buildAeroZones(t) {
     }
     ok[i] = good ? 1 : 0;
   }
-  // runs of qualifying samples (wrapping past the line), long enough
-  const zone = new Uint8Array(N), zones = [], min = Math.round(Z.minLength / ds);
+  return ok;
+}
+// runs of 1s in a per-sample mask (wrapping past the line), at least `min` samples long → { zone, zones }
+function runsOf(ok, N, min) {
+  const zone = new Uint8Array(N), zones = [];
   if (ok.every(Boolean)) return { zone: zone.fill(1), zones: [{ from: 0, to: N }] };
   let start = ok.indexOf(0);
   for (let k = 1; k <= N; k++) {
@@ -38,6 +46,44 @@ export function buildAeroZones(t) {
     }
   }
   return { zone, zones: zones.sort((a, b) => a.from - b.from) };
+}
+
+// The player's own zones for a circuit (2026-10-28, user: "override and adjust the automatic DRS system on the map";
+// the game's zone editor): list = [{ from, to }] in metres from the line (to may be past the line: a zone over it), or
+// null = the automatic zones again. Overlapping zones merge. Every car racing on the track afterwards uses them;
+// track.aeroKey ('auto' or the zones' metres) tells caches apart.
+/** @param {import('./types.js').Track} track @param {{ from: number, to: number }[] | null} list */
+export function setAeroZones(track, list) {
+  const { N, ds } = track, L = N * ds;
+  track.aeroAuto ??= { zone: track.aeroZone, zones: track.aeroZones };
+  if (!list) { track.aeroZone = track.aeroAuto.zone; track.aeroZones = track.aeroAuto.zones; track.aeroKey = 'auto'; return track; }
+  const mask = new Uint8Array(N);
+  for (const z of list) {
+    const from = wrapIdx(Math.round(z.from / ds), N), span = ((z.to - z.from) % L + L) % L;
+    const len = Math.round(span / ds) || (Math.abs(z.to - z.from) > ds ? N : 0);
+    for (let o = 0; o < len; o++) mask[wrapIdx(from + o, N)] = 1;
+  }
+  const r = runsOf(mask, N, 1);
+  track.aeroZone = r.zone; track.aeroZones = r.zones;
+  track.aeroKey = r.zones.map(z => `${Math.round(z.from * ds)}-${Math.round(z.to * ds)}`).join(',') || 'none';
+  return track;
+}
+// a track's zones in metres ({ from, to }, as setAeroZones takes them); auto = the automatic ones
+/** @param {import('./types.js').Track} track */
+export const aeroZonesInMetres = (track, auto = false) =>
+  (auto ? track.aeroAuto?.zones ?? track.aeroZones : track.aeroZones).map(z => ({ from: z.from * track.ds, to: (z.to || track.N) * track.ds }));
+// aeroSafe of a track, made once
+/** @param {import('./types.js').Track} track */
+export const aeroSafeOf = track => track.aeroSafe ??= aeroSafe(track);
+// the share of a zone ({ from, to } in metres) where opening the wings isn't safe by the automatic rule (a bend that
+// isn't flat out with open wings, or braking close ahead)
+/** @param {import('./types.js').Track} track @param {{ from: number, to: number }} z */
+export function zoneRisk(track, z) {
+  const { N, ds } = track, L = N * ds, safe = aeroSafeOf(track);
+  const from = wrapIdx(Math.round(z.from / ds), N), len = Math.max(1, Math.round((((z.to - z.from) % L + L) % L) / ds));
+  let bad = 0;
+  for (let o = 0; o < len; o++) if (!safe[wrapIdx(from + o, N)]) bad++;
+  return bad / len;
 }
 
 // Time behind the car directly ahead on the road (any car, lapped ones too): from the trail every car leaves

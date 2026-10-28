@@ -76,6 +76,7 @@ const TABS = [
       auto: 'Within 1 s of the car ahead at the line: the next lap the electric motor keeps its full 350 kW up to 337 km/h (not 290), with extra battery, for 5 s; used for you on the straights when you are close.',
       button: 'Within 1 s of the car ahead at the line: the next lap the electric motor keeps its full 350 kW up to 337 km/h (not 290), with extra battery, for 5 s. Switch it on with X, pad View or the BOOST button.',
       off: 'No overtake boost for anyone.' })[v], b => b.get('aero') === 'on'),
+    { ...buttons(['Edit the zones on the map', 'zones']), when: b => b.get('aero') === 'on' && b.get('inMenu') },   // (from the start menu)
     seg('straight', 'Straight mode', C.straight, v => v === 'auto'
       ? 'Your wings open by themselves in the zones on full throttle, as every AI car\'s do.'
       : 'You open the wings yourself (Z or your controller\'s straight-mode button: Settings → Buttons), only in the zones (green on the map, the chip shows dashed): at any throttle and steering, your call. The brakes, the zone\'s end or the button again close them. The AI stays automatic.', b => b.get('aero') === 'on'),

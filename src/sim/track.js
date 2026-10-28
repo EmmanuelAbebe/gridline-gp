@@ -183,7 +183,10 @@ export function buildTrack(circuit, opts = {}) {
   // + the AI's line and speeds; what lies beside the road (runoff.js; WALL = the furthest barrier); the pit lane
   const track = { ...shape, ...buildAiProfile(shape), style: circuit.style || o.style, theme: circuit.theme || 'forest',
     runoff: /** @type {import('./runoff.js').Runoff[]} */ (null), pit: /** @type {import('./pit.js').PitLane} */ (null),
-    aeroZone: /** @type {Uint8Array} */ (null), aeroZones: /** @type {{ from: number, to: number }[]} */ (null) };
+    aeroZone: /** @type {Uint8Array} */ (null), aeroZones: /** @type {{ from: number, to: number }[]} */ (null),
+    // (active-aero.js setAeroZones: the automatic zones kept while the player's own are in use; which ones; safe samples)
+    aeroAuto: /** @type {{ zone: Uint8Array, zones: { from: number, to: number }[] }} */ (null), aeroKey: 'auto',
+    aeroSafe: /** @type {Uint8Array} */ (null) };
   track.runoff = buildRunoff(track, track.style);
   track.WALL = Math.max(...track.runoff.map(r => Math.max(...r.wall)));
   track.pit = buildPitLane(track);   // pit.js; null without a `pits` landmark

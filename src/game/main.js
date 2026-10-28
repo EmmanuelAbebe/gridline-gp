@@ -45,6 +45,8 @@ import { Debris } from './debris.js';
 import { loadSetup, loadPrefs, steerRate, raceFormat, raceWear, raceAero, buildField, playerSlotOf, assistsOf, aiAssistsOf, setupSummary } from './setup-store.js';
 import { messageFor, SAY, boxMessage } from './race-messages.js';
 import { loadButtonMaps } from './button-map.js';
+import { loadAeroZones, zonesFor, withZones } from './aero-zones.js';
+import { createZoneEditor } from './zone-editor.js';
 import { bindSettings } from './settings-binding.js';
 import { installDebug } from './debug.js';
 import { PhoneWheel } from './phone-wheel.js';
@@ -58,7 +60,8 @@ import { loadModels } from './models.js';
 const { EV } = SIM;
 // circuits are built on first use (~40 ms) and kept
 const tracks = new Map([[SIM.track.id, SIM.track]]);
-const trackOf = id => { if (!tracks.has(id)) tracks.set(id, SIM.buildTrack(SIM.CIRCUITS[id])); return tracks.get(id); };
+// (with your own straight-mode zones there, if any: Aero zones, zone-editor.js)
+const trackOf = id => { if (!tracks.has(id)) tracks.set(id, SIM.setAeroZones(SIM.buildTrack(SIM.CIRCUITS[id]), zonesFor(game.aeroZones, id))); return tracks.get(id); };
 let track = null, world = null, minimap = null;
 const carModels = SIM.DRIVERS.map(d => CarModels.create(Display.scene, d, Design.data.car));
 const modelOf = new Map(SIM.DRIVERS.map((d, i) => [d.code, carModels[i]]));   // car model by driver code
@@ -80,7 +83,8 @@ const game = {
   setup: loadSetup(Settings.get(CONFIG.storageKeys.race)),   // start-screen choices: cars, race type, laps / minutes (+ gearbox, assists from Settings)
   prefs: loadPrefs(Settings.get(CONFIG.storageKeys.prefs)),  // Settings screen: controller, sound, FPS counter
   garage: loadGarage(Settings.get(CONFIG.storageKeys.garage)),    // your car: livery, setup, open mods (garage.js)
-  buttonMaps: loadButtonMaps(Settings.get(CONFIG.storageKeys.buttons)),   // what each controller button does (Settings → Buttons)
+  buttonMaps: loadButtonMaps(Settings.get(CONFIG.storageKeys.buttons)),
+  aeroZones: loadAeroZones(Settings.get(CONFIG.storageKeys.aeroZones), SIM.CIRCUITS),   // your straight-mode zones per circuit   // what each controller button does (Settings → Buttons)
   records: loadRecords(Settings.get(CONFIG.storageKeys.records)), // best valid lap per circuit, stock and modified apart
   // ghost laps (ghost.js): your best per circuit and class, and ones loaded from a file; game.ghost = the one shown
   ghosts: loadGhosts(Settings.get(CONFIG.storageKeys.ghosts), SIM.CIRCUITS), loadedGhosts: loadGhosts(Settings.get(CONFIG.storageKeys.ghostsLoaded), SIM.CIRCUITS),
@@ -367,7 +371,7 @@ function setButtonMaps(store) {
   game.buttonMaps = store; Input.setButtonMaps(store);
   Settings.set(CONFIG.storageKeys.buttons, JSON.stringify(store));
 }
-const settings = bindSettings(game, { setGfx, setPref, setDriving, togglePause, toggleLayout, setButtonMaps });
+const settings = bindSettings(game, { setGfx, setPref, setDriving, togglePause, toggleLayout, setButtonMaps, openZones });
 const openSettings = tab => settings.open(tab);
 // The start menu's line about the Settings-screen choices.
 const describeSetup = () => {
@@ -453,6 +457,22 @@ $('endBtn').onclick = endRace;
 $('pauseAnaBtn').onclick = () => analysis.show('pause');
 $('resAnaBtn').onclick = () => analysis.show('results');
 $('anaStartBtn').onclick = () => { if (game.phase === PHASE.MENU) analysis.show('start'); };
+// ---- straight-mode zones (zone-editor.js): your own per circuit, for every car from the next race ----
+const zoneEditor = createZoneEditor({ track: () => track, zones: () => zonesFor(game.aeroZones, track.id),
+  change(list) {
+    game.aeroZones = withZones(game.aeroZones, track.id, list);
+    Settings.set(CONFIG.storageKeys.aeroZones, JSON.stringify(game.aeroZones));
+    SIM.setAeroZones(track, list);
+    minimap = createMinimap($('map'), track);
+    trial.renderRow();                 // (the AI ghosts' times on these zones)
+  } });
+function openZones() {
+  if (game.phase !== PHASE.MENU || zoneEditor.open) return;
+  if (SettingsScreen.open) SettingsScreen.close();
+  Screens.show(null); zoneEditor.show(() => Screens.show('start', 'zonesBtn'));
+}
+$('zonesBtn').onclick = openZones;
+if (import.meta.env.DEV || window.gridlineApp?.debug) window.__zoneEditor = zoneEditor;   // (the smoke test drags a zone)
 $('menuBtn').onclick = toMenu;
 $('designBtn').onclick = () => TweakPanel.toggle();
 $('testCtlBtn').onclick = $('pauseInputsBtn').onclick = () => InputMonitor.toggle(true);

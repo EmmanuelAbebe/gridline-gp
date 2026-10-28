@@ -127,7 +127,7 @@
       <div class="seg" id="aiSeg"></div>
     </div>
     <p class="gpu" id="aiNote"></p>
-    <div class="summary"><p class="gpu" id="setupSummary"></p><button class="iconbtn" id="garageBtn" type="button" title="Your car: looks, setup, mods">GARAGE</button><button class="iconbtn" id="anaStartBtn" type="button" title="Your best lap here by sector and corner, against the fastest">ANALYSIS</button><button class="iconbtn" id="settingsBtn" type="button" title="Settings (O)">SETTINGS</button></div>
+    <div class="summary"><p class="gpu" id="setupSummary"></p><button class="iconbtn" id="garageBtn" type="button" title="Your car: looks, setup, mods">GARAGE</button><button class="iconbtn" id="anaStartBtn" type="button" title="Your best lap here by sector and corner, against the fastest">ANALYSIS</button><button class="iconbtn" id="zonesBtn" type="button" title="Where the cars may open their wings (straight mode) on this circuit">AERO ZONES</button><button class="iconbtn" id="settingsBtn" type="button" title="Settings (O)">SETTINGS</button></div>
     <div class="btns"><button class="btn" id="startBtn" type="button">To the grid</button><button class="btn ghost" id="fullStartBtn" type="button">Full screen</button><button class="btn ghost" type="button" data-quit hidden>Quit</button></div>
   </div>
 </div>
@@ -186,6 +186,25 @@
     </div>
     <div class="res-wrap"><table class="res ana-corners"><caption></caption><thead><tr><th>Corner</th><th class="r">Time</th><th class="r">Gap</th><th class="r">Brakes</th><th class="r">Entry</th><th class="r">Slowest</th><th class="r">Exit</th><th class="r">Full gas</th></tr></thead><tbody id="anaCorners"></tbody></table></div>
     <div id="anaPace" class="ana-pace"></div>
+  </div>
+</div>
+
+<div id="zoneOv" class="overlay" hidden>
+  <div class="card xwide zones" role="dialog" aria-labelledby="zoneTitle">
+    <div class="set-head"><p class="verdict" id="zoneTitle">Straight-mode zones</p><button class="btn small" id="zoneClose" type="button">Done</button></div>
+    <p class="gpu">Every car opens its wings only in these zones, the AI too, from the next race on this circuit. Drag a zone's
+      ends (ring = start, square = end) along the track, or click the track and add one. Amber: a bend that isn't flat out
+      with the wings open, or braking close ahead: open there and the car can slide (the AI opens only flat out and nearly
+      straight, so it can lose the rear there too).</p>
+    <div class="zone-grid">
+      <div class="ana-map"><canvas id="zoneMap" width="640" height="480" aria-label="Circuit map with the straight-mode zones"></canvas>
+        <p class="gpu ana-key"><i class="zg"></i>zone <i class="za"></i>not safe to open <i class="zf"></i>automatic zones · arrow = direction</p></div>
+      <div class="zone-side">
+        <div class="row"><span class="lbl">Zones</span><span class="dev-state" id="zoneMode"></span></div>
+        <div id="zoneList"></div>
+        <div class="btns"><button class="btn small" id="zoneAdd" type="button">Add zone here</button><button class="btn ghost small" id="zoneReset" type="button">Back to automatic</button></div>
+      </div>
+    </div>
   </div>
 </div>
 

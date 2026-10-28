@@ -181,3 +181,18 @@ table.ana-corners caption{caption-side:bottom;text-align:left;font-size:12px;col
 .pit-box .row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px}
 .pit-box .seg button{font-size:12px;padding:5px 9px}
 .pit-head{margin:0 0 2px;font-family:var(--display);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:13px;color:var(--muted)}
+
+/* straight-mode zone editor (zone-editor.js) */
+.zones{gap:12px}
+.zone-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(240px,1fr);gap:16px;align-items:start}
+.zone-grid canvas{touch-action:none;cursor:crosshair}
+.zone-side{display:grid;gap:8px}
+.zone-side .row{display:flex;justify-content:space-between;align-items:center}
+.zone-side .btns{display:flex;gap:8px;flex-wrap:wrap}
+.zone-row{flex-wrap:wrap;cursor:pointer}
+.zone-row.active b{color:#7dffb6}
+.zone-row .note.warn{color:var(--amber)}
+.zone-tools{display:flex;gap:6px;flex-wrap:wrap;width:100%}
+.ana-key i.zg,.ana-key i.za,.ana-key i.zf{display:inline-block;width:16px;height:5px;border-radius:3px;margin:0 4px 1px 8px;vertical-align:middle}
+.ana-key i.zg{background:#36d27f}.ana-key i.za{background:#ffc21a}.ana-key i.zf{background:rgba(79,224,143,.3);height:9px}
+@media (max-width:760px){.zone-grid{grid-template-columns:1fr}}
