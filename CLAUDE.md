@@ -301,8 +301,13 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   ghosts (ai-ghosts cache key has track.aeroKey). `zone-editor.js` `#zoneOv` (start menu AERO ZONES, Settings → Driving
   "Edit the zones on the map" from the start menu): the circuit with zones (ring = start, square = end handles, drag along
   the track), amber where unsafe, the automatic ones faint underneath, list with ±10 m nudges / delete, click the track +
-  Add zone here (250 m), Back to automatic. Smoke test: out-zones.png (drag zone 1's end +60 m, delete, reset). Not done:
-  lap records / ghosts aren't kept apart per zone layout.
+  Add zone here (250 m), Back to automatic. Smoke test: out-zones.png (drag zone 1's end +60 m, delete, reset).
+- Laps kept apart per zone layout (2026-10-28): aero-zones.js `zoneTag(track, activeAero)` ('' = automatic or active aero
+  off, else track.aeroKey) and `lapClass(modified, zones)` = 'stock' / 'modified' (old saves unchanged) or
+  'stock@120-610,...' / 'stock@none'. Lap records (garage-store recordLap(…, zones)), ghosts (ghost.js slots
+  `<class>[:start]`, the ghost carries `zones`, also in files; ghostOf / dropGhost take zones), sector bests
+  (sector-timing.js cls) all use it; the start menu's record line and ghost list show the layout the next race would use;
+  a loaded file on other zones is kept and says so (raced once your zones match).
 
 ## Architecture
 Tunables live in data tables (config modules), not inline in the logic.

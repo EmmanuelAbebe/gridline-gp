@@ -17,6 +17,7 @@ import { raceAero, aiAssistsOf } from './setup-store.js';
 import { playerDriver } from './garage-store.js';
 import { aiLap, aiLapReady, ghostDriver, createRival, rivalGap } from './ai-ghosts.js';
 import { createGhostInputs } from './ghost-inputs.js';
+import { zoneTag } from './aero-zones.js';
 import { createRecorder, ghostPose, ghostDelta, keepGhost, ghostOf, dropGhost, readGhostFile, storeJson, packGhost, unpackGhost } from './ghost.js';
 
 const LEVELS = RACE_SETUP.aiLevels;
@@ -29,6 +30,8 @@ export function createTimeTrial({ game, track, saveSetup, switchTrack }) {
   const saveGhosts = () => Settings.set(CONFIG.storageKeys.ghosts, storeJson(game.ghosts));
   const saveLoadedGhosts = () => Settings.set(CONFIG.storageKeys.ghostsLoaded, storeJson(game.loadedGhosts));
   const carModified = () => SIM.isModified(game.garage.mods);
+  // the zone layout the menu's circuit would be raced on (laps on other zones are kept apart: aero-zones.js zoneTag)
+  const zones = () => zoneTag(track(), raceAero(game.setup).activeAero);
   // AI laps (ai-ghosts.js): the fastest AI driver alone at each level, made once per circuit and active-aero setting
   const aiPick = () => Object.hasOwn(LEVELS, game.setup.ghost) ? game.setup.ghost : null;
   // (on your tyres: the garage's starting compound, and the temperatures as in your race)
@@ -37,11 +40,11 @@ export function createTimeTrial({ game, track, saveSetup, switchTrack }) {
   const aiLapOf = (id, aero = raceAero(game.setup).activeAero) => aiLap(track(), id, LEVELS[id], aero, aiAssistsOf(game.setup), tyreTemp(), compound());
   // the recorded ghost to race on this circuit in this car class (game.setup.ghost): the one loaded from a file (else
   // your best), or your best; start = the standing-start lap (your lap 1 from the grid), else the flying lap. (An AI
-  // pick races a live car instead: game.rival.)
-  function activeGhost(modified = carModified(), start = false) {
+  // pick races a live car instead: game.rival.) Only laps on the same straight-mode zones.
+  function activeGhost(modified = carModified(), start = false, z = zones()) {
     const id = track().id;
-    if (game.setup.ghost === 'loaded' && ghostOf(game.loadedGhosts, id, modified)) return ghostOf(game.loadedGhosts, id, modified, start);
-    return ghostOf(game.ghosts, id, modified, start);
+    if (game.setup.ghost === 'loaded' && ghostOf(game.loadedGhosts, id, modified, false, z)) return ghostOf(game.loadedGhosts, id, modified, start, z);
+    return ghostOf(game.ghosts, id, modified, start, z);
   }
   const showLivery = g => { if (g) model.setLivery({ ...game.garage.livery, ...(g.livery || {}) }); };
   const showInputs = () => inputs.show(!!game.rival && game.prefs.ghostInputs, game.rival ? `${game.rival.driver.code} · ${game.rival.levelId.toUpperCase()}` : '');
@@ -51,12 +54,12 @@ export function createTimeTrial({ game, track, saveSetup, switchTrack }) {
   let aiPending = false;
   function renderRow() {
     if (game.setup.type !== 'trial') return;          // (the row is only shown for a time trial)
-    const id0 = track().id, mod = carModified(), mine = ghostOf(game.ghosts, id0, mod), loaded = ghostOf(game.loadedGhosts, id0, mod);
+    const id0 = track().id, mod = carModified(), z = zones(), mine = ghostOf(game.ghosts, id0, mod, false, z), loaded = ghostOf(game.loadedGhosts, id0, mod, false, z);
     const aero = raceAero(game.setup).activeAero, ready = aiLapsReady(aero);
     if (!ready && !aiPending) { aiPending = true; setTimeout(() => { for (const id in LEVELS) aiLapOf(id, aero); aiPending = false; renderRow(); }, 30); }
     const ai = ready ? Object.fromEntries(Object.keys(LEVELS).map(id => [id, aiLapOf(id, aero)])) : {}, D = ghostDriver(), pick = game.setup.ghost;
-    const mineStart = ghostOf(game.ghosts, id0, mod, true);
-    const rows = [['mine', 'Your best', [mod ? 'modified car' : '', mineStart ? 'lap 1 from the grid ' + fmtTime(mineStart.time) : ''].filter(Boolean).join(' · '), mine,
+    const mineStart = ghostOf(game.ghosts, id0, mod, true, z);
+    const rows = [['mine', 'Your best', [mod ? 'modified car' : '', z ? 'your zones' : '', mineStart ? 'lap 1 from the grid ' + fmtTime(mineStart.time) : ''].filter(Boolean).join(' · '), mine,
       'No lap yet: your first clean lap']];
     if (loaded) rows.push(['loaded', 'Loaded', loaded.driver && loaded.driver !== 'You' ? loaded.driver : 'from a file', loaded, '']);
     for (const [id, label] of RACE_SETUP.choices.ai) rows.push([id, label, D.name, ai[id], ready ? 'no clean lap' : 'timing…']);
@@ -79,9 +82,9 @@ export function createTimeTrial({ game, track, saveSetup, switchTrack }) {
 
   // EXPORT: your best here as a small gzipped file (compact JSON inside: ghost.js packGhost), to send to a friend
   $('ghostExport').onclick = async () => {
-    const id = track().id, mod = carModified(), g = ghostOf(game.ghosts, id, mod); if (!g) return;
+    const id = track().id, mod = carModified(), z = zones(), g = ghostOf(game.ghosts, id, mod, false, z); if (!g) return;
     const a = document.createElement('a');   // (your standing-start lap goes with it, for your friend's lap 1)
-    a.href = URL.createObjectURL(new Blob([await packGhost(g, ghostOf(game.ghosts, id, mod, true))], { type: 'application/gzip' }));
+    a.href = URL.createObjectURL(new Blob([await packGhost(g, ghostOf(game.ghosts, id, mod, true, z))], { type: 'application/gzip' }));
     a.download = `gridline-ghost-${id}-${fmtTime(g.time).replace(/[:.]/g, '-')}.json.gz`;
     a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
@@ -94,14 +97,16 @@ export function createTimeTrial({ game, track, saveSetup, switchTrack }) {
   function load(g) {
     if (!g) { Hud.toast('That file is not a Gridline ghost lap'); return; }
     const { standing, ...lap } = g;
-    dropGhost(game.loadedGhosts, g.circuit, g.modified);        // one friend's laps at a time per class
+    dropGhost(game.loadedGhosts, g.circuit, g.modified, g.zones ?? '');   // one friend's laps at a time per class and layout
     for (const x of [lap, standing]) if (x) keepGhost(game.loadedGhosts, x);
     saveLoadedGhosts();
     if (g.circuit !== track().id) switchTrack(g.circuit);
     game.setup.ghost = 'loaded'; saveSetup();
-    Hud.toast(`Ghost loaded: ${fmtTime(g.time)} on ${SIM.CIRCUITS[g.circuit].name}`);
+    // (a lap on other straight-mode zones than yours there is kept, and raced once your zones match it)
+    const other = (g.zones ?? '') !== zones() ? ((g.zones ?? '') ? ', driven on other straight-mode zones (AERO ZONES)' : ', driven on the automatic straight-mode zones') : '';
+    Hud.toast(`Ghost loaded: ${fmtTime(g.time)} on ${SIM.CIRCUITS[g.circuit].name}${other}`, other ? 'warn' : undefined, other ? 6 : undefined);
   }
-  $('ghostClear').onclick = () => { dropGhost(game.loadedGhosts, track().id, carModified()); saveLoadedGhosts(); renderRow(); };
+  $('ghostClear').onclick = () => { dropGhost(game.loadedGhosts, track().id, carModified(), zones()); saveLoadedGhosts(); renderRow(); };
 
   return {
     model, renderRow, aiLapOf,
@@ -113,8 +118,9 @@ export function createTimeTrial({ game, track, saveSetup, switchTrack }) {
       const s = game.setup, trial = s.type === 'trial', pick = trial ? aiPick() : null;
       game.trial = trial; recorder.stop();
       game.rival = pick ? createRival(track(), pick, LEVELS[pick], { activeAero: race.activeAero, aiAssists: aiAssistsOf(game.setup), tyreTemp: !!race.tyreTemp, compound: compound() }) : null;
-      game.ghost = trial && !pick ? activeGhost(player.spec.modified) : null;            // laps 2..
-      game.ghostStart = trial && !pick ? activeGhost(player.spec.modified, true) : null; // lap 1, from the grid
+      const z = zoneTag(race.track, race.activeAero);
+      game.ghost = trial && !pick ? activeGhost(player.spec.modified, false, z) : null;       // laps 2..
+      game.ghostStart = trial && !pick ? activeGhost(player.spec.modified, true, z) : null;   // lap 1, from the grid
       Hud.setDelta(null, trial); model.setVisible(false);
       if (game.rival) { const d = game.rival.driver; model.setLivery({ ...game.garage.livery, color: d.color, accent: d.accent }); }
       else showLivery(game.ghostStart || game.ghost);
@@ -132,12 +138,13 @@ export function createTimeTrial({ game, track, saveSetup, switchTrack }) {
     // your lap just ended (EV.LAP): keep it when it is your best valid one here in this car class (c.lap 2 = lap 1 just
     // done: from the grid at lights out, a standing start); in a time trial a new best is raced from then on
     onLap(race, c, e) {
-      const g = recorder.lap(e.time, { circuit: race.track.id, modified: c.spec.modified, driver: 'You', date: Date.now(), start: c.lap === 2,
+      const z = zoneTag(race.track, race.activeAero);
+      const g = recorder.lap(e.time, { circuit: race.track.id, modified: c.spec.modified, ...(z ? { zones: z } : {}), driver: 'You', date: Date.now(), start: c.lap === 2,
         livery: { color: game.garage.livery.color, accent: game.garage.livery.accent } });
       recorder.start(c.lapStart);
       if (!e.invalid && g && keepGhost(game.ghosts, g)) {
         saveGhosts();
-        if (game.trial && !game.rival && activeGhost(c.spec.modified, g.start) === g) { game[g.start ? 'ghostStart' : 'ghost'] = g; showLivery(g); }
+        if (game.trial && !game.rival && activeGhost(c.spec.modified, g.start, z) === g) { game[g.start ? 'ghostStart' : 'ghost'] = g; showLivery(g); }
       }
     },
     // every frame: the see-through car and the live delta

@@ -112,3 +112,23 @@ test('the store keeps the best per circuit and class; files round-trip; broken d
     assert.equal(readGhostFile(bad, S.CIRCUITS), null);
   assert.deepEqual(loadGhosts('{"elkmoor": {"stock": {"v": 1}}}', S.CIRCUITS), {});
 });
+
+test('ghosts on your own straight-mode zones are kept apart from the automatic zones\' (and from other zones)', () => {
+  const { ghost: g0 } = recordLap(), g = { ...g0, start: false }, store = {};
+  assert.ok(keepGhost(store, g));
+  assert.ok(keepGhost(store, { ...g, time: g.time + 5, zones: '100-600' }), 'a slower lap on other zones is still kept: it is their best');
+  assert.ok(keepGhost(store, { ...g, time: g.time + 3, zones: 'none', start: true }));
+  assert.equal(ghostOf(store, g.circuit, false).time, g.time);
+  assert.equal(ghostOf(store, g.circuit, false, false, '100-600').time, g.time + 5);
+  assert.equal(ghostOf(store, g.circuit, false, true, 'none').time, g.time + 3);
+  assert.equal(ghostOf(store, g.circuit, false, false, '200-700'), null);
+  const back = loadGhosts(storeJson(store), S.CIRCUITS);
+  assert.equal(ghostOf(back, g.circuit, false, false, '100-600').zones, '100-600', 'saved and read back in its slot');
+  assert.equal(ghostOf(back, g.circuit, false, true, 'none').time, g.time + 3);
+  dropGhost(back, g.circuit, false, '100-600');
+  assert.equal(ghostOf(back, g.circuit, false, false, '100-600'), null); assert.ok(ghostOf(back, g.circuit, false), 'the others stay');
+  // a file keeps its zones (its standing lap too)
+  const f = readGhostFile(ghostFile({ ...g, zones: '100-600' }, { ...g, start: true }), S.CIRCUITS);
+  assert.equal(f.zones, '100-600'); assert.equal(f.standing.zones, '100-600');
+  assert.equal(readGhostFile(ghostFile({ ...g, zones: 'x; y' }), S.CIRCUITS), null, 'broken zones: not a ghost');
+});

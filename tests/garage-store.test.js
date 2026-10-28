@@ -39,6 +39,11 @@ test('lap records: per circuit, stock and modified apart, only improvements', ()
   assert.equal(recordLap(r, 'elkmoor', true, 31), true, 'a modified lap never touches the stock record');
   assert.deepEqual(r.elkmoor, { stock: 33.1, modified: 31 });
   assert.equal(recordLap(r, 'marrow', false, Infinity), false);
+  // your own straight-mode zones: a record of their own, the automatic one untouched
+  assert.equal(recordLap(r, 'elkmoor', false, 30, '100-600'), true);
+  assert.equal(recordLap(r, 'elkmoor', false, 29, 'none'), true);
+  assert.deepEqual(r.elkmoor, { stock: 33.1, modified: 31, 'stock@100-600': 30, 'stock@none': 29 });
+  assert.deepEqual(loadRecords(JSON.stringify({ ...r, harrow: { 'stock@x': 20, 'fast': 1 } })), { elkmoor: r.elkmoor }, 'saved and read back; strange classes dropped');
 });
 
 test('orbit camera: turns all the way round, stays above the floor, zoom and pan are bounded', () => {

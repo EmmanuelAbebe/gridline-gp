@@ -1,7 +1,8 @@
 // The player's car as data: livery (looks), race setup and open mods (physics, SIM SETUP / MODS), validated on load,
-// and the lap records per circuit, kept apart for stock and modified cars. Pure functions (no DOM, no storage:
+// and the lap records per circuit, kept apart for stock and modified cars and per straight-mode zone layout. Pure functions (no DOM, no storage:
 // main.js reads / writes localStorage through Settings), tested in tests/garage-store.test.js.
 import { SIM } from '../sim/index.js';
+import { lapClass, LAP_CLASS } from './aero-zones.js';
 
 const parse = json => { try { const v = JSON.parse(json); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } catch (e) { return {}; } };
 const PLAYER = SIM.DRIVERS.find(d => d.player);
@@ -57,21 +58,22 @@ export function loadGarage(json) {
 export const playerDriver = g => ({ ...PLAYER, color: g.livery.color, accent: g.livery.accent, number: g.livery.number });
 export const playerSpec = g => SIM.carSpec(g.setup, g.mods);
 
-// ---- lap records: { [circuit id]: { stock?: seconds, modified?: seconds } } ----
+// ---- lap records: { [circuit id]: { [class]: seconds } }, class = stock / modified + the zone layout (aero-zones.js
+// lapClass: 'stock', 'modified', 'stock@120-610,...') ----
 export function loadRecords(json) {
   const s = parse(json), out = {};
   for (const [id, r] of Object.entries(s)) {
     if (!Object.hasOwn(SIM.CIRCUITS, id) || !r || typeof r !== 'object') continue;
     const keep = {};
-    for (const k of ['stock', 'modified']) if (Number.isFinite(r[k]) && r[k] > 0) keep[k] = r[k];
+    for (const [k, t] of Object.entries(r)) if (LAP_CLASS.test(k) && Number.isFinite(t) && t > 0) keep[k] = t;
     if (Object.keys(keep).length) out[id] = keep;
   }
   return out;
 }
-// a valid lap: returns true when it beats the record for this circuit and class (and stores it)
-export function recordLap(records, circuit, modified, time) {
+// a valid lap: returns true when it beats the record for this circuit, class and zone layout (and stores it)
+export function recordLap(records, circuit, modified, time, zones = '') {
   if (!(time > 0) || !Number.isFinite(time)) return false;
-  const k = modified ? 'modified' : 'stock', r = (records[circuit] ||= {});
+  const k = lapClass(modified, zones), r = (records[circuit] ||= {});
   if (r[k] !== undefined && r[k] <= time) return false;
   r[k] = time;
   return true;

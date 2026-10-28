@@ -16,3 +16,12 @@ export const withZones = (store, id, list) => {
   if (list) out[id] = list.map(z => ({ from: Math.round(z.from * 10) / 10, to: Math.round(z.to * 10) / 10 })); else delete out[id];
   return out;
 };
+
+// ---- laps kept apart per zone layout (2026-10-28, user: "keep records and ghosts apart per zone layout") ----
+// The layout a lap was driven on: '' = the automatic zones (or active aero off: the zones do nothing then), else the
+// track's aeroKey ('none' or the zones' metres, e.g. '120-610,1830-2240').
+export const zoneTag = (track, activeAero) => activeAero && track.aeroKey && track.aeroKey !== 'auto' ? track.aeroKey : '';
+// a lap's class for records, ghosts and sector bests: the car (stock / modified) and the zone layout ('stock',
+// 'modified@120-610,...'); the automatic zones keep the old names, so laps saved before this stay where they were
+export const lapClass = (modified, zones = '') => (modified ? 'modified' : 'stock') + (zones ? '@' + zones : '');
+export const LAP_CLASS = /^(stock|modified)(@[0-9,-]+|@none)?$/;

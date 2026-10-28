@@ -1,8 +1,10 @@
 // Ghost laps and time trial (pure: no DOM, no Three.js; main.js stores them through Settings, tests/ghost.test.js).
 // A ghost = one valid lap: the car's pose sampled at GHOST.hz from the line to the line, plus the lap time at every
-// GHOST.split track samples (for the live delta). Kept per circuit and car class (stock / modified, like the lap
-// records): your best, and one loaded from a file (a friend's).
+// GHOST.split track samples (for the live delta). Kept per circuit, car class (stock / modified, like the lap records)
+// and straight-mode zone layout (`zones`: aero-zones.js zoneTag, '' = automatic): your best, and one loaded from a file
+// (a friend's).
 import { SIM } from '../sim/index.js';
+import { lapClass, LAP_CLASS } from './aero-zones.js';
 
 export const GHOST = Object.freeze({ hz: 20, split: 20, version: 1, maxFrames: 20 * 600 });
 
@@ -75,25 +77,26 @@ export function expandGhost(c) {
   return { ...meta, frames, splits };
 }
 
-// ---- storage: { [circuit]: { stock?, modified?, 'stock:start'?, 'modified:start'? } } (compact JSON), the same for the
-// loaded ones. Two bests per car class (2026-10-21, user: their ghost and they started out of step): the fastest lap
+// ---- storage: { [circuit]: { [class]?, [class + ':start']? } } (compact JSON; class = aero-zones.js lapClass: 'stock',
+// 'modified', 'stock@120-610,...'), the same for the loaded ones. Two bests per car class (2026-10-21, user: their ghost and they started out of step): the fastest lap
 // from a standing start (lap 1, from the grid at lights out: `start: true`) and the fastest flying lap. Lap 1 of a race
 // is raced against the first, every later lap against the second.
 export function validGhost(g, circuits) {
   if (!g || typeof g !== 'object' || g.v !== GHOST.version || !(g.time > 0) || !Object.hasOwn(circuits, g.circuit)) return false;
   if ((g.physics ?? 1) !== SIM.TUNING.PHYSICS) return false;         // (driven on other physics: it doesn't compare)
+  if (g.zones !== undefined && !(typeof g.zones === 'string' && LAP_CLASS.test(lapClass(false, g.zones)))) return false;
   if (!Array.isArray(g.frames) || g.frames.length % 3 || g.frames.length < 9 || !g.frames.every(Number.isFinite)) return false;
   return Array.isArray(g.splits) && g.hz > 0 && g.split > 0;
 }
 // a lap from the grid: the car still in its first two frames (saves from before the `start` flag)
 const fromStill = g => Math.hypot(g.frames[3] - g.frames[0], g.frames[4] - g.frames[1]) < 0.1;   // (from still: ~1 cm; flying: > 0.7 m)
-const SLOTS = ['stock', 'modified', 'stock:start', 'modified:start'];
-const slot = (modified, start) => (modified ? 'modified' : 'stock') + (start ? ':start' : '');
+const slot = (modified, start, zones = '') => lapClass(modified, zones) + (start ? ':start' : '');
+const isSlot = k => LAP_CLASS.test(k.replace(/:start$/, ''));
 export function loadGhosts(json, circuits) {
   let s; try { s = JSON.parse(json); } catch (e) { return {}; }
   const out = {};
-  if (s && typeof s === 'object') for (const [id, r] of Object.entries(s)) for (const k of SLOTS) {
-    const g = r && expandGhost(r[k]);
+  if (s && typeof s === 'object') for (const [id, r] of Object.entries(s)) for (const k of r && typeof r === 'object' ? Object.keys(r) : []) {
+    const g = isSlot(k) && expandGhost(r[k]);
     if (!validGhost(g, circuits) || g.circuit !== id) continue;
     g.start = typeof g.start === 'boolean' ? g.start : fromStill(g);
     keepGhost(out, g);                             // (an old save's standing lap moves to its own slot)
@@ -101,17 +104,17 @@ export function loadGhosts(json, circuits) {
   return out;
 }
 export const storeJson = store => JSON.stringify(store, (k, v) => v && v.frames && v.splits ? compactGhost(v) : v);
-// start: the standing-start best (lap 1), else the flying one
-export const ghostOf = (store, circuit, modified, start = false) => store[circuit]?.[slot(modified, start)] ?? null;
+// start: the standing-start best (lap 1), else the flying one; zones: the layout (zoneTag)
+export const ghostOf = (store, circuit, modified, start = false, zones = '') => store[circuit]?.[slot(modified, start, zones)] ?? null;
 // keeps `g` when it is the first or faster in its slot; true when it was kept
 export function keepGhost(store, g) {
-  const k = slot(g.modified, g.start), old = store[g.circuit]?.[k];
+  const k = slot(g.modified, g.start, g.zones), old = store[g.circuit]?.[k];
   if (old && old.time <= g.time) return false;
   (store[g.circuit] ||= {})[k] = g;
   return true;
 }
-// both laps of a class
-export function dropGhost(store, circuit, modified) { if (store[circuit]) for (const k of [slot(modified, false), slot(modified, true)]) delete store[circuit][k]; }
+// both laps of a class on a zone layout
+export function dropGhost(store, circuit, modified, zones = '') { if (store[circuit]) for (const k of [slot(modified, false, zones), slot(modified, true, zones)]) delete store[circuit][k]; }
 
 // ---- files (export / import a ghost: send your lap to a friend; the same bytes would go to a server) ----
 // ghostFile = compact JSON text: a lap, and with it your standing-start lap there (`standing`) when you have one;
@@ -128,7 +131,7 @@ export function readGhostFile(text, circuits) {
   const out = expandGhost(lap), st = standing && expandGhost(standing);
   if (!validGhost(out, circuits)) return null;
   out.start = typeof out.start === 'boolean' ? out.start : fromStill(out);
-  if (validGhost(st, circuits) && st.circuit === out.circuit && !out.start) out.standing = { ...st, start: true, modified: out.modified };
+  if (validGhost(st, circuits) && st.circuit === out.circuit && !out.start) out.standing = { ...st, start: true, modified: out.modified, zones: out.zones };
   return out;
 }
 const pipe = async (bytes, stream) => new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());

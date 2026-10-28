@@ -45,7 +45,7 @@ import { Debris } from './debris.js';
 import { loadSetup, loadPrefs, steerRate, raceFormat, raceWear, raceAero, buildField, playerSlotOf, assistsOf, aiAssistsOf, setupSummary } from './setup-store.js';
 import { messageFor, SAY, boxMessage } from './race-messages.js';
 import { loadButtonMaps } from './button-map.js';
-import { loadAeroZones, zonesFor, withZones } from './aero-zones.js';
+import { loadAeroZones, zonesFor, withZones, zoneTag, lapClass } from './aero-zones.js';
 import { createZoneEditor } from './zone-editor.js';
 import { bindSettings } from './settings-binding.js';
 import { installDebug } from './debug.js';
@@ -191,9 +191,11 @@ function onPlayerEvent(c, e) {
       Hud.setLapTimes(e.time, c.bestLap, e.invalid);
       trial.onLap(race, c, e);                // the ghost: a new best lap becomes yours
       sectors.onLap(race, c, e);              // sector times, bests, the session's laps
-      if (!e.invalid && recordLap(game.records, race.track.id, c.spec.modified, e.time)) {
+      const zones = zoneTag(race.track, race.activeAero);   // (laps on your own straight-mode zones are kept apart)
+      if (!e.invalid && recordLap(game.records, race.track.id, c.spec.modified, e.time, zones)) {
         Settings.set(CONFIG.storageKeys.records, JSON.stringify(game.records)); describeRecord();
-        showMessage({ toast: `New lap record${c.spec.modified ? ' (modified car)' : ''}  ${fmtTime(e.time)}`, kind: 'purple' });
+        const of = [c.spec.modified && 'modified car', zones && 'your zones'].filter(Boolean).join(', ');
+        showMessage({ toast: `New lap record${of ? ` (${of})` : ''}  ${fmtTime(e.time)}`, kind: 'purple' });
       }
       if (c.lap === race.laps && !c.finished) announceFinalLap();
       break;
@@ -382,9 +384,10 @@ const describeSetup = () => {
 // the start menu's intro line (a time trial is you alone)
 const describeEvent = () => { const trial = game.setup.type === 'trial'; Screens.describeEvent(track, trial ? 1 : game.setup.cars, playerSlotOf(game.setup.cars, trial)); };
 function describeRecord() {
-  const r = game.records[track.id] || {}, parts = [];
-  if (r.stock) parts.push('record ' + fmtTime(r.stock));
-  if (r.modified) parts.push('modified ' + fmtTime(r.modified));
+  // (on the zones the next race would use: yours there, else the automatic ones)
+  const r = game.records[track.id] || {}, parts = [], zones = zoneTag(track, raceAero(game.setup).activeAero), mine = zones ? ' on your zones' : '';
+  if (r[lapClass(false, zones)]) parts.push('record' + mine + ' ' + fmtTime(r[lapClass(false, zones)]));
+  if (r[lapClass(true, zones)]) parts.push('modified' + mine + ' ' + fmtTime(r[lapClass(true, zones)]));
   Screens.trackInfo(track, SIM.CIRCUITS[track.id].blurb, parts.join(' · '));
   trial.renderRow();
 }
@@ -464,7 +467,7 @@ const zoneEditor = createZoneEditor({ track: () => track, zones: () => zonesFor(
     Settings.set(CONFIG.storageKeys.aeroZones, JSON.stringify(game.aeroZones));
     SIM.setAeroZones(track, list);
     minimap = createMinimap($('map'), track);
-    trial.renderRow();                 // (the AI ghosts' times on these zones)
+    describeRecord();                  // (your record on these zones; the AI ghosts' times: trial.renderRow)
   } });
 function openZones() {
   if (game.phase !== PHASE.MENU || zoneEditor.open) return;
@@ -493,7 +496,7 @@ function saveSetup() {
   Settings.set(CONFIG.storageKeys.race, JSON.stringify(game.setup));
   describeEvent();
   describeSetup();
-  trial.renderRow();                // (the time trial's ghost list: the type, circuit or active aero changed)
+  describeRecord();                 // (your record and the time trial's ghost list: the type, circuit or active aero changed)
 }
 const renderSetup = Screens.bindSetup(game.setup, SIM.DRIVERS.length, Object.values(SIM.CIRCUITS), saveSetup);
 

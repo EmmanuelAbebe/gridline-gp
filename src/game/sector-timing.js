@@ -12,19 +12,21 @@ import { ghostOf } from './ghost.js';
 import { ghostDriver } from './ai-ghosts.js';
 import { createTraceRecorder, traceFromAi, traceFromGhost, miniTimes, sectorTimes, countsMini, countsSector, colourOf, emptyBests,
   keepBests, referenceOf, bestsOf, putBests, loadSectorStore, storeSectorsJson, timeAt } from './lap-analysis.js';
+import { zoneTag, lapClass } from './aero-zones.js';
 
 export function createSectorTiming({ game, aiLapOf }) {
   const store = loadSectorStore(Settings.get(CONFIG.storageKeys.sectors));
   const save = () => Settings.set(CONFIG.storageKeys.sectors, storeSectorsJson(store));
   let S = null;              // this race: { track, L, cls, bests, candidates, ref, laps, session, rec, mini }
 
-  // your all-time bests here; the first time (or after a layout change) from your saved ghost lap, if any
-  function bestsFor(track, L, modified) {
-    const cls = modified ? 'modified' : 'stock';
+  // your all-time bests here (per car class and straight-mode zone layout: zones = zoneTag); the first time (or after a
+  // layout change) from your saved ghost lap, if any
+  function bestsFor(track, L, modified, zones = '') {
+    const cls = lapClass(modified, zones);
     let b = bestsOf(store, track.id, cls, L);
     if (!b) {
       b = emptyBests(L);
-      const g = ghostOf(game.ghosts, track.id, modified), gs = ghostOf(game.ghosts, track.id, modified, true);
+      const g = ghostOf(game.ghosts, track.id, modified, false, zones), gs = ghostOf(game.ghosts, track.id, modified, true, zones);
       for (const x of [g, gs]) { const tr = x && traceFromGhost(x, track.N); if (tr) keepBests(b, L, tr); }
       putBests(store, track.id, cls, b);
     }
@@ -32,7 +34,7 @@ export function createSectorTiming({ game, aiLapOf }) {
   }
   // the laps to compare with: yours, the ALIEN's, a loaded one (another player's)
   function candidatesFor(race, modified) {
-    const id = race.track.id, alien = aiLapOf('alien', race.activeAero), loaded = ghostOf(game.loadedGhosts, id, modified);
+    const id = race.track.id, alien = aiLapOf('alien', race.activeAero), loaded = ghostOf(game.loadedGhosts, id, modified, false, zoneTag(race.track, race.activeAero));
     return [
       S.bests.best && { id: 'mine', name: 'Your best', trace: S.bests.best },
       alien && { id: 'alien', name: `ALIEN · ${ghostDriver().code}`, trace: traceFromAi(alien) },
@@ -58,8 +60,8 @@ export function createSectorTiming({ game, aiLapOf }) {
     store, bestsFor,
     // a new race: the layout, your bests, the reference; nothing recorded until lights out
     start(race, player) {
-      const track = race.track, L = SIM.buildSectors(track), bests = bestsFor(track, L, player.spec.modified);
-      S = { track, L, cls: player.spec.modified ? 'modified' : 'stock', bests, laps: [], session: emptyBests(L), rec: createTraceRecorder(track.N), mini: 0, modified: player.spec.modified };
+      const track = race.track, L = SIM.buildSectors(track), zones = zoneTag(track, race.activeAero), bests = bestsFor(track, L, player.spec.modified, zones);
+      S = { track, L, cls: lapClass(player.spec.modified, zones), bests, laps: [], session: emptyBests(L), rec: createTraceRecorder(track.N), mini: 0, modified: player.spec.modified };
       S.candidates = candidatesFor(race, player.spec.modified); S.ref = referenceOf(L, S.candidates);
       Hud.sectorSetup(L); showRef();
     },
@@ -91,7 +93,7 @@ export function createSectorTiming({ game, aiLapOf }) {
     // (activeAero: the setup's, for the ALIEN's lap)
     menuData(track, modified, activeAero) {
       const race = { track, activeAero };
-      const L = SIM.buildSectors(track), bests = bestsFor(track, L, modified);
+      const L = SIM.buildSectors(track), bests = bestsFor(track, L, modified, zoneTag(track, activeAero));
       const keep = S; S = { track, L, bests, laps: [], session: emptyBests(L), modified };
       S.candidates = candidatesFor(race, modified); S.ref = referenceOf(L, S.candidates);
       const out = S; S = keep; return out;
