@@ -443,7 +443,7 @@ Tunables live in data tables (config modules), not inline in the logic.
    - `car.js` (locate, createCar, resolveWalls, updateSurface; car has `gear`, `rpm`, `autoShift`, `slip`, `brake`,
      and `trailLat`/`trailT` per track sample = its wake), `race.js` (formats, createRace, progress, lap +
      flag rules, checkpoints, order, gapTo), `motion.js` (afterMove), `driving.js` (drivePlayer, driveAI),
-     `collide.js` (cars are capsules `CONTACT` rear 1.5 / front 2.3 m, radius 1.05: side by side fits at 2.1 m;
+     `collide.js` (cars are rounded rectangles since 2026-10-28, `CONTACT` rear 1.5 / front 2.3 m + radius 0.95 (the real 1.9 m width), corners 0.35: side by side fits at 1.9 m; until then capsules, whose round ends shoved a car hit on a rear corner ~1.8 m/s sideways: user "spins out the moment it touches another car"; measured with a delayed-reaction driver at 98 % of the grip, hit from behind in a braking zone: 26 % spun before, 8 % after, side swipes ~0 both;
      rigid-body impulse at the contact point (point velocities incl. yaw, effective mass incl. rotation scaled by `spin` 0.3), restitution 0.1, changes v, vy and yaw; `carGap(a, b)`. 2026-10-18 user: crashes "too violent": the old impulse ignored rotation, a 15 m/s corner-to-corner tap yawed a car at 3.6 rad/s, now 1.5; contact camera shake lighter than walls).
    - Car state: `x, z, h`, `v`, `idx` (nearest sample), `lat`, `lap`. `progress(race, c)` = `lap * N + idx`.
      Since 2026-10-19 `createCar` declares every field, grouped by owning module (pit.js supplies `pitState(slot)`);

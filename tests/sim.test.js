@@ -94,6 +94,18 @@ test('contact: an off-centre tap turns the cars only as much as their inertia al
   assert.ok(b.v - 45 < 0.6 * 15, `shove ${(b.v - 45).toFixed(1)} m/s`);
 });
 
+test('contact: hit from behind on a rear corner, the car is shoved forward, hardly sideways (square ends, not round)', () => {
+  // (as capsules with round ends this shoved it ~25° sideways and spun cars hit in braking zones)
+  const race = S.createRace(1, { drivers: S.DRIVERS.slice(0, 2) }), [a, b] = race.cars, C = S.CONTACT;
+  a.h = b.h = 0; a.x = b.x + C.front + C.rear + 2 * C.radius - 0.1; a.z = b.z + 0.9; a.v = 40; b.v = 49;   // b runs into a's left rear
+  for (const c of [a, b]) { c.vy = 0; c.yawRate = 0; }
+  S.collide(race);
+  const dv = a.v - 40;
+  assert.ok(dv > 3, `shoved ${dv.toFixed(2)} m/s`);
+  assert.ok(Math.abs(a.vy) < 0.05 * dv, `sideways ${a.vy.toFixed(3)} m/s`);
+  assert.ok(Math.abs(a.yawRate) < 0.8 && Math.abs(b.yawRate) < 0.5, `yaw ${a.yawRate.toFixed(2)} / ${b.yawRate.toFixed(2)} rad/s`);   // (the capsules: 0.55 + 1.8 m/s sideways / 0.85)
+});
+
 test('contact: cars fit side by side a car width apart; a side swipe pushes sideways', () => {
   const race = S.createRace(1, { drivers: S.DRIVERS.slice(0, 2) }), [a, b] = race.cars;
   a.h = b.h = 0; a.v = b.v = 50; b.x = a.x; b.z = a.z + 2 * S.CONTACT.radius + 0.2;   // +z is to the right at h = 0

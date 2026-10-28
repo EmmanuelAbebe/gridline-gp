@@ -14,11 +14,11 @@ export const TUNING = Object.freeze({
   WHEEL_RADIUS: 0.36, // driven wheel: gearing and wheel spin
 });
 
-// Car contact (collide.js): each car is a capsule from `rear` to `front` m along its heading (from the car's origin,
-// between the axles), `radius` wide each side: about the bodywork. restitution = bounce of the closing speed, spin =
+// Car contact (collide.js): each car is a rounded rectangle from `rear` + radius behind to `front` + radius ahead of its
+// origin (between the axles), `radius` wide each side, corners rounded by `corner`: about the bodywork. restitution = bounce of the closing speed, spin =
 // how much an off-centre hit turns the car (0..1 of the free-body rotation).
 // nose: a touch more than `nose` m ahead of the car's centre hits the front wing; damageHard = how hard a car feels
-export const CONTACT = Object.freeze({ rear: 1.5, front: 2.3, radius: 1.05, restitution: 0.1, spin: 0.3, nose: 1.2, damageHard: 0.8 });
+export const CONTACT = Object.freeze({ rear: 1.5, front: 2.3, radius: 0.95, corner: 0.35, restitution: 0.1, spin: 0.3, nose: 1.2, damageHard: 0.8 });
 
 // The AI drivers (driving.js): they drive the same car as the player, through steering, throttle and brake.
 export const AI = Object.freeze({
