@@ -14,11 +14,33 @@ export const TUNING = Object.freeze({
   WHEEL_RADIUS: 0.36, // driven wheel: gearing and wheel spin
 });
 
-// Car contact (collide.js): each car is a rounded rectangle from `rear` + radius behind to `front` + radius ahead of its
-// origin (between the axles), `radius` wide each side, corners rounded by `corner`: about the bodywork. restitution = bounce of the closing speed, spin =
-// how much an off-centre hit turns the car (0..1 of the free-body rotation).
-// nose: a touch more than `nose` m ahead of the car's centre hits the front wing; damageHard = how hard a car feels
-export const CONTACT = Object.freeze({ rear: 1.5, front: 2.3, radius: 0.95, corner: 0.35, restitution: 0.1, spin: 0.3, nose: 1.2, damageHard: 0.8 });
+// Car contact (collide.js, 2026-10-28; user: "real physics collision … a hit box relatively close to the body of the
+// car"). HITBOX = the car seen from above as convex parts, [along, right] m from the car's origin (under the middle of
+// the wheelbase), measured from car.glb (tests/models.test.js holds them to its body and tyres): front wing (tapering to
+// the nose tip), nose, tyres, sidepods + cockpit, engine cover, the rear (diffuser, crash structure, rear wing). A part
+// with `mirror` has a twin on the left. kind: what it is made of and what breaks: wing (front wing damage), tyre (rubber:
+// grips and bounces more; a hard hit bends the suspension), body (carbon). Contacts mix mu as √(a·b) and the bounce as
+// the larger (as Box2D). 5.44 m long, 1.88 m wide (the 2026 rules: 1.90 m).
+export const HITBOX = Object.freeze({
+  parts: [
+    { name: 'front wing', kind: 'wing', pts: [[2.05, -0.9], [2.6, -0.9], [2.75, -0.68], [2.85, -0.45], [2.95, -0.19], [2.95, 0.19], [2.85, 0.45], [2.75, 0.68], [2.6, 0.9], [2.05, 0.9]] },
+    { name: 'nose', kind: 'body', pts: [[1.08, -0.26], [2.05, -0.22], [2.05, 0.22], [1.08, 0.26]] },
+    { name: 'front tyre', kind: 'tyre', mirror: true, pts: [[1.34, 0.6], [2.06, 0.6], [2.06, 0.93], [1.34, 0.93]] },
+    { name: 'sidepods', kind: 'body', pts: [[-0.75, -0.68], [-0.3, -0.74], [0.65, -0.85], [1.08, -0.87], [1.08, 0.87], [0.65, 0.85], [-0.3, 0.74], [-0.75, 0.68]] },
+    { name: 'engine cover', kind: 'body', pts: [[-1.45, -0.48], [-0.75, -0.58], [-0.75, 0.58], [-1.45, 0.48]] },
+    { name: 'rear tyre', kind: 'tyre', mirror: true, pts: [[-2.06, 0.51], [-1.34, 0.51], [-1.34, 0.94], [-2.06, 0.94]] },
+    { name: 'rear', kind: 'body', pts: [[-2.5, -0.57], [-1.45, -0.57], [-1.45, 0.57], [-2.5, 0.57]] },
+  ],
+  mu: Object.freeze({ body: 0.3, wing: 0.3, tyre: 0.8 }),
+  restitution: Object.freeze({ body: 0.1, wing: 0.05, tyre: 0.3 }),
+  // a front wing is built to break: per touch it pushes the other car by at most this (m/s, per unit mass), then it
+  // gives way (passes through, damaged) and the nose / tyres behind it take the hit
+  wingStrength: 0.5,
+});
+// The contact solver: `iterations` passes of impulses over a pair's contact points; positions pushed apart along the
+// deepest overlap (+ `slop` m), at most `pushes` times while parts still overlap. Real yaw inertia (CHASSIS.gyration). damageHard = how hard a car feels to hit (walls 1);
+// a tyre hit above `wheelFrom` m/s also bends the suspension (WEAR.damage.susp per m/s over it).
+export const CONTACT = Object.freeze({ iterations: 4, pushes: 3, slop: 0.001, damageHard: 0.8, wheelFrom: 4 });
 
 // The AI drivers (driving.js): they drive the same car as the player, through steering, throttle and brake.
 export const AI = Object.freeze({
@@ -38,7 +60,7 @@ export const AI = Object.freeze({
   lockThrottle: 0.25,   // throttle at most while the steering is at its lock or the front slides
   // moving across to a new line (racing line, passing): rate 1/s, at most lineSlope m per m driven and lineSpeed m/s
   lineRate: 2, lineSlope: 0.06, lineSpeed: 2.5, cleanFollow: 3,   // (× in clean air, 2026-10-24: driving.js)
-  // racecraft (m): bodies touch at 2 × CONTACT.radius sideways. A car within followRange ahead and closer than sideGap
+  // racecraft (m): bodies touch 1.88 m apart sideways (HITBOX). A car within followRange ahead and closer than sideGap
   // sideways is in our lane: move to pass it; closer than followLat we can't get by yet, so close only to followGap
   // (followGain m/s per metre). A car within ±alongside along the track: keep sideGap from it.
   sideGap: 3.4, followLat: 2.3, followRange: 40, followGap: 8, followGain: 0.6, alongside: 8,

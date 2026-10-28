@@ -1,7 +1,7 @@
 // SIM: track geometry, driving model and race rules.
 // Pure JS (no DOM, no Three.js) so it also runs headless in Node: tools/sim-test.mjs, tests/.
 // Units are SI throughout: metres, seconds, m/s, m/s².
-import { TUNING, AI, CONTACT, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, EV, SURFACES, OFFTRACK, WALLS, RUNOFF, BARRIER, BARRIERS, ZONE, PIT, WEAR, SETUP, MODS, ACTIVE_AERO, OVERTAKE, ERS, HANDBRAKE, SPEED_STEER, ELEVATION, SECTORS } from './tuning.js';
+import { TUNING, AI, CONTACT, HITBOX, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, EV, SURFACES, OFFTRACK, WALLS, RUNOFF, BARRIER, BARRIERS, ZONE, PIT, WEAR, SETUP, MODS, ACTIVE_AERO, OVERTAKE, ERS, HANDBRAKE, SPEED_STEER, ELEVATION, SECTORS } from './tuning.js';
 import { buildSectors } from './sectors.js';
 import { carSpec, STOCK, validSetup, validMods, isModified } from './spec.js';
 import { specStats, balanceAt } from './spec-stats.js';
@@ -21,7 +21,7 @@ import { rpmAt, cornerSpeed, lateralGrip, brakeLimit, brakeMax, tyreGrip, wakeHa
 
 import { tyreSet, tempGrip, axleTempGrip, gripTemp } from './tyre-temp.js';
 import { TYRE_TEMP, COMPOUNDS, STRATEGY } from './tuning.js';
-export const SIM = Object.freeze({ TYRE_TEMP, COMPOUNDS, STRATEGY, fitTyres, bestCompound, tyreSet, tempGrip, axleTempGrip, gripTemp, TUNING, AI, CONTACT, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, HANDBRAKE, SPEED_STEER, CIRCUITS,
+export const SIM = Object.freeze({ TYRE_TEMP, COMPOUNDS, STRATEGY, fitTyres, bestCompound, tyreSet, tempGrip, axleTempGrip, gripTemp, TUNING, AI, CONTACT, HITBOX, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, HANDBRAKE, SPEED_STEER, CIRCUITS,
   SURFACES, OFFTRACK, WALLS, RUNOFF, BARRIER, BARRIERS, ZONE, surfaceAt, PIT, WEAR, fuelLaps, lapsToGo, carCondition, laneCentre, laneOuter, alongLane, serviceSteps,
   steerLock, tyreCurve, driftAngle, DRIVERS, EV, track: DEFAULT_TRACK,
   SETUP, MODS, ACTIVE_AERO, OVERTAKE, ERS, gapAhead, carSpec, STOCK, validSetup, validMods, isModified, specStats, balanceAt,

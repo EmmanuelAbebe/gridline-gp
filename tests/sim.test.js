@@ -70,9 +70,11 @@ test('formats: unlimited never finishes; plain numbers mean laps', () => seeded(
   assert.deepEqual(S.createRace({ type: 'laps', laps: 0 }).format, { type: 'laps', laps: 3 });   // invalid → default
 }));
 
+// the hitbox's extents (m from the car's origin): front, rear, half the width
+const HB = (() => { const p = S.HITBOX.parts.flatMap(q => q.pts); return { front: Math.max(...p.map(q => q[0])), rear: -Math.min(...p.map(q => q[0])), half: Math.max(...p.map(q => Math.abs(q[1]))) }; })();
 test('contact: a nose-to-tail hit pushes apart, trades speed and reports the impact once', () => {
-  const race = S.createRace(1, { drivers: S.DRIVERS.slice(0, 2) }), [a, b] = race.cars, C = S.CONTACT;
-  const reach = C.front + C.rear + 2 * C.radius;            // centre distance at which the bodies touch, in line
+  const race = S.createRace(1, { drivers: S.DRIVERS.slice(0, 2) }), [a, b] = race.cars, C = HB;
+  const reach = C.front + C.rear;                           // centre distance at which the bodies touch, in line
   a.h = b.h = 0; b.z = a.z; b.x = a.x + reach - 0.3; a.v = 20; b.v = 5;
   S.collide(race);
   assert.ok(S.carGap(a, b) >= -1e-6, 'separated');
@@ -85,8 +87,8 @@ test('contact: a nose-to-tail hit pushes apart, trades speed and reports the imp
 });
 
 test('contact: an off-centre tap turns the cars only as much as their inertia allows, momentum kept', () => {
-  const race = S.createRace(1, { drivers: S.DRIVERS.slice(0, 2) }), [a, b] = race.cars, C = S.CONTACT;
-  a.h = b.h = 0; b.x = a.x + C.front + C.rear + 2 * C.radius - 0.6; b.z = a.z + 1.4; a.v = 60; b.v = 45;   // 15 m/s, corner to corner
+  const race = S.createRace(1, { drivers: S.DRIVERS.slice(0, 2) }), [a, b] = race.cars, C = HB;
+  a.h = b.h = 0; b.x = a.x + C.front + C.rear - 0.6; b.z = a.z + 1.4; a.v = 60; b.v = 45;   // 15 m/s, corner to corner
   for (const c of [a, b]) { c.vy = 0; c.yawRate = 0; }
   S.collide(race);
   assert.ok(Math.abs(a.v + b.v - 105) < 1e-6 && Math.abs(a.vy + b.vy) < 1e-6, 'momentum kept');
@@ -94,25 +96,34 @@ test('contact: an off-centre tap turns the cars only as much as their inertia al
   assert.ok(b.v - 45 < 0.6 * 15, `shove ${(b.v - 45).toFixed(1)} m/s`);
 });
 
-test('contact: hit from behind on a rear corner, the car is shoved forward, hardly sideways (square ends, not round)', () => {
+test('contact: hit from behind on a rear corner: the front wing breaks off, then the nose shoves the car forward, hardly sideways', () => {
   // (as capsules with round ends this shoved it ~25° sideways and spun cars hit in braking zones)
-  const race = S.createRace(1, { drivers: S.DRIVERS.slice(0, 2) }), [a, b] = race.cars, C = S.CONTACT;
-  a.h = b.h = 0; a.x = b.x + C.front + C.rear + 2 * C.radius - 0.1; a.z = b.z + 0.9; a.v = 40; b.v = 49;   // b runs into a's left rear
+  const race = S.createRace(1, { drivers: S.DRIVERS.slice(0, 2), wear: { damage: true } }), [a, b] = race.cars, C = HB;
+  // on the grid straight, pointing along it: b runs into a's left rear
+  const h = S.headingAt(race.track, b.idx), fx = Math.cos(h), fz = Math.sin(h), L = C.front + C.rear - 0.1;
+  a.h = b.h = h; a.x = b.x + fx * L - fz * 0.9; a.z = b.z + fz * L + fx * 0.9; a.v = 40; b.v = 49;
   for (const c of [a, b]) { c.vy = 0; c.yawRate = 0; }
-  S.collide(race);
+  const mom = () => [a, b].reduce((m, c) => [m[0] + Math.cos(c.h) * c.v - Math.sin(c.h) * c.vy, m[1] + Math.sin(c.h) * c.v + Math.cos(c.h) * c.vy], [0, 0]);
+  let gave = false, drift = 0;
+  for (let k = 0; k < 30; k++) {        // (no tyres here: the bodies alone, moving on as they go)
+    const m0 = mom(); S.collide(race); const m1 = mom(); drift = Math.max(drift, Math.hypot(m1[0] - m0[0], m1[1] - m0[1]));
+    gave ||= b.wingLoad >= S.HITBOX.wingStrength;
+    for (const c of [a, b]) { c.x += (Math.cos(c.h) * c.v - Math.sin(c.h) * c.vy) / 120; c.z += (Math.sin(c.h) * c.v + Math.cos(c.h) * c.vy) / 120; c.h += c.yawRate / 120; }
+  }
   const dv = a.v - 40;
-  assert.ok(dv > 3, `shoved ${dv.toFixed(2)} m/s`);
-  assert.ok(Math.abs(a.vy) < 0.05 * dv, `sideways ${a.vy.toFixed(3)} m/s`);
-  assert.ok(Math.abs(a.yawRate) < 0.8 && Math.abs(b.yawRate) < 0.5, `yaw ${a.yawRate.toFixed(2)} / ${b.yawRate.toFixed(2)} rad/s`);   // (the capsules: 0.55 + 1.8 m/s sideways / 0.85)
+  assert.ok(gave && b.damage.wing > 0.9, `b's wing gave way (damage ${b.damage.wing.toFixed(2)})`);
+  assert.ok(dv > 3 && drift < 1e-9, `shoved ${dv.toFixed(2)} m/s, momentum kept (${drift})`);
+  assert.ok(Math.abs(a.vy) < 0.2 * dv, `sideways ${a.vy.toFixed(3)} m/s`);
+  assert.ok(Math.abs(a.yawRate) < 1, `yaw ${a.yawRate.toFixed(2)} rad/s`);
 });
 
 test('contact: cars fit side by side a car width apart; a side swipe pushes sideways', () => {
   const race = S.createRace(1, { drivers: S.DRIVERS.slice(0, 2) }), [a, b] = race.cars;
-  a.h = b.h = 0; a.v = b.v = 50; b.x = a.x; b.z = a.z + 2 * S.CONTACT.radius + 0.2;   // +z is to the right at h = 0
+  a.h = b.h = 0; a.v = b.v = 50; b.x = a.x; b.z = a.z + 2 * HB.half + 0.2;   // +z is to the right at h = 0
   S.collide(race);
   assert.deepEqual(a.events, [], 'no contact alongside');
   a.vy = 3;                                                     // a drifts into b
-  b.z = a.z + 2 * S.CONTACT.radius - 0.1;
+  b.z = a.z + 2 * HB.half - 0.1;
   S.collide(race);
   assert.deepEqual(b.events.map(e => e.type), [S.EV.CONTACT]);
   assert.ok(b.vy > 0 && a.vy < 3, `b pushed right (${b.vy.toFixed(2)}), a slowed sideways (${a.vy.toFixed(2)})`);

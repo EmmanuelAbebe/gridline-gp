@@ -109,3 +109,29 @@ test('driver.glb: the driver (skinned, a steering clip), the helmet and the stee
   assert.ok(tris < 45000, `${tris} triangles`);       // (one per car on the grid)
   assert.match(JSON.stringify(j.asset), /BELAZ.*MizuCorp.*OscarContrerasLithgow/, 'the credits travel with the file');
 });
+
+test('car.glb: the cars\' hitbox (SIM HITBOX) follows the body and tyres seen from above, within ~10 cm', () => {
+  const b = readFileSync(new URL('../src/game/models/car.glb', import.meta.url)), jl = b.readUInt32LE(12), bin = b.subarray(20 + jl + 8), j = glbJson('../src/game/models/car.glb');
+  const parent = {}; j.nodes.forEach((n, i) => (n.children || []).forEach(c => { parent[c] = i; }));
+  const at = i => { let t = [0, 0, 0]; for (let k = i; k !== undefined; k = parent[k]) { const u = j.nodes[k].translation || [0, 0, 0]; t = t.map((v, q) => v + u[q]); } return t; };
+  const pts = [];                 // plan view [x forward, z right] of the body, wings and tyres
+  j.nodes.forEach((n, i) => {
+    if (n.mesh === undefined || !/^(body|tyre_|fw_flap|rw_flap)/.test(n.name)) return;
+    const t = at(i);
+    for (const p of j.meshes[n.mesh].primitives) {
+      const a = j.accessors[p.attributes.POSITION], v = j.bufferViews[a.bufferView], o = (v.byteOffset || 0) + (a.byteOffset || 0), st = v.byteStride || 12;
+      for (let k = 0; k < a.count; k++) pts.push([bin.readFloatLE(o + k * st) + t[0], bin.readFloatLE(o + k * st + 8) + t[2]]);
+    }
+  });
+  const width = (x, d = 0.05) => Math.max(0, ...pts.filter(p => Math.abs(p[0] - x) < d).map(p => Math.abs(p[1])));
+  const hitbox = x => { let w = 0; for (const { pts: P } of SIM.HITBOX.parts) for (let i = 0; i < P.length; i++) {
+    const [a0, b0] = P[i], [a1, b1] = P[(i + 1) % P.length];
+    if (a0 !== a1 && (a0 - x) * (a1 - x) <= 0) w = Math.max(w, Math.abs(b0 + (b1 - b0) * (x - a0) / (a1 - a0)));
+  } return w; };
+  const xs = pts.map(p => p[0]), lo = Math.min(...xs), hi = Math.max(...xs);
+  for (let x = lo + 0.05; x < hi - 0.05; x += 0.1) {
+    const h = hitbox(x), near = [-0.1, 0, 0.1].map(d => width(x + d));   // (the model's width steps at its edges)
+    assert.ok(h > Math.min(...near) - 0.12 && h < Math.max(...near) + 0.1, `x ${x.toFixed(2)}: hitbox ±${h.toFixed(2)} m, the car ±${near[1].toFixed(2)}`);
+  }
+  for (const { pts: P } of SIM.HITBOX.parts) assert.ok(P.every(([a]) => a > lo - 0.05 && a < hi + 0.05), 'within the car\'s length');
+});

@@ -32,7 +32,8 @@ export function createCar(track, driver, slot, rng) {
     // pedals as applied this step (driving.js / pit.js: brake lights, HUD, sound)
     thr: 0, brake: 0,
     // walls and contact (car.js resolveWalls, collide.js); surface under the car (updateSurface)
-    wallHit: false, touching: false, wasTouching: false, onKerb: false, offTrack: false, surface: 'track',
+    wallHit: false, touching: false, wasTouching: false, wingLoad: 0,   // wingLoad: collide.js, the front wing's push this touch
+     onKerb: false, offTrack: false, surface: 'track',
     // off track: tyre dirt 0..1, depth in a gravel trap, beached (stuck in gravel, waiting for the marshals);
     // beachClock = race time of the last updateBeached (null before the first)
     dirt: 0, gravelDepth: 0, beached: false, beachedAt: 0, stuckT: 0, beachClock: null,

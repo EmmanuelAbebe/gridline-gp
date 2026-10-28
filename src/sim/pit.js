@@ -108,12 +108,13 @@ export function updateWear(race, c, thr, dt) {
 // ---------- damage (car.js walls, collide.js contacts) ----------
 // impact = closing speed (m/s), front = 0..1 how much of it hit the nose, hard = how unforgiving the thing hit was
 /** @param {Race} race @param {Car} c */
-export function addDamage(race, c, impact, front, hard = 1) {
+// wheel = a tyre took the hit (collide.js): its suspension bends from `wheel` m/s (walls: only past suspFrom)
+export function addDamage(race, c, impact, front, hard = 1, wheel = 0) {
   if (!race.wear?.damage || impact * hard < WEAR.damage.min) return;
   const D = WEAR.damage, d = c.damage, e = impact * hard, before = { ...d };
   d.wing = Math.min(1, d.wing + e * front / D.wing);
   d.floor = Math.min(1, d.floor + e / D.floor);
-  d.susp = Math.min(1, d.susp + Math.max(0, e - D.suspFrom) / D.susp);
+  d.susp = Math.min(1, d.susp + Math.max(0, e - (wheel || D.suspFrom)) / D.susp);
   // a message when a part gets noticeably worse (crossing a quarter step)
   const worst = ['wing', 'floor', 'susp'].find(k => Math.floor(d[k] * D.steps) > Math.floor(before[k] * D.steps));
   if (worst) emit(c, EV.DAMAGE, { part: worst });
