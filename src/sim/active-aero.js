@@ -86,6 +86,23 @@ export function zoneRisk(track, z) {
   return bad / len;
 }
 
+// The AI's own use of the wings (2026-10-28, user: "give the AI the same freedom with the wings … let the AI make the
+// decision … change on the fly", the player opening them through fast bends with the button): inside a zone, at any
+// steering, when every bend of its line in the next `look` m can be taken at the speed it is doing now (+ `spare`) even
+// with the wings open, and no braking zone within closeAhead; a bend it needs the grip for keeps them shut. This gives,
+// per sample of a line (the ALIEN's own or the others'), the slowest open-wing corner speed in the next `look` m.
+/** @param {import('./types.js').Track} track @param {boolean} alien */
+export function aiAeroPlan(track, alien = false) {
+  const key = alien && track.alien ? 'alien' : 'ai', plans = (track.aeroPlans ??= {});
+  if (plans[key]) return plans[key];
+  const { N, ds } = track, { LK } = alien && track.alien ? track.alien : track;
+  const open = { ...STOCK, dfK: STOCK.dfK * (1 - AA.downforceCut) }, v = new Float32Array(N), bend = new Float32Array(N);
+  for (let i = 0; i < N; i++) v[i] = Math.min(1e3, cornerSpeed(Math.abs(LK[i]), AI.grip, open));
+  const look = Math.round(AA.zone.look / ds);
+  for (let i = 0; i < N; i++) { let m = Infinity; for (let o = 0; o <= look; o++) m = Math.min(m, v[wrapIdx(i + o, N)]); bend[i] = m; }
+  return (plans[key] = bend);
+}
+
 // Time behind the car directly ahead on the road (any car, lapped ones too): from the trail every car leaves
 // (when it last passed the sample this car is on). Infinity when nobody passed it in the last `within` s.
 /** @param {Race} race @param {Car} c */
@@ -127,7 +144,12 @@ export function updateActiveAero(race, c, inp, dt) {
   // opening needs (nearly) full throttle; once open they stay open through the zone on a part throttle (a car held
   // up behind another), and close on the brakes, a lift below holdThr, steering or a slide
   let open;
-  if (c.aeroAuto) {
+  if (!c.player) {
+    // the AI: its own call (aiAeroPlan), on the throttle
+    const thrOk = inp.thr >= (c.aeroOpen > 0 ? AA.holdThr : AA.thr), line = race.aiAlien && T.alien ? T.alien : T;
+    open = zoneHere && thrOk && inp.brk < 0.05 && c.v > AA.minSpeed && c.slideR < 0.5 && !c.beached
+      && aiAeroPlan(T, line !== T)[c.idx] >= c.v + AA.plan.spare && line.BRK[c.idx] * T.ds > AA.zone.closeAhead;
+  } else if (c.aeroAuto) {
     const thrOk = inp.thr >= (c.aeroOpen > 0 ? AA.holdThr : AA.thr);
     open = zoneHere && thrOk && inp.brk < 0.05 && Math.abs(c.steer) < AA.steer && c.v > AA.minSpeed
       && c.slideR < 0.5 && !c.beached;

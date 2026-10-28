@@ -388,6 +388,8 @@ export const ACTIVE_AERO = Object.freeze({
   openTime: 0.35, closeTime: 0.18,   // s for the flaps to open / close fully
   thr: 0.85, steer: 0.3, minSpeed: 30,   // open only above this throttle, below this steering, above this speed (m/s)
   holdThr: 0.3,         // once open, they stay open down to this throttle
+  // the AI's own call (active-aero.js aiAeroPlan): open while the bends ahead take its speed now + spare (m/s) open
+  plan: Object.freeze({ spare: 2 }),
   zone: Object.freeze({ minLength: 180, closeAhead: 45, look: 90 }),   // m: shortest zone; close this far before
                         // braking; corners checked this far ahead
 });

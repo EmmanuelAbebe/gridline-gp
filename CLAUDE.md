@@ -302,6 +302,16 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   "Edit the zones on the map" from the start menu): the circuit with zones (ring = start, square = end handles, drag along
   the track), amber where unsafe, the automatic ones faint underneath, list with ±10 m nudges / delete, click the track +
   Add zone here (250 m), Back to automatic. Smoke test: out-zones.png (drag zone 1's end +60 m, delete, reset).
+- The AI's own call on the wings (2026-10-28, user: "give the AI the same freedom with the wings … let the AI make the
+  decision", especially the ALIEN; they open the wings briefly through Hautvale's turns 7–10): active-aero.js
+  `aiAeroPlan(track, alien)` = per sample of that line the slowest open-wing corner speed in the next `look` m; an AI car
+  opens in a zone at any steering while that ≥ its speed now + `ACTIVE_AERO.plan.spare` 2 m/s and its braking zone is
+  > closeAhead away (the player's automatic mode keeps the steering rule). Measured: on the automatic zones laps within
+  ±0.15 s of the old rule on every circuit; on the user's Hautvale zones (83 % of the lap) the ALIEN without assists now
+  has clean laps (70.68; before none), with medium assists 68.02 (the old steering rule 67.37 but riskier). Letting it
+  open where the steady corner model says no (× 1.05–1.15) cost it clean laps. The user's 1:04.000 there vs the ALIEN's
+  ~1:08–1:10.7 is mostly pace: on the automatic zones they beat it by 2.2 s without assists too. Rivals' grid / qualifying
+  laps on the grippiest compound (their call for one lap; races: bestCompound as before).
 - Laps kept apart per zone layout (2026-10-28): aero-zones.js `zoneTag(track, activeAero)` ('' = automatic or active aero
   off, else track.aeroKey) and `lapClass(modified, zones)` = 'stock' / 'modified' (old saves unchanged) or
   'stock@120-610,...' / 'stock@none'. Lap records (garage-store recordLap(…, zones)), ghosts (ghost.js slots

@@ -137,3 +137,22 @@ test('your own zones: the AI opens its wings in them, never in the automatic one
   run(S, r, 200, (race, c) => { aiDriver(S)(race, c); if (c.aeroOpen > 0.99) (T.aeroZone[c.idx] ? inside++ : outside++); });
   assert.ok(inside > 100 && outside < 30, `open ${inside} steps in the zone, ${outside} past its end (closing)`);
 });
+
+test('the AI\'s own call on long zones of your own: open through the bends that take its speed, shut for the ones that don\'t; the ALIEN without assists stays clean', () => {
+  const T = S.buildTrack(S.CIRCUITS.hautvale);
+  S.setAeroZones(T, [{ from: 259.6, to: 1281.5 }, { from: 1864, to: 103 }]);   // (the user's: 83 % of the lap, through the esses)
+  const bend = S.aiAeroPlan(T, true), slow = T.alien.LK.reduce((m, k, i) => Math.abs(k) > Math.abs(T.alien.LK[m]) ? i : m, 0);
+  assert.ok(bend[slow] < 30, 'the tightest corner: never open there at racing speed');
+  assert.ok(Math.max(...bend) > 90, 'straights: open at any speed');
+  const r = S.createRace({ type: 'unlimited' }, { track: T, drivers: [S.DRIVERS[0]], aiPace: 1, aiAlien: true, seed: 20261020, activeAero: true,
+    aiAssists: { ...S.ASSISTS[S.AI.assists], abs: 0, tc: 0, stability: 0 }, tyreTemp: true, compound: 'soft' });
+  const c = r.cars[0]; let open = 0, steps = 0, clean = 0, walls = 0;
+  while (c.lap <= 3 && r.t < 400) {
+    r.t += DT; S.driveAI(r, c, DT); steps++;
+    if (c.aeroOpen > 0.5) open++;
+    for (const e of c.events) { if (e.type === S.EV.LAP && c.lap > 2 && !e.invalid) clean++; if (e.type === S.EV.WALL) walls++; }
+    c.events.length = 0;
+  }
+  assert.ok(clean >= 1 && walls === 0, `a clean flying lap (${clean}), no walls (${walls})`);
+  assert.ok(open / steps > 0.25, `open a good part of the time: ${(open / steps * 100).toFixed(0)} %`);
+});

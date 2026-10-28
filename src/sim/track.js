@@ -186,7 +186,7 @@ export function buildTrack(circuit, opts = {}) {
     aeroZone: /** @type {Uint8Array} */ (null), aeroZones: /** @type {{ from: number, to: number }[]} */ (null),
     // (active-aero.js setAeroZones: the automatic zones kept while the player's own are in use; which ones; safe samples)
     aeroAuto: /** @type {{ zone: Uint8Array, zones: { from: number, to: number }[] }} */ (null), aeroKey: 'auto',
-    aeroSafe: /** @type {Uint8Array} */ (null) };
+    aeroSafe: /** @type {Uint8Array} */ (null), aeroPlans: /** @type {Record<string, Float32Array>} */ (null) };
   track.runoff = buildRunoff(track, track.style);
   track.WALL = Math.max(...track.runoff.map(r => Math.max(...r.wall)));
   track.pit = buildPitLane(track);   // pit.js; null without a `pits` landmark

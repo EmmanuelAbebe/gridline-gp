@@ -13,9 +13,11 @@ import { SIM } from '../sim/index.js';
 
 export function createStartingGrid({ game, track, onReady }) {
   const levelId = () => game.setup.ai, level = () => RACE_SETUP.aiLevels[game.setup.ai];
-  // the conditions the times are made in: the race's active aero, the AI's assists, tyre temperatures, your tyres
+  // the conditions the times are made in: the race's active aero, the AI's assists, tyre temperatures; the tyres are the
+  // teams' own call: for one fast lap the grippiest compound (in the race they pick by strategy: SIM bestCompound)
+  const lapTyres = Object.entries(SIM.COMPOUNDS).reduce((a, b) => b[1].grip > a[1].grip ? b : a)[0];
   const optsOf = rivals => ({ activeAero: raceAero(game.setup).activeAero, aiAssists: aiAssistsOf(game.setup),
-    tyreTemp: game.setup.tyreTemp === 'on', compound: game.garage.tyres.start, aiTop: topSkill(rivals) });
+    tyreTemp: game.setup.tyreTemp === 'on', compound: lapTyres, aiTop: topSkill(rivals) });
   const ready = (T, rivals) => rivals.every(d => driverLapReady(T, d, levelId(), optsOf(rivals)));
   const timesOf = (T, rivals) => Object.fromEntries(rivals.map(d => [d.code, driverLap(T, d, levelId(), level(), optsOf(rivals))]));
   // one missing driver per tick until they are all in (the setup may change meanwhile: each tick asks again)
