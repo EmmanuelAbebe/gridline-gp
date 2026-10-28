@@ -5,6 +5,7 @@ import pitsGlb from './models/pits.glb?url';
 import standsGlb from './models/stands.glb?url';
 import tracksideGlb from './models/trackside.glb?url';
 import carGlb from './models/car.glb?url';
+import driverGlb from './models/driver.glb?url';
 
 // Models made in Blender (tools/blender/*.py, `npm run models`), packed into the page as data URLs and loaded once at
 // boot (`await loadModels()` before the first world is built). Only geometry and textures are taken from the files:
@@ -18,7 +19,9 @@ import carGlb from './models/car.glb?url';
 //   geometries carry its seat layout in userData, from the glTF extras).
 //   Models.trackside = { post, truss, lights, marshal, tvtower, brakeboard, advert: { [role]: geometry } } (trackside.py).
 //   Models.car = the 2026 car's glTF scene (tools/blender/car.py; car-glb.js clones it per car).
-export const Models = { trees: null, treeMaps: null, pits: null, stands: null, trackside: null, car: null };
+//   Models.driver = { scene, clip } (tools/blender/cockpit.py: the driver, helmet and steering wheel in the 2026 car's frame;
+//   clip 'steer' = the arms on the wheel from full left to full right; car-glb.js clones it per car).
+export const Models = { trees: null, treeMaps: null, pits: null, stands: null, trackside: null, car: null, driver: null };
 
 const KIND = { spruce: 'cone', broad: 'ball' };   // the .glb's tree names (spruce_a ...) → theme kinds
 
@@ -49,6 +52,9 @@ export async function loadModels() {
   Models.stands = modules(await parse(standsGlb));
   Models.trackside = modules(await parse(tracksideGlb));
   Models.car = (await parse(carGlb)).scene;
+  const drv = await parse(driverGlb);
+  drv.scene.traverse(o => { if (o.isMesh && o.material.map) o.material.map.encoding = THREE.LinearEncoding; });
+  Models.driver = { scene: drv.scene, clip: drv.animations.find(a => a.name === 'steer') };
 }
 
 // a file of building modules: objects named `<module>-<role>` → { [module]: { [role]: geometry } }

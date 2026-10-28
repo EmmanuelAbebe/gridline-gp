@@ -191,6 +191,14 @@ async function smokeTest(win) {
   await new Promise(r => setTimeout(r, 700));
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-cockpit.png'), (await win.webContents.capturePage()).toPNG());
   await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyD', key: 'd' }))`);
+  // (GRIDLINE_SMOKE_COCKPIT="back,height,fov": the cockpit camera set like a player's, then a screenshot of it)
+  if (process.env.GRIDLINE_SMOKE_COCKPIT) {
+    const [back, height, fov] = process.env.GRIDLINE_SMOKE_COCKPIT.split(',').map(Number);
+    await win.webContents.executeJavaScript(`gridlineDebug.setCamera('cockpit', ${JSON.stringify({ back, height, fov })})`);
+    await new Promise(r => setTimeout(r, 600));
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-cockpit-player.png'), (await win.webContents.capturePage()).toPNG());
+    console.log("MIRRORS", await win.webContents.executeJavaScript(`JSON.stringify({ t: typeof window.__mirrors, n: window.__mirrors?.count, info: window.__mirrors?.info?.() })`));
+  }
   // the rear-view mirror strip on the HUD (Settings → Driving), screenshot from the cockpit, then off again
   await win.webContents.executeJavaScript(`gridlineDebug.setPref('hudMirror', true)`);
   await new Promise(r => setTimeout(r, 300));
@@ -447,6 +455,7 @@ async function trackShots(win) {
 if (!app.requestSingleInstanceLock()) app.quit();         // a second launch focuses the running game
 else {
   app.on('second-instance', () => { const w = BrowserWindow.getAllWindows()[0]; if (w) { if (w.isMinimized()) w.restore(); w.focus(); } });
-  app.whenReady().then(() => { const win = createWindow(); if (smokeOut) smokeTest(win); else if (shotsDir) trackShots(win); });
+  app.whenReady().then(() => { const win = createWindow(); if (smokeOut || shotsDir) win.webContents.setAudioMuted(!process.env.GRIDLINE_TEST_SOUND);   // (test runs are silent; GRIDLINE_TEST_SOUND=1 to hear them)
+    if (smokeOut) smokeTest(win); else if (shotsDir) trackShots(win); });
   app.on('window-all-closed', () => app.quit());
 }

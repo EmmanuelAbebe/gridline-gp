@@ -81,7 +81,7 @@ test('car.glb: the 2026 car (Qvist_designs, CC-BY) on the physics\' wheelbase, t
     const e = byName.get(n).extras ?? {};
     assert.ok(e.open > 0 && Array.isArray(e.axis) && Math.abs(Math.hypot(...e.axis) - 1) < 1e-3, `${n} opens about its hinge`);
   }
-  assert.ok(at('eye')[1] > 0.75 && at('eye')[1] < 0.95, 'the eye at a driver\'s height');
+  assert.ok(at('eye')[1] > 0.65 && at('eye')[1] < 0.95, 'the eye at a driver\'s height');
   const size = node => { const m = j.meshes[node.mesh]; const a = m.primitives.map(p => j.accessors[p.attributes.POSITION]);
     return [0, 1, 2].map(i => Math.max(...a.map(x => x.max[i])) - Math.min(...a.map(x => x.min[i]))); };
   for (const n of ['tyre_fl', 'tyre_rl']) { const d = size(byName.get(n)); assert.ok(Math.abs(d[1] - 0.72) < 0.02 && d[2] > 0.25 && d[2] < 0.45, `${n} ${d}`); }
@@ -90,4 +90,22 @@ test('car.glb: the 2026 car (Qvist_designs, CC-BY) on the physics\' wheelbase, t
   const tris = j.meshes.reduce((t, m) => t + m.primitives.reduce((s, p) => s + j.accessors[p.indices].count / 3, 0), 0);
   assert.ok(tris < 80000, `${tris} triangles`);
   assert.match(JSON.stringify(j.asset), /Qvist_designs|CC-BY/, 'the credit travels with the file');
+});
+
+test('driver.glb: the driver (skinned, a steering clip), the helmet and the steering wheel, in the 2026 car\'s seat', () => {
+  const j = glbJson('../src/game/models/driver.glb'), byName = new Map(j.nodes.map(n => [n.name, n]));
+  for (const name of ['helmet', 'wheel', 'wheel_screen', 'Head_06', 'LeftHand_013', 'RightHand_036']) assert.ok(byName.has(name), `${name} is there`);
+  assert.equal(j.skins.length, 1);
+  const clip = j.animations.find(a => a.name === 'steer');
+  assert.ok(clip, 'the steer clip');
+  // its keys: −lock … +lock in 9 steps (car-glb.js maps the wheel's angle onto them)
+  // (the still bones' channels are cut to their ends by the exporter)
+  assert.equal(Math.max(...clip.samplers.map(sm => j.accessors[sm.input].count)), 9);
+  const car = glbJson('../src/game/models/car.glb'), steer = car.nodes.find(n => n.name === 'steer').translation;
+  const wheel = byName.get('wheel').translation;
+  assert.ok(wheel.every((v, i) => Math.abs(v - steer[i]) < 1e-3), `the wheel at the car's steer node (${wheel} vs ${steer})`);
+  assert.ok(byName.get('helmet').extras?.show === 'outside', 'the helmet is hidden from the cockpit');
+  const tris = j.meshes.reduce((t, m) => t + m.primitives.reduce((s, p) => s + j.accessors[p.indices].count / 3, 0), 0);
+  assert.ok(tris < 45000, `${tris} triangles`);       // (one per car on the grid)
+  assert.match(JSON.stringify(j.asset), /BELAZ.*MizuCorp.*OscarContrerasLithgow/, 'the credits travel with the file');
 });

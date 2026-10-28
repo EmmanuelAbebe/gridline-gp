@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 // The 2026 car made in Blender (tools/blender/car.py → models/car.glb, docs/car-plan.md), with the same per-car API as
 // the part-built car in car-models.js (which picks between the two: CarModels.setKind). The model's objects carry the
@@ -7,10 +8,30 @@ import * as THREE from 'three';
 //   (brake lights), glass, dark; wheel_fl/fr/rl/rr = axle centres (spin about z, the fronts steer about y);
 //   fw_flap1, fw_flap2, rw_flap (extras.open = degrees in straight mode, turned about their hinge, z);
 //   steer (turns about x) with grip_l / grip_r / screen; mirror_glass_l / _r; extras.show 'outside' = hidden in the
-//   cockpit view (the helmet).
+//   cockpit view (the helmet). The driver, helmet and steering wheel come from models/driver.glb (seatDriver).
 // Every mesh's COLOR_0 = Blender's baked ambient occlusion; the materials multiply it.
 const ROLE_COLOURS = { carbon: 0x101114, rubber: 0x0b0b0c, metal: 0x8a8d92, glass: 0x1a2128, dark: 0x050506 };
-const shared = { quality: {}, fast: {} };     // the colour-free roles, one material per graphics profile
+const shared = { quality: {}, fast: {} };
+// the driver (models/driver.glb, tools/blender/cockpit.py): the clip's keys run from the wheel at −lock to +lock; the head
+// leans against the cornering (rad per m/s² of lateral g, at most, how fast it follows /s)
+const DRIVER = { lock: 90, head: 'Head_06', lean: 0.012, max: 0.2, follow: 6 };
+const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), fwd = new THREE.Vector3();
+
+// one car's driver: a clone of the skinned driver in the car's frame, the steering wheel moved onto the car's steer node
+// (which turns it), the helmet hung on the head bone (it was placed on the head in Blender: attach keeps where it is)
+function seatDriver(t, model, steer) {
+  const group = SkeletonUtils.clone(t.scene); model.add(group); model.updateMatrixWorld(true);
+  const wheel = [];
+  const holder = group.getObjectByName('wheel');
+  if (holder && steer) for (const c of [...holder.children]) { steer.attach(c); wheel.push(c); }
+  const display = wheel.find(c => c.name === 'wheel_screen');    // (the wheel's own display: the live screen goes on it)
+  const mixer = new THREE.AnimationMixer(group), action = mixer.clipAction(t.clip); action.play(); mixer.update(0);
+  group.updateMatrixWorld(true);
+  const head = group.getObjectByName(DRIVER.head), helmet = group.getObjectByName('helmet');
+  if (head && helmet) head.attach(helmet);
+  group.traverse(o => { if (o.isMesh) o.frustumCulled = false; });     // (skinned: the bounds are the standing avatar's)
+  return { group, wheel, display, helmet, head, mixer, action, end: t.clip.duration * 0.9999, lean: 0 };
+}     // the colour-free roles, one material per graphics profile
 
 function sharedMat(profile, role, env) {
   const S = shared[profile];
@@ -38,7 +59,7 @@ export function createGlbCar(scene, driverIn, design, ctx) {
   model.updateMatrixWorld(true);
 
   const meshes = [];
-  model.traverse(o => { if (o.isMesh) { o.userData.role = o.material.name; o.userData.show ??= o.parent?.userData.show; meshes.push(o); } });
+  model.traverse(o => { if (o.isMesh) { o.userData.role = o.material.name; o.userData.standIn = /^(helmet|visor)$/.test(o.name); o.userData.show ??= o.parent?.userData.show; meshes.push(o); } });
   const node = name => model.getObjectByName(name);
   // (the livery's rim colour: any metal inside a wheel)
   const inWheel = o => { for (let p = o.parent; p; p = p.parent) if (/^wheel_/.test(p.name)) return true; return false; };
@@ -55,6 +76,7 @@ export function createGlbCar(scene, driverIn, design, ctx) {
   model.traverse(o => { if (+o.userData.open) movers.push({ o, open: +o.userData.open * DEG, base: o.quaternion.clone(),
     axis: new THREE.Vector3(...(o.userData.axis ?? [0, 0, 1])).normalize(), q: new THREE.Quaternion() }); });
   const steer = node('steer'), grips = ['grip_r', 'grip_l'].map(n => node(n)?.position.clone() ?? new THREE.Vector3());
+  const seated = ctx.driverTemplate?.clip ? seatDriver(ctx.driverTemplate, model, steer) : null;
 
   // per-car materials: the livery's paint, the rims, the brake lights; the rest shared per graphics profile
   const light = new THREE.MeshBasicMaterial({ color: ctx.LIGHT_OFF.clone() });
@@ -86,9 +108,13 @@ export function createGlbCar(scene, driverIn, design, ctx) {
   });
 
   function showView() {
-    for (const m of meshes) m.visible = (m.userData.show ?? 'always') === 'always' || m.userData.show === (cockpitView ? 'cockpit' : 'outside');
+    for (const m of meshes) m.visible = !(seated && m.userData.standIn) && ((m.userData.show ?? 'always') === 'always' || m.userData.show === (cockpitView ? 'cockpit' : 'outside'));
+    if (seated) {   // (the ghost car is empty; from the cockpit the camera is inside the helmet)
+      seated.group.visible = !ghost; for (const w of seated.wheel) w.visible = !ghost;
+      if (seated.helmet) seated.helmet.visible = !cockpitView;
+    }
     for (const s of glows) s.visible = !cockpitView && lit > 0.02;
-    if (cockpitView && !driverBody) {
+    if (cockpitView && !driverBody && !seated) {
       driverBody = ctx.createDriverBody(driver); root.add(driverBody.group); ctx.markShadows(driverBody.group, castsShadow);
       driverBody.group.position.set(ctx.eyeShift[0], ctx.eyeShift[1], 0);      // (the body is laid out for the classic seat)
     }
@@ -97,10 +123,11 @@ export function createGlbCar(scene, driverIn, design, ctx) {
   }
   function placeScreen() {
     if (!screen || !steer) return;
-    const at = node('screen')?.position ?? new THREE.Vector3(), sp = screenSpec;
-    steer.add(screen); screen.position.copy(at);
+    const sp = screenSpec, d = seated?.display;
+    steer.add(screen); screen.position.copy(d?.position ?? node('screen')?.position ?? new THREE.Vector3());
     screen.rotation.set(sp.rot[0] * DEG, sp.rot[1] * DEG, sp.rot[2] * DEG);
-    screen.scale.set(Math.max(0.001, sp.size[0]), Math.max(0.001, sp.size[1]), 1);
+    const size = d?.userData.size ?? sp.size;
+    screen.scale.set(Math.max(0.001, size[0]), Math.max(0.001, size[1]), 1);
   }
   ctx.markShadows(root, castsShadow); shadow.castShadow = shadow.receiveShadow = false;
   showView();
@@ -116,7 +143,7 @@ export function createGlbCar(scene, driverIn, design, ctx) {
     setMaterials(set) {
       ghost = set.kind === 'ghost' ? set : null;
       if (!ghost) profile = set.kind === 'fast' ? 'fast' : 'quality';
-      materials();
+      materials(); showView();
     },
     setShadows(on) { castsShadow = on; shadow.visible = on; ctx.markShadows(root, on); shadow.castShadow = shadow.receiveShadow = false; },
     useCockpitView(on) { if (on !== cockpitView) { cockpitView = on; showView(); } },
@@ -129,9 +156,14 @@ export function createGlbCar(scene, driverIn, design, ctx) {
     // the mirror glasses in the design-part form mirrors.js builds from
     mirrorParts() {
       return ['l', 'r'].map(n => node(`mirror_glass_${n}`)).filter(Boolean).map((o, i) => {
-        box.setFromObject(o); box.getSize(size);
-        const c = root.worldToLocal(box.getCenter(new THREE.Vector3()));
-        return { name: `mirror glass ${i ? 'R' : 'L'}`, size: [size.x, size.y, size.z], pos: [c.x, c.y, c.z], rot: [0, 0, 0], show: 'always', gap: 0.004 };
+        // (in the car's own frame: measured in the world, a car turned on the grid swapped the glass's width and depth)
+        root.updateMatrixWorld(true);
+        const g = (o.isMesh ? o : o.getObjectByProperty('isMesh', true)).geometry; g.computeBoundingBox();
+        const rel = new THREE.Matrix4().copy(root.matrixWorld).invert().multiply((o.isMesh ? o : o.getObjectByProperty('isMesh', true)).matrixWorld);
+        box.copy(g.boundingBox).applyMatrix4(rel); box.getSize(size);
+        const c = box.getCenter(new THREE.Vector3());
+        // (camOut: the glass sits recessed in its housing; the mirror's camera goes back past the housing's lip)
+        return { name: `mirror glass ${i ? 'R' : 'L'}`, size: [size.x, size.y, size.z], pos: [c.x, c.y, c.z], rot: [0, 0, 0], show: 'always', gap: 0.004, camOut: 0.09 };
       });
     },
     sync(car, pose, dt = 1 / 60) {
@@ -148,6 +180,18 @@ export function createGlbCar(scene, driverIn, design, ctx) {
       light.color.copy(ctx.LIGHT_OFF).lerp(ctx.LIGHT_ON, lit);
       glowMat.opacity = lit * 0.9;
       for (const s of glows) s.visible = !cockpitView && lit > 0.02;
+      if (seated) {
+        const s = Math.max(-1, Math.min(1, car.steer * steerSpec.lock / DRIVER.lock));
+        seated.action.time = (s + 1) / 2 * seated.end; seated.mixer.update(0);
+        // the head leans out of the corner (ay + = toward +z): about the car's forward axis, in the bone's own frame
+        const want = Math.max(-DRIVER.max, Math.min(DRIVER.max, -(car.ay || 0) * DRIVER.lean));
+        seated.lean += (want - seated.lean) * Math.min(1, dt * DRIVER.follow);
+        if (seated.head && Math.abs(seated.lean) > 1e-4) {
+          seated.head.updateWorldMatrix(true, false); seated.head.getWorldQuaternion(qa);
+          fwd.set(1, 0, 0).applyQuaternion(root.quaternion).applyQuaternion(qa.invert());
+          seated.head.quaternion.multiply(qb.setFromAxisAngle(fwd, seated.lean));
+        }
+      }
       if (cockpitView && driverBody && steer) {
         root.updateMatrixWorld(true);
         for (let i = 0; i < 2; i++) root.worldToLocal(hands[i].copy(grips[i]).applyMatrix4(steer.matrixWorld)).sub(driverBody.group.position);
@@ -157,7 +201,7 @@ export function createGlbCar(scene, driverIn, design, ctx) {
     dispose() {
       scene.remove(root);
       for (const m of Object.values(own)) m.dispose();
-      light.dispose(); glowMat.dispose(); driverBody?.dispose?.();
+      light.dispose(); glowMat.dispose(); driverBody?.dispose?.(); seated?.mixer.stopAllAction();
     },
   };
 }

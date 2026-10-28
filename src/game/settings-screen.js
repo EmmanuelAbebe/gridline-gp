@@ -126,7 +126,7 @@ const TABS = [
     { type: 'html', html: '<p class="lbl" style="margin:4px 0 0">Report a bug</p>' },
     buttons(['Open log folder', 'logs']),
     { type: 'html', html: '<p class="note">Found a bug? Report it at github.com/EmmanuelAbebe/gridline-gp/issues and attach gridline.log (and gridline-previous.log if the game crashed and you restarted it) from this folder. Desktop app only.</p>' },
-    { type: 'html', html: '<p class="lbl" style="margin:4px 0 0">Credits</p><p class="note">The 2026 car is based on "F1 2026 concept (polygon model)" by Qvist_designs (sketchfab.com/Qvist_Designs), licensed under CC-BY-4.0. Changed for the game: cut down, split into moving parts, painted. See CREDITS.md.</p>' },
+    { type: 'html', html: '<p class="lbl" style="margin:4px 0 0">Credits</p><p class="note">The 2026 car is based on "F1 2026 concept (polygon model)" by Qvist_designs (sketchfab.com/Qvist_Designs), licensed under CC-BY-4.0. Changed for the game: cut down, split into moving parts, painted. Its driver is based on "race driver" by BELAZ (CC-BY-4.0; a Ready Player Me avatar, CC BY-NC-SA 4.0), the helmet on "Racing helmet" by MizuCorp and the steering wheel on "Steering-Wheel type Formula" by OscarContrerasLithgow (both CC-BY-4.0), seated and posed for the game. See CREDITS.md.</p>' },
   ] },
 ];
 

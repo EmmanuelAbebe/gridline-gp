@@ -109,3 +109,20 @@ straight borders. The wheels are coloured by patch (`paint_islands`, faces joine
 patch's mean distance from the axle: tyre / rim / nut). Keeping sharp creases in the cut-down was tried and dropped
 (everything else flattened into panels). Wheels at 9 % (were 6 %: faceted rims). ~74k triangles. car-glb.js: metal
 inside a wheel takes the livery's rim colour.
+
+### Cockpit: the driver, helmet and steering wheel (2026-10-27/28, phase 5)
+The user picked three CC models (CREDITS.md): a driver (BELAZ's "race driver", a Ready Player Me avatar: CC BY-NC-SA),
+a helmet (MizuCorp) and a formula steering wheel (OscarContrerasLithgow). `tools/blender/cockpit.py` seats them in the car
+and writes `driver.glb` (stage=export): the skinned driver with a clip `steer` (9 keys, the wheel at −90° … +90°, every
+bone keyed; the arms solved by two-bone IK to the turned grips, wrists behind the grips, arms slimmed 0.65 across so the
+gloves show), `helmet` (an empty at the head; visor closed = a dark glossy shell; extras show 'outside'), `wheel` (an
+empty at qvist.py's STEER) with `wheel_screen` (the display, 0.10 × 0.068 m). ~31k triangles, 1.6 MB.
+- The seat: the user's cockpit camera (back 0.21 / height 0.75) with the eye at 0.70 m (picked on a height dial at 0.72,
+  then 2 cm lower); qvist.py EYE (0.08, 0.72). The wheel moved to (0.66, 0.58) so the arms reach out to it, and the cowl
+  in front of the cockpit is pressed down into a dip over it (qvist.py `cockpit_dip`, `DIP`: up to 12 cm, the halo
+  untouched) so the hands and the wheel can be seen.
+- Game (car-glb.js `seatDriver`): every car clones the driver (SkeletonUtils), the wheel goes onto the car's steer node,
+  the helmet onto the head bone; each frame the clip time = the wheel's angle, the head leans out of the corner
+  (`DRIVER.lean` per m/s² of lateral g, ≤ 0.2 rad); the live wheel screen sits on `wheel_screen`; the car's stand-in
+  helmet and the old tube body are not used with it; the ghost car has no driver.
+- Known: at full lock (90°) the hand over the top of the wheel crosses the low view, as in real onboard footage.

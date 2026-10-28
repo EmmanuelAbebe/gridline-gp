@@ -293,7 +293,7 @@ export const CarModels = (() => {
   // ---- the stand-in every caller holds: remembers what was set, so a swap to the other kind looks the same
   let kind = 'classic';
   const live = new Set(), kindListeners = new Set();
-  const glbCtx = () => ({ eyeShift: eyeShift(), template: Models.car, env, glow, SHADOW_GEO, SHADOW_MAT, GLOW_GEO, LIGHT_OFF, LIGHT_ON, FINISH_LOOKS, FRONT_STEER, DEG, createDriverBody, markShadows });
+  const glbCtx = () => ({ eyeShift: eyeShift(), template: Models.car, driverTemplate: Models.driver, env, glow, SHADOW_GEO, SHADOW_MAT, GLOW_GEO, LIGHT_OFF, LIGHT_ON, FINISH_LOOKS, FRONT_STEER, DEG, createDriverBody, markShadows });
   function create(scene, driver, design) {
     const st = { design, livery: null, mats: null, shadows: true, visible: true, cockpit: false, screen: null, service: null, pedals: [0, 0] };
     const make = () => kind === '2026' && Models.car ? createGlbCar(scene, driver, st.design, glbCtx()) : createClassic(scene, driver, st.design);

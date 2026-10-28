@@ -254,7 +254,10 @@ def empty(name, at, parent=None, **extras):
   return e
 
 AXLES = (('fl', 1.70, -1), ('fr', 1.70, 1), ('rl', -1.70, -1), ('rr', -1.70, 1))
-EYE, STEER = (0.08, 0.84, 0.0), (0.50, 0.66, 0.0)      # the driver's eye, the steering wheel's centre (game frame)
+EYE, STEER = (0.08, 0.72, 0.0), (0.66, 0.58, 0.0)      # the cockpit camera's reference point (CarModels.eyeShift: with the default camera
+# back 0.21 / height 0.75 the view is from (0.20, 0.70), the driver's eye in cockpit.py: the user's pick on the height dial, 2026-10-28, then 2 cm lower), the steering wheel's centre
+# the dip in front of the cockpit (cockpit_dip): x ramps in / full / out, |z| full / out, heights in m
+DIP = dict(x=(0.42, 0.56, 0.82, 0.96), z=(0.24, 0.36), floor=0.50, squeeze=0.6, top=0.70, halo=0.80)
 gp = lambda c: (c.x, c.z, -c.y)                         # Blender → game frame
 
 def join_into(dst, srcs):
@@ -282,6 +285,20 @@ def body_patch_role(lo, hi, c, area):
 # The colour borders of the body (body_role) as planes in the game frame: (point, normal, where) — each cuts only the
 # faces where(x, y, z) of their centre holds. Cut first, so every border is a straight edge of the mesh, not the
 # sawtooth of the CAD model's long thin triangles across it (2026-10-27, user: wrong colours at the joints).
+def cockpit_dip(o):
+  """the cowl in front of the cockpit pressed down into a smooth dip over the steering wheel (2026-10-28, user: room in the
+  cockpit so the hands and the wheel can be seen clearly; it stood 0.64–0.70 m high over grips at 0.58 m). Each vertex
+  moves down by w(x, z) × g(y): g squeezes the height over DIP['floor'] by DIP['squeeze'] and fades to nothing at the
+  halo (DIP['halo']), so the mapping stays monotone in y (no tears) and the halo pillar's foot follows the cowl down."""
+  me = o.data; n = len(me.vertices); co = np.empty(n * 3); me.vertices.foreach_get('co', co); co = co.reshape(n, 3)
+  x, z, y = co[:, 0], -co[:, 1], co[:, 2]
+  ss = lambda a, b, v: np.clip((v - a) / (b - a), 0, 1) ** 2 * (3 - 2 * np.clip((v - a) / (b - a), 0, 1))
+  d = DIP; w = ss(d['x'][0], d['x'][1], x) * (1 - ss(d['x'][2], d['x'][3], x)) * (1 - ss(d['z'][0], d['z'][1], np.abs(z)))
+  f0, top, h = d['floor'], d['top'], d['halo']
+  g = np.where(y < f0, 0, d['squeeze'] * (np.minimum(y, top) - f0)) * (1 - ss(top, h, y))
+  co[:, 2] = y - w * g; me.vertices.foreach_set('co', co.ravel()); me.update()
+  log('cockpit dip: moved', int((w * g > 0.002).sum()), 'vertices, at most', round(float((w * g).max()), 3), 'm')
+
 def body_cuts():
   axle = lambda x: (np.abs(x - 1.70) < 0.62) | (np.abs(x + 1.70) < 0.56)
   zone = lambda x, y, z: axle(x) & (y > 0.08) & (y < 0.76)
@@ -349,6 +366,33 @@ def lightbox(name, x0, x1, y0, y1, z0, z1):
   bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
   role_mats(o); o.data.polygons.foreach_set('material_index', [ROLES.index('light')] * len(o.data.polygons)); return o
 
+def boxpart(name, x0, x1, y0, y1, z0, z1, role, tilt=0):
+  """a box (game frame) in one role; tilt = degrees about z (a pedal leaning back)"""
+  o = lightbox(name, x0, x1, y0, y1, z0, z1)
+  o.data.polygons.foreach_set('material_index', [ROLES.index(role)] * len(o.data.polygons))
+  if tilt:
+    c = o.location.copy(); o.data.transform(Matrix.Translation(-c)); o.data.transform(Matrix.Rotation(math.radians(tilt), 4, 'Y')); o.data.transform(Matrix.Translation(c))
+  return o
+
+def seat():
+  """the seat: a shell under the driver from the hips up the reclined back to the shoulders, open at the top (a U)"""
+  path = [(0.62, 0.13), (0.38, 0.12), (0.18, 0.20), (0.02, 0.40), (-0.09, 0.60)]
+  ring = lambda x, y, t: [(x - 0.03 * t, y + 0.10, -0.21), (x, y, -0.20), (x, y - 0.02, 0.0), (x, y, 0.20), (x - 0.03 * t, y + 0.10, 0.21)]
+  verts, faces = [], []
+  for k, (x, y) in enumerate(path):
+    t = k / (len(path) - 1)
+    for v in ring(x, y, t): verts.append(G(*v))
+  n = 5
+  for k in range(len(path) - 1):
+    for i in range(n - 1):
+      a = k * n + i; faces.append((a, a + 1, a + n + 1, a + n))
+  me = bpy.data.meshes.new('seat'); me.from_pydata(verts, [], faces); me.update()
+  o = bpy.data.objects.new('seat', me); bpy.context.scene.collection.objects.link(o)
+  sol = o.modifiers.new('s', 'SOLIDIFY'); sol.thickness = 0.012
+  bpy.context.view_layer.objects.active = o; bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.ops.object.modifier_apply(modifier=sol.name)
+  role_mats(o); o.data.polygons.foreach_set('material_index', [ROLES.index('carbon')] * len(o.data.polygons))
+  return o
+
 def ellipsoid(name, c, r, role, **extras):
   bm = bmesh.new(); bmesh.ops.create_uvsphere(bm, u_segments=24, v_segments=14, radius=1); me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
   o = bpy.data.objects.new(name, me); bpy.context.scene.collection.objects.link(o)
@@ -396,7 +440,7 @@ def build():
     L = math.sqrt(sum(c * c for c in ax)); q['axis'] = [round(c / L, 4) for c in ax]; q['open'] = 14
     origin_to(q, root); movers.append(q)
   # paint (on the full model), then cut down
-  log('paint'); cut_borders(body); paint(body, body_role); cockpit_dark(body); decimate(body, RATIO, keep_borders=True)
+  log('paint'); cockpit_dip(body); cut_borders(body); paint(body, body_role); cockpit_dark(body); decimate(body, RATIO, keep_borders=True)
   for q in movers:
     paint(q, lambda x, y, z, q=q: 'paint_accent' if q.name == 'rw_flap2' else 'carbon'); decimate(q, RATIO * 1.5)
   wheels = []
@@ -409,15 +453,31 @@ def build():
     decimate(p, 0.09, keep_borders=True)
     hub = empty(f'wheel_{n}', centre, front=n[0] == 'f'); p.parent = hub; p.location = p.location - hub.location
     wheels.append(hub)
-  for g in glasses: paint(g, lambda x, y, z: 'glass'); lo, hi = box_of(g); origin_to(g, [(a + b) / 2 for a, b in zip(lo, hi)])
+  # the mirrors' glass (2026-10-28, user: misplaced in the cockpit view): the CAD's small "glass" pieces sit beside the
+  # real mirror face, so the glass is found on the housing itself: its faces looking back at the driver
+  for g in glasses: bpy.data.objects.remove(g, do_unlink=True)
+  x, y, z = centres(body); n = len(body.data.polygons); nr = np.empty(n * 3); body.data.polygons.foreach_get('normal', nr); nx = nr.reshape(n, 3)[:, 0]
+  for sgn, side in ((-1, 'l'), (1, 'r')):
+    m = (x > 0.45) & (x < 0.75) & (y > 0.60) & (y < 0.82) & (z * sgn > 0.45) & (z * sgn < 0.75) & (nx < -0.75)
+    if not m.any(): log('no mirror face', side); continue
+    x0, y0, y1, z0, z1 = x[m].min(), y[m].min(), y[m].max(), z[m].min(), z[m].max()
+    log('mirror face', side, 'x', round(float(x0), 3), 'y', round(float(y0), 3), round(float(y1), 3), 'z', round(float(z0), 3), round(float(z1), 3), 'faces', int(m.sum()))
+    boxpart(f'mirror_glass_{side}', x0 - 0.006, x0 - 0.002, y0 + 0.004, y1 - 0.004, z0 + 0.004, z1 - 0.004, 'glass')   # (origin at its centre)
   # what the model doesn't have: brake lights, a helmet, the steering wheel and the driver's anchors
   extra = [lightbox('rain_light', -2.468, -2.452, 0.27, 0.34, -0.035, 0.035)]
   for s, n in ((-1, 'l'), (1, 'r')): extra.append(lightbox(f'ep_light_{n}', -2.505, -2.495, 0.64, 0.88, s * 0.555 - 0.005, s * 0.555 + 0.005))
-  extra.append(ellipsoid('helmet', (0.03, 0.86, 0), (0.15, 0.13, 0.125), 'paint_accent', show='outside'))
-  extra.append(ellipsoid('visor', (0.135, 0.875, 0), (0.05, 0.035, 0.10), 'glass', show='outside'))
+  # (a stand-in helmet seen from outside, until the driver model is in the game; cockpit.py hides it)
+  extra.append(ellipsoid('helmet', (EYE[0] - 0.05, EYE[1] + 0.02, 0), (0.15, 0.13, 0.125), 'paint_accent', show='outside'))
+  extra.append(ellipsoid('visor', (EYE[0] + 0.055, EYE[1] + 0.035, 0), (0.05, 0.035, 0.10), 'glass', show='outside'))
+  # the interior (2026-10-27, user: open the cockpit, a simple seat and pedals): a floor, the seat shell along the driver's
+  # back, two pedals in the footwell (hidden from the cockpit, there in the garage). The driver, helmet and wheel come
+  # from cockpit.py.
+  extra.append(boxpart('cockpit_floor', -0.12, 1.40, 0.095, 0.11, -0.20, 0.20, 'dark'))
+  extra.append(seat())
+  for n, z in (('brake', -0.09), ('throttle', 0.09)):
+    extra.append(boxpart(f'pedal_{n}', 1.26, 1.29, 0.16, 0.34, z - 0.035, z + 0.035, 'metal', tilt=-25))
   empty('eye', EYE); empty('seat', (-0.25, 0.30, 0))
   st = empty('steer', STEER)
-  wheel = ellipsoid('steer_wheel', STEER, (0.03, 0.08, 0.14), 'carbon'); wheel.parent = st; wheel.location = wheel.location - st.location
   for n, z in (('l', -0.135), ('r', 0.135)): empty(f'grip_{n}', (STEER[0], STEER[1], z), parent=st)
   empty('screen', (STEER[0] - 0.031, STEER[1] + 0.017, 0), parent=st)
   meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH']

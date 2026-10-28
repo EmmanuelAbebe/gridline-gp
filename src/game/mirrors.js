@@ -40,13 +40,15 @@ export function createMirrors(renderTo) {
       plane.visible = false;                           // shown once it has a picture
       holder.add(plane); root.add(holder);
       const cam = new THREE.PerspectiveCamera(MIRROR.fov, w / h, MIRROR.near, MIRROR.far);
-      items.push({ holder, plane, target, cam, show: p.show || 'always', rendered: false });
+      items.push({ holder, plane, target, cam, show: p.show || 'always', rendered: false, camOut: p.camOut ?? 0.01 });
     }
   }
   return {
     build,
     setQuality(on) { quality = on; },
     get count() { return items.length; },
+    // (debug: what each mirror is doing)
+    info: () => items.map(m => { const w = new THREE.Vector3(); m.plane.getWorldPosition(w); return { rendered: m.rendered, visible: m.plane.visible, at: m.holder.position.toArray().map(v => +v.toFixed(3)), world: w.toArray().map(v => +v.toFixed(2)), size: [m.plane.geometry.parameters.width, m.plane.geometry.parameters.height].map(v => +v.toFixed(3)) }; }),
     // eye: the driver's eye in car space [x, y, z]; view: 'cockpit' | 'outside'; camPos: the main camera (world)
     update(eye, view, camPos) {
       if (!root || !items.length) return;
@@ -62,7 +64,7 @@ export function createMirrors(renderTo) {
         n.set(0, 0, 1).applyQuaternion(q);                   // the glass's normal, toward the driver
         d.subVectors(C, E).normalize();
         d.addScaledVector(n, -2 * d.dot(n));                 // the line of sight, reflected
-        m.cam.position.copy(C).addScaledVector(d, 0.01);
+        m.cam.position.copy(C).addScaledVector(d, m.camOut);
         m.cam.up.set(0, 1, 0); m.cam.lookAt(C.x + d.x, C.y + d.y, C.z + d.z);
         m.cam.updateMatrixWorld();
         renderTo(m.target, m.cam);

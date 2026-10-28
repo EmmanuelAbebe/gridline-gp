@@ -78,6 +78,11 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
   car-glb.js, garage Look → Car CLASSIC / 2026 (`livery.model`, CarModels.setKind swaps every car), GRIDLINE_SMOKE_CAR=2026).
   Since 2026-10-27 car.glb is the user's pick of a CC-BY model, "F1 2026 concept" by Qvist_designs (CREDITS.md), adapted by
   tools/blender/qvist.py (src = the download, ~/Downloads/f1-2026-concept); our own procedural car = car_own.py (fallback).
+  Cockpit (2026-10-28, docs/car-plan.md): `cockpit.py stage=export` → driver.glb (driver from "race driver" by BELAZ, a Ready
+  Player Me avatar under CC BY-NC-SA; helmet MizuCorp; wheel OscarContrerasLithgow; CREDITS.md): skinned driver + clip
+  `steer` (wheel −90° … +90°), `helmet`, `wheel` + `wheel_screen`; car-glb.js `seatDriver` (clip time = wheel angle, head
+  leans with lateral g). Eye 0.70 m with the user's camera (qvist EYE y 0.72), wheel (0.66, 0.58), cowl dipped over it
+  (qvist `cockpit_dip`). Test runs (--smoke-test, --track-shots) are muted (`GRIDLINE_TEST_SOUND=1` to hear them).
 - npm scripts: `dev` (Vite dev server, browser), `dev:app` (dev server inside Electron, `tools/dev-app.mjs`),
   `build`, `start` (build + Electron), `test` (node:test, `tests/*.test.js`), `lint` (ESLint 10, `eslint.config.js`:
   undefined/unused names; `src/sim` gets no browser globals), `typecheck` (`tsc -p .`, TypeScript 6 on plain JS + JSDoc,

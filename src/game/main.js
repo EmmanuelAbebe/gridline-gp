@@ -67,6 +67,7 @@ CarModels.onKind(() => { mirrors.build(playerModel0.object, playerModel0.mirrorP
 // working rear-view mirrors on the player's car (mirrors.js), rebuilt with the car design
 const mirrors = createMirrors(Display.renderTo);
 mirrors.build(playerModel0.object, playerModel0.mirrorParts());
+if (import.meta.env.DEV || window.gridlineApp?.debug) window.__mirrors = mirrors;   // (debug: mirrors.info())
 const wakes = createSlipstreamFx(Display.scene, SIM.DRIVERS);
 const raceAudio = createRaceAudio();
 const timers = createTimers();
