@@ -9,7 +9,7 @@ import { afterMove } from './motion.js';
 import { stepChassis, steerLock, driftAngle } from './chassis.js';
 import { G, slipstream, cornerSpeed, brakeLimit, brakeMax, lateralGrip } from './vehicle.js';
 import { brakeLimitAt } from './elevation.js';
-import { checkPitEntry, stepPit, updateWear, aiWantsPit, drivePitLane, pitLimit } from './pit.js';
+import { checkPitEntry, stepPit, updateWear, aiWantsPit, drivePitLane, pitLimit, pitThrottle } from './pit.js';
 import { updateActiveAero } from './active-aero.js';
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
@@ -23,6 +23,8 @@ import { updateActiveAero } from './active-aero.js';
 export function drivePlayer(race, c, inp, dt) {
   updateActiveAero(race, c, inp, dt);
   const held = drivePitLane(race, c);                // the pit lane: you drive it; held in your box during the stop
+  const thr = pitThrottle(race, c, !!inp.limiter, inp.thr);   // your own pit limiter (BUTTON setting)
+  if (thr !== inp.thr) inp = { ...inp, thr };
   const rate = inp.analog ? inp.steerRate ?? 14 : 5;
   c.steerIn ??= c.steer;
   c.steerIn += clamp(clamp(inp.steer, -1, 1) - c.steerIn, -dt*rate, dt*rate);

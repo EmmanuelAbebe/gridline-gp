@@ -1,18 +1,18 @@
 import { PREFS } from './config.js';
 import { $, createEmitter } from './util.js';
 import { Controllers } from './controllers.js';
+import { DEFAULT_MAP, PEDALS, HELD, mapFor, actionOf } from './button-map.js';
 
 // Keyboard, touch buttons and one controller (controllers.js: the phone wheel, or a Gamepad API device in the standard
 // Xbox layout), chosen by prefs.controller.
-// Exposes `drive` (read by the sim) and emits: 'action' (name), 'padchange' (connected), 'gesture' (for audio unlock).
+// Exposes `drive` (read by the sim) and emits: 'action' (name), 'menu' ('confirm' | 'back': pad A / B, always),
+// 'padchange' (connected), 'gesture' (for audio unlock). What each controller button does comes from the player's
+// button maps (button-map.js, Settings → Buttons; setButtonMaps); capture(fn) hands the next button pressed to fn instead.
 export const Input = (() => {
   const KEY_DRIVE = { ArrowUp:'up', KeyW:'up', ArrowDown:'down', KeyS:'down', ArrowLeft:'left', KeyA:'left', ArrowRight:'right', KeyD:'right', KeyR:'back', Space:'hb' };
   const KEY_ACTIONS = { KeyC:'camera', KeyM:'mute', KeyP:'pause', Escape:'pause', KeyF:'fps', KeyG:'graphics', KeyT:'tweak', KeyL:'layout', KeyV:'fullscreen', KeyI:'inputs', KeyO:'settings',
-    KeyQ:'shiftDown', KeyE:'shiftUp', KeyB:'box', KeyX:'boost' };
+    KeyQ:'shiftDown', KeyE:'shiftUp', KeyB:'box', KeyX:'boost', KeyZ:'aero', KeyN:'limiter' };
   const PAD = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, BACK: 8, START: 9, LS: 10, RS: 11, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
-  // A / B are the phone wheel's buttons 1 and 2: confirm in menus, shift down / up while racing (the game decides)
-  const PAD_ACTIONS = [[PAD.A, 'primary'], [PAD.B, 'secondary'], [PAD.LB, 'shiftDown'], [PAD.RB, 'shiftUp'],
-    [PAD.START, 'pause'], [PAD.Y, 'camera'], [PAD.X, 'box'], [PAD.BACK, 'boost']];
   const TOUCH = { tLeft: 'left', tRight: 'right', tBrake: 'down', tGas: 'up' };
 
   const events = createEmitter();
@@ -33,6 +33,7 @@ export const Input = (() => {
   setConfig(PREFS.defaults);
   const gamepadAllowed = !(document.featurePolicy && document.featurePolicy.allowsFeature && !document.featurePolicy.allowsFeature('gamepad'));
   let padPrev = [], padKey = '', device = null;   // device: the controller snapshot that drives (presence.js)
+  let maps = { devices: {} }, map = DEFAULT_MAP, catcher = null;   // button maps; the one in use; capture(fn)
 
   const typing = e => e.target instanceof Element && e.target.matches('input, select, textarea');   // design-tool fields
   addEventListener('keydown', e => {
@@ -75,21 +76,36 @@ export const Input = (() => {
       }
       if (x !== 0) { steer = x; analog = true; }
       thr = Math.max(thr, deadZone(pt, cfg.pedalDeadZone)); brk = Math.max(brk, deadZone(pb, cfg.pedalDeadZone));
-      if (pressed(p, PAD.UP)) thr = 1;                               // D-pad as backup pedals / steering
-      if (pressed(p, PAD.DOWN)) brk = 1;
-      if (pressed(p, PAD.LEFT)) steer = -1;
-      if (pressed(p, PAD.RIGHT)) steer = 1;
-      for (const [i, action] of PAD_ACTIONS) if (pressed(p, i) && !padPrev[i]) events.emit('action', action);
-      padPrev = p.buttons.map((b, i) => pressed(p, i));
+      map = mapFor(maps, p.key);
+      const spare = i => pressed(p, i) && !actionOf(map, i);           // D-pad as backup pedals / steering, unless bound
+      if (spare(PAD.UP)) thr = 1;
+      if (spare(PAD.DOWN)) brk = 1;
+      if (spare(PAD.LEFT)) steer = -1;
+      if (spare(PAD.RIGHT)) steer = 1;
+      const down = p.buttons.map((b, i) => pressed(p, i));
+      for (let i = 0; i < down.length; i++) {
+        if (!down[i] || padPrev[i] || PEDALS.includes(i)) continue;
+        if (catcher) { const f = catcher; catcher = null; f(i, p); continue; }      // (setting a button: it does nothing else)
+        if (i === PAD.A) events.emit('menu', 'confirm');
+        if (i === PAD.B) events.emit('menu', 'back');
+        const action = actionOf(map, i);
+        if (action && !HELD.has(action)) events.emit('action', action);
+      }
+      padPrev = down;
     }
     drive.steer = steer; drive.thr = thr; drive.brk = brk; drive.analog = analog;
     const rx = p ? p.axes[2] || 0 : 0;
-    look.back = held.back || (!!p && pressed(p, PAD.RS));
-    drive.hb = held.hb || (!!p && pressed(p, PAD.LS)) ? 1 : 0; look.side = Math.abs(rx) > 0.5 ? Math.sign(rx) : 0;
+    const holding = action => !!p && map[action].some(i => pressed(p, i));
+    look.back = held.back || holding('lookBack');
+    drive.hb = held.hb || holding('handbrake') ? 1 : 0; look.side = Math.abs(rx) > 0.5 ? Math.sign(rx) : 0;
   }
   addEventListener('gamepadconnected', poll);
   addEventListener('gamepaddisconnected', poll);
 
-  return { drive, look, pad, get device() { return device; }, poll, on: events.on, gamepadAllowed, setConfig, shapeSteer };
+  return { drive, look, pad, get device() { return device; }, poll, on: events.on, gamepadAllowed, setConfig, shapeSteer,
+    setButtonMaps(m) { maps = m; },
+    // the next controller button pressed goes to fn(index, device) and does nothing else; capture(null) cancels
+    capture(fn) { catcher = fn; },
+    get capturing() { return !!catcher; } };
 })();
 

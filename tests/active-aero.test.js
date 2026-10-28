@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SIM as S } from '../src/sim/index.js';
 import { ACTIVE_AERO, OVERTAKE } from '../src/sim/tuning.js';
-import { gapAhead } from '../src/sim/active-aero.js';
+import { gapAhead, updateActiveAero } from '../src/sim/active-aero.js';
 import { DT, run, seeded, aiDriver, centreProfile } from './helpers.js';
 
 const tracks = Object.fromEntries(Object.entries(S.CIRCUITS).map(([id, c]) => [id, S.buildTrack(c)]));
@@ -81,4 +81,28 @@ test('overtake mode: within a second of the car ahead at the line → boost for 
   a.lap = 3; b.trailT[a.idx] = r.t - 2.5;
   S.drivePlayer(r, a, { steer: 0, thr: 1, brk: 0 }, DT);
   assert.equal(a.boostLeft, 0); assert.equal(a.boostOn, false);
+});
+
+test('straight mode on a button (aeroAuto off): opens only when asked inside a zone, closes on the brakes, the zone\'s end or the button', () => {
+  const T = tracks.harrow, r = S.createRace(2, { track: T, drivers: S.DRIVERS.filter(d => d.player), activeAero: true }), c = r.cars[0];
+  const z = T.aeroZones[0], N = T.N, at = k => { c.idx = (z.from + k) % N; };
+  c.aeroAuto = false; c.v = 70; c.steer = 0.5;              // (part throttle and steering: the auto rules would keep it shut)
+  const step = (inp, n = 1) => { for (let i = 0; i < n; i++) updateActiveAero(r, c, { thr: 0.5, brk: 0, ...inp }, DT); };
+  const aero = () => c.events.filter(e => e.type === S.EV.AERO).map(e => `${e.on ? 'on' : 'off'}${e.zone ? '' : ' (no zone)'}`);
+  at(-20); step({ aero: true });                             // before the zone: nothing
+  step({}, 60);
+  assert.equal(c.aeroOpen, 0);
+  at(5); step({}, 60);                                       // in the zone, not asked: shut
+  assert.equal(c.aeroOpen, 0);
+  step({ aero: true }); step({}, 60);                        // asked: open
+  assert.equal(c.aeroOpen, 1);
+  step({ brk: 0.3 }, 30);                                    // the brakes shut them, and they stay shut
+  step({}, 30);
+  assert.ok(c.aeroOpen === 0 && !c.aeroWant);
+  step({ aero: true }); step({}, 60); step({ aero: true }); step({}, 60);   // on, then off by the button
+  assert.equal(c.aeroOpen, 0);
+  step({ aero: true }); step({}, 60);
+  at(((z.to - z.from + N) % N) + 3); step({}, 60);           // past the zone's end
+  assert.ok(c.aeroOpen === 0 && !c.aeroWant);
+  assert.deepEqual(aero(), ['off (no zone)', 'on', 'off', 'on', 'off', 'on', 'off (no zone)']);
 });

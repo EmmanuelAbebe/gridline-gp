@@ -54,7 +54,8 @@ export function gapAhead(race, c, within = 5) {
 }
 
 // Before each driving step. inp: thr, brk (as about to be applied), boost (player: true for the step the button
-// was pressed: switches overtake mode on / off).
+// was pressed: switches overtake mode on / off), aero (player with aeroAuto off: the step the straight-mode button was
+// pressed: opens the wings in a zone, closes them anywhere).
 /** @param {Race} race @param {Car} c */
 export function updateActiveAero(race, c, inp, dt) {
   if (!race.activeAero) return;
@@ -79,8 +80,19 @@ export function updateActiveAero(race, c, inp, dt) {
   // straight mode / corner mode
   // opening needs (nearly) full throttle; once open they stay open through the zone on a part throttle (a car held
   // up behind another), and close on the brakes, a lift below holdThr, steering or a slide
-  const thrOk = inp.thr >= (c.aeroOpen > 0 ? AA.holdThr : AA.thr);
-  const open = zoneHere && thrOk && inp.brk < 0.05 && Math.abs(c.steer) < AA.steer && c.v > AA.minSpeed
-    && c.slideR < 0.5 && !c.beached;
+  let open;
+  if (c.aeroAuto) {
+    const thrOk = inp.thr >= (c.aeroOpen > 0 ? AA.holdThr : AA.thr);
+    open = zoneHere && thrOk && inp.brk < 0.05 && Math.abs(c.steer) < AA.steer && c.v > AA.minSpeed
+      && c.slideR < 0.5 && !c.beached;
+  } else {
+    // the driver's button (2026-10-28, user's phone wheel has a DRS button): only in a zone, at any throttle or steering
+    // (the driver's call); the brakes or the zone's end close them, as do the button again
+    const was = c.aeroWant;
+    if (inp.aero) c.aeroWant = !c.aeroWant && zoneHere;
+    if (!zoneHere || inp.brk >= 0.05 || c.beached) c.aeroWant = false;
+    if (c.aeroWant !== was || (inp.aero && !zoneHere)) emit(c, EV.AERO, { on: c.aeroWant, zone: zoneHere, press: !!inp.aero });
+    open = c.aeroWant && c.v > AA.minSpeed;
+  }
   c.aeroOpen = open ? Math.min(1, c.aeroOpen + dt / AA.openTime) : Math.max(0, c.aeroOpen - dt / AA.closeTime);
 }

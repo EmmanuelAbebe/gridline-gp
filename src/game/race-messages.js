@@ -30,7 +30,8 @@ export const EVENT_MESSAGES = {
   [EV.WING_OFF]: e => ({ radio: `You've lost the ${e.side} side of the front wing: understeer. Box for a new nose.`, secs: 5 }),
   [EV.RECOVERED]: () => ({ toast: 'Back on track  ·  dirty tyres, take it easy' }),
   // pit stops and the car's condition: the team on the radio
-  [EV.PIT_IN]: () => ({ radio: 'Pit limiter on, 80. Stop in your box for the crew.', secs: 3 }),
+  [EV.PIT_IN]: (e, c) => ({ radio: c.limiterAuto || c.limiterOn ? 'Pit limiter on, 80. Stop in your box for the crew.'
+    : 'Limiter! Limiter! 80 in the pit lane.', secs: 3 }),
   [EV.PIT_STOP]: e => {
     const s = e.service, jobs = [s.compound ? `${s.compound}s` : 'tyres'];
     if (s.fuel > 0.5) jobs.push(`${Math.round(s.fuel)} kg of fuel`);
@@ -40,7 +41,11 @@ export const EVENT_MESSAGES = {
   },
   [EV.PIT_READY]: () => ({ radio: 'Done. Go, go, go!', secs: 2 }),
   [EV.PIT_GO]: () => ({ radio: 'Go, go, go!', secs: 2 }),
-  [EV.PIT_OUT]: (e, c, race) => ({ radio: `Limiter off. You're P${SIM.order(race).indexOf(c) + 1}.`, secs: 3 }),
+  [EV.PIT_OUT]: (e, c, race) => ({ radio: `${c.limiterAuto ? 'Limiter off. ' : c.limiterOn ? 'Limiter off now. ' : ''}You're P${SIM.order(race).indexOf(c) + 1}.`, secs: 3 }),
+  // your own pit limiter and straight mode (Settings → Driving BUTTON)
+  [EV.LIMITER]: e => ({ toast: e.on ? 'Pit limiter ON  ·  80 km/h' : 'Pit limiter off', secs: 1.5 }),
+  [EV.PIT_SPEEDING]: e => ({ toast: `+${e.seconds} s penalty  ·  speeding in the pit lane (${Math.round(e.kmh)} km/h)  (total +${e.total} s)`, kind: 'warn', secs: 4 }),
+  [EV.AERO]: e => e.press && !e.zone ? { toast: 'Straight mode only in the zones (green on the map)', secs: 1.5 } : null,
   [EV.FUEL_LOW]: () => ({ radio: 'Fuel is getting low: about 2 laps left, not enough for the finish. Box when you can (B / pad X).', secs: 6 }),
   [EV.FUEL_BOX]: () => ({ radio: 'Box this lap or you will run out of fuel!', secs: 5 }),
   [EV.FUEL_OUT]: () => ({ radio: 'We are out of fuel: limp mode. Bring it into the pits.', secs: 6 }),
@@ -66,6 +71,9 @@ export const SAY = {
   noHud: { toast: 'Start a race to arrange the HUD' },
   boostNone: { toast: 'No overtake mode this lap: cross the line within 1 s of the car ahead' },
   boostAuto: { toast: 'Overtake mode is on AUTO: pick BUTTON in Settings → Driving to fire it yourself' },
+  aeroOff: { toast: 'Active aero is off for this race (Settings → Driving)' },
+  aeroAuto: { toast: 'Straight mode is on AUTO: pick BUTTON in Settings → Driving to open the wings yourself' },
+  limiterAuto: { toast: 'The pit limiter is on AUTO: pick BUTTON in Settings → Driving to use your own' },
 };
 // box this lap, with the tyres the crew has ready: the pit plan's compound, or the team's choice
 export const boxMessage = plan => ({ radio: `Copy, box this lap. ${plan.tyres === 'auto' ? 'We pick the tyres' : plan.tyres === 'same' ? 'Same tyres' : `${plan.tyres[0].toUpperCase()}${plan.tyres.slice(1)}s`} ready for you.`, secs: 3 });

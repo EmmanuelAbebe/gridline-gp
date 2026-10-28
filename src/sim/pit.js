@@ -33,9 +33,9 @@ import { clamp, wrapA, wrapIdx, smoothstep } from './math.js';
 /** In the pit lane: p = unwrapped sample position (from p0, lateral lat0 at the entry), the car's box, phase, service
  * done at the stop (from race time `at` until `until`); done = service finished. drive = the driver drives (the
  * player): entered = past the pit wall's start (limiter on), hold = where the car is held during the stop, request =
- * BOX was asked for (the crew comes out to wait).
+ * BOX was asked for (the crew comes out to wait), speeding = penalised for speeding in the lane on this visit.
  * @typedef {{ p: number, p0: number, lat0: number, box: number, phase: 'in' | 'stop' | 'out', at: number, until: number,
- *   service: Service, done: boolean, drive?: boolean, entered?: boolean, hold?: number[], request?: boolean }} PitStop */
+ *   service: Service, done: boolean, drive?: boolean, entered?: boolean, hold?: number[], request?: boolean, speeding?: boolean }} PitStop */
 
 // The lane on a track (null without pits): sample ranges + lateral offsets; boxes = one per DRIVERS entry, in front
 // of the garage doors world.js draws (PIT.garages: first + step·k m along from the `pits` landmark).
@@ -52,6 +52,8 @@ export function buildPitLane(track) {
 export const pitState = slot => ({
   fuel: Infinity, tyreWear: 0, tyreT: /** @type {TyreSet} */ (null), damage: /** @type {Damage} */ ({ wing: 0, floor: 0, susp: 0 }), wingOff: [false, false], pullSide: slot % 2 ? 1 : -1,   // pullSide: where damaged suspension pulls
   pit: /** @type {PitStop} */ (null), pitRequest: false, pitLimiter: false, pitStops: 0,
+  // the pit limiter by the driver's button (PIT.speeding): limiterAuto false = it is on only while limiterOn
+  limiterAuto: true, limiterOn: false,
   // the tyres on the car (COMPOUNDS), the wear at which the AI's plan stops for the next set, the next stop's jobs
   compound: 'medium', planWear: /** @type {number} */ (PIT.ai.tyres), pitPlan: /** @type {PitPlan} */ ({ tyres: 'same', wing: true, repair: true }),
   warned: /** @type {{ low?: boolean, box?: boolean, out?: boolean, tyres?: boolean }} */ ({}),   // pit = { p, phase, ... } while in the lane
@@ -309,12 +311,29 @@ export function drivePitLane(race, c) {
   }
   return false;
 }
-// the pit limiter, after a driven car's step: its speed held to PIT.speed (a car arriving too fast is cut down to it)
+// the pit limiter, after a driven car's step: its speed held to PIT.speed (a car arriving too fast is cut down to it).
+// The driver's own limiter (limiterAuto false) only holds: it cuts the engine above PIT.speed (pitThrottle) and trims the
+// last step's overshoot, so a car arriving too fast stays too fast until the driver brakes.
 /** @param {Car} c */
 export function pitLimit(c) {
   if (!c.pitLimiter) return;
   const s = Math.hypot(c.v, c.vy);
-  if (s > PIT.speed) { const k = PIT.speed / s; c.v *= k; c.vy *= k; }
+  if (s > PIT.speed && (c.limiterAuto || s < PIT.speed + PIT.speeding.hold)) { const k = PIT.speed / s; c.v *= k; c.vy *= k; }
+}
+// The driver's pit limiter, before a driven car's step (after drivePitLane): `press` switches it on / off; it is on
+// anywhere it is switched on (not while held in the box). In the lane between the pit wall's ends, faster than the limit
+// = a time penalty (once per visit). Returns the throttle the car gets (none above the limit with the limiter on).
+/** @param {Race} race @param {Car} c @param {boolean} press @param {number} thr */
+export function pitThrottle(race, c, press, thr) {
+  if (c.limiterAuto) return thr;
+  if (press) { c.limiterOn = !c.limiterOn; emit(c, EV.LIMITER, { on: c.limiterOn }); }
+  const P = c.pit, s = Math.hypot(c.v, c.vy), L = race.track.pit;
+  c.pitLimiter = c.limiterOn && P?.phase !== 'stop';
+  if (P?.drive && P.entered && !P.speeding && P.phase !== 'stop' && P.p <= L.to && s > PIT.speed + PIT.speeding.tol) {
+    P.speeding = true; c.penalty += PIT.speeding.seconds;
+    emit(c, EV.PIT_SPEEDING, { kmh: s * 3.6, seconds: PIT.speeding.seconds, total: c.penalty });
+  }
+  return c.pitLimiter && s >= PIT.speed ? 0 : thr;
 }
 
 // The stop's jobs one after another (the time adds up to service.time): tyres always, then fuel, a new front wing,

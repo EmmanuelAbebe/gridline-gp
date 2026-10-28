@@ -277,6 +277,23 @@ async function smokeTest(win) {
     await new Promise(r => setTimeout(r, 2800));
     clearInterval(feedAway);
     const awayBack = await win.webContents.executeJavaScript(`({ hidden: document.getElementById('awayOv').hidden, running: !document.getElementById('hud').hidden && document.getElementById('pauseOv').hidden })`);
+    // Settings → Buttons with the phone: a press shows what it does; SET on straight mode + the phone's Guide button binds
+    // it (screenshot), then reset. (Phone bits: BACK 6, GUIDE 8.)
+    const press = async (k, ms) => { const f = setInterval(() => ws.send(JSON.stringify({ s: 0, g: 0, b: 0, k })), 16); await new Promise(r => setTimeout(r, ms)); clearInterval(f); };
+    await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click(); document.getElementById('pauseSettingsBtn').click();
+      [...document.querySelectorAll('#setTabs button')].find(b => b.textContent === 'Buttons').click()`);
+    await press(1 << 6, 300);
+    const buttonsLive = await win.webContents.executeJavaScript(`document.querySelector('.bm-live').textContent`);
+    await press(0, 150);
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('.bm-row')].find(r => r.querySelector('b').textContent.startsWith('Straight mode'))
+      .querySelector('.bm-keys button').click()`);
+    await press(1 << 8, 200); await press(0, 150);
+    const buttonsBound = await win.webContents.executeJavaScript(`[...[...document.querySelectorAll('.bm-row')].find(r => r.querySelector('b').textContent.startsWith('Straight mode'))
+      .querySelectorAll('.bm-chip > span')].map(e => e.textContent)`);
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-buttons.png'), (await win.webContents.capturePage()).toPNG());
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('#setBody button')].find(b => b.textContent === 'Reset to default').click();
+      document.getElementById('setClose').click(); document.getElementById('resumeBtn').click()`);
+    await new Promise(r => setTimeout(r, 200));
     await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click(); document.getElementById('pauseSettingsBtn').click();
       [...document.querySelectorAll('#setTabs button')].find(b => b.textContent === 'Controller').click()`);
     await new Promise(r => setTimeout(r, 300));          // paused: the rumble's last message (all 0) arrives
@@ -285,7 +302,7 @@ async function smokeTest(win) {
     const after = await win.webContents.executeJavaScript(`gridlineDebug.input()`);
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('#setBody button')].find(b => b.textContent === 'Stop').click()`);
     await new Promise(r => setTimeout(r, 400));
-    return { link: st.link, port: st.port, qr: st.qr.startsWith('<svg'), seen, releasedSteer: after.steer, stopped: !phone.status().running, away: { ...awayShown, back: awayBack },
+    return { link: st.link, port: st.port, qr: st.qr.startsWith('<svg'), seen, releasedSteer: after.steer, stopped: !phone.status().running, away: { ...awayShown, back: awayBack }, buttons: { live: buttonsLive, bound: buttonsBound },
       feedback: { messages: fx.length, felt: [...new Set(fx.flatMap(f => Object.keys(f).filter(k => k !== 'kh' && f[k] > 0)))], endsAtZero: !!fx.length && !fx.at(-1).k && !fx.at(-1).o && !fx.at(-1).s } };
   })();
   await win.webContents.executeJavaScript(`document.getElementById('setClose').click()`);

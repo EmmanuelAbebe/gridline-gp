@@ -13,7 +13,7 @@ which shows up in the browser as a virtual Xbox 360 controller.
 Turning the prototype into a production-grade game. Agreed order: (1) foundation [done: modules, Vite, tests],
 (2) sim-cade physics in 4 parts: [done] engine/gearbox/downforce/slipstream; [done] tyre + chassis model;
 [done] AI on the same chassis (racing line, racecraft, mistakes, difficulty); [done 2026-10-19] tuning screen = the garage (setup + open mods + livery), (3) merge the Phone-wheel project into this one ([done 2026-10-19] server inside Electron,
-pairing from the settings menu; [done 2026-10-19] force feedback = phone vibration; still to do: rev lights on the phone, BOX button on the phone, per-device mapping for wheels/joysticks), (4) car/world visuals: [done 2026-10-14] brake lights, cockpit view (user's seat: eye 0.33 m back / 0.77 m high, wheel 0.675 m high; wheel at x 0.18 so the arms reach it, halo visible, driver's arms/legs),
+pairing from the settings menu; [done 2026-10-19] force feedback = phone vibration; still to do: rev lights on the phone, BOX button on the phone, wheels' pedal axes per device; [done 2026-10-28] button mapping per device, Settings → Buttons), (4) car/world visuals: [done 2026-10-14] brake lights, cockpit view (user's seat: eye 0.33 m back / 0.77 m high, wheel 0.675 m high; wheel at x 0.18 so the arms reach it, halo visible, driver's arms/legs),
 F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing section, teardrop from above, legs behind the shoulders) + a curved centre pillar (design v8, 2026-10-19); still to do: crash physics, scenery, (5) HUD, menus, presentation.
 
 ## Files
@@ -267,6 +267,28 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   always shows the compound badge (`.cmp` S red / M yellow / H white) + wear; tyre °C colours by the compound's window;
   radio "Stop: softs, …", the box request names the tyres ready. Smoke test: out-garage-tyres.png, out-pause.png. Not done:
   the compound colour on the tyre model, the two-compound rule, lap records apart per compound.
+
+## Driver buttons and button mapping (2026-10-28; user's phone wheel has DRS, PIT, M and OT buttons: "build both, pit
+## limiter and straight mode buttons and a mechanism to configure buttons and their actions from a controller device")
+- Settings → Driving `straight` / `limiter` AUTO (default: as before, sim-trace identical) / BUTTON (game.setup; main.js
+  `setDriverButtons` → car `aeroAuto`, `limiterAuto`; the AI always automatic). Straight mode on a button (active-aero.js):
+  `inp.aero` (the step it was pressed) toggles `c.aeroWant`, only inside a zone; any throttle or steering (the driver's
+  call); the brakes, the zone's end or the button close it; EV.AERO {on, zone, press} (toast when pressed outside a zone);
+  HUD chip dashed = in a zone, yours to open. Pit limiter on a button (pit.js `pitThrottle`, before the chassis):
+  `inp.limiter` toggles `c.limiterOn` (EV.LIMITER), on anywhere (track too); it only holds: no throttle above 80 km/h and
+  `pitLimit` trims an overshoot below `PIT.speeding.hold`, it never brakes; faster than 80 + `tol` (1 km/h) from the pit
+  wall's start to its end = `PIT.speeding.seconds` 5 s on c.penalty once per visit (EV.PIT_SPEEDING, `c.pit.speeding`).
+  Radio at PIT_IN without it: "Limiter! Limiter!". Keys Z (straight mode), N (limiter). tests: pit.test.js "your own pit
+  limiter", active-aero.test.js "straight mode on a button".
+- Button maps (`button-map.js`, pure, tests/button-map.test.js; localStorage `gridline.buttons`): per device key
+  (controllers.js: 'phone', 'pad:<id>') { action: [standard button indices] } (≤ 2 per action, a button on one action),
+  `DEFAULT_MAP` = the old fixed layout (A/LB shift down, B/RB up, X box, Y camera, View overtake, Menu pause, LS handbrake,
+  RS look back; straight mode / limiter unbound). Input (no more PAD_ACTIONS): bound actions fire on press, held ones
+  (lookBack, handbrake) while down; 'menu' confirm / back = A / B always; the D-pad is a backup pedal / steer unless bound;
+  the triggers are never bound; `Input.capture(fn)` = the next press goes to fn only. Settings → Buttons
+  (`button-panel.js`): the controller in use, SET + press, × to remove, reset, live "what does this button do". The phone
+  page's own buttons each send a standard button (phone Settings → Buttons); the game maps those. Smoke test:
+  out-buttons.png (the phone's View shows its action, SET + Guide binds straight mode).
 
 ## Architecture
 Tunables live in data tables (config modules), not inline in the logic.

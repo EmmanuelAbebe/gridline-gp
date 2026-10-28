@@ -464,6 +464,10 @@ export const PIT = Object.freeze({ fast: 2.4, box: 8, garage: 12.5, entry: 55, e
   // of its middle, pointing within `angle` rad of the lane, slower than `speed` m/s; then held until the service is done.
   // The lane's outer edge (the garages) narrows to the pit roads' barrier over `taper` m at both ends.
   boxFit: Object.freeze({ along: 1.5, lat: 1.1, angle: 0.35, speed: 0.4 }), taper: 16,
+  // the player's own pit limiter (Settings → Driving Pit limiter BUTTON, car limiterAuto false; 2026-10-28, user's phone
+  // wheel has a PIT button): pressed = the engine cut above `speed` anywhere (it holds, it doesn't brake); faster than
+  // speed + `tol` m/s from the pit wall's start to its end = a `seconds` time penalty, once per visit (as in F1)
+  speeding: Object.freeze({ tol: 1 / 3.6, seconds: 5, hold: 0.5 }),
   // speeds in the lane: braking into the box at boxBrake m/s², pulling away at accel m/s², exitAccel on the exit road
   boxBrake: 6, accel: 8, exitAccel: 18, stopAt: 0.05, creep: Object.freeze({ within: 1, below: 0.3 }),
   // what the self-driving car shows the HUD and sound: throttle in / out, brake light, gear and revs
@@ -544,4 +548,4 @@ export const EV = Object.freeze({ LAP: 'lap', FASTEST: 'fastest', FINISH: 'finis
   SAUSAGE: 'sausage', BEACHED: 'beached', RECOVERED: 'recovered',
   PIT_IN: 'pit-in', PIT_STOP: 'pit-stop', PIT_READY: 'pit-ready', PIT_GO: 'pit-go', PIT_OUT: 'pit-out', DAMAGE: 'damage',
   FUEL_LOW: 'fuel-low', FUEL_BOX: 'fuel-box', FUEL_OUT: 'fuel-out', TYRES_WORN: 'tyres-worn', TYRES_WARM: 'tyres-warm', TYRES_HOT: 'tyres-hot',
-  BOOST_READY: 'boost-ready', BOOST: 'boost', LAUNCHED: 'launched', LANDED: 'landed', WING_OFF: 'wing-off' });
+  BOOST_READY: 'boost-ready', BOOST: 'boost', PIT_SPEEDING: 'pit-speeding', LIMITER: 'limiter', AERO: 'aero', LAUNCHED: 'launched', LANDED: 'landed', WING_OFF: 'wing-off' });

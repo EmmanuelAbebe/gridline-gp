@@ -3,6 +3,7 @@ import { PREFS, RACE_SETUP } from './config.js';
 import { SCENARIOS } from './audio/scenarios.js';
 import { $, createEmitter } from './util.js';
 import { createControllerPanel } from './controller-panel.js';
+import { createButtonPanel } from './button-panel.js';
 
 // Settings screen (start menu SETTINGS, pause menu, or O): tabs of controls built from the TABS table below.
 // Values live elsewhere (race setup, prefs, graphics mode); main.js passes a binding { get(key), set(key, value),
@@ -23,6 +24,7 @@ const KEYS = `<div class="keys">
   <span><kbd>←</kbd><kbd>→</kbd> <kbd>A</kbd><kbd>D</kbd></span><span>Steer (eased in, so a tap is not full lock)</span>
   <span><kbd>Q</kbd> <kbd>E</kbd></span><span>Shift down / up (semi-auto and manual gearbox)</span>
   <span><kbd>B</kbd> <kbd>X</kbd></span><span>Box this lap, overtake mode (when set to BUTTON)</span>
+  <span><kbd>Z</kbd> <kbd>N</kbd></span><span>Straight mode, pit limiter (when set to BUTTON in Settings → Driving)</span>
   <span><kbd>C</kbd></span><span>Camera</span>
   <span><kbd>R</kbd></span><span>Look back (hold)</span>
   <span><kbd>Space</kbd></span><span>Handbrake (hold): locks the rear wheels, for hairpins</span>
@@ -31,8 +33,7 @@ const KEYS = `<div class="keys">
   <span><kbd>M</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>V</kbd></span><span>Sound, FPS counter, graphics mode, full screen</span>
   <span><kbd>T</kbd> <kbd>L</kbd> <kbd>I</kbd></span><span>Design tools, HUD layout, input monitor</span>
 </div>
-<p class="note">Controller: right trigger gas, left trigger brake, LB / RB or A / B (phone buttons 1 / 2) shift down / up
-while racing, A confirms in menus, START pauses, Y changes camera, right-stick click (phone: REAR) looks back while held, the right stick looks left / right, left-stick click is the handbrake (on the phone: add a button bound to Left stick click), X boxes, View (Back) switches overtake mode on.</p>`;
+<p class="note">Controller: right trigger gas, left trigger brake, the left stick (or the phone's tilt) steers, the right stick looks left / right, A confirms and B goes back in menus. What every other button does is yours to set: Settings → Buttons.</p>`;
 
 const TABS = [
   { id: 'driving', label: 'Driving', items: [
@@ -75,6 +76,12 @@ const TABS = [
       auto: 'Within 1 s of the car ahead at the line: the next lap the electric motor keeps its full 350 kW up to 337 km/h (not 290), with extra battery, for 5 s; used for you on the straights when you are close.',
       button: 'Within 1 s of the car ahead at the line: the next lap the electric motor keeps its full 350 kW up to 337 km/h (not 290), with extra battery, for 5 s. Switch it on with X, pad View or the BOOST button.',
       off: 'No overtake boost for anyone.' })[v], b => b.get('aero') === 'on'),
+    seg('straight', 'Straight mode', C.straight, v => v === 'auto'
+      ? 'Your wings open by themselves in the zones on full throttle, as every AI car\'s do.'
+      : 'You open the wings yourself (Z or your controller\'s straight-mode button: Settings → Buttons), only in the zones (green on the map, the chip shows dashed): at any throttle and steering, your call. The brakes, the zone\'s end or the button again close them. The AI stays automatic.', b => b.get('aero') === 'on'),
+    seg('limiter', 'Pit limiter', C.limiter, v => v === 'auto'
+      ? 'The car holds 80 km/h by itself from the pit wall\'s start to its end.'
+      : 'Your own limiter (N or your controller\'s pit-limiter button): switch it on before the pit lane\'s line, off after the end of the pit wall. It holds 80 km/h but does not brake: over 80 in the pit lane is a 5 s time penalty, as in F1. Left on, it holds you to 80 on the track too.'),
   ] },
   { id: 'controller', label: 'Controller', items: [
     panel(createControllerPanel),
@@ -98,6 +105,7 @@ const TABS = [
     { type: 'readout' },
     buttons(['Test controls', 'inputs'], ['Reset controller', 'resetController']),
   ] },
+  { id: 'buttons', label: 'Buttons', items: [panel(createButtonPanel)] },
   { id: 'keyboard', label: 'Keys', items: [{ type: 'html', html: KEYS }] },
   { id: 'graphics', label: 'Graphics', items: [
     seg('gfx', 'Graphics', [['quality', 'QUALITY'], ['perf', 'PERFORMANCE']]),

@@ -1,6 +1,6 @@
 // The Settings screen's wiring: what each setting reads and writes, its actions, and opening it over the start or
 // pause menu (a running race pauses first; closing goes back to that menu). main.js passes the game state and the
-// commands that change it (`act`: setGfx, setPref, setDriving, togglePause, toggleLayout).
+// commands that change it (`act`: setGfx, setPref, setDriving, togglePause, toggleLayout, setButtonMaps).
 import { PREFS, PHASE, RACE_SETUP } from './config.js';
 import { Screens } from './screens.js';
 import { Sound } from './sound.js';
@@ -18,11 +18,13 @@ export function bindSettings(game, act) {
   SettingsScreen.bind({
     get(key) {
       if (key === 'noiseColour') return SOUND.noise.colour;
+      if (key === 'buttonMaps') return game.buttonMaps;
       return isDriving(key) ? (key.startsWith('a.') ? game.setup.custom[key.slice(2)] : game.setup[key]) : key === 'gfx' ? game.gfx
         : key === 'sound' ? !game.prefs.muted : game.prefs[key];
     },
     set(key, value) {
       if (key === 'noiseColour') SoundStudio.set('noise.colour', value);
+      else if (key === 'buttonMaps') act.setButtonMaps(value);
       else if (isDriving(key)) act.setDriving(key, value);
       else if (key === 'gfx') act.setGfx(value, true);
       else if (key === 'sound') { Sound.init(); act.setPref('muted', !value); }

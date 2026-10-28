@@ -78,6 +78,13 @@ table.res i{display:inline-block;width:4px;height:14px;vertical-align:-2px;margi
 .dev-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--rule)}
 .dev-row.active b{color:var(--amber)}
 .dev-row p.note{margin:2px 0 0}
+.bm-row > div:first-child{flex:1;min-width:0}
+.bm-keys{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;flex-shrink:0;justify-content:flex-end}
+.bm-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 4px 2px 8px;border:1px solid var(--rule);border-radius:4px;font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.04em}
+.bm-chip.down{border-color:var(--amber);color:var(--amber);background:rgba(255,194,26,.12)}
+.bm-x{background:none;border:0;color:var(--muted);font-size:15px;line-height:1;padding:0 4px;cursor:pointer}
+.bm-x:hover{color:var(--text)}
+.bm-live{color:var(--amber);min-height:1.4em}
 #startOv .card{width:min(560px,100%);gap:10px;padding-top:20px}
 #startOv .trackinfo,#startOv .summary{margin-top:-2px}
 #startOv .btns .btn{white-space:nowrap}

@@ -8,7 +8,8 @@ export const CONFIG = Object.freeze({
   storageKeys: { gfx: 'gridline.gfx', design: 'gridline.design', race: 'gridline.race', prefs: 'gridline.prefs', garage: 'gridline.garage', records: 'gridline.records.2',
     // (records and ghosts per physics version, SIM.TUNING.PHYSICS: version 1's are left in 'gridline.records' etc.)
     ghosts: 'gridline.ghosts.2', ghostsLoaded: 'gridline.ghosts-loaded.2',
-    sectors: 'gridline.sectors.2' },   // best sectors / mini-sectors and the best lap's trace (sector-timing.js)
+    sectors: 'gridline.sectors.2',   // best sectors / mini-sectors and the best lap's trace (sector-timing.js)
+    buttons: 'gridline.buttons' },   // what each controller button does, per device (button-map.js)
   lights: { count: 5, interval: 0.9, holdMin: 0.4, holdRand: 1.8, hideAfterGo: 0.7 },
   resultsDelay: 2.2,           // seconds of race time after the chequered flag
   finalLapFlashDelay: 0.9,
@@ -93,7 +94,7 @@ const AI_LEVELS = {
   alien:  { pace: 1.0, follow: 6, alien: true, note: 'Faster than a great lap, and they hunt you down: they sit in your tow and pull out late (Northfold: about 0:59.1, Elkmoor 29.1 s).' },
 };
 export const RACE_SETUP = Object.freeze({
-  defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10, gearbox: 'auto', assists: 'medium', ai: 'pro', fuel: 'normal', tyres: 'normal', tyreTemp: 'on', damage: 'on', aero: 'on', overtake: 'auto', ghost: 'mine' },
+  defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10, gearbox: 'auto', assists: 'medium', ai: 'pro', fuel: 'normal', tyres: 'normal', tyreTemp: 'on', damage: 'on', aero: 'on', overtake: 'auto', straight: 'auto', limiter: 'auto', ghost: 'mine' },
   aiLevels: AI_LEVELS,
   // Every setup choice that is one of a list: [value, button label]. The saved setup is checked against these (an
   // unknown value falls back to the default), the Settings screen and the start menu draw their buttons from them,
@@ -109,6 +110,9 @@ export const RACE_SETUP = Object.freeze({
     damage: levels(['off', 'on']),
     aero: levels(['off', 'on']),
     overtake: [['auto', 'AUTO'], ['button', 'BUTTON'], ['off', 'OFF']],
+    // the driver's own buttons for straight mode (DRS-like) and the pit limiter, or automatic as for the AI
+    straight: [['auto', 'AUTO'], ['button', 'BUTTON']],
+    limiter: [['auto', 'AUTO'], ['button', 'BUTTON']],
     // time trial ghost: your best, a loaded file's lap, or the fastest AI driver's lap at a level (ai-ghosts.js)
     ghost: [['mine', 'YOUR BEST'], ['loaded', 'LOADED'], ...levels(Object.keys(AI_LEVELS))],
   },

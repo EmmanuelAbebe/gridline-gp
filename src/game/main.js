@@ -44,6 +44,7 @@ import { poseOf, savePoses, interpolatePoses, setPoseTrack } from './pose.js';
 import { Debris } from './debris.js';
 import { loadSetup, loadPrefs, steerRate, raceFormat, raceWear, raceAero, buildField, playerSlotOf, assistsOf, aiAssistsOf, setupSummary } from './setup-store.js';
 import { messageFor, SAY, boxMessage } from './race-messages.js';
+import { loadButtonMaps } from './button-map.js';
 import { bindSettings } from './settings-binding.js';
 import { installDebug } from './debug.js';
 import { PhoneWheel } from './phone-wheel.js';
@@ -79,14 +80,16 @@ const game = {
   setup: loadSetup(Settings.get(CONFIG.storageKeys.race)),   // start-screen choices: cars, race type, laps / minutes (+ gearbox, assists from Settings)
   prefs: loadPrefs(Settings.get(CONFIG.storageKeys.prefs)),  // Settings screen: controller, sound, FPS counter
   garage: loadGarage(Settings.get(CONFIG.storageKeys.garage)),    // your car: livery, setup, open mods (garage.js)
+  buttonMaps: loadButtonMaps(Settings.get(CONFIG.storageKeys.buttons)),   // what each controller button does (Settings → Buttons)
   records: loadRecords(Settings.get(CONFIG.storageKeys.records)), // best valid lap per circuit, stock and modified apart
   // ghost laps (ghost.js): your best per circuit and class, and ones loaded from a file; game.ghost = the one shown
   ghosts: loadGhosts(Settings.get(CONFIG.storageKeys.ghosts), SIM.CIRCUITS), loadedGhosts: loadGhosts(Settings.get(CONFIG.storageKeys.ghostsLoaded), SIM.CIRCUITS),
   ghost: null, ghostStart: null, trial: false, rival: null,   // rival: a live AI ghost (ai-ghosts.js createRival)
   lights: { t: 0, lit: 0, hold: 0 }, resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
   towerT: 0, mapT: 0, slowWindows: 0, acc: 0, carsDirty: false,
-  pendingShift: 0, autoShiftHinted: false, queueHinted: false, steerRate: Infinity,   // paddle press waiting for the next sim step
+  pendingShift: 0, pendingAero: false, pendingLimiter: false, autoShiftHinted: false, queueHinted: false, steerRate: Infinity,   // paddle press waiting for the next sim step
 };
+Input.setButtonMaps(game.buttonMaps);
 const isRunning = () => !!game.race && game.phase !== PHASE.MENU && !game.paused && !game.frozen;
 
 const haptics = createHaptics();       // force feedback for the phone wheel
@@ -143,11 +146,12 @@ function newRace() {
   player.spec = playerSpec(game.garage);             // the garage's setup + open mods (the rivals race SIM.STOCK)
   SIM.fitTyres(race, player, game.garage.tyres.start); player.pitPlan = pitPlanOf(game.garage.tyres);   // garage: tyres + pit box
   player.boostAuto = s.overtake === 'auto';
+  setDriverButtons(player, s);
   trial.start(race, player);
   sectors.start(race, player);
   racingLine.set(track, trial.aiLapOf('alien', race.activeAero)?.line);
   crews.build(race, Design.data.car); marks.clear(); Debris.clear();
-  Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, pendingBoost: false, autoShiftHinted: false, queueHinted: false,
+  Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, pendingBoost: false, pendingAero: false, pendingLimiter: false, autoShiftHinted: false, queueHinted: false,
     resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
     lights: { t: 0, lit: 0, hold: L.holdMin + Math.random() * L.holdRand } });
   setStartLights(0); Hud.showLights(true); Hud.setLapTimes(0, 0); raceAudio.reset();
@@ -254,7 +258,8 @@ function simStep(dt) {
   trial.stepRival(dt);                       // the AI ghost's own race, in step with yours from lights out
   for (const c of race.cars) {
     if (c.player && !c.finished && game.autopilot) SIM.driveAI(race, c, dt, game.autopilot);   // (gridlineDebug.autopilot: screenshots)
-    else if (c.player && !c.finished) { SIM.drivePlayer(race, c, { ...Input.drive, brk: Input.drive.brk * game.prefs.brakeForce / 100, steerRate: game.steerRate, calm: game.prefs.calm / 100, speedSteer: game.prefs.speedSteer === 'on' ? SIM.ASSISTS.medium.steer : 0, shift: game.pendingShift, boost: game.pendingBoost }, dt); game.pendingShift = 0; game.pendingBoost = false; }
+    else if (c.player && !c.finished) { SIM.drivePlayer(race, c, { ...Input.drive, brk: Input.drive.brk * game.prefs.brakeForce / 100, steerRate: game.steerRate, calm: game.prefs.calm / 100, speedSteer: game.prefs.speedSteer === 'on' ? SIM.ASSISTS.medium.steer : 0, shift: game.pendingShift, boost: game.pendingBoost, aero: game.pendingAero, limiter: game.pendingLimiter }, dt);
+      game.pendingShift = 0; game.pendingBoost = game.pendingAero = game.pendingLimiter = false; }
     else SIM.driveAI(race, c, dt, c.finished ? CONFIG.finishedAiSkill : 0);
   }
   SIM.collide(race);
@@ -347,9 +352,22 @@ function setDriving(key, value) {
     if (key === 'gearbox') setGearbox(game.player, value);
     if (key === 'assists' || key.startsWith('a.')) { game.player.assists = assistsOf(game.setup); const ai = aiAssistsOf(game.setup); for (const c of game.race.cars) if (!c.player) c.assists = ai; }
     if (key === 'overtake') game.player.boostAuto = value === 'auto';
+    if (key === 'limiter' || key === 'straight') setDriverButtons(game.player, game.setup);
   }
 }
-const settings = bindSettings(game, { setGfx, setPref, setDriving, togglePause, toggleLayout });
+// Pit limiter / straight mode: automatic (as the AI) or the driver's own buttons (Settings → Driving). Switching back to
+// automatic mid-race lets go of whatever the button had on.
+function setDriverButtons(p, s) {
+  const limiterAuto = s.limiter !== 'button', aeroAuto = s.straight !== 'button';
+  if (limiterAuto && !p.limiterAuto) { p.limiterOn = false; p.pitLimiter = false; }
+  if (aeroAuto !== p.aeroAuto) p.aeroWant = false;
+  Object.assign(p, { limiterAuto, aeroAuto });
+}
+function setButtonMaps(store) {
+  game.buttonMaps = store; Input.setButtonMaps(store);
+  Settings.set(CONFIG.storageKeys.buttons, JSON.stringify(store));
+}
+const settings = bindSettings(game, { setGfx, setPref, setDriving, togglePause, toggleLayout, setButtonMaps });
 const openSettings = tab => settings.open(tab);
 // The start menu's line about the Settings-screen choices.
 const describeSetup = () => {
@@ -383,11 +401,14 @@ const ACTIONS = { camera: cycleCamera, mute: toggleMute, pause: escape, fps: () 
   settings: () => settings.toggle(),
   tweak: () => TweakPanel.toggle(), layout: toggleLayout, fullscreen: () => AppShell.toggleFullscreen(),
   inputs: () => InputMonitor.toggle(),
-  shiftUp: () => shift(+1), shiftDown: () => shift(-1), box: requestBox, boost: requestBoost,
-  // phone buttons 1 / 2 (pad A / B): shift down / up while racing, confirm / resume in menus
-  primary: () => racing() ? shift(-1) : confirm(),
-  secondary: () => racing() ? shift(+1) : SettingsScreen.open ? SettingsScreen.close() : game.paused ? togglePause() : null };
+  shiftUp: () => shift(+1), shiftDown: () => shift(-1), box: requestBox, boost: requestBoost, aero: requestAero, limiter: requestLimiter };
 Input.on('action', name => ACTIONS[name]?.());
+// pad A / B (phone buttons 1 / 2) in menus: confirm / back, whatever they do while racing (button-map.js)
+Input.on('menu', what => {
+  if (racing()) return;
+  if (what === 'confirm') confirm();
+  else if (SettingsScreen.open) SettingsScreen.close(); else if (game.paused) togglePause();
+});
 // BOX (B, pad X, the HUD button): pit at the end of this lap, press again to stay out
 function requestBox() {
   const p = game.player;
@@ -404,6 +425,20 @@ function requestBoost() {
   if (p.boostLeft > 0) game.pendingBoost = true; else showMessage(SAY.boostNone);
 }
 $('boostBtn').onclick = requestBoost;
+// straight mode (Z, or a controller button: Settings → Buttons) when set to BUTTON: open in a zone / close
+function requestAero() {
+  const p = game.player;
+  if (!racing() || !p || p.finished) return;
+  if (!game.race.activeAero) showMessage(SAY.aeroOff);
+  else if (p.aeroAuto) showMessage(SAY.aeroAuto);
+  else game.pendingAero = true;
+}
+// your pit limiter (N, or a controller button) when set to BUTTON: on / off
+function requestLimiter() {
+  const p = game.player;
+  if (!racing() || !p || p.finished) return;
+  if (p.limiterAuto) showMessage(SAY.limiterAuto); else game.pendingLimiter = true;
+}
 Input.on('gesture', Sound.init);
 Input.on('padchange', (on, label) => { Hud.setPad(on, Input.gamepadAllowed); if (on && game.phase !== PHASE.MENU) showMessage({ toast: `${label} connected` }); });
 

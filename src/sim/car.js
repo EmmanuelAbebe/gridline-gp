@@ -47,7 +47,9 @@ export function createCar(track, driver, slot, rng) {
     gear: 1, rpm: 0, shiftT: 0, autoShift: true, autoDown: false, downQueue: 0, drive: 0, slip: 0, slipBy: null, movedOff: false, revT: 0,
     // active aero (active-aero.js): wings open 0..1 (straight mode); overtake mode: seconds left this lap, on, lap detected
     // boostAuto: a player car using overtake mode the way the AI does (the game's AUTO setting)
-    aeroOpen: 0, boostLeft: 0, boostOn: false, boostLap: 0, boostAuto: false,
+    // aeroAuto: the wings open by themselves (every AI car; the player's unless Straight mode is BUTTON), else they open
+    // when the driver asks (aeroWant) inside a zone
+    aeroOpen: 0, boostLeft: 0, boostOn: false, boostLap: 0, boostAuto: false, aeroAuto: true, aeroWant: false,
     // the power unit's battery (vehicle.js ers): charge (J), harvested this lap (J), the lap that counts, kW now (+ deploying)
     soc: ERS.store * ERS.start, harvested: 0, ersLap: 0, ersKw: 0, deploy: 1,
     // chassis (chassis.js): lateral speed (m/s, + = right), yaw rate (rad/s), last longitudinal accel,

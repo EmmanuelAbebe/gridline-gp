@@ -30,7 +30,9 @@ test('every circuit has a pit lane: entry road, pit wall, a box per team in orde
 // A driver who uses the pit lane on their first lap past the entry (from 10 s in): along the pit road onto the fast
 // lane, a swing into the box and a stop (stop = false: straight through), full gas while held there (it must not
 // move), back out; elsewhere the proportional tester. Steers at a point ahead on that path, speeds by bang-bang pedals.
-function pitDriver(T, { stop = true, lane = 75 / 3.6 } = {}) {
+// limiter: the car's own pit limiter (limiterAuto off) pressed 20 m before the pit wall's start and 5 m after its end;
+// arrive = the speed it brakes to for the pit wall's start
+function pitDriver(T, { stop = true, lane = 75 / 3.6, arrive = lane, limiter = false, decel = 20 } = {}) {
   const base = tester(T), L = T.pit, box = L.boxes[S.DRIVERS.findIndex(d => d.player)], ds = T.ds;
   const sm = t => S.smoothstep(t);
   const pathLat = (p, served) => {
@@ -47,11 +49,14 @@ function pitDriver(T, { stop = true, lane = 75 / 3.6 } = {}) {
     if (!st.on) return base(r, c);
     if (c.pit?.phase === 'stop') return S.drivePlayer(r, c, { thr: 1, brk: 0, steer: 1, analog: true }, DT);
     const served = c.pitStops > 0;
-    let vt = p < L.from ? Math.sqrt(lane * lane + 2 * 20 * Math.max(0, L.from - p) * ds) : p > L.to ? 80 : lane;
+    let vt = p < L.from ? Math.sqrt(arrive * arrive + 2 * decel * Math.max(0, L.from - p) * ds) : p > L.to ? 80 : lane;
+    let press = false;
+    if (limiter && !st.in && p >= L.from - 20 / ds) press = st.in = true;
+    else if (limiter && !st.out && p >= L.to + 5 / ds) press = st.out = true;
     if (stop && !served) vt = Math.min(vt, Math.sqrt(2 * 3 * Math.max(0, (box - p) * ds)));
     const look = Math.max(2, Math.round(Math.max(4, c.v * 0.35) / ds)), j = (c.idx + look) % T.N, lt = pathLat(p + look, served);
     const diff = S.wrapA(Math.atan2(T.PZ[j] + T.NZ[j] * lt - c.z, T.PX[j] + T.NX[j] * lt - c.x) - c.h), slow = c.v > vt;
-    S.drivePlayer(r, c, { thr: slow ? 0 : 1, brk: slow ? Math.min(1, (c.v - vt) * 0.5 + 0.2) : 0, steer: S.clamp(diff * 3, -1, 1), analog: true }, DT);
+    S.drivePlayer(r, c, { thr: slow ? 0 : 1, brk: slow ? Math.min(1, (c.v - vt) * 0.5 + 0.2) : 0, steer: S.clamp(diff * 3, -1, 1), analog: true, limiter: press }, DT);
   };
 }
 
@@ -93,6 +98,43 @@ test('the pit lane: drive straight through (no stop, no service); arriving too f
   assert.deepEqual(events, [S.EV.PIT_IN, S.EV.PIT_OUT]);
   assert.ok(atLine <= 80 / 3.6 + 1e-9 && maxLane <= 80 / 3.6 + 1e-9, `${(maxLane * 3.6).toFixed(1)} km/h`);
   assert.ok(c.finished && c.pitStops === 0 && c.tyreWear > 0.2);
+});
+
+test('your own pit limiter (BUTTON): on before the line = no penalty, held at 80; late or too fast = 5 s once', () => {
+  const T = S.track, lap = opts => {
+    const race = S.createRace(3, { drivers: player() }), c = race.cars[0], seen = [];
+    c.limiterAuto = false;
+    let maxLane = 0, atLine = 0;
+    const drive = pitDriver(T, { stop: false, ...opts });
+    // (decel: the bot plans its braking for the pit wall's start gently, or it arrives up to ~40 km/h too fast)
+    run(S, race, 300, (r, car) => {
+      drive(r, car);
+      seen.push(...car.events.filter(e => [S.EV.PIT_SPEEDING, S.EV.LIMITER].includes(e.type)).map(e => e.type === S.EV.LIMITER ? (e.on ? 'on' : 'off') : 'speeding'));
+      if (car.pit?.entered && S.alongLane(T, car) <= T.pit.to) { atLine ||= Math.hypot(car.v, car.vy); maxLane = Math.max(maxLane, Math.hypot(car.v, car.vy)); }
+    });
+    return { c, seen, maxLane: maxLane * 3.6, atLine: atLine * 3.6 };
+  };
+  // pressed in time, wanting 140 km/h in the lane: the limiter holds 80, no penalty, off again after the lane
+  const good = lap({ lane: 140 / 3.6, arrive: 70 / 3.6, limiter: true, decel: 8 });
+  assert.deepEqual(good.seen, ['on', 'off']);
+  assert.ok(good.maxLane <= 80 + 1e-6 && good.maxLane > 79, `${good.maxLane.toFixed(2)} km/h`);
+  assert.ok(good.c.penalty === 0 && !good.c.limiterOn && good.c.finished);
+  // never pressed, 100 km/h in the lane: one penalty
+  const none = lap({ lane: 100 / 3.6, arrive: 100 / 3.6 });
+  assert.deepEqual(none.seen, ['speeding']);
+  assert.ok(none.maxLane > 95, `${none.maxLane.toFixed(1)} km/h`);
+  assert.equal(none.c.penalty, S.PIT.speeding.seconds);
+  // pressed, but arriving at 110 km/h: the limiter doesn't brake, so that's speeding too (it then holds 80)
+  const fast = lap({ lane: 140 / 3.6, arrive: 110 / 3.6, limiter: true });
+  assert.deepEqual(fast.seen, ['on', 'speeding', 'off']);
+  assert.ok(fast.atLine > 100, `${fast.atLine.toFixed(1)} km/h at the line`);
+  assert.equal(fast.c.penalty, S.PIT.speeding.seconds);
+  // with the limiter left on, the car can't pass 80 on the track either
+  const race = S.createRace(3, { drivers: player() }), c = race.cars[0];
+  c.limiterAuto = false;
+  let top = 0;
+  for (let i = 0; i < 1200; i++) { race.t += DT; S.drivePlayer(race, c, { thr: 1, brk: 0, steer: 0, analog: true, limiter: i === 0 }, DT); top = Math.max(top, c.v); c.events.length = 0; }
+  assert.ok(top <= 80 / 3.6 + 1e-9 && top > 79 / 3.6, `${(top * 3.6).toFixed(2)} km/h`);
 });
 
 test('the pit lane has walls: the pit wall and the garages keep a car in it', () => {

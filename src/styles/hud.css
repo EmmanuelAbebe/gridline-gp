@@ -31,6 +31,7 @@
 #boostTag{border:1px solid rgba(190,120,255,.6);color:#d4b0ff}
 #boostTag.live{background:#a46bff;color:#120a1c}
 #aeroTags span.on{opacity:1}
+#aeroTag.ready{opacity:.55;border-style:dashed}
 #slipTag i{width:54px;height:5px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
 #slipTag u{display:block;height:100%;width:100%;background:#dff4ff;transform-origin:0 50%;transform:scaleX(0);will-change:transform}
 #speedo{padding:10px 14px 10px;display:grid;grid-template-columns:auto auto;gap:4px 18px;align-items:end;min-width:200px}
