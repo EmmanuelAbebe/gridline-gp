@@ -43,10 +43,11 @@ import { createRaceAudio } from './race-audio.js';
 import { poseOf, savePoses, interpolatePoses, setPoseTrack } from './pose.js';
 import { Debris } from './debris.js';
 import { loadSetup, loadPrefs, steerRate, raceFormat, raceWear, raceAero, buildField, assistsOf, aiAssistsOf, setupSummary } from './setup-store.js';
-import { messageFor, SAY, boxMessage } from './race-messages.js';
+import { messageFor, SAY, boxMessage, leaderboardMessage } from './race-messages.js';
 import { loadButtonMaps } from './button-map.js';
 import { loadAeroZones, zonesFor, withZones, zoneTag, lapClass } from './aero-zones.js';
 import { createStartingGrid } from './starting-grid.js';
+import { createOnline, loadAccount, boardOf } from './online.js';
 import { createZoneEditor } from './zone-editor.js';
 import { bindSettings } from './settings-binding.js';
 import { installDebug } from './debug.js';
@@ -103,8 +104,22 @@ const marks = createTyreMarks(Display.scene);  // rubber laid by sliding / locki
 const racingLine = createRacingLine(Display.scene);   // the ALIEN's line, colour by its pedals (pref racingLine)
 const hudMirror = createHudMirror(Display);        // the rear-view strip on the HUD (pref hudMirror)
 // ---- time trial and ghosts (time-trial.js) ----
-const trial = createTimeTrial({ game, track: () => track, saveSetup: () => saveSetup(),
+// ---- the online leaderboard (online.js; server: leaderboard/) ----
+const online = createOnline({ account: loadAccount(Settings.get(CONFIG.storageKeys.online)), save: a => Settings.set(CONFIG.storageKeys.online, JSON.stringify(a)) });
+const trial = createTimeTrial({ game, track: () => track, saveSetup: () => saveSetup(), online,
   switchTrack: id => { game.setup.track = id; setTrack(id); renderSetup(); saveSetup(); } });
+// a clean flying lap in a time trial, faster than your best sent to that board: the run goes to the leaderboard
+// (the stock car on the automatic zones only; the server checks it by replaying it and says where it ranks)
+function sendLap(race, c, e) {
+  if (!game.trial || e.invalid || c.lap - 1 < 2 || c.spec.modified || zoneTag(race.track, race.activeAero) || !game.replayRec) return;
+  const board = boardOf(race.track.id, race.activeAero);
+  if (!online.worthSending(board, e.time)) return;
+  const replay = game.replayRec.finish();
+  if (replay.tainted) return;
+  const dev = Input.device, controller = !Input.drive.analog ? 'keyboard' : dev?.kind === 'phone' ? 'phone' : dev?.kind === 'wheel' ? 'wheel' : 'pad';
+  online.submit(replay, { time: e.time, lap: c.lap - 1, controller }, board)
+    .then(r => showMessage(leaderboardMessage(r, race.track.name)), err => showMessage(leaderboardMessage(null, race.track.name, err.message)));
+}
 // ---- sectors (sector-timing.js) and the lap analysis screen (analysis-screen.js) ----
 const sectors = createSectorTiming({ game, aiLapOf: (id, aero) => trial.aiLapOf(id, aero) });
 const analysis = createAnalysis({ game, sectors, aiLapOf: (id, aero) => trial.aiLapOf(id, aero), track: () => track });
@@ -210,6 +225,7 @@ function onPlayerEvent(c, e) {
     case EV.LAP: {
       Hud.setLapTimes(e.time, c.bestLap, e.invalid);
       trial.onLap(race, c, e);                // the ghost: a new best lap becomes yours
+      sendLap(race, c, e);                    // the online leaderboard
       sectors.onLap(race, c, e);              // sector times, bests, the session's laps
       if (qualifying()) grid.qualiLap(e);     // your best in qualifying sets your grid slot
       const zones = zoneTag(race.track, race.activeAero);   // (laps on your own straight-mode zones are kept apart)
@@ -292,7 +308,8 @@ function simStep(dt) {
     if (c.player && !c.finished && game.autopilot) { SIM.driveAI(race, c, dt, game.autopilot); game.replayRec?.taint('autopilot'); }   // (gridlineDebug.autopilot: screenshots)
     else if (c.player && !c.finished) {
       // (quantised before the car gets them, and recorded: the replay feeds the car the very same numbers)
-      const inp = SIM.quantizeInput({ ...Input.drive, brk: Input.drive.brk * game.prefs.brakeForce / 100, steerRate: game.steerRate, calm: game.prefs.calm / 100, speedSteer: game.prefs.speedSteer === 'on' ? SIM.ASSISTS.medium.steer : 0, shift: game.pendingShift, boost: game.pendingBoost, aero: game.pendingAero, limiter: game.pendingLimiter });
+      const drive = game.botInput ? game.botInput(c) : Input.drive;          // (gridlineDebug.botDrive: a test driver on your controls)
+      const inp = SIM.quantizeInput({ ...drive, brk: drive.brk * game.prefs.brakeForce / 100, steerRate: game.steerRate, calm: game.prefs.calm / 100, speedSteer: game.prefs.speedSteer === 'on' ? SIM.ASSISTS.medium.steer : 0, shift: game.pendingShift, boost: game.pendingBoost, aero: game.pendingAero, limiter: game.pendingLimiter });
       game.replayRec?.step(c, inp);
       SIM.drivePlayer(race, c, inp, dt);
       game.pendingShift = 0; game.pendingBoost = game.pendingAero = game.pendingLimiter = false; }
@@ -408,7 +425,7 @@ function setButtonMaps(store) {
   game.buttonMaps = store; Input.setButtonMaps(store);
   Settings.set(CONFIG.storageKeys.buttons, JSON.stringify(store));
 }
-const settings = bindSettings(game, { setGfx, setPref, setDriving, togglePause, toggleLayout, setButtonMaps, openZones });
+const settings = bindSettings(game, { setGfx, setPref, setDriving, togglePause, toggleLayout, setButtonMaps, openZones, online });
 const openSettings = tab => settings.open(tab);
 // The start menu's line about the Settings-screen choices.
 const describeSetup = () => {
@@ -667,6 +684,20 @@ if (window.gridlineDebug) {
     const r = SIM.replayRun(rp, { track: T }), same = ['x', 'z', 'h', 'v', 'lap', 'gear'].every(k => r.car[k] === c[k]);
     return { steps: rp.steps, same, ms: Math.round(performance.now() - t0), bytes: JSON.stringify(rp).length, changes: rp.changes.length,
       live: { x: c.x, v: c.v, lap: c.lap }, replay: { x: r.car.x, v: r.car.v, lap: r.car.lap } };
+  };
+  // the online leaderboard on another server (the smoke test: leaderboard/dev.mjs on this machine)
+  D.onlineApi = url => online.useServer(url);
+  D.onlineJoin = name => online.register(name).then(r => r.name, e => 'error: ' + e.message);
+  // a test driver on your controls (centre line, braking to a 90 %-grip profile): its laps are replayable, unlike the autopilot's
+  D.botDrive = (on = true) => {
+    if (!on) { game.botInput = null; return; }
+    const T = track, N = T.N, VP = new Float32Array(N);
+    for (let i = 0; i < N; i++) VP[i] = SIM.cornerSpeed(Math.abs(T.K[i]), 0.9);
+    for (let p = 0; p < 3; p++) for (let i = N - 1; i >= 0; i--) { const j = (i + 1) % N; VP[i] = Math.min(VP[i], Math.sqrt(VP[j] * VP[j] + 2 * SIM.brakeLimit(VP[j]) * 0.85 * T.ds)); }
+    game.botInput = c => {
+      const ti = (c.idx + 12) % N, d = SIM.wrapA(Math.atan2(T.PZ[ti] - c.z, T.PX[ti] - c.x) - c.h), slow = c.v > VP[(c.idx + 4) % N] * 0.97;
+      return { steer: SIM.clamp(d * 3, -1, 1), thr: slow ? 0 : 1, brk: slow ? 1 : 0, analog: true, hb: 0 };
+    };
   };
   // the replay so far + where your car is now (the smoke test replays it in Node too: the server's engine)
   D.replayData = () => ({ replay: game.replayRec.finish(), at: Object.fromEntries(['x', 'z', 'h', 'v', 'vy', 'yawRate', 'lap', 'gear', 'soc'].map(k => [k, game.player[k]])) });

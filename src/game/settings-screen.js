@@ -4,6 +4,7 @@ import { SCENARIOS } from './audio/scenarios.js';
 import { $, createEmitter } from './util.js';
 import { createControllerPanel } from './controller-panel.js';
 import { createButtonPanel } from './button-panel.js';
+import { createOnlinePanel } from './online-panel.js';
 
 // Settings screen (start menu SETTINGS, pause menu, or O): tabs of controls built from the TABS table below.
 // Values live elsewhere (race setup, prefs, graphics mode); main.js passes a binding { get(key), set(key, value),
@@ -129,9 +130,10 @@ const TABS = [
     { type: 'html', html: '<p class="note">The cockpit tests use the driver mix: what you hear in the helmet, earplugs in. The others are an outside microphone.</p>' },
   ] },
   { id: 'tools', label: 'Tools', items: [
+    panel(createOnlinePanel),
     buttons(['Design tools', 'tweak'], ['HUD layout', 'layout'], ['Input monitor', 'inputs']),
     { type: 'html', html: '<p class="note">Design tools (T) edit the car, cameras and HUD look. HUD layout (L) moves the race panels; start a race first.</p>' },
-    seg('updateCheck', 'Check for updates', ON_OFF, v => v ? 'At start the game looks on GitHub for a newer version and tells you on the start menu. It downloads nothing by itself and sends nothing about you.' : 'The game never goes online on its own.'),
+    seg('updateCheck', 'Check for updates', ON_OFF, v => v ? 'At start the game looks on GitHub for a newer version and tells you on the start menu. It downloads nothing by itself and sends nothing about you.' : 'The game never looks for updates. (The online leaderboard goes online only once you join it or pick its ghost.)'),
     { type: 'html', html: '<p class="lbl" style="margin:4px 0 0">Report a bug</p>' },
     buttons(['Open log folder', 'logs']),
     { type: 'html', html: '<p class="note">Found a bug? Report it at github.com/EmmanuelAbebe/gridline-gp/issues and attach gridline.log (and gridline-previous.log if the game crashed and you restarted it) from this folder. Desktop app only.</p>' },

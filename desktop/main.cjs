@@ -368,6 +368,29 @@ async function smokeTest(win) {
   Object.assign(info.quali, await win.webContents.executeJavaScript(`({ raceCars: document.querySelectorAll('#towerList > *').length, raceTitle: document.getElementById('towerLap').textContent,
     startSlot: [...document.querySelectorAll('#towerList li')].findIndex(li => li.classList.contains('me')) + 1 })`));
   await win.webContents.executeJavaScript(`gridlineDebug.toMenu(); document.querySelector('#qualiSeg [data-q="off"]').click()`);
+  // (GRIDLINE_SMOKE_ONLINE=http://localhost:3100: the leaderboard on this machine, leaderboard/dev.mjs: join, a time trial
+  // driven by the test driver on your controls, its laps sent and ranked; never the live board)
+  if (process.env.GRIDLINE_SMOKE_ONLINE) {
+    await win.webContents.executeJavaScript(`gridlineDebug.onlineApi(${JSON.stringify(process.env.GRIDLINE_SMOKE_ONLINE)}); document.querySelector('#typeSeg [data-t="trial"]').click()`);
+    const joined = await win.webContents.executeJavaScript(`gridlineDebug.onlineJoin('Smoke ' + Date.now().toString(36).slice(-6))`);
+    await win.webContents.executeJavaScript(`document.getElementById('startBtn').click(); gridlineDebug.botDrive(true)`);
+    const toasts = [];
+    for (let i = 0; i < 1000 && !toasts.some(t => /^Leaderboard/.test(t)); i++) {
+      const t = await win.webContents.executeJavaScript(`document.getElementById('toast').textContent`);
+      if (t && t !== toasts.at(-1)) toasts.push(t);
+      await new Promise(r => setTimeout(r, 200));
+    }
+    info.onlineSend = { joined, toasts: toasts.filter(t => /Leaderboard/.test(t)), lap: await win.webContents.executeJavaScript(`gridlineDebug.playerState().lap`) };
+    await win.webContents.executeJavaScript(`gridlineDebug.botDrive(false); gridlineDebug.toMenu(); document.querySelector('#typeSeg [data-t="laps"]').click()`);
+  }
+  // Settings → Tools: the online leaderboard panel (asks the live server for its physics version; joins nobody)
+  await win.webContents.executeJavaScript(`document.getElementById('settingsBtn').click();
+    [...document.querySelectorAll('#setTabs button')].find(b => b.textContent === 'Tools').click()`);
+  await new Promise(r => setTimeout(r, 2500));
+  info.online = await win.webContents.executeJavaScript(`(() => { const c = [...document.querySelectorAll('#setBody .dev-card')].find(c => c.textContent.includes('Online leaderboard'));
+    return { shown: !!c, state: c?.querySelector('.dev-state')?.textContent, join: !!c?.querySelector('.ol-name') }; })()`);
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-online.png'), (await win.webContents.capturePage()).toPNG());
+  await win.webContents.executeJavaScript(`document.getElementById('setClose').click()`);
   await win.webContents.executeJavaScript(`document.getElementById('setClose')?.click(); gridlineDebug.toMenu();
     document.querySelector('#typeSeg [data-t="trial"]').click()`);
   // (GRIDLINE_SMOKE_GHOST=file: race that ghost lap, loaded the way the LOAD button does)

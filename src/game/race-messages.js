@@ -80,3 +80,11 @@ export const SAY = {
 };
 // box this lap, with the tyres the crew has ready: the pit plan's compound, or the team's choice
 export const boxMessage = plan => ({ radio: `Copy, box this lap. ${plan.tyres === 'auto' ? 'We pick the tyres' : plan.tyres === 'same' ? 'Same tyres' : `${plan.tyres[0].toUpperCase()}${plan.tyres.slice(1)}s`} ready for you.`, secs: 3 });
+
+// the leaderboard's answer to a lap sent (online.js submit), or why it wasn't taken
+export function leaderboardMessage(r, circuit, error = '') {
+  if (!r) return { toast: `Leaderboard: lap not ranked (${error})`, kind: 'warn', secs: 5 };
+  if (r.status === 'new') return { toast: `Leaderboard: P${r.rank} at ${circuit}  ${fmtTime(r.time)}`, kind: 'purple', secs: 5 };
+  if (r.status === 'kept') return { toast: `Leaderboard: your ${fmtTime(r.best)} there is still faster (P${r.rank})`, secs: 4 };
+  return { toast: `Leaderboard: outside the top 100 (100th is ${fmtTime(r.hundredth)})`, secs: 5 };
+}

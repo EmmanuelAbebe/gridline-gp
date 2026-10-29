@@ -3,7 +3,8 @@
 // apart), EXPORT / LOAD, and in the race the see-through car: a recorded lap (ghost.js) or a live AI rival in a race of
 // its own (ai-ghosts.js), with the live delta and the rival's input charts. The race state it sets stays on `game`
 // (trial, ghost, ghostStart, rival, ghosts, loadedGhosts).
-// ctx: { game, track() (the current circuit), saveSetup(), switchTrack(id) (the start menu's circuit), describe() }
+// ctx: { game, track() (the current circuit), saveSetup(), switchTrack(id) (the start menu's circuit), describe(),
+// online (online.js: the ONLINE row races the leaderboard's fastest lap here) }
 import { SIM } from '../sim/index.js';
 import { CONFIG, RACE_SETUP, PHASE } from './config.js';
 import { $, fmtTime } from './util.js';
@@ -18,11 +19,12 @@ import { playerDriver } from './garage-store.js';
 import { aiLap, aiLapReady, ghostDriver, createRival, rivalGap } from './ai-ghosts.js';
 import { createGhostInputs } from './ghost-inputs.js';
 import { zoneTag } from './aero-zones.js';
+import { boardOf } from './online.js';
 import { createRecorder, ghostPose, ghostDelta, keepGhost, ghostOf, dropGhost, readGhostFile, storeJson, packGhost, unpackGhost } from './ghost.js';
 
 const LEVELS = RACE_SETUP.aiLevels;
 
-export function createTimeTrial({ game, track, saveSetup, switchTrack }) {
+export function createTimeTrial({ game, track, saveSetup, switchTrack, online }) {
   const recorder = createRecorder();
   const model = CarModels.create(Display.scene, playerDriver(game.garage), Design.data.car);   // the see-through car
   model.setMaterials(CarModels.ghostMaterials()); model.setShadows(false); model.setVisible(false);
@@ -43,6 +45,8 @@ export function createTimeTrial({ game, track, saveSetup, switchTrack }) {
   // pick races a live car instead: game.rival.) Only laps on the same straight-mode zones.
   function activeGhost(modified = carModified(), start = false, z = zones()) {
     const id = track().id;
+    // (the leaderboard's fastest lap: a flying lap on the stock car and the automatic zones, so no lap 1 from the grid)
+    if (game.setup.ghost === 'online') return !modified && !z && !start && game.onlineGhost?.online.board === boardOf(id, raceAero(game.setup).activeAero) ? game.onlineGhost : null;
     if (game.setup.ghost === 'loaded' && ghostOf(game.loadedGhosts, id, modified, false, z)) return ghostOf(game.loadedGhosts, id, modified, start, z);
     return ghostOf(game.ghosts, id, modified, start, z);
   }
@@ -51,7 +55,8 @@ export function createTimeTrial({ game, track, saveSetup, switchTrack }) {
 
   // the list of ghosts on the start menu (time trial): yours, the loaded one, every AI level with its lap time and the
   // gap to your best. The AI laps take ~0.3 s to make the first time on a circuit: the list says so and fills in after.
-  let aiPending = false;
+  let aiPending = false, fetchingFor = null;
+  const onlineTop = new Map();           // board → { state, row: its fastest lap { id, name, time } | null }
   function renderRow() {
     if (game.setup.type !== 'trial') return;          // (the row is only shown for a time trial)
     const id0 = track().id, mod = carModified(), z = zones(), mine = ghostOf(game.ghosts, id0, mod, false, z), loaded = ghostOf(game.loadedGhosts, id0, mod, false, z);
@@ -62,6 +67,25 @@ export function createTimeTrial({ game, track, saveSetup, switchTrack }) {
     const rows = [['mine', 'Your best', [mod ? 'modified car' : '', z ? 'your zones' : '', mineStart ? 'lap 1 from the grid ' + fmtTime(mineStart.time) : ''].filter(Boolean).join(' · '), mine,
       'No lap yet: your first clean lap']];
     if (loaded) rows.push(['loaded', 'Loaded', loaded.driver && loaded.driver !== 'You' ? loaded.driver : 'from a file', loaded, '']);
+    // the leaderboard's fastest lap here (looked up in the background once you joined or picked ONLINE: the game
+    // doesn't go online by itself; its ghost is fetched when picked)
+    // (onlineTop per board: { state: 'asking' | 'done' | 'offline', row })
+    const board = boardOf(id0, aero), O = onlineTop.get(board), top = O?.row, lookUp = online.signedIn || pick === 'online';
+    if (lookUp && !O) {
+      onlineTop.set(board, { state: 'asking', row: null });
+      online.top(id0, aero).then(row => {
+        onlineTop.set(board, { state: row === undefined ? 'offline' : 'done', row: row ?? null });
+        if (row === undefined) setTimeout(() => onlineTop.delete(board), 30e3);          // (offline: ask again later)
+        renderRow();
+      });
+    }
+    const fetched = game.onlineGhost?.online.board === board && game.onlineGhost.online.id === top?.id;
+    rows.push(['online', 'Online best', top ? top.name + (mod ? ' · stock car only' : z ? ' · automatic zones only' : fetched || pick !== 'online' ? '' : ' · loading…') : '',
+      top ? { time: top.time } : null, !lookUp ? 'pick to look it up' : { asking: 'looking…', done: 'no laps yet', offline: 'offline' }[O?.state ?? 'asking']]);
+    if (pick === 'online' && top && !fetched && fetchingFor !== top.id) {
+      fetchingFor = top.id;
+      online.ghost(id0, aero, top).then(g => { game.onlineGhost = g; }, () => {}).finally(() => { fetchingFor = null; renderRow(); });
+    }
     for (const [id, label] of RACE_SETUP.choices.ai) rows.push([id, label, D.name, ai[id], ready ? 'no clean lap' : 'timing…']);
     const sel = pick === 'loaded' && !loaded ? 'mine' : pick;
     $('ghostList').replaceChildren(...rows.map(([id, name, sub, g, none]) => {

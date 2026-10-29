@@ -10,7 +10,8 @@ export const CONFIG = Object.freeze({
     ghosts: 'gridline.ghosts.2', ghostsLoaded: 'gridline.ghosts-loaded.2',
     sectors: 'gridline.sectors.2',   // best sectors / mini-sectors and the best lap's trace (sector-timing.js)
     buttons: 'gridline.buttons',     // what each controller button does, per device (button-map.js)
-    aeroZones: 'gridline.aeroZones' },   // your straight-mode zones per circuit (aero-zones.js)
+    aeroZones: 'gridline.aeroZones',   // your own straight-mode zones per circuit (aero-zones.js)
+    online: 'gridline.online' },       // the online leaderboard account: name + token, what was sent (online.js)
   lights: { count: 5, interval: 0.9, holdMin: 0.4, holdRand: 1.8, hideAfterGo: 0.7 },
   resultsDelay: 2.2,           // seconds of race time after the chequered flag
   finalLapFlashDelay: 0.9,
@@ -118,7 +119,7 @@ export const RACE_SETUP = Object.freeze({
     // here does: starting-grid.js)
     quali: [['off', 'OFF'], ['5', '5 MIN'], ['10', '10 MIN'], ['15', '15 MIN']],
     // time trial ghost: your best, a loaded file's lap, or the fastest AI driver's lap at a level (ai-ghosts.js)
-    ghost: [['mine', 'YOUR BEST'], ['loaded', 'LOADED'], ...levels(Object.keys(AI_LEVELS))],
+    ghost: [['mine', 'YOUR BEST'], ['loaded', 'LOADED'], ['online', 'ONLINE'], ...levels(Object.keys(AI_LEVELS))],
   },
   assistNotes: {
     off: 'No help: the car can spin, lock its brakes and spin its wheels.',

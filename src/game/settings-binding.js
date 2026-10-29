@@ -20,6 +20,7 @@ export function bindSettings(game, act) {
       if (key === 'noiseColour') return SOUND.noise.colour;
       if (key === 'buttonMaps') return game.buttonMaps;
       if (key === 'inMenu') return game.phase === PHASE.MENU;
+      if (key === 'online') return act.online;
       return isDriving(key) ? (key.startsWith('a.') ? game.setup.custom[key.slice(2)] : game.setup[key]) : key === 'gfx' ? game.gfx
         : key === 'sound' ? !game.prefs.muted : game.prefs[key];
     },

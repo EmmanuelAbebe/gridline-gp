@@ -196,3 +196,7 @@ table.ana-corners caption{caption-side:bottom;text-align:left;font-size:12px;col
 .ana-key i.zg,.ana-key i.za,.ana-key i.zf{display:inline-block;width:16px;height:5px;border-radius:3px;margin:0 4px 1px 8px;vertical-align:middle}
 .ana-key i.zg{background:#36d27f}.ana-key i.za{background:#ffc21a}.ana-key i.zf{background:rgba(79,224,143,.3);height:9px}
 @media (max-width:760px){.zone-grid{grid-template-columns:1fr}}
+
+/* Settings → Tools: the online leaderboard (online-panel.js) */
+.ol-name{flex:1;min-width:180px;font:inherit;color:var(--text);-webkit-user-select:text;user-select:text;background:rgba(0,0,0,.25);border:1px solid var(--rule);border-radius:4px;padding:7px 10px}
+.ol-name:focus{outline:2px solid var(--amber);outline-offset:1px}

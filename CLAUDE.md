@@ -1036,8 +1036,18 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   `lib/store.js` (Upstash Redis via its env vars, else memory), `api/` register, submit (gzip base64 replay),
   board, ghost (&plain=1 expanded), info; `public/` the website (boards, sector purples, a lap viewer on the circuit
   map: `public/tracks.json` from `npm run tracks`); `node leaderboard/dev.mjs` = the same locally. Tests:
-  tests/leaderboard.test.js. Next: Upstash Redis on the project (the user accepts its terms), then the game's side
-  (sign up, submit after a time trial, Online ghosts in the ghost list). Keep new sim code on FM.* (never Math.sin etc.) and anything the game writes into the player's
+  tests/leaderboard.test.js. Upstash Redis `upstash-kv-byzantine-umbrella` (free) connected 2026-10-29 (KV_REST_API_*);
+  `node leaderboard/admin.mjs remove-player <name> | show <circuit> [on|off]` (env from .env.local). The game's side
+  (2026-10-29, `online.js`, tests/online.test.js against the real handlers): account in localStorage `gridline.online`
+  (name + token, auto-send, best sent per board); main.js `sendLap` after a clean flying lap in a time trial (stock,
+  automatic zones, not tainted, faster than the best sent there, server on the same SIM_VERSION) → toast
+  (race-messages.js leaderboardMessage); Settings → Tools panel (`online-panel.js`: join, send ON/OFF, open the site,
+  leave); time-trial ghost list ONLINE row = the board's fastest lap (looked up only once joined or picked: the game
+  doesn't go online by itself), its server-made ghost raced on flying laps. Debug: gridlineDebug.onlineApi(url),
+  onlineJoin(name), botDrive() (a test driver on your controls: replayable, unlike the autopilot); smoke
+  `GRIDLINE_SMOKE_ONLINE=http://localhost:3100` (with `node leaderboard/dev.mjs`) sends a lap end to end, never to the
+  live board. Not done: a board / leaderboard screen inside the game, racing a lap other than #1, Firefox / Safari.
+  Keep new sim code on FM.* (never Math.sin etc.) and anything the game writes into the player's
   car going through the replay (inputs via quantizeInput, settings in replay.js FLAGS / PREFS).
 - Smarter AI: started 2026-10-19 (see "LEGEND AI and racecraft"); still open: rivals that learn the player's lines.
   (Earlier notes:) parked 2026-10-19 by the user "for later once better game mechanics are made". User beat Northfold in
