@@ -47,7 +47,9 @@ import { messageFor, SAY, boxMessage, leaderboardMessage } from './race-messages
 import { loadButtonMaps } from './button-map.js';
 import { loadAeroZones, zonesFor, withZones, zoneTag, lapClass } from './aero-zones.js';
 import { createStartingGrid } from './starting-grid.js';
-import { createOnline, loadAccount, boardOf } from './online.js';
+import { createOnline, loadAccount, boardOf, gzipBase64 } from './online.js';
+import { loadRuns, runsJson, keepRun, sendable, settle } from './lap-runs.js';
+import { createLeaderboardScreen } from './leaderboard-screen.js';
 import { createZoneEditor } from './zone-editor.js';
 import { bindSettings } from './settings-binding.js';
 import { installDebug } from './debug.js';
@@ -108,17 +110,41 @@ const hudMirror = createHudMirror(Display);        // the rear-view strip on the
 const online = createOnline({ account: loadAccount(Settings.get(CONFIG.storageKeys.online)), save: a => Settings.set(CONFIG.storageKeys.online, JSON.stringify(a)) });
 const trial = createTimeTrial({ game, track: () => track, saveSetup: () => saveSetup(), online,
   switchTrack: id => { game.setup.track = id; setTrack(id); renderSetup(); saveSetup(); } });
-// a clean flying lap in a time trial, faster than your best sent to that board: the run goes to the leaderboard
-// (the stock car on the automatic zones only; the server checks it by replaying it and says where it ranks)
-function sendLap(race, c, e) {
+// Your best leaderboard lap per board, kept with its run's replay (lap-runs.js, localStorage gridline.runs) so it can be
+// sent now or later: automatically once you have joined (Settings → Tools), from the pause menu / results (SUBMIT, shown
+// when it beats the board's 100th place), or from the start menu's Leaderboard screen.
+game.runs = loadRuns(Settings.get(CONFIG.storageKeys.runs));
+const saveRuns = () => Settings.set(CONFIG.storageKeys.runs, runsJson(game.runs));
+// a clean flying lap in a time trial on the stock car and the automatic zones: kept when it is your best on that board
+async function keepLap(race, c, e) {
   if (!game.trial || e.invalid || c.lap - 1 < 2 || c.spec.modified || zoneTag(race.track, race.activeAero) || !game.replayRec) return;
   const board = boardOf(race.track.id, race.activeAero);
-  if (!online.worthSending(board, e.time)) return;
-  const replay = game.replayRec.finish();
+  if (game.runs[board] && game.runs[board].time <= e.time) return;
+  const replay = game.replayRec.finish();                // (from lights out to the end of this lap)
   if (replay.tainted) return;
   const dev = Input.device, controller = !Input.drive.analog ? 'keyboard' : dev?.kind === 'phone' ? 'phone' : dev?.kind === 'wheel' ? 'wheel' : 'pad';
-  online.submit(replay, { time: e.time, lap: c.lap - 1, controller }, board)
-    .then(r => showMessage(leaderboardMessage(r, race.track.name)), err => showMessage(leaderboardMessage(null, race.track.name, err.message)));
+  const run = { board, circuit: race.track.id, aero: !!race.activeAero, time: e.time, lap: c.lap - 1, date: Date.now(), controller,
+    steps: replay.steps, packed: await gzipBase64(JSON.stringify(replay)) };
+  if (!keepRun(game.runs, run)) return;
+  saveRuns();
+  if (online.signedIn && online.account.auto && online.worthSending(board, e.time)) sendRun(game.runs[board]);
+}
+// send a kept run → its status (lap-runs.js settle) and a toast with the server's answer
+async function sendRun(run) {
+  const name = SIM.CIRCUITS[run.circuit].name;
+  try { const r = await online.submit(run, { time: run.time, lap: run.lap, controller: run.controller }, run.board); settle(run, r); showMessage(leaderboardMessage(r, name)); }
+  catch (err) { if (err.refused) settle(run, null, err.message); showMessage(leaderboardMessage(null, name, err.message)); }
+  saveRuns(); drawSubmit(); leaderboardScreen.redraw();
+  return run;
+}
+// the pause menu's / results' SUBMIT: your kept lap on this race's board, not sent yet, faster than the board's 100th
+// (asks the board only once you have joined: the game doesn't go online by itself)
+async function drawSubmit() {
+  const btns = [$('lbPauseBtn'), $('lbResBtn')], race = game.race;
+  const run = race && game.trial ? game.runs[boardOf(race.track.id, race.activeAero)] : null;
+  let show = !!run && sendable(run) && online.signedIn;
+  if (show) { const cut = await online.cutoff(run.circuit, run.aero); show = cut !== undefined && run.time < cut; }
+  for (const b of btns) { b.hidden = !show; if (show) { b.textContent = `Submit ${fmtTime(run.time)}`; b.title = 'Send this lap to the online leaderboard'; } }
 }
 // ---- sectors (sector-timing.js) and the lap analysis screen (analysis-screen.js) ----
 const sectors = createSectorTiming({ game, aiLapOf: (id, aero) => trial.aiLapOf(id, aero) });
@@ -225,7 +251,7 @@ function onPlayerEvent(c, e) {
     case EV.LAP: {
       Hud.setLapTimes(e.time, c.bestLap, e.invalid);
       trial.onLap(race, c, e);                // the ghost: a new best lap becomes yours
-      sendLap(race, c, e);                    // the online leaderboard
+      keepLap(race, c, e);                    // the online leaderboard: your best lap there kept (and sent, if joined)
       sectors.onLap(race, c, e);              // sector times, bests, the session's laps
       if (qualifying()) grid.qualiLap(e);     // your best in qualifying sets your grid slot
       const zones = zoneTag(race.track, race.activeAero);   // (laps on your own straight-mode zones are kept apart)
@@ -352,7 +378,7 @@ function drawPitBox() {
     seg('Repairs', [[true, 'FIX'], [false, 'SKIP']], P.repair, v => { P.repair = v; }));
 }
 const SIM_COMPOUNDS = Object.keys(SIM.COMPOUNDS);
-Screens.onShow(name => { if (name === 'pause') drawPitBox(); });
+Screens.onShow(name => { if (name === 'pause') drawPitBox(); if (name === 'pause' || name === 'results') drawSubmit(); });
 function startFromMenu() {
   Sound.init();
   const s = game.setup;
@@ -371,7 +397,7 @@ function shift(dir) {
 }
 function confirm() {                                   // pad A
   if (AppShell.quitOpen) { AppShell.cancelQuit(); return; }   // (A never quits: the safe answer)
-  if (SettingsScreen.open || InputMonitor.open || analysis.open) return;
+  if (SettingsScreen.open || InputMonitor.open || analysis.open || leaderboardScreen.open || zoneEditor.open) return;
   if (away.open) { away.confirm(); return; }
   if (game.phase === PHASE.MENU) startFromMenu();
   else if (game.resultsShown) again();
@@ -391,7 +417,7 @@ function toggleLayout() {
 // ---- "are you there?" (away.js) ----
 const away = createAway({ game, racing: () => racing(), togglePause: () => togglePause() });
 
-const escape = () => away.open ? away.toPauseMenu() : AppShell.quitOpen ? AppShell.cancelQuit() : analysis.open ? analysis.close() : Garage.open ? Garage.close() : InputMonitor.open ? InputMonitor.toggle(false) : SoundStudio.open ? SoundStudio.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
+const escape = () => away.open ? away.toPauseMenu() : AppShell.quitOpen ? AppShell.cancelQuit() : analysis.open ? analysis.close() : leaderboardScreen.open ? leaderboardScreen.close() : zoneEditor.open ? zoneEditor.close() : Garage.open ? Garage.close() : InputMonitor.open ? InputMonitor.toggle(false) : SoundStudio.open ? SoundStudio.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
   : LayoutEditor.active ? LayoutEditor.exit() : togglePause();
 // "Quit the game?" (Alt+F4 mid-race too): the race pauses behind it
 AppShell.onAskQuit(() => { if (isRunning() && !game.paused) togglePause(); });
@@ -531,6 +557,17 @@ function openZones() {
   Screens.show(null); zoneEditor.show(() => Screens.show('start', 'zonesBtn'));
 }
 $('zonesBtn').onclick = openZones;
+// ---- the online leaderboard: the start menu's screen (your kept laps, SUBMIT) and the pause / results SUBMIT ----
+const leaderboardScreen = createLeaderboardScreen({ online, runs: () => game.runs, send: sendRun });
+$('lbBtn').onclick = () => {
+  if (game.phase !== PHASE.MENU || leaderboardScreen.open) return;
+  if (SettingsScreen.open) SettingsScreen.close();
+  Screens.show(null); leaderboardScreen.show(() => Screens.show('start', 'lbBtn'));
+};
+for (const id of ['lbPauseBtn', 'lbResBtn']) $(id).onclick = () => {
+  const run = game.race && game.runs[boardOf(game.race.track.id, game.race.activeAero)];
+  if (run && sendable(run)) { $('lbPauseBtn').hidden = $('lbResBtn').hidden = true; sendRun(run); }
+};
 if (import.meta.env.DEV || window.gridlineApp?.debug) window.__zoneEditor = zoneEditor;   // (the smoke test drags a zone)
 $('menuBtn').onclick = toMenu;
 $('designBtn').onclick = () => TweakPanel.toggle();
@@ -688,6 +725,7 @@ if (window.gridlineDebug) {
   // the online leaderboard on another server (the smoke test: leaderboard/dev.mjs on this machine)
   D.onlineApi = url => online.useServer(url);
   D.onlineJoin = name => online.register(name).then(r => r.name, e => 'error: ' + e.message);
+  D.onlineAuto = on => online.setAuto(on);
   // a test driver on your controls (centre line, braking to a 90 %-grip profile): its laps are replayable, unlike the autopilot's
   D.botDrive = (on = true) => {
     if (!on) { game.botInput = null; return; }

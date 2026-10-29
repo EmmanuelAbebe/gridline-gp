@@ -11,7 +11,8 @@ export const CONFIG = Object.freeze({
     sectors: 'gridline.sectors.2',   // best sectors / mini-sectors and the best lap's trace (sector-timing.js)
     buttons: 'gridline.buttons',     // what each controller button does, per device (button-map.js)
     aeroZones: 'gridline.aeroZones',   // your own straight-mode zones per circuit (aero-zones.js)
-    online: 'gridline.online' },       // the online leaderboard account: name + token, what was sent (online.js)
+    online: 'gridline.online',         // the online leaderboard account: name + token, what was sent (online.js)
+    runs: 'gridline.runs' },           // your best leaderboard lap per board with its replay, to send now or later (lap-runs.js)
   lights: { count: 5, interval: 0.9, holdMin: 0.4, holdRand: 1.8, hideAfterGo: 0.7 },
   resultsDelay: 2.2,           // seconds of race time after the chequered flag
   finalLapFlashDelay: 0.9,

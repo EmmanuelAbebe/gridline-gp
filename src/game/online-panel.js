@@ -9,11 +9,12 @@ function button(label, onclick, cls = 'btn ghost small') { const b = el('button'
 export function createOnlinePanel(bind) {
   const online = bind.get('online'), root = el('div', 'dev-panel'), card = el('div', 'dev-card');
   root.append(card);
-  let note = '', status = null, asked = false;
+  let note = '', status = null, asked = false, shownIn = online.signedIn;
   async function ask() { asked = true; status = await online.status(); draw(); }
 
   function draw() {
     const A = online.account;
+    shownIn = online.signedIn;
     card.replaceChildren();
     const head = el('div', 'row');
     head.append(el('span', 'lbl', 'Online leaderboard'),
@@ -50,5 +51,6 @@ export function createOnlinePanel(bind) {
     card.append(btns);
   }
   draw(); ask();
-  return { el: root, tick() {} };
+  // tick: redrawn when you joined or left somewhere else; refresh: ask the server again (a screen opened)
+  return { el: root, tick() { if (online.signedIn !== shownIn) draw(); }, refresh: ask };
 }

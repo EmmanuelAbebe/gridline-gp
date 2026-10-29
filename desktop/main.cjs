@@ -368,20 +368,28 @@ async function smokeTest(win) {
   Object.assign(info.quali, await win.webContents.executeJavaScript(`({ raceCars: document.querySelectorAll('#towerList > *').length, raceTitle: document.getElementById('towerLap').textContent,
     startSlot: [...document.querySelectorAll('#towerList li')].findIndex(li => li.classList.contains('me')) + 1 })`));
   await win.webContents.executeJavaScript(`gridlineDebug.toMenu(); document.querySelector('#qualiSeg [data-q="off"]').click()`);
-  // (GRIDLINE_SMOKE_ONLINE=http://localhost:3100: the leaderboard on this machine, leaderboard/dev.mjs: join, a time trial
-  // driven by the test driver on your controls, its laps sent and ranked; never the live board)
+  // (GRIDLINE_SMOKE_ONLINE=http://localhost:3100: the leaderboard on this machine, leaderboard/dev.mjs; never the live
+  // board: join with sending OFF, a time trial driven by the test driver on your controls, the lap kept; the pause menu's
+  // SUBMIT (the board has room) sends it; the start menu's Leaderboard screen shows it on the board)
   if (process.env.GRIDLINE_SMOKE_ONLINE) {
-    await win.webContents.executeJavaScript(`gridlineDebug.onlineApi(${JSON.stringify(process.env.GRIDLINE_SMOKE_ONLINE)}); document.querySelector('#typeSeg [data-t="trial"]').click()`);
-    const joined = await win.webContents.executeJavaScript(`gridlineDebug.onlineJoin('Smoke ' + Date.now().toString(36).slice(-6))`);
-    await win.webContents.executeJavaScript(`document.getElementById('startBtn').click(); gridlineDebug.botDrive(true)`);
-    const toasts = [];
-    for (let i = 0; i < 1000 && !toasts.some(t => /^Leaderboard/.test(t)); i++) {
-      const t = await win.webContents.executeJavaScript(`document.getElementById('toast').textContent`);
-      if (t && t !== toasts.at(-1)) toasts.push(t);
-      await new Promise(r => setTimeout(r, 200));
-    }
-    info.onlineSend = { joined, toasts: toasts.filter(t => /Leaderboard/.test(t)), lap: await win.webContents.executeJavaScript(`gridlineDebug.playerState().lap`) };
-    await win.webContents.executeJavaScript(`gridlineDebug.botDrive(false); gridlineDebug.toMenu(); document.querySelector('#typeSeg [data-t="laps"]').click()`);
+    const js = c => win.webContents.executeJavaScript(c), wait = ms => new Promise(r => setTimeout(r, ms));
+    await js(`gridlineDebug.onlineApi(${JSON.stringify(process.env.GRIDLINE_SMOKE_ONLINE)}); document.querySelector('#typeSeg [data-t="trial"]').click()`);
+    const joined = await js(`gridlineDebug.onlineJoin('Smoke ' + Date.now().toString(36).slice(-6))`);
+    await js(`gridlineDebug.onlineAuto(false); document.getElementById('startBtn').click(); gridlineDebug.botDrive(true)`);
+    for (let i = 0; i < 800 && !(await js(`gridlineDebug.playerState().lap >= 3`)); i++) await wait(200);
+    await wait(1500);                                    // (the lap's run is packed and kept)
+    await js(`document.getElementById('pauseBtn').click()`); await wait(1500);
+    const button = await js(`({ shown: !document.getElementById('lbPauseBtn').hidden, text: document.getElementById('lbPauseBtn').textContent })`);
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-submit.png'), (await win.webContents.capturePage()).toPNG());
+    await js(`document.getElementById('lbPauseBtn').click()`);
+    let toast = '';
+    for (let i = 0; i < 50 && !/Leaderboard/.test(toast); i++) { await wait(200); toast = await js(`document.getElementById('toast').textContent`); }
+    await js(`gridlineDebug.botDrive(false); gridlineDebug.toMenu(); document.querySelector('#typeSeg [data-t="laps"]').click(); document.getElementById('lbBtn').click()`);
+    await wait(800);
+    const screen = await js(`[...document.querySelectorAll('#lbList .lb-row')].map(r => r.textContent)`);
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-leaderboard.png'), (await win.webContents.capturePage()).toPNG());
+    await js(`document.getElementById('lbClose').click()`);
+    info.onlineSend = { joined, button, toast, screen };
   }
   // Settings → Tools: the online leaderboard panel (asks the live server for its physics version; joins nobody)
   await win.webContents.executeJavaScript(`document.getElementById('settingsBtn').click();

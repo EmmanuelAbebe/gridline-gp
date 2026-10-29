@@ -10,7 +10,8 @@ import { expandGhost } from './ghost.js';
 export const ONLINE = Object.freeze({
   api: 'https://gridline-leaderboard.vercel.app',
   site: 'https://gridline-leaderboard.vercel.app',
-  boardCache: 60,            // s: the fastest lap per board is looked up again after this
+  boardCache: 60,            // s: a board is looked up again after this
+  boardSize: 100,            // laps on a board (leaderboard/lib/boards.js BOARDS.size)
   maxSteps: 120 * 60 * 30,   // the server's limit (leaderboard/lib/verify.js RULES): 30 minutes of driving in one run
 });
 const parse = json => { try { const v = JSON.parse(json); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } };
@@ -23,7 +24,7 @@ export function loadAccount(json) {
 export const boardOf = (circuit, aero) => `${SIM.TUNING.PHYSICS}:${circuit}:${aero ? 'on' : 'off'}`;
 
 // gzip (the browser's own CompressionStream) → base64
-async function gzipBase64(text) {
+export async function gzipBase64(text) {
   const bytes = new Uint8Array(await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
   let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(s);
@@ -32,18 +33,18 @@ async function gzipBase64(text) {
 // save(account) stores the account; fetchImpl for tests
 export function createOnline({ account, save, fetchImpl = (...a) => fetch(...a) }) {
   let info = null, infoAt = 0, api = ONLINE.api;       // (api: another server for tests, gridlineDebug.onlineApi)
-  const tops = new Map();                // board → { at, row | null }
+  const boards = new Map();              // board → { at, rows }
   const call = async (path, opts = {}) => {
     const r = await fetchImpl(api + path, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
     let body = {}; try { body = await r.json(); } catch (e) { /* (not JSON: a proxy, an outage) */ }
-    if (!r.ok) throw new Error(body.error || `server error ${r.status}`);
+    if (!r.ok) throw Object.assign(new Error(body.error || `server error ${r.status}`), { status: r.status });
     return body;
   };
   const auth = () => ({ Authorization: `Bearer ${account.id}.${account.token}` });
   return {
     get account() { return account; },
     get signedIn() { return !!account.id; },
-    useServer(url) { api = url; info = null; tops.clear(); },
+    useServer(url) { api = url; info = null; boards.clear(); },
     // the server's physics (asked at most once a minute): { sim, physics, same } or null (offline)
     async status() {
       if (!info || performance.now() - infoAt > 60e3) {
@@ -60,26 +61,35 @@ export function createOnline({ account, save, fetchImpl = (...a) => fetch(...a) 
     setAuto(on) { account.auto = !!on; save(account); },
     // a lap worth sending: signed in, sending on, faster than the best already sent to that board
     worthSending(board, time) { return this.signedIn && account.auto && !(account.sent[board] <= time); },
-    // send the run: → the server's answer { status: 'new' | 'kept' | 'outside', rank, time } (throws with its reason)
-    async submit(replay, claim, board) {
-      if (replay.steps > ONLINE.maxSteps) throw new Error('this run is longer than 30 minutes: start a new time trial');
+    // send a run (its replay object, or already packed: gzipped base64 with its step count): → the server's answer
+    // { status: 'new' | 'kept' | 'outside', rank, time } (throws: offline, another version, or the server's reason with
+    // e.refused = true: the run will never be ranked)
+    async submit(run, claim, board) {
+      const packed = typeof run === 'string' ? run : run.packed ?? await gzipBase64(JSON.stringify(run)), steps = run.steps ?? 0;
+      if (steps > ONLINE.maxSteps) throw Object.assign(new Error('the run is longer than 30 minutes: start a new time trial'), { refused: true });
       const s = await this.status();
       if (!s) throw new Error('offline');
       if (!s.same) throw new Error('the leaderboard runs another version of the physics: update the game');
-      const r = await call('/api/submit', { method: 'POST', headers: auth(), body: JSON.stringify({ replay: await gzipBase64(JSON.stringify(replay)), claim }) });
+      let r;
+      try { r = await call('/api/submit', { method: 'POST', headers: auth(), body: JSON.stringify({ replay: packed, claim }) }); }
+      catch (e) { if (e.status === 422) e.refused = true; throw e; }
       if (r.status === 'new' || r.status === 'kept') { account.sent[board] = Math.min(account.sent[board] ?? Infinity, r.status === 'new' ? r.time : r.best); save(account); }
-      tops.delete(board);
+      boards.delete(board);
       return r;
     },
-    // the board's fastest lap { name, time, id } or null (cached a minute); undefined while unknown (offline)
-    async top(circuit, aero) {
-      const b = boardOf(circuit, aero), c = tops.get(b);
-      if (c && performance.now() - c.at < ONLINE.boardCache * 1000) return c.row;
+    // a board's laps (cached a minute): [{ id, name, time, … }] fastest first, or undefined (offline)
+    async rows(circuit, aero) {
+      const b = boardOf(circuit, aero), c = boards.get(b);
+      if (c && performance.now() - c.at < ONLINE.boardCache * 1000) return c.rows;
       try {
-        const r = await call(`/api/board?circuit=${circuit}&aero=${aero ? 'on' : 'off'}`), row = r.rows[0] || null;
-        tops.set(b, { at: performance.now(), row }); return row;
+        const r = await call(`/api/board?circuit=${circuit}&aero=${aero ? 'on' : 'off'}`);
+        boards.set(b, { at: performance.now(), rows: r.rows }); return r.rows;
       } catch (e) { return undefined; }
     },
+    // the board's fastest lap { name, time, id } or null; undefined while unknown (offline)
+    async top(circuit, aero) { const r = await this.rows(circuit, aero); return r && (r[0] || null); },
+    // the time a lap has to beat to get on the board: the 100th's, or Infinity while it has room; undefined offline
+    async cutoff(circuit, aero) { const r = await this.rows(circuit, aero); return r && (r.length < ONLINE.boardSize ? Infinity : r[ONLINE.boardSize - 1].time); },
     // a lap's ghost from the board, as a ghost.js ghost (a flying lap on the stock car, the automatic zones)
     async ghost(circuit, aero, row) {
       const g = expandGhost(await call(`/api/ghost?circuit=${circuit}&aero=${aero ? 'on' : 'off'}&id=${row.id}`));

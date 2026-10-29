@@ -131,7 +131,7 @@
       <span class="lbl">Qualifying</span>
       <div class="seg" id="qualiSeg"></div>
     </div>
-    <div class="summary"><p class="gpu" id="setupSummary"></p><button class="iconbtn" id="garageBtn" type="button" title="Your car: looks, setup, mods">GARAGE</button><button class="iconbtn" id="anaStartBtn" type="button" title="Your best lap here by sector and corner, against the fastest">ANALYSIS</button><button class="iconbtn" id="zonesBtn" type="button" title="Where the cars may open their wings (straight mode) on this circuit">AERO ZONES</button><button class="iconbtn" id="settingsBtn" type="button" title="Settings (O)">SETTINGS</button></div>
+    <div class="summary"><p class="gpu" id="setupSummary"></p><button class="iconbtn" id="garageBtn" type="button" title="Your car: looks, setup, mods">GARAGE</button><button class="iconbtn" id="anaStartBtn" type="button" title="Your best lap here by sector and corner, against the fastest">ANALYSIS</button><button class="iconbtn" id="zonesBtn" type="button" title="Where the cars may open their wings (straight mode) on this circuit">AERO ZONES</button><button class="iconbtn" id="lbBtn" type="button" title="The online leaderboard: your laps and sending them">LEADERBOARD</button><button class="iconbtn" id="settingsBtn" type="button" title="Settings (O)">SETTINGS</button></div>
     <div class="btns"><button class="btn" id="startBtn" type="button">To the grid</button><button class="btn ghost" id="fullStartBtn" type="button">Full screen</button><button class="btn ghost" type="button" data-quit hidden>Quit</button></div>
   </div>
 </div>
@@ -140,7 +140,7 @@
   <div class="card">
     <p class="verdict">Paused</p>
     <div id="pitBox" class="pit-box" hidden></div>
-    <div class="btns"><button class="btn" id="resumeBtn" type="button">Resume</button><button class="btn ghost" id="restartBtn" type="button">Restart race</button><button class="btn ghost" id="endBtn" type="button">End race</button><button class="btn ghost" id="pauseAnaBtn" type="button">Lap analysis</button><button class="btn ghost" id="pauseSettingsBtn" type="button">Settings</button><button class="btn ghost" id="pauseInputsBtn" type="button">Input monitor</button><button class="btn ghost" type="button" data-quit hidden>Quit game</button></div>
+    <div class="btns"><button class="btn" id="resumeBtn" type="button">Resume</button><button class="btn ghost" id="restartBtn" type="button">Restart race</button><button class="btn ghost" id="endBtn" type="button">End race</button><button class="btn ghost" id="lbPauseBtn" type="button" hidden>Submit</button><button class="btn ghost" id="pauseAnaBtn" type="button">Lap analysis</button><button class="btn ghost" id="pauseSettingsBtn" type="button">Settings</button><button class="btn ghost" id="pauseInputsBtn" type="button">Input monitor</button><button class="btn ghost" type="button" data-quit hidden>Quit game</button></div>
   </div>
 </div>
 
@@ -193,6 +193,15 @@
   </div>
 </div>
 
+<div id="lbOv" class="overlay" hidden>
+  <div class="card wide" role="dialog" aria-labelledby="lbTitle">
+    <div class="set-head"><p class="verdict" id="lbTitle">Leaderboard</p><button class="btn small" id="lbClose" type="button">Done</button></div>
+    <div id="lbAccount"></div>
+    <div class="row lb-head"><span class="lbl">Your best laps</span><span class="note" id="lbHint"></span><button class="btn small" id="lbAll" type="button" hidden>Submit all</button><button class="btn ghost small" id="lbSite" type="button">See the boards</button></div>
+    <div id="lbList"></div>
+  </div>
+</div>
+
 <div id="zoneOv" class="overlay" hidden>
   <div class="card xwide zones" role="dialog" aria-labelledby="zoneTitle">
     <div class="set-head"><p class="verdict" id="zoneTitle">Straight-mode zones</p><button class="btn small" id="zoneClose" type="button">Done</button></div>
@@ -217,7 +226,7 @@
     <div class="stripe"></div>
     <p class="verdict" id="verdict"></p>
     <div class="res-wrap"><table class="res"><thead><tr><th>Pos</th><th>Driver</th><th>Team</th><th class="r">Time</th><th class="r">Best lap</th></tr></thead><tbody id="resBody"></tbody></table></div>
-    <div class="btns"><button class="btn" id="againBtn" type="button">Race again</button><button class="btn ghost" id="requaliBtn" type="button" hidden>Qualify again</button><button class="btn ghost" id="resAnaBtn" type="button">Lap analysis</button><button class="btn ghost" id="menuBtn" type="button">Change distance</button><button class="btn ghost" type="button" data-quit hidden>Quit</button></div>
+    <div class="btns"><button class="btn" id="againBtn" type="button">Race again</button><button class="btn ghost" id="requaliBtn" type="button" hidden>Qualify again</button><button class="btn ghost" id="lbResBtn" type="button" hidden>Submit</button><button class="btn ghost" id="resAnaBtn" type="button">Lap analysis</button><button class="btn ghost" id="menuBtn" type="button">Change distance</button><button class="btn ghost" type="button" data-quit hidden>Quit</button></div>
   </div>
 </div></body>
 </html>

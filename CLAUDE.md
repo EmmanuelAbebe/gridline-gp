@@ -1046,7 +1046,15 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   doesn't go online by itself), its server-made ghost raced on flying laps. Debug: gridlineDebug.onlineApi(url),
   onlineJoin(name), botDrive() (a test driver on your controls: replayable, unlike the autopilot); smoke
   `GRIDLINE_SMOKE_ONLINE=http://localhost:3100` (with `node leaderboard/dev.mjs`) sends a lap end to end, never to the
-  live board. Not done: a board / leaderboard screen inside the game, racing a lap other than #1, Firefox / Safari.
+  live board. Submitting (2026-10-29; user: a way to submit your laps, the button only when the lap beats the board's
+  100th): `lap-runs.js` keeps your best lap per board with its run's replay (gzip base64, localStorage `gridline.runs`,
+  only on this SIM_VERSION; status unsent / new P / kept / outside / rejected why) whether joined or not (main.js
+  keepLap); sent by itself if joined and sending ON, else: pause menu / results SUBMIT (`#lbPauseBtn` / `#lbResBtn`,
+  time trial, unsent, joined, faster than online.cutoff = the 100th's time or room on the board) and the start menu's
+  LEADERBOARD screen (`leaderboard-screen.js` `#lbOv`: the account panel, your kept laps with their status, SUBMIT /
+  SUBMIT ALL, see the boards). Smoke (GRIDLINE_SMOKE_ONLINE): joined with sending OFF, the pause SUBMIT shows and
+  sends (out-submit.png), the screen shows P1 (out-leaderboard.png). Not done: racing a lap other than #1, the boards
+  inside the game, Firefox / Safari.
   Keep new sim code on FM.* (never Math.sin etc.) and anything the game writes into the player's
   car going through the replay (inputs via quantizeInput, settings in replay.js FLAGS / PREFS).
 - Smarter AI: started 2026-10-19 (see "LEGEND AI and racecraft"); still open: rivals that learn the player's lines.
