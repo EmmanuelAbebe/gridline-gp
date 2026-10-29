@@ -1020,8 +1020,13 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   `out-analysis-lap.png`.
 
 ## Ideas not done yet
-- Online leaderboard with replay validation: planned 2026-10-20 in `docs/leaderboard-plan.md` (not started; the user
-  asked to be reminded). First step: deterministic sim math across JS engines + an input recorder / Node replay.
+- Online leaderboard with replay validation: `docs/leaderboard-plan.md`. Phase 0 done 2026-10-28: replays
+  (`src/sim/replay.js`: the game records the player's quantised inputs + settings changes from lights out; replayRun
+  drives the race again bit for bit) and deterministic maths (`src/sim/fmath.js`, the sim's `FM.*` in place of Math's
+  sin / cos / tan / atan / atan2 / hypot / exp / pow: Node 22 and Electron's V8 15 now give identical sim-trace hashes).
+  Decided: Vercel (API + website) + Upstash Redis, top 100 per board with the settings as columns, a ghost viewer.
+  Next: the backend. Keep new sim code on FM.* (never Math.sin etc.) and anything the game writes into the player's
+  car going through the replay (inputs via quantizeInput, settings in replay.js FLAGS / PREFS).
 - Smarter AI: started 2026-10-19 (see "LEGEND AI and racecraft"); still open: rivals that learn the player's lines.
   (Earlier notes:) parked 2026-10-19 by the user "for later once better game mechanics are made". User beat Northfold in
   1:02.275 (fastest AI solo 67.6 s) with other lines through turns 2–3 and 5–6; LEGEND "feels fair: rewards good tries,

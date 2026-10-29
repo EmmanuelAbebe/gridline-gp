@@ -22,7 +22,8 @@ import { rpmAt, cornerSpeed, lateralGrip, brakeLimit, brakeMax, tyreGrip, wakeHa
 import { tyreSet, tempGrip, axleTempGrip, gripTemp } from './tyre-temp.js';
 import { TYRE_TEMP, COMPOUNDS, STRATEGY, AIR } from './tuning.js';
 import { hitboxFrom, HITBOX_FIT } from './hitbox.js';
-export const SIM = Object.freeze({ TYRE_TEMP, COMPOUNDS, STRATEGY, AIR, hitboxFrom, HITBOX_FIT, fitTyres, bestCompound, tyreSet, tempGrip, axleTempGrip, gripTemp, TUNING, AI, CONTACT, HITBOX, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, HANDBRAKE, SPEED_STEER, CIRCUITS,
+import { REPLAY, quantizeInput, createReplayRecorder, replayRun } from './replay.js';
+export const SIM = Object.freeze({ REPLAY, quantizeInput, createReplayRecorder, replayRun, TYRE_TEMP, COMPOUNDS, STRATEGY, AIR, hitboxFrom, HITBOX_FIT, fitTyres, bestCompound, tyreSet, tempGrip, axleTempGrip, gripTemp, TUNING, AI, CONTACT, HITBOX, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, HANDBRAKE, SPEED_STEER, CIRCUITS,
   SURFACES, OFFTRACK, WALLS, RUNOFF, BARRIER, BARRIERS, ZONE, surfaceAt, PIT, WEAR, fuelLaps, lapsToGo, carCondition, laneCentre, laneOuter, alongLane, serviceSteps,
   steerLock, tyreCurve, driftAngle, DRIVERS, EV, track: DEFAULT_TRACK,
   SETUP, MODS, ACTIVE_AERO, OVERTAKE, ERS, gapAhead, setAeroZones, aeroZonesInMetres, zoneRisk, aeroSafeOf, aiAeroPlan, carSpec, STOCK, validSetup, validMods, isModified, specStats, balanceAt,

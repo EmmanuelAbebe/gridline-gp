@@ -151,9 +151,13 @@ function fieldOf(s) {
 function newRace() {
   timers.clear();
   const s = game.setup, quali = qualifying(), field = fieldOf(s).map(d => d.player ? playerDriver(game.garage) : d);   // your livery in the tower, map, results
-  const race = SIM.createRace(quali ? { type: 'timed', minutes: +s.quali } : raceFormat(s), { track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, aiFollow: RACE_SETUP.aiLevels[s.ai].follow || 1, aiAlien: !!RACE_SETUP.aiLevels[s.ai].alien, wear: quali ? {} : raceWear(s), ...raceAero(s), aiAssists: aiAssistsOf(s), tyreTemp: s.tyreTemp === 'on',
+  const format = quali ? { type: 'timed', minutes: +s.quali } : raceFormat(s);
+  // (raceOpts: what the replay keeps of them, SIM replay.js: the same options + seed + your inputs = the same race)
+  const raceOpts = { wear: quali ? {} : raceWear(s), aiAssists: aiAssistsOf(s),
     compound: s.type === 'trial' || quali ? game.garage.tyres.start : 'auto',      // (the rivals' teams pick their tyres: SIM bestCompound)
-    hitbox: CarModels.hitbox(Design.data.car) });                        // (the shape of the cars in the race: 2026 or classic)
+    hitbox: CarModels.hitbox(Design.data.car) };                         // (the shape of the cars in the race: 2026 or classic)
+  const race = SIM.createRace(format, { track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, aiFollow: RACE_SETUP.aiLevels[s.ai].follow || 1, aiAlien: !!RACE_SETUP.aiLevels[s.ai].alien, ...raceAero(s), tyreTemp: s.tyreTemp === 'on', ...raceOpts });
+  game.raceOpts = { format, ...raceOpts, finishedAiSkill: CONFIG.finishedAiSkill }; game.replayRec = null;
   for (const [code, m] of modelOf) m.setVisible(field.some(d => d.code === code));
   const L = CONFIG.lights;
   const player = race.cars.find(c => c.player);
@@ -186,6 +190,9 @@ function stepStartLights(dt) {
 
 function lightsOut() {
   game.phase = PHASE.RACE; game.race.t = 0;
+  // your inputs from here on (SIM replay.js): a lap can be driven again, step for step (the online leaderboard checks laps so)
+  const G = game.garage;
+  game.replayRec = SIM.createReplayRecorder(game.race, game.raceOpts, { setup: G.setup, mods: G.mods, compound: G.tyres.start });
   trial.lightsOut();
   sectors.lightsOut(game.player);
   if (game.race.tyreTemp) showMessage(SAY.coldTyres);
@@ -282,8 +289,12 @@ function simStep(dt) {
   race.t += dt;
   trial.stepRival(dt);                       // the AI ghost's own race, in step with yours from lights out
   for (const c of race.cars) {
-    if (c.player && !c.finished && game.autopilot) SIM.driveAI(race, c, dt, game.autopilot);   // (gridlineDebug.autopilot: screenshots)
-    else if (c.player && !c.finished) { SIM.drivePlayer(race, c, { ...Input.drive, brk: Input.drive.brk * game.prefs.brakeForce / 100, steerRate: game.steerRate, calm: game.prefs.calm / 100, speedSteer: game.prefs.speedSteer === 'on' ? SIM.ASSISTS.medium.steer : 0, shift: game.pendingShift, boost: game.pendingBoost, aero: game.pendingAero, limiter: game.pendingLimiter }, dt);
+    if (c.player && !c.finished && game.autopilot) { SIM.driveAI(race, c, dt, game.autopilot); game.replayRec?.taint('autopilot'); }   // (gridlineDebug.autopilot: screenshots)
+    else if (c.player && !c.finished) {
+      // (quantised before the car gets them, and recorded: the replay feeds the car the very same numbers)
+      const inp = SIM.quantizeInput({ ...Input.drive, brk: Input.drive.brk * game.prefs.brakeForce / 100, steerRate: game.steerRate, calm: game.prefs.calm / 100, speedSteer: game.prefs.speedSteer === 'on' ? SIM.ASSISTS.medium.steer : 0, shift: game.pendingShift, boost: game.pendingBoost, aero: game.pendingAero, limiter: game.pendingLimiter });
+      game.replayRec?.step(c, inp);
+      SIM.drivePlayer(race, c, inp, dt);
       game.pendingShift = 0; game.pendingBoost = game.pendingAero = game.pendingLimiter = false; }
     else SIM.driveAI(race, c, dt, c.finished ? CONFIG.finishedAiSkill : 0);
   }
@@ -645,6 +656,21 @@ function setTrack(id) {
 // the test hooks: the dev server, or the desktop app's own test runs (smoke test, track shots: main.cjs DEBUG)
 if (import.meta.env.DEV || window.gridlineApp?.debug) installDebug(setTrack, () => track, () => game.player, () => { game.paused = false; toMenu(); }, trial.loadText, skill => { game.autopilot = skill; },
   () => racingLine.set(track, trial.aiLapOf('alien', true)?.line), setPref, () => world?.spots, () => game.race);
+if (window.gridlineDebug) {
+  // (moving the car by hand can't be replayed: the replay says so)
+  const D = window.gridlineDebug;
+  for (const k of ['pitNow', 'crash']) { const f = D[k]; D[k] = (...a) => { game.replayRec?.taint('debug ' + k); return f(...a); }; }
+  // the race so far driven again from its replay, on a track of its own: does it end where yours is now?
+  D.replayCheck = () => {
+    const rp = JSON.parse(JSON.stringify(game.replayRec.finish())), c = game.player, t0 = performance.now();
+    const T = SIM.buildTrack(SIM.CIRCUITS[rp.circuit]); SIM.setAeroZones(T, rp.zones);
+    const r = SIM.replayRun(rp, { track: T }), same = ['x', 'z', 'h', 'v', 'lap', 'gear'].every(k => r.car[k] === c[k]);
+    return { steps: rp.steps, same, ms: Math.round(performance.now() - t0), bytes: JSON.stringify(rp).length, changes: rp.changes.length,
+      live: { x: c.x, v: c.v, lap: c.lap }, replay: { x: r.car.x, v: r.car.v, lap: r.car.lap } };
+  };
+  // the replay so far + where your car is now (the smoke test replays it in Node too: the server's engine)
+  D.replayData = () => ({ replay: game.replayRec.finish(), at: Object.fromEntries(['x', 'z', 'h', 'v', 'vy', 'yawRate', 'lap', 'gear', 'soc'].map(k => [k, game.player[k]])) });
+}
 await loadModels();                                                 // (the Blender models: trees)
 setTrack(game.setup.track);
 { const saved = Settings.get(CONFIG.storageKeys.gfx);

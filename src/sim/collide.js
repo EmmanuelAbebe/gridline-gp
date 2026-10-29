@@ -12,6 +12,7 @@ import { afterMove } from './motion.js';
 import { addDamage } from './pit.js';
 import { lift } from './airborne.js';
 import { emit } from './events.js';
+import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
 
@@ -26,10 +27,10 @@ export function prepareHitbox(parts = HITBOX.parts) {
   if (H) return H;
   const list = parts.flatMap(p => p.mirror ? [p, { ...p, name: p.name + ' L', pts: p.pts.map(([a, b]) => [a, -b]).reverse() }] : [p]).map(p => {
     const n = p.pts.length, ca = p.pts.reduce((s, q) => s + q[0], 0) / n, cb = p.pts.reduce((s, q) => s + q[1], 0) / n;
-    return { ...p, ca, cb, side: Math.abs(cb) < 0.05 ? 0 : Math.sign(cb), r: Math.max(...p.pts.map(([a, b]) => Math.hypot(a - ca, b - cb))),
+    return { ...p, ca, cb, side: Math.abs(cb) < 0.05 ? 0 : Math.sign(cb), r: Math.max(...p.pts.map(([a, b]) => FM.hypot(a - ca, b - cb))),
       front: p.kind === 'tyre' && ca > 0, rear: (p.kind === 'tyre' && ca < 0) || !!p.ramp };
   });
-  H = { parts: list, reach: Math.max(...list.flatMap(p => p.pts.map(([a, b]) => Math.hypot(a, b)))) };
+  H = { parts: list, reach: Math.max(...list.flatMap(p => p.pts.map(([a, b]) => FM.hypot(a, b)))) };
   prepared.set(parts, H);
   return H;
 }
@@ -39,7 +40,7 @@ const wingIdx = p => p.side < 0 ? 0 : 1;
 // front wing half that broke off is gone
 /** @param {Car} c */
 function world(c, H) {
-  const fx = Math.cos(c.h), fz = Math.sin(c.h);
+  const fx = FM.cos(c.h), fz = FM.sin(c.h);
   return H.parts.filter(p => !(p.kind === 'wing' && c.wingOff?.[wingIdx(p)])).map(p => ({ part: p, cx: c.x + fx * p.ca - fz * p.cb, cz: c.z + fz * p.ca + fx * p.cb,
     pts: p.pts.map(([a, b]) => [c.x + fx * a - fz * b, c.z + fz * a + fx * b]) }));
 }
@@ -57,7 +58,7 @@ function inside(P, x, z) {
 function overlap(A, B) {
   let pen = Infinity, nx = 0, nz = 0;
   for (const P of [A, B]) for (let i = 0; i < P.length; i++) {
-    const [ax, az] = P[i], [bx, bz] = P[(i + 1) % P.length], l = Math.hypot(bx - ax, bz - az);
+    const [ax, az] = P[i], [bx, bz] = P[(i + 1) % P.length], l = FM.hypot(bx - ax, bz - az);
     const ux = -(bz - az) / l, uz = (bx - ax) / l;
     let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
     for (const [x, z] of A) { const d = x * ux + z * uz; a0 = Math.min(a0, d); a1 = Math.max(a1, d); }
@@ -86,7 +87,7 @@ function apart(A, B) {
   for (const [P, Q] of [[A, B], [B, A]]) for (const [x, z] of P) for (let j = 0; j < Q.length; j++) {
     const [ax, az] = Q[j], [bx, bz] = Q[(j + 1) % Q.length], ux = bx - ax, uz = bz - az;
     const t = Math.min(1, Math.max(0, ((x - ax) * ux + (z - az) * uz) / (ux * ux + uz * uz)));
-    best = Math.min(best, Math.hypot(x - ax - ux * t, z - az - uz * t));
+    best = Math.min(best, FM.hypot(x - ax - ux * t, z - az - uz * t));
   }
   return best;
 }
@@ -94,7 +95,7 @@ function apart(A, B) {
 function contacts(WA, WB) {
   const out = [];
   for (const pa of WA) for (const pb of WB) {
-    if (Math.hypot(pb.cx - pa.cx, pb.cz - pa.cz) > pa.part.r + pb.part.r) continue;
+    if (FM.hypot(pb.cx - pa.cx, pb.cz - pa.cz) > pa.part.r + pb.part.r) continue;
     const o = overlap(pa.pts, pb.pts);
     if (o) out.push({ ...o, a: pa.part, b: pb.part, closing: 0, e: 0, mu: 0, mn: 0, mt: 0, jn: 0, jt: 0 });   // (the solver's numbers: collide)
   }
@@ -109,14 +110,14 @@ export function carGap(a, b, H = prepareHitbox()) {
 }
 
 /** @param {Car} c */
-const velocity = c => [Math.cos(c.h) * c.v - Math.sin(c.h) * c.vy, Math.sin(c.h) * c.v + Math.cos(c.h) * c.vy];
+const velocity = c => [FM.cos(c.h) * c.v - FM.sin(c.h) * c.vy, FM.sin(c.h) * c.v + FM.cos(c.h) * c.vy];
 // velocity of the point (px, pz) of car c: the centre's plus the yaw rate's (ω × r)
 /** @param {Car} c */
 const pointVelocity = (c, px, pz) => { const [vx, vz] = velocity(c); return [vx - c.yawRate * (pz - c.z), vz + c.yawRate * (px - c.x)]; };
 // add a world-space impulse (per unit mass: a velocity change) (jx, jz) at (px, pz) to car c
 /** @param {Car} c */
 function kick(c, jx, jz, px, pz) {
-  const fx = Math.cos(c.h), fz = Math.sin(c.h);
+  const fx = FM.cos(c.h), fz = FM.sin(c.h);
   c.v += jx * fx + jz * fz;
   c.vy += -jx * fz + jz * fx;
   c.yawRate += cross(px - c.x, pz - c.z, jx, jz) / K2;
@@ -135,7 +136,7 @@ export function collide(race) {
   for (let i = 0; i < cars.length; i++) for (let j = i+1; j < cars.length; j++) {
     const a = cars[i], b = cars[j];
     if ((a.pit && !a.pit.drive) || (b.pit && !b.pit.drive)) continue;   // AI cars on their pit-lane path (pit.js) don't touch
-    if (Math.hypot(b.x - a.x, b.z - a.z) > 2 * HB.reach) continue;
+    if (FM.hypot(b.x - a.x, b.z - a.z) > 2 * HB.reach) continue;
     if (elev && Math.abs(elev.Y[a.idx] - elev.Y[b.idx]) > ELEVATION.apart) continue;   // one on a bridge, the other under it
     if (Math.abs((a.air?.y || 0) - (b.air?.y || 0)) > AIR.over) continue;               // one flying over the other
     // (a front wing half that gave way this touch passes through: HITBOX.wingStrength)
@@ -172,7 +173,7 @@ export function collide(race) {
     // the friction of the push lifts it at the contact point
     for (const t of touch) for (const [c, p, q, s] of [[a, t.a, t.b, 1], [b, t.b, t.a, -1]]) {
       if (!p.front || !q.rear || t.jn <= 0) continue;
-      const fx = Math.cos(c.h), fz = Math.sin(c.h);
+      const fx = FM.cos(c.h), fz = FM.sin(c.h);
       if (s * (t.nx * fx + t.nz * fz) < 0.6) continue;              // (the other car ahead of this one, roughly in line)
       const rx = t.mx - c.x, rz = t.mz - c.z, up = Math.min(t.mu * t.jn, Math.max(0, AIR.climb * t.closing - c.climbed));
       if (up > 0) { c.climbed += up; lift(c, up, rx * fx + rz * fz, -rx * fz + rz * fx); }

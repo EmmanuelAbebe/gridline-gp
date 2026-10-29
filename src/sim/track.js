@@ -10,12 +10,13 @@ import { buildElevation, cornerSpeedAt, brakeLimitAt } from './elevation.js';
 import { RACING_LINES, ALIEN_LINES } from './racing-lines.js';
 import { CIRCUITS } from './circuits.js';
 import { clamp, wrapA, wrapIdx } from './math.js';
+import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
 /** @typedef {import('./types.js').Track} Track */
 
 // Closed centripetal Catmull-Rom through the control points, `steps` points per segment.
 function catmullRomClosed(ctrl, steps) {
   const out = [], M = ctrl.length;
-  const tj = (a, b) => Math.pow(Math.hypot(b[0]-a[0], b[1]-a[1]), 0.5);
+  const tj = (a, b) => FM.pow(FM.hypot(b[0]-a[0], b[1]-a[1]), 0.5);
   const lerp = (A, B, ta, tb, t) => [A[0]*(tb-t)/(tb-ta) + B[0]*(t-ta)/(tb-ta), A[1]*(tb-t)/(tb-ta) + B[1]*(t-ta)/(tb-ta)];
   for (let i = 0; i < M; i++) {
     const P0 = ctrl[(i-1+M)%M], P1 = ctrl[i], P2 = ctrl[(i+1)%M], P3 = ctrl[(i+2)%M];
@@ -33,7 +34,7 @@ function catmullRomClosed(ctrl, steps) {
 // Resample a closed polyline to N points at equal arc-length spacing.
 function resampleClosed(dense, N) {
   const cum = [0];
-  for (let i = 1; i <= dense.length; i++) { const a = dense[i-1], b = dense[i % dense.length]; cum.push(cum[i-1] + Math.hypot(b[0]-a[0], b[1]-a[1])); }
+  for (let i = 1; i <= dense.length; i++) { const a = dense[i-1], b = dense[i % dense.length]; cum.push(cum[i-1] + FM.hypot(b[0]-a[0], b[1]-a[1])); }
   const L = cum[cum.length-1], ds = L / N;
   const PX = new Float32Array(N), PZ = new Float32Array(N);
   let j = 0;
@@ -97,7 +98,7 @@ function lineProfile({ N, ds, PX, PZ, NX, NZ, elev }, RO, brake = AI.brake, circ
   const LS = new Float32Array(N), LH = new Float32Array(N), LK = new Float32Array(N), W = 5;
   for (let i = 0; i < N; i++) {
     const j = (i+1)%N, dx = PX[j] + NX[j]*RO[j] - PX[i] - NX[i]*RO[i], dz = PZ[j] + NZ[j]*RO[j] - PZ[i] - NZ[i]*RO[i];
-    LS[i] = Math.hypot(dx, dz) || ds; LH[i] = Math.atan2(dz, dx);
+    LS[i] = FM.hypot(dx, dz) || ds; LH[i] = FM.atan2(dz, dx);
   }
   for (let i = 0; i < N; i++) {
     let len = 0; for (let o = -W; o < W; o++) len += LS[wrapIdx(i+o, N)];
@@ -111,7 +112,7 @@ function lineProfile({ N, ds, PX, PZ, NX, NZ, elev }, RO, brake = AI.brake, circ
     const S = STOCK;
     for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) {
       const j = (i+1)%N, u = VP[j], df = S.dfK * u * u, n = Math.max(-df, elev.CA[j] * (G + u * u * elev.VK[j]));
-      const latMax = Math.max(1, tyreGrip(n + df, S)), lat = u * u * Math.abs(LK[j]), f = Math.sqrt(Math.max(0, 1 - (lat / latMax) ** 2));
+      const latMax = Math.max(1, tyreGrip(n + df, S)), lat = u * u * Math.abs(LK[j]), f = Math.sqrt(Math.max(0, 1 - FM.pow(lat / latMax, 2)));
       const dec = Math.min(CHASSIS.brakeSystem, CHASSIS.longGrip * tyreGrip(n + df, S)) * f + S.dragK * u * u + CAR.aero.rolling
         + CAR.engine.engineBrake * 0.8 + G * elev.SX[j];
       VP[i] = Math.min(VP[i], Math.sqrt(u * u + 2 * Math.max(3, dec) * LS[i]));
@@ -122,7 +123,7 @@ function lineProfile({ N, ds, PX, PZ, NX, NZ, elev }, RO, brake = AI.brake, circ
     const S = STOCK, G = 9.81;
     for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) {
       const j = (i+1)%N, u = VP[j], df = S.dfK * u * u, latMax = tyreGrip(G + df, S), lat = u * u * Math.abs(LK[j]);
-      const f = Math.sqrt(Math.max(0, 1 - (lat / latMax) ** 2));
+      const f = Math.sqrt(Math.max(0, 1 - FM.pow(lat / latMax, 2)));
       const dec = Math.min(CHASSIS.brakeSystem, CHASSIS.longGrip * tyreGrip(G + df, S)) * f + S.dragK * u * u + CAR.aero.rolling + CAR.engine.engineBrake * 0.8;
       VP[i] = Math.min(VP[i], Math.sqrt(u * u + 2 * dec * LS[i]));
     }
@@ -153,18 +154,18 @@ export function buildTrack(circuit, opts = {}) {
   const o = { ...TRACK_DEFAULTS, samples: circuit.samples, ...opts };
   const { halfWidth: HW, kerb: KERB, runoff, kerbK: KERB_K } = o;
   const dense = catmullRomClosed(circuit.ctrl, 200);
-  let around = 0; for (let i = 0; i < dense.length; i++) { const a = dense[i], b = dense[(i+1) % dense.length]; around += Math.hypot(b[0]-a[0], b[1]-a[1]); }
+  let around = 0; for (let i = 0; i < dense.length; i++) { const a = dense[i], b = dense[(i+1) % dense.length]; around += FM.hypot(b[0]-a[0], b[1]-a[1]); }
   const N = o.samples || Math.round(around / o.ds);
   const { PX, PZ, L, ds } = resampleClosed(dense, N);
   const TX = new Float32Array(N), TZ = new Float32Array(N), NX = new Float32Array(N), NZ = new Float32Array(N), K = new Float32Array(N);
   for (let i = 0; i < N; i++) {
-    const a = wrapIdx(i-1, N), b = wrapIdx(i+1, N); let tx = PX[b]-PX[a], tz = PZ[b]-PZ[a]; const l = Math.hypot(tx, tz);
+    const a = wrapIdx(i-1, N), b = wrapIdx(i+1, N); let tx = PX[b]-PX[a], tz = PZ[b]-PZ[a]; const l = FM.hypot(tx, tz);
     tx /= l; tz /= l; TX[i] = tx; TZ[i] = tz; NX[i] = -tz; NZ[i] = tx;   // +N is the driver's right
   }
   const W = 5;
   for (let i = 0; i < N; i++) {
     const a = wrapIdx(i-W, N), b = wrapIdx(i+W, N);
-    K[i] = Math.atan2(TX[a]*TZ[b] - TZ[a]*TX[b], TX[a]*TX[b] + TZ[a]*TZ[b]) / (2*W*ds); // >0 turns toward +N
+    K[i] = FM.atan2(TX[a]*TZ[b] - TZ[a]*TX[b], TX[a]*TX[b] + TZ[a]*TZ[b]) / (2*W*ds); // >0 turns toward +N
   }
   const bounds = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
   for (let i = 0; i < N; i++) {
@@ -197,7 +198,7 @@ export function buildTrack(circuit, opts = {}) {
 }
 
 /** @param {Track} track */
-export const headingAt = (track, i) => Math.atan2(track.TZ[i], track.TX[i]);
+export const headingAt = (track, i) => FM.atan2(track.TZ[i], track.TX[i]);
 
 // Grid slot `slot` (0 = pole). `ahead` shifts the point forward, e.g. for the painted box line.
 /** @param {Track} track */

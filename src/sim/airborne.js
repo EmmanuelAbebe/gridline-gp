@@ -5,6 +5,7 @@ import { AIR, EV } from './tuning.js';
 import { addDamage } from './pit.js';
 import { emit } from './events.js';
 import { wrapA } from './math.js';
+import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
 
@@ -26,12 +27,12 @@ export function lift(c, up, along, right) {
 // nose is up) move it up and down, it turns as it was turning; then the landing
 /** @param {Race} race @param {Car} c */
 export function stepAir(race, c, resist, dt) {
-  const a = c.air, S = c.spec, sp = Math.hypot(c.v, c.vy);
+  const a = c.air, S = c.spec, sp = FM.hypot(c.v, c.vy);
   if (sp > 0.1) { const k = Math.max(0, 1 - resist * dt / sp); c.v *= k; c.vy *= k; }
   c.h += c.yawRate * dt; c.yawRate *= 1 - AIR.damp * dt;
-  c.x += (Math.cos(c.h) * c.v - Math.sin(c.h) * c.vy) * dt; c.z += (Math.sin(c.h) * c.v + Math.cos(c.h) * c.vy) * dt;
+  c.x += (FM.cos(c.h) * c.v - FM.sin(c.h) * c.vy) * dt; c.z += (FM.sin(c.h) * c.v + FM.cos(c.h) * c.vy) * dt;
   // downforce (per mass), down while level, lift once pitched nose-up past liftFrom (all of it as lift by liftAt)
-  const df = S.dfK * c.v * c.v * Math.max(0, Math.cos(a.roll)), tilt = Math.min(1, Math.max(0, (a.pitch - AIR.liftFrom) / (AIR.liftAt - AIR.liftFrom)));
+  const df = S.dfK * c.v * c.v * Math.max(0, FM.cos(a.roll)), tilt = Math.min(1, Math.max(0, (a.pitch - AIR.liftFrom) / (AIR.liftAt - AIR.liftFrom)));
   a.vy += (-G - df * (1 - (1 + AIR.lift) * tilt)) * dt;
   a.y += a.vy * dt; a.pitch += a.pr * dt; a.roll += a.rr * dt;
   a.pr *= 1 - AIR.damp * dt; a.rr *= 1 - AIR.damp * dt;

@@ -3,6 +3,7 @@
 // every step back here. Order of the four: FL, FR, RL, RR.
 import { TYRE_TEMP as TT, COMPOUNDS, EV } from './tuning.js';
 import { emit } from './events.js';
+import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
 /** @typedef {import('./types.js').Car} Car */
 
 /** a set of tyres at `t` °C (surface and core), the share of each axle's load on its outer wheel (from the last step);
@@ -16,8 +17,8 @@ export const gripTemp = (T, i) => TT.mix * T.s[i] + (1 - TT.mix) * T.k[i];
 /** grip factor at temperature t: 1 in the window `win`, less cold or hot */
 export function tempGrip(t, win = TT.window) {
   const [lo, hi] = win;
-  if (t < lo) return 1 - TT.cold.loss * (1 - Math.exp(-(lo - t) / TT.cold.scale));
-  if (t > hi) return 1 - Math.min(TT.hot.max, TT.hot.loss * ((t - hi) / TT.hot.scale) ** TT.hot.pow);
+  if (t < lo) return 1 - TT.cold.loss * (1 - FM.exp(-(lo - t) / TT.cold.scale));
+  if (t > hi) return 1 - Math.min(TT.hot.max, TT.hot.loss * FM.pow((t - hi) / TT.hot.scale, TT.hot.pow));
   return 1;
 }
 
@@ -38,7 +39,7 @@ export function stepTyreTemps(T, heatF, heatR, loads, speed, dt) {
     const a = i < 2 ? 0 : 1, share = axleLoad[a] > 0 ? loads[i] / axleLoad[a] : 0.5, size = a ? 1 : TT.front;
     const friction = (a ? heatR : heatF) * TT.share * share, flex = TT.roll * loads[i] * speed;
     const s = T.s[i], k = T.k[i];
-    const grow = d => d * (Math.abs(d) / TT.ref) ** TT.grow;
+    const grow = d => d * FM.pow(Math.abs(d) / TT.ref, TT.grow);
     const toCore = S.core * size * (s - k), toAir = (S.air + S.airV * speed) * size * grow(s - TT.air), toRoad = S.road * size * grow(s - TT.track);
     T.s[i] = s + (friction - toCore - toAir - toRoad) * dt / (S.C * size);
     T.k[i] = k + (toCore + flex - (K.air + K.airV * speed) * size * grow(k - TT.air)) * dt / (K.C * size);

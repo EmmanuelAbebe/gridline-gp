@@ -327,6 +327,9 @@ async function smokeTest(win) {
     return { link: st.link, port: st.port, qr: st.qr.startsWith('<svg'), seen, releasedSteer: after.steer, stopped: !phone.status().running, away: { ...awayShown, back: awayBack }, buttons: { live: buttonsLive, bound: buttonsBound },
       feedback: { messages: fx.length, felt: [...new Set(fx.flatMap(f => Object.keys(f).filter(k => k !== 'kh' && f[k] > 0)))], endsAtZero: !!fx.length && !fx.at(-1).k && !fx.at(-1).o && !fx.at(-1).s } };
   })();
+  // the race so far (the phone's full lock and gas, pauses, settings opened) driven again from its replay: the same car
+  info.replay = await win.webContents.executeJavaScript(`gridlineDebug.replayCheck()`);
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-replay.json'), JSON.stringify(await win.webContents.executeJavaScript(`gridlineDebug.replayData()`)));
   await win.webContents.executeJavaScript(`document.getElementById('setClose').click()`);
   // Sound studio from Settings → Sound: the bench plays (no errors), screenshot, close
   await win.webContents.executeJavaScript(`document.getElementById('pauseSettingsBtn').click();

@@ -11,6 +11,7 @@ import { G, slipstream, cornerSpeed, brakeLimit, brakeMax, lateralGrip } from '.
 import { brakeLimitAt } from './elevation.js';
 import { checkPitEntry, stepPit, updateWear, aiWantsPit, drivePitLane, pitLimit, pitThrottle } from './pit.js';
 import { updateActiveAero } from './active-aero.js';
+import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
 
@@ -125,7 +126,7 @@ function feelPedals(c, thr, brk, dt) {
     // (cold or overheated rears: it feeds the power in far more carefully than the grip they lost, AI.feel.coldThr,
     // as a driver on cold tyres without traction control)
     const rk = c.tyreT ? axleTempGrip(c.tyreT).r : 1;
-    thr = Math.min(thr, rk < 1 ? T[g] * c.feelThrNow * rk ** F.coldThr : T[g] * c.feelThrNow);
+    thr = Math.min(thr, rk < 1 ? T[g] * c.feelThrNow * FM.pow(rk, F.coldThr) : T[g] * c.feelThrNow);
     // feeding the power in as the cornering eases (the grip left for the drive on the friction circle, by the cornering
     // it feels in the seat), and squeezing it on at a foot's pace (its speed control would stab it from 0 to 0.8)
     const lat = Math.min(1, Math.abs(c.ay) / lateralGrip(Math.max(Math.abs(c.v), 1), c.spec));
@@ -234,9 +235,9 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   if (lo <= hi) c.offset = clamp(c.offset, lo, hi);          // the room left by cars alongside, at once
   // steering (target behind, e.g. after a spin: full lock toward it, slowly)
   const tx = PX[ti] + NX[ti]*c.offset - c.x, tz = PZ[ti] + NZ[ti]*c.offset - c.z;
-  const alpha = wrapA(Math.atan2(tz, tx) - c.h - driftAngle(c)), dist = Math.max(Math.hypot(tx, tz), 4);
+  const alpha = wrapA(FM.atan2(tz, tx) - c.h - driftAngle(c)), dist = Math.max(FM.hypot(tx, tz), 4);
   const lost = Math.abs(alpha) > Math.PI / 2;
-  const kappa = 2 * (lost ? Math.sign(alpha) : Math.sin(alpha)) / dist, v5 = Math.max(sp, 5);
+  const kappa = 2 * (lost ? Math.sign(alpha) : FM.sin(alpha)) / dist, v5 = Math.max(sp, 5);
   let delta = CHASSIS.wheelbase * kappa + AI.yawGain * (sp * kappa - c.yawRate) * CHASSIS.wheelbase / v5;
   // without the stability assist the driver catches a sliding rear itself: opposite lock, the front wheels turned
   // toward where the car is going (AI.feel.counter), for as much of the assist as it lacks
@@ -271,7 +272,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
     // over the target, brake once the hardest deceleration ahead passes brakeAt × the limit (late and hard); in
     // traffic with AI cars it drives like the others (a whole ALIEN field braking that late: 4× the hard contacts)
     // (cold tyres: it takes their whole grip loss as margin when properly cold, only the square root once nearly warm)
-    const A = AI.alien, tk = tempK ** (0.5 + 0.5 * clamp((0.97 - tempK) / 0.03, 0, 1)) * Math.sqrt(compK), vt = j => VP[j] >= TUNING.V_CAP - 1e-3 ? TUNING.V_CAP : tyreK !== 1 ? VP[j] * skill * offLine(j) * tk : VP[j] * skill * offLine(j);
+    const A = AI.alien, tk = FM.pow(tempK, 0.5 + 0.5 * clamp((0.97 - tempK) / 0.03, 0, 1)) * Math.sqrt(compK), vt = j => VP[j] >= TUNING.V_CAP - 1e-3 ? TUNING.V_CAP : tyreK !== 1 ? VP[j] * skill * offLine(j) * tk : VP[j] * skill * offLine(j);
     const target = lost ? AI.recoverSpeed : Math.min(vt((c.idx + 2) % N), vt((c.idx + 5) % N), followCap);   // (never into the car ahead)
     let need2 = 0;
     for (let k = 2; k <= A.brakeLook; k += k < 12 ? 2 : 4) { const w = vt((c.idx + k) % N); need2 = Math.max(need2, (sp * sp - w * w) / (2 * k * ds)); }
@@ -292,7 +293,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   // where it will be in `look` s; past the kerb's end, ease the throttle, as a driver lifts before the limits. Only as
   // far as it is already wider than the line it means to drive (`off` m = all of it): a chicane's line crosses the road
   // at speed (2026-10-25: the lift cut the throttle to `min` out of both of Hautvale's last corners)
-  { const E2 = AI.edge, hd = wrapA(c.h - Math.atan2(T.TZ[c.idx], T.TX[c.idx])), vlat = c.v * Math.sin(hd) + c.vy * Math.cos(hd);
+  { const E2 = AI.edge, hd = wrapA(c.h - FM.atan2(T.TZ[c.idx], T.TX[c.idx])), vlat = c.v * FM.sin(hd) + c.vy * FM.cos(hd);
     const ahead = c.lat + vlat * E2.look, limit = HW + T.KERB + E2.room, out = (c.lat - RO[c.idx] - bias) * Math.sign(ahead);
     if (thr > 0 && Math.abs(ahead) > limit && Math.sign(vlat) === Math.sign(ahead) && out > 0)
       thr *= clamp(1 - (Math.abs(ahead) - limit) / E2.fade * Math.min(1, out / E2.off), E2.min, 1); }
@@ -306,7 +307,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   }
   if (!c.assists.abs || !c.assists.tc) [thr, brk] = feelPedals(c, thr, brk, dt);
   // (everything above asks for a share of the torque; the pedal that gives it, through the torque map: vehicle.js)
-  if (thr > 0) thr **= 1 / CAR.engine.pedalMap;
+  if (thr > 0) thr = FM.pow(thr, 1 / CAR.engine.pedalMap);
   c.brake = brk; c.thr = thr;
   updateActiveAero(race, c, { thr, brk }, dt);
   updateWear(race, c, thr, dt);

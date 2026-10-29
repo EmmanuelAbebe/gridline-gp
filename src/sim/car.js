@@ -6,6 +6,7 @@ import { gridSlot, headingAt } from './track.js';
 import { emit } from './events.js';
 import { pitState } from './pit.js';
 import { STOCK } from './spec.js';
+import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
 /** @typedef {import('./types.js').Track} Track */
@@ -94,11 +95,11 @@ export function resolveWalls(track, c, lane = null) {
   let hit = null;
   if (!c.wallHit) {
     const B = BARRIERS[lane ? BARRIER.concrete : R.barrier[c.idx]] || BARRIERS[0];
-    hit = { impact: Math.abs(c.v * Math.sin(c.h - th)), hard: B.hard, front: Math.abs(Math.sin(c.h - th)), barrier: B.name };
+    hit = { impact: Math.abs(c.v * FM.sin(c.h - th)), hard: B.hard, front: Math.abs(FM.sin(c.h - th)), barrier: B.name };
     c.v *= B.keep; c.vy *= WALLS.sideways; c.yawRate *= WALLS.sideways; emit(c, EV.WALL, hit);
   }
   c.wallHit = true;
-  if (Math.cos(c.h - th) < 0) th += Math.PI;
+  if (FM.cos(c.h - th) < 0) th += Math.PI;
   c.h += wrapA(th - c.h) * WALLS.align;
   return hit;
 }

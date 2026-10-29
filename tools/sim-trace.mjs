@@ -3,6 +3,7 @@
 // to check that a refactor did not change the physics. Races take their default seed from the seeded Math.random
 // (since 2026-10-19 each race has its own race.rng; older builds used Math.random directly, which this also covers).
 // Usage: node tools/sim-trace.mjs [path/to/sim/index.js]   (e.g. from a worktree of an older commit)
+import { M as FM } from '../src/sim/fmath.js';   // (the script's own steering: the same on every engine too)
 import { createHash } from 'node:crypto';
 import { loadSim } from './load-sim.mjs';
 
@@ -34,7 +35,7 @@ function trace(name, makeRace, seconds, drive) {
 // The player car follows a fixed input script: gas, braking, analog and digital steering, reversing.
 const script = step => {
   const t = step * dt;
-  return { thr: t % 9 < 6 ? 1 : 0.3, brk: t % 9 > 7.5 ? 1 : 0, steer: Math.sin(t * 0.7) * (t % 20 < 10 ? 1 : 0.4), analog: t % 30 < 15 };
+  return { thr: t % 9 < 6 ? 1 : 0.3, brk: t % 9 > 7.5 ? 1 : 0, steer: FM.sin(t * 0.7) * (t % 20 < 10 ? 1 : 0.4), analog: t % 30 < 15 };
 };
 const drivePlayerScript = (race, c, step) => c.player ? S.drivePlayer(race, c, script(step), dt) : S.driveAI(race, c, dt);
 const driveAll = (race, c) => S.driveAI(race, c, dt, c.player ? 0.95 : 0);

@@ -2,6 +2,7 @@
 // `landmarks` say where trackside buildings go (render-only): a sample index, or a negative number = metres before
 // the start line. `style`: 'permanent' (default) or 'street' (walls close to the road; tuning.js RUNOFF).
 // `theme` = the scenery (render-only, game config.js THEMES). `corners()` builds control points from a polygon whose vertices carry a corner radius.
+import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
 
 // Polygon [x, z, radius] → control points: each vertex with r > 0 becomes a circular arc of that radius tangent to
 // both straights (points every ~arcStep m), r = 0 passes through the vertex; long straights get midpoints so the
@@ -14,20 +15,20 @@ function layout(poly, arcStep = 12, straightStep = 120) {
   for (let i = 0; i < M; i++) {
     const [px, pz] = poly[(i - 1 + M) % M], [x, z, r] = poly[i], [nx, nz] = poly[(i + 1) % M];
     let ax = x - px, az = z - pz, bx = nx - x, bz = nz - z;
-    const la = Math.hypot(ax, az), lb = Math.hypot(bx, bz); ax /= la; az /= la; bx /= lb; bz /= lb;
-    const turn = Math.atan2(ax * bz - az * bx, ax * bx + az * bz);
+    const la = FM.hypot(ax, az), lb = FM.hypot(bx, bz); ax /= la; az /= la; bx /= lb; bz /= lb;
+    const turn = FM.atan2(ax * bz - az * bx, ax * bx + az * bz);
     turns.push(turn);
     if (!r || Math.abs(turn) < 1e-3) { ends.push([[x, z]]); continue; }
-    const t = r * Math.tan(Math.abs(turn) / 2), sx = x - ax * t, sz = z - az * t, side = Math.sign(turn);
-    const cx = sx - az * r * side, cz = sz + ax * r * side, a0 = Math.atan2(sz - cz, sx - cx);
+    const t = r * FM.tan(Math.abs(turn) / 2), sx = x - ax * t, sz = z - az * t, side = Math.sign(turn);
+    const cx = sx - az * r * side, cz = sz + ax * r * side, a0 = FM.atan2(sz - cz, sx - cx);
     const n = Math.max(2, Math.ceil(r * Math.abs(turn) / arcStep)), arc = [];
-    for (let k = 0; k <= n; k++) { const a = a0 + turn * k / n; arc.push([cx + Math.cos(a) * r, cz + Math.sin(a) * r]); }
+    for (let k = 0; k <= n; k++) { const a = a0 + turn * k / n; arc.push([cx + FM.cos(a) * r, cz + FM.sin(a) * r]); }
     ends.push(arc);
   }
   for (let i = 0; i < M; i++) {
     const arc = ends[i], next = ends[(i + 1) % M][0], last = arc[arc.length - 1];
     out.push(...arc);
-    const len = Math.hypot(next[0] - last[0], next[1] - last[1]), n = Math.floor(len / straightStep);
+    const len = FM.hypot(next[0] - last[0], next[1] - last[1]), n = Math.floor(len / straightStep);
     for (let k = 1; k <= n; k++) out.push([last[0] + (next[0] - last[0]) * k / (n + 1), last[1] + (next[1] - last[1]) * k / (n + 1)]);
   }
   return { ctrl: out.map(([x, z]) => [Math.round(x * 10) / 10, Math.round(z * 10) / 10]), ends, turns };
@@ -44,7 +45,7 @@ export function course(poly, arcStep = 12, straightStep = 120, bankRamp = 70) {
   const { ctrl, ends, turns } = layout(poly, arcStep, straightStep), heights = [], M = poly.length;
   const bankOf = i => -Math.sign(turns[i]) * (poly[i][4] || 0) * Math.PI / 180;   // a right turn (+) banks up toward its left
   // a point `d` m from arc end `p` toward `q`, if the straight p..q is long enough for both ramps (from p's and q's arcs)
-  const along = (p, q, d, both) => { const L = Math.hypot(q[0] - p[0], q[1] - p[1]);
+  const along = (p, q, d, both) => { const L = FM.hypot(q[0] - p[0], q[1] - p[1]);
     return L > d * (both ? 2 : 1) + 1 ? [p[0] + (q[0] - p[0]) * d / L, p[1] + (q[1] - p[1]) * d / L] : null; };
   poly.forEach(([, , , y = 0], i) => {
     const arc = ends[i], b = bankOf(i), mid = arc[Math.floor(arc.length / 2)];

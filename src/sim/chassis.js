@@ -13,6 +13,7 @@ import { lateralGrip, brakeMax, drivetrain, tyreGrip } from './vehicle.js';
 import { STOCK } from './spec.js';
 import { carCondition } from './pit.js';
 import { stepAir } from './airborne.js';
+import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
 
@@ -30,8 +31,8 @@ export function surfaceDrag(surf, v) {
 const axleGrip = (load, d, ns, S) => { const half = load / 2, dd = Math.min(d, half);
   return tyreGrip(half + dd, S, ns / 2) + tyreGrip(half - dd, S, ns / 2); };
 // tyre curve: sin(C·atan(B·α)), peaking at the axle's peak slip angle
-const C_SHAPE = CH.falloff, B_UNIT = Math.tan(Math.PI / (2 * C_SHAPE));
-export const tyreCurve = (alpha, peak = CH.peakSlip) => Math.sin(C_SHAPE * Math.atan(B_UNIT / peak * alpha));
+const C_SHAPE = CH.falloff, B_UNIT = FM.tan(Math.PI / (2 * C_SHAPE));
+export const tyreCurve = (alpha, peak = CH.peakSlip) => FM.sin(C_SHAPE * FM.atan(B_UNIT / peak * alpha));
 
 // Road-wheel angle at full lock. With the steering assist the lock shrinks with speed toward the angle of the
 // tightest steady turn the tyres can hold (wheelbase / radius, plus the tyres' slip, measured: limitTurn, steerMargin),
@@ -41,7 +42,7 @@ export const tyreCurve = (alpha, peak = CH.peakSlip) => Math.sin(C_SHAPE * Math.
 export function steerLock(v, assist, spec = STOCK) {
   const sp = Math.max(Math.abs(v), 1);
   const useful = Math.min(CH.maxSteer, L * lateralGrip(sp, spec) / (sp * sp) * CH.limitTurn + CH.steerMargin);
-  return useful + (CH.maxSteer - useful) * (1 - assist) ** 2;
+  return useful + (CH.maxSteer - useful) * FM.pow(1 - assist, 2);
 }
 
 // One axle's forces. D = grip (per mass), alpha = slip angle, long = braking (−) or drive (+) asked of it.
@@ -114,13 +115,13 @@ export function stepChassis(race, c, inp, dt) {
   const spinState = { s: c.rearSpin, v: 0, h };
   for (let s = 0; s < n; s++) {
     // v: along the car's heading (negative = travelling backwards, e.g. past 90° in a spin), vy: sideways
-    const v = c.v, sp = Math.abs(v), vy = c.vy, w = c.yawRate, speed = Math.hypot(v, vy);
+    const v = c.v, sp = Math.abs(v), vy = c.vy, w = c.yawRate, speed = FM.hypot(v, vy);
     const delta = c.steer * steerLock(v, A.steer, S) + cond.pull;
     // on a hill: gravity in the road's plane in the car's frame (gx forward, gy right, per G), and the load on the
     // tyres per mass (gN; G on the flat): less over a crest, more in a dip and when the bank carries the cornering
     let gx = 0, gy = 0, gN = G;
     if (E) {
-      const ch = Math.cos(c.h), sh = Math.sin(c.h), cd = ch * T.TX[ei] + sh * T.TZ[ei], sd = sh * T.TX[ei] - ch * T.TZ[ei];
+      const ch = FM.cos(c.h), sh = FM.sin(c.h), cd = ch * T.TX[ei] + sh * T.TZ[ei], sd = sh * T.TX[ei] - ch * T.TZ[ei];
       gx = eSX * cd + eSN * sd; gy = eSN * cd - eSX * sd;
       gN = eCA * (G + v * v * E.VK[ei] - v * w * gy);         // (below 0 over a sharp crest: the downforce has to hold it)
     }
@@ -142,14 +143,14 @@ export function stepChassis(race, c, inp, dt) {
       if (!d.reverse && v0 >= 0 && c.v < 0) c.v = 0;
       if (d.reverse && v0 <= 0 && c.v > 0 && !(inp.thr > 0)) c.v = 0;   // braking a reversing car stops it, not more
       // the rear axle rolls straight: sideways speed at the centre of mass is B_REAR × yaw rate (no tyre slip)
-      c.yawRate = c.v * Math.tan(delta) / L; c.vy = B_REAR * c.yawRate;
+      c.yawRate = c.v * FM.tan(delta) / L; c.vy = B_REAR * c.yawRate;
       c.h += c.yawRate * h;
-      c.x += (Math.cos(c.h) * c.v - Math.sin(c.h) * c.vy) * h; c.z += (Math.sin(c.h) * c.v + Math.cos(c.h) * c.vy) * h;
+      c.x += (FM.cos(c.h) * c.v - FM.sin(c.h) * c.vy) * h; c.z += (FM.sin(c.h) * c.v + FM.cos(c.h) * c.vy) * h;
       continue;
     }
     // axle loads (per mass): weight + downforce (less in dirty air, and sideways or backwards the wings stall)
     // ± load transfer from the last acceleration
-    const beta = Math.atan2(Math.abs(vy), v), stall = clamp((beta - OT.spinFrom) / (OT.spinTo - OT.spinFrom), 0, 1);
+    const beta = FM.atan2(Math.abs(vy), v), stall = clamp((beta - OT.spinFrom) / (OT.spinTo - OT.spinFrom), 0, 1);
     // = smoothstep(stall), written out: the helper multiplies in another order (last-bit rounding: sim-trace would differ)
     const yawAero = 1 - (1 - OT.spinFloor) * stall * stall * (3 - 2 * stall);
     // (open wings: straight mode, active-aero.js; aeroOpen 0 multiplies by exactly 1)
@@ -167,8 +168,8 @@ export function stepChassis(race, c, inp, dt) {
     // slip angles (velocity at each axle vs where its wheels point)
     // (rolling backwards the steering acts the other way round)
     const back = v / Math.max(sp, 0.5);   // +1 forwards, −1 backwards, smooth through 0 (brakes then damp v to rest)
-    const alphaF = Math.atan2(vy + A_FRONT * w, Math.max(sp, 1)) - delta * Math.sign(back || 1);
-    const alphaR = Math.atan2(vy - B_REAR * w, Math.max(sp, 1));
+    const alphaF = FM.atan2(vy + A_FRONT * w, Math.max(sp, 1)) - delta * Math.sign(back || 1);
+    const alphaR = FM.atan2(vy - B_REAR * w, Math.max(sp, 1));
     // brakes split by axle load (+ a front bias), drive on the rear
     const brake = brakeMax(sp, S) * inp.brk;
     // (brake-by-wire keeps the rear share with the MGU-K harvesting; it moves forward as the pedal comes off: migration)
@@ -198,16 +199,16 @@ export function stepChassis(race, c, inp, dt) {
       // friction power = force × slip speed: sideways (slip angle) + lengthways (a gripping tyre's small slip; all of
       // the speed once locked or spinning)
       const slipL = o => speed * (o > 1 ? Math.min(1, TTC.longSlip + o - 1) : TTC.longSlip * o);
-      heatF += S.mass * (Math.abs(front.fy) * speed * Math.abs(Math.sin(alphaF)) + Math.abs(front.fx) * slipL(front.over)) * h;
+      heatF += S.mass * (Math.abs(front.fy) * speed * Math.abs(FM.sin(alphaF)) + Math.abs(front.fx) * slipL(front.over)) * h;
       // (a spinning rear slips by its wheel speed, which can be far more than the car's own: a locked wheel only by the car's)
       const spinV = rear.over > 1 && rear.fx > 0 ? Math.max(slipL(rear.over), Math.min(TTC.spinSlip.max, TTC.spinSlip.base + TTC.spinSlip.per * (rear.over - 1))) : slipL(rear.over);
-      heatR += S.mass * (Math.abs(rear.fy) * speed * Math.abs(Math.sin(alphaR)) + Math.abs(rear.fx) * spinV) * h;
+      heatR += S.mass * (Math.abs(rear.fy) * speed * Math.abs(FM.sin(alphaR)) + Math.abs(rear.fx) * spinV) * h;
       const hf = loadF / 2, hr = loadR / 2, df_ = Math.min(lf, hf), dr_ = Math.min(lr, hr), left = c.ay >= 0;   // (ay > 0: turning right, the left wheels outside)
       wheelN = [left ? hf + df_ : hf - df_, left ? hf - df_ : hf + df_, left ? hr + dr_ : hr - dr_, left ? hr - dr_ : hr + dr_].map(x => x * S.mass);
       outF = (left ? 1 : -1) * (hf + df_) / loadF; outR = (left ? 1 : -1) * (hr + dr_) / loadR;
     }
     // equations of motion in the car's frame
-    const cosD = Math.cos(delta), sinD = Math.sin(delta);
+    const cosD = FM.cos(delta), sinD = FM.sin(delta);
     // the surface drags against the car's whole motion (a car sliding sideways through gravel is slowed too)
     const sd = surfaceDrag(surf, speed) / speed;
     let ax = rear.fx + front.fx * cosD - front.fy * sinD - d.resist - sd * v;
@@ -219,14 +220,14 @@ export function stepChassis(race, c, inp, dt) {
     // stability assist: when the rear slides, pull the yaw rate back toward what the steering asks for
     // damping assist: always, gently, toward that same yaw rate
     if ((A.stability > 0 || A.damping > 0) && !inp.hb) {               // (the handbrake asks for the rotation)
-      const wGrip = lateralGrip(sp, S) / sp, wRef = clamp(v * Math.tan(delta) / L, -wGrip, wGrip);
+      const wGrip = lateralGrip(sp, S) / sp, wRef = clamp(v * FM.tan(delta) / L, -wGrip, wGrip);
       const rearSliding = clamp((Math.abs(alphaR) - 0.4 * CH.rearPeakSlip) / (0.6 * CH.rearPeakSlip), 0, 1);
       dw -= (A.stability * CH.stabilityGain * rearSliding + (A.damping || 0) * CH.dampingGain) * (w - wRef);
     }
     // aero yaw stability: the car's side area behind the centre of mass (sidepods, engine cover fin, endplates) turns
     // the nose toward where it is going, ∝ dynamic pressure × slip angle (gone once the car is sideways: yawAero)
     // (the slip angle there, aeroArm m behind: so it also damps the rotation, like the rear tyres)
-    dw += CH.aeroYaw * v * Math.abs(v) * Math.atan2(vy - CH.aeroArm * w, Math.max(Math.abs(v), 1)) * yawAero;
+    dw += CH.aeroYaw * v * Math.abs(v) * FM.atan2(vy - CH.aeroArm * w, Math.max(Math.abs(v), 1)) * yawAero;
     c.ax = ax; c.ay = ay;
     const v0 = c.v;
     c.v += (ax + vy * w) * h;
@@ -236,10 +237,10 @@ export function stepChassis(race, c, inp, dt) {
     c.v = Math.min(c.v, TUNING.V_CAP);
     // below blendSpeed (the real speed) fade toward kinematic steering, which is stable at walking pace
     const k = clamp((speedOf(c) - CH.lowSpeed) / (CH.blendSpeed - CH.lowSpeed), 0, 1);
-    if (k < 1) { const w0 = c.v * Math.tan(delta) / L; c.yawRate = k * c.yawRate + (1 - k) * w0; c.vy = k * c.vy + (1 - k) * B_REAR * w0; }
+    if (k < 1) { const w0 = c.v * FM.tan(delta) / L; c.yawRate = k * c.yawRate + (1 - k) * w0; c.vy = k * c.vy + (1 - k) * B_REAR * w0; }
     c.h += c.yawRate * h;
-    c.x += (Math.cos(c.h) * c.v - Math.sin(c.h) * c.vy) * h;
-    c.z += (Math.sin(c.h) * c.v + Math.cos(c.h) * c.vy) * h;
+    c.x += (FM.cos(c.h) * c.v - FM.sin(c.h) * c.vy) * h;
+    c.z += (FM.sin(c.h) * c.v + FM.cos(c.h) * c.vy) * h;
   }
   c.slideF = clamp(slideF, 0, 1); c.slideR = clamp(slideR, 0, 1); c.lockF = lockF; c.lockR = lockR; c.spinR = spinR; c.rearSpin = spinState.s;
   c.roll += c.v * dt / TUNING.WHEEL_RADIUS;
@@ -253,4 +254,4 @@ export function stepChassis(race, c, inp, dt) {
 
 // Angle between where the car points and where it is going (rad, + = sliding to the right).
 /** @param {Car} c */
-export const driftAngle = c => Math.atan2(c.vy, Math.max(Math.abs(c.v), 1));
+export const driftAngle = c => FM.atan2(c.vy, Math.max(Math.abs(c.v), 1));

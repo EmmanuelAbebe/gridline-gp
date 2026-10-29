@@ -15,6 +15,7 @@ import { DRIVERS } from './drivers.js';
 import { rpmAt, GEARS } from './vehicle.js';
 import { emit } from './events.js';
 import { clamp, wrapA, wrapIdx, smoothstep } from './math.js';
+import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
 /** @typedef {import('./types.js').TyreSet} TyreSet */
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
@@ -193,7 +194,7 @@ function pathPoint(race, c, p) {
 /** @param {Race} race @param {Car} c */
 function pathHeading(race, c, p) {
   const a = pathPoint(race, c, p - 0.5), b = pathPoint(race, c, p + 0.5);
-  return Math.atan2(b[1] - a[1], b[0] - a[0]);
+  return FM.atan2(b[1] - a[1], b[0] - a[0]);
 }
 
 // One step of an AI car in the pit lane (instead of the driving model). Moves it along the path; the caller runs afterMove.
@@ -226,7 +227,7 @@ export function stepPit(race, c, dt, go = true) {
   c.x = x; c.z = z;
   if (P.phase !== 'stop') c.h = h0;
   const k = wrapA(pathHeading(race, c, P.p + 0.6) - pathHeading(race, c, P.p - 0.6)) / (1.2 * ds);
-  const steer = clamp(Math.atan(S.wheelbase * k) / S.wheelLock, -1, 1);
+  const steer = clamp(FM.atan(S.wheelbase * k) / S.wheelLock, -1, 1);
   if (v > 0.05) c.steer += (steer - c.steer) * Math.min(1, dt * S.steerRate);
   c.roll += v * dt / TUNING.WHEEL_RADIUS;
   c.v = v; c.vy = 0; c.yawRate = 0; c.slideF = c.slideR = 0; c.lockF = c.lockR = c.spinR = false;
@@ -235,7 +236,7 @@ export function stepPit(race, c, dt, go = true) {
   c.rpm = Math.max(S.idle, rpmAt(v, c.gear)); c.ax = 0; c.surface = 'tarmac';
   c.pitLimiter = P.p < lane.to && P.phase !== 'stop';
   if (P.p >= lane.exit) {                                             // back on the track
-    const i = at(T, P.p), t = Math.atan2(T.TZ[i], T.TX[i]);
+    const i = at(T, P.p), t = FM.atan2(T.TZ[i], T.TX[i]);
     c.h = t + wrapA(c.h - t); c.pit = null; c.pitLimiter = false;
     c.offset = pathLat(race, c, P.p); emit(c, EV.PIT_OUT);
   }
@@ -300,7 +301,7 @@ export function drivePitLane(race, c) {
   if (!P.done) {
     const F = PIT.boxFit, i = c.idx;
     const inBox = Math.abs(p - P.box) * T.ds <= F.along && Math.abs(c.lat - L.boxLat) <= F.lat
-      && Math.abs(wrapA(c.h - Math.atan2(T.TZ[i], T.TX[i]))) <= F.angle && Math.hypot(c.v, c.vy) < F.speed;
+      && Math.abs(wrapA(c.h - FM.atan2(T.TZ[i], T.TX[i]))) <= F.angle && FM.hypot(c.v, c.vy) < F.speed;
     if (inBox) {
       P.phase = 'stop'; P.hold = [c.x, c.z, c.h]; P.service = service(race, c); P.at = race.t; P.until = race.t + P.service.time;
       c.pitLimiter = false; emit(c, EV.PIT_STOP, { service: P.service });
@@ -317,7 +318,7 @@ export function drivePitLane(race, c) {
 /** @param {Car} c */
 export function pitLimit(c) {
   if (!c.pitLimiter) return;
-  const s = Math.hypot(c.v, c.vy);
+  const s = FM.hypot(c.v, c.vy);
   if (s > PIT.speed && (c.limiterAuto || s < PIT.speed + PIT.speeding.hold)) { const k = PIT.speed / s; c.v *= k; c.vy *= k; }
 }
 // The driver's pit limiter, before a driven car's step (after drivePitLane): `press` switches it on / off; it is on
@@ -327,7 +328,7 @@ export function pitLimit(c) {
 export function pitThrottle(race, c, press, thr) {
   if (c.limiterAuto) return thr;
   if (press) { c.limiterOn = !c.limiterOn; emit(c, EV.LIMITER, { on: c.limiterOn }); }
-  const P = c.pit, s = Math.hypot(c.v, c.vy), L = race.track.pit;
+  const P = c.pit, s = FM.hypot(c.v, c.vy), L = race.track.pit;
   c.pitLimiter = c.limiterOn && P?.phase !== 'stop';
   if (P?.drive && P.entered && !P.speeding && P.phase !== 'stop' && P.p <= L.to && s > PIT.speed + PIT.speeding.tol) {
     P.speeding = true; c.penalty += PIT.speeding.seconds;
@@ -394,7 +395,7 @@ export function bestCompound(race, c, only = null) {
     if (only && name !== only) continue;
     const life = laps * k.life, n0 = Math.max(0, Math.ceil(togo / (life * S.maxWear)) - 1);
     for (let n = n0; n <= n0 + S.more; n++) {
-      const w = togo / (n + 1) / life, cost = togo * ((k.grip * (1 - WEAR.drop * w * w / 3)) ** -0.5 - 1) + n * S.stopLaps;
+      const w = togo / (n + 1) / life, cost = togo * (FM.pow(k.grip * (1 - WEAR.drop * w * w / 3), -0.5) - 1) + n * S.stopLaps;
       if (!best || cost < best.cost) best = { compound: name, wear: n ? Math.min(w, PIT.ai.tyres) : PIT.ai.tyres, stops: n, cost };
     }
   }

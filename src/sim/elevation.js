@@ -13,6 +13,7 @@ import { ELEVATION, CHASSIS, TUNING } from './tuning.js';
 import { G, brakeLimit, cornerSpeed, cornerU, tyreGrip } from './vehicle.js';
 import { STOCK } from './spec.js';
 import { clamp, wrapIdx } from './math.js';
+import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
 /** @typedef {import('./spec.js').Spec} Spec */
 
 /** Per track sample: Y height of the centre line (m), BANK road tilt (rad, + = rising toward +N), SX = sin of the
@@ -24,7 +25,7 @@ import { clamp, wrapIdx } from './math.js';
 // circular Gaussian blur of a per-sample profile, sigma in samples
 function blur(a, sigma) {
   const N = a.length, R = Math.ceil(sigma * 3), w = [];
-  let sum = 0; for (let o = -R; o <= R; o++) { const k = Math.exp(-o * o / (2 * sigma * sigma)); w.push(k); sum += k; }
+  let sum = 0; for (let o = -R; o <= R; o++) { const k = FM.exp(-o * o / (2 * sigma * sigma)); w.push(k); sum += k; }
   const out = new Float64Array(N);
   for (let i = 0; i < N; i++) { let v = 0; for (let o = -R; o <= R; o++) v += a[wrapIdx(i + o, N)] * w[o + R]; out[i] = v / sum; }
   return out;
@@ -35,7 +36,7 @@ function blur(a, sigma) {
 function keySamples({ N, PX, PZ }, keys) {
   const near = (x, z, from, span) => {
     let best = Infinity, bi = from;
-    for (let o = 0; o < span; o++) { const i = wrapIdx(from + o, N), d = (PX[i] - x) ** 2 + (PZ[i] - z) ** 2; if (d < best) { best = d; bi = from + o; } }
+    for (let o = 0; o < span; o++) { const i = wrapIdx(from + o, N), d = FM.pow(PX[i] - x, 2) + FM.pow(PZ[i] - z, 2); if (d < best) { best = d; bi = from + o; } }
     return bi;
   };
   const out = [];
@@ -71,9 +72,9 @@ export function buildElevation(track, keys) {
   const Y = new Float32Array(N), BANK = new Float32Array(N), SX = new Float32Array(N), SN = new Float32Array(N);
   const CA = new Float32Array(N), VK = new Float32Array(N), w = Math.max(1, Math.round(E.curveSpan / ds)), raw = new Float64Array(N);
   for (let i = 0; i < N; i++) {
-    const gr = (Yr[wrapIdx(i + 1, N)] - Yr[wrapIdx(i - 1, N)]) / (2 * ds), a = Math.atan(gr);
-    Y[i] = Yr[i]; BANK[i] = Br[i]; SX[i] = Math.sin(a); SN[i] = Math.sin(Br[i]); CA[i] = Math.cos(a) * Math.cos(Br[i]);
-    raw[i] = (Yr[wrapIdx(i + w, N)] - 2 * Yr[i] + Yr[wrapIdx(i - w, N)]) / (w * ds) ** 2;
+    const gr = (Yr[wrapIdx(i + 1, N)] - Yr[wrapIdx(i - 1, N)]) / (2 * ds), a = FM.atan(gr);
+    Y[i] = Yr[i]; BANK[i] = Br[i]; SX[i] = FM.sin(a); SN[i] = FM.sin(Br[i]); CA[i] = FM.cos(a) * FM.cos(Br[i]);
+    raw[i] = (Yr[wrapIdx(i + w, N)] - 2 * Yr[i] + Yr[wrapIdx(i - w, N)]) / FM.pow(w * ds, 2);
   }
   VK.set(blur(raw, w / 2));
   let lo = Infinity, hi = -Infinity; for (const y of Y) { lo = Math.min(lo, y); hi = Math.max(hi, y); }
@@ -87,7 +88,7 @@ export function buildElevation(track, keys) {
 export function surfaceY(track, p, lat = 0) {
   const E = track.elev; if (!E) return 0;
   const N = track.N, i = Math.floor(p), f = p - i, a = wrapIdx(i, N), b = wrapIdx(i + 1, N), l = clamp(lat, -track.HW, track.HW);
-  return E.Y[a] + (E.Y[b] - E.Y[a]) * f + Math.tan(E.BANK[a] + (E.BANK[b] - E.BANK[a]) * f) * l;
+  return E.Y[a] + (E.Y[b] - E.Y[a]) * f + FM.tan(E.BANK[a] + (E.BANK[b] - E.BANK[a]) * f) * l;
 }
 // a car's position along the track as a fractional sample (its sample + how far past it)
 /** @param {import('./types.js').Track} track */

@@ -9,6 +9,7 @@
 // the track, and kept from reaching into the run-off of another part of the track or folding over inside a corner.
 import { RUNOFF, BARRIER, ZONE, OFFTRACK, PIT } from './tuning.js';
 import { wrapIdx } from './math.js';
+import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
 /** @typedef {import('./types.js').Track} Track */
 
 // The pit lane's span in samples (unwrapped: may run past N), from the `pits` landmark: entry road from `entry`, pit
@@ -122,7 +123,7 @@ function freeDistance(track, side, wanted) {
   // the grass bank from one to the other (RUNOFF.bank m per m of height); not where they cross (a bridge: `nearCross`)
   const nearCross = new Uint8Array(N);
   if (E) for (let i = 0; i < N; i++) for (const j of grid.get(key(PX[i], PZ[i])) || []) {
-    if (Math.min(wrapIdx(j - i, N), wrapIdx(i - j, N)) * ds > 200 && Math.hypot(PX[i] - PX[j], PZ[i] - PZ[j]) < 2 * HW)
+    if (Math.min(wrapIdx(j - i, N), wrapIdx(i - j, N)) * ds > 200 && FM.hypot(PX[i] - PX[j], PZ[i] - PZ[j]) < 2 * HW)
       for (let o = -RUNOFF.crossSpan; o <= RUNOFF.crossSpan; o++) nearCross[wrapIdx(i + o, N)] = 1;
   }
   const reachCells = E ? 2 : 1;                                   // (the bank's room reaches further)
@@ -135,7 +136,7 @@ function freeDistance(track, side, wanted) {
           const along = Math.min(wrapIdx(j - i, N), wrapIdx(i - j, N));
           if (along <= win) continue;
           const room = E && !nearCross[i] && !nearCross[j] ? d + 1 + RUNOFF.bank * Math.abs(E.Y[i] - E.Y[j]) : d + 1;
-          if (Math.hypot(x - PX[j], z - PZ[j]) < room) return true;
+          if (FM.hypot(x - PX[j], z - PZ[j]) < room) return true;
         }
       }
       return false;

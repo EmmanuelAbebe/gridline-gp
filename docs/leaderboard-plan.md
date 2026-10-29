@@ -1,6 +1,33 @@
 # Online leaderboard with replay validation: plan
 
-Status: planned 2026-10-20, not started. The user's goal: launch the game online and keep everyone's best time trial
+Status: planned 2026-10-20. **Phase 0 done 2026-10-28** (see "Done" below); next: the backend.
+
+## Decided 2026-10-28 (user)
+
+- Hosting: **Vercel** (Hobby: non-commercial, matches the licence) for the API (Node functions that replay the laps with
+  `src/sim`) and the public leaderboard website; **Upstash Redis** (Vercel Marketplace) for the boards (sorted sets) and
+  the ghosts / replays. GitHub Pages not needed (Vercel serves the site).
+- **Top 100 per board**, one entry per player (their best); a board = circuit × active aero on / off × stock car ×
+  automatic zones × physics version. Columns: rank, name, time, sectors, assists, gearbox, compound, tyre temperatures,
+  setup, controller, date, ghost. A lap outside the top 100 is not kept ("outside the top 100: 100th is …").
+- The website: the boards, and a ghost viewer (the lap on a 2D map of the circuit with speed, gear, sectors).
+- Submitting from the desktop app first.
+
+## Done (phase 0, 2026-10-28)
+
+- `src/sim/replay.js`: `quantizeInput` (steer 1/4096, pedals 1/1024, before the car uses them), `createReplayRecorder`
+  (header = race options + seed + the player's setup / mods / compound; per step the controls as run-length-coded
+  deltas; the car's settings recorded when they change: assists, gearbox mode, buttons' modes, BOX, pit plan,
+  steering prefs; `taint()` = not replayable: the debug autopilot, pitNow, crash), `replayRun` (every car in race order
+  as simStep, collide, laps). The game records from lights out (main.js simStep); `gridlineDebug.replayCheck()` /
+  `replayData()`; `node tools/replay-check.mjs file` replays one in Node.
+- `src/sim/fmath.js`: sin, cos, tan, atan, atan2, hypot, exp, log, pow from + − × ÷ and sqrt (fdlibm's algorithms);
+  the sim uses them (`FM.*`). Before: a 13 s race recorded in the app (Electron, V8 15) replayed in Node 22 (V8 12)
+  ended a last bit apart; after: identical, and `npm run sim-trace` gives the same hashes under Node and under
+  `ELECTRON_RUN_AS_NODE=1 npx electron tools/sim-trace.mjs` (all 13 traces). AI lap times unchanged (one 0.01 s), the
+  sim ~5 % slower. Firefox / Safari not checked yet (the desktop app first).
+- Size: ~12 KB a minute gzipped with phone-style analog input (3 min: 35 KB).
+- Tests: tests/replay.test.js (bit-identical laps and state with AI traffic and mid-race changes), tests/fmath.test.js. The user's goal: launch the game online and keep everyone's best time trial
 laps, so players can race each other's ghosts and see who is fastest.
 
 ## The idea in one paragraph

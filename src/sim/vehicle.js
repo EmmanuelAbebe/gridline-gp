@@ -6,6 +6,7 @@ import { TUNING, CAR, CHASSIS, SLIP, EV, ACTIVE_AERO, ERS } from './tuning.js';
 import { clamp } from './math.js';
 import { emit } from './events.js';
 import { STOCK } from './spec.js';
+import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
 /** @typedef {import('./spec.js').Spec} Spec */
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
@@ -115,7 +116,7 @@ function updateGear(c, thr, brk, shift, dt) {
   const v = c.v, before = c.gear;
   // reverse (TUNING.REVERSE_HOLD): stopped (not sliding sideways), brake + gas held together selects it once the car
   // has driven off; rolling forward, or stopped on the brake alone, leaves it
-  const stopped = Math.hypot(v, c.vy || 0) <= 0.3;
+  const stopped = FM.hypot(v, c.vy || 0) <= 0.3;
   if (v > 5) c.movedOff = true;
   if (c.gear === -1) { if (v > 0.5 || (stopped && brk > 0.1 && thr < 0.02)) c.gear = 1; }
   else {
@@ -215,7 +216,7 @@ export function drivetrain(c, { thr, brk, shift = 0 }, dt) {
   if (c.gear === -1) { c.rpm = engine.idle + thr * 3000; c.drive = 0; return { drive: 0, resist, reverse: true }; }
   const rpm = engineRpm(v, c.gear, thr, c.spec);
   c.rpm = rpm;
-  const tq = thr ** engine.pedalMap;                // the torque the pedal asks for (torque map)
+  const tq = FM.pow(thr, engine.pedalMap);                // the torque the pedal asks for (torque map)
   let drive = driveAccel(rpm, c.gear, c.spec) * tq;
   // the MGU-K and the battery (ERS): deployment on the throttle, harvesting under braking and lifting
   // (the motor fades out from 300 to 50 rpm before the limiter, so the car never overshoots it)
