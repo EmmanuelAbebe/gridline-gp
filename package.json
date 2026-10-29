@@ -26,7 +26,8 @@
     "sim-trace": "node tools/sim-trace.mjs",
     "car-shot": "electron tools/car-shot.cjs",
     "sound-check": "electron tools/sound-check.cjs",
-    "dist": "npm run build && electron-builder --publish never"
+    "dist": "npm run build && electron-builder --publish never",
+    "sim-version": "node tools/sim-version.mjs"
   },
   "devDependencies": {
     "@types/react": "19.3.0",

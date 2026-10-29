@@ -15,6 +15,7 @@ import { setAeroZones, aeroZonesInMetres } from './active-aero.js';
 import { drivePlayer, driveAI } from './driving.js';
 import { collide } from './collide.js';
 import { TUNING, EV } from './tuning.js';
+import { SIM_VERSION } from './sim-version.js';
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
 
@@ -68,14 +69,14 @@ const num = v => v === Infinity ? 'inf' : v ?? null;                 // (JSON ke
 const unnum = v => v === 'inf' ? Infinity : v ?? undefined;
 /** @param {Car} c */
 function settingsOf(c, inp) {
-  const s = { assists: { ...c.assists }, pitPlan: c.pitPlan ? { ...c.pitPlan } : null };
+  const s = { assists: c.assists ? { ...c.assists } : null, pitPlan: c.pitPlan ? { ...c.pitPlan } : null };   // (null: the car's defaults)
   for (const k of FLAGS) s[k] = c[k];
   for (const k of PREFS) s[k] = num(inp[k]);
   return s;
 }
 /** @param {Car} c */
 function applySettings(c, s, prefs) {
-  if ('assists' in s) c.assists = { ...s.assists };
+  if ('assists' in s) c.assists = s.assists ? { ...s.assists } : null;
   if ('pitPlan' in s) c.pitPlan = s.pitPlan ? { ...s.pitPlan } : null;
   // (the gearbox mode is changed the way the game does it: main.js setGearbox empties the downshift queue)
   if (('autoShift' in s && s.autoShift !== c.autoShift) || ('autoDown' in s && s.autoDown !== c.autoDown)) c.downQueue = 0;
@@ -93,7 +94,7 @@ const changed = (a, b) => Object.fromEntries(Object.keys(b).filter(k => JSON.str
 export function createReplayRecorder(race, opts, car) {
   const T = race.track, frames = CH.map(() => []), changes = [];
   const header = {
-    v: REPLAY.version, physics: TUNING.PHYSICS, circuit: T.id, zones: T.aeroKey === 'auto' ? null : aeroZonesInMetres(T),
+    v: REPLAY.version, physics: TUNING.PHYSICS, sim: SIM_VERSION, circuit: T.id, zones: T.aeroKey === 'auto' ? null : aeroZonesInMetres(T),
     race: { format: opts.format, seed: race.seed, aiPace: race.aiPace, aiFollow: race.aiFollow, aiAlien: race.aiAlien, activeAero: race.activeAero,
       overtake: race.overtake, tyreTemp: !!race.tyreTemp, compound: opts.compound ?? 'medium', wear: opts.wear ?? {}, aiAssists: opts.aiAssists ?? null,
       hitbox: opts.hitbox ?? null },

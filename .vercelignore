@@ -1,0 +1,10 @@
+# Vercel (the online leaderboard, project root leaderboard/) gets only what it runs: leaderboard/, the game's
+# physics (src/sim) and the pure game modules it reuses (ghosts, lap analysis), and the package.json that makes them
+# ES modules.
+/*
+!/leaderboard
+!/src
+!/package.json
+/leaderboard/node_modules
+/src/game/models
+/src/styles

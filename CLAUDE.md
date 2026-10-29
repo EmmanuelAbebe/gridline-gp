@@ -1025,7 +1025,19 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   drives the race again bit for bit) and deterministic maths (`src/sim/fmath.js`, the sim's `FM.*` in place of Math's
   sin / cos / tan / atan / atan2 / hypot / exp / pow: Node 22 and Electron's V8 15 now give identical sim-trace hashes).
   Decided: Vercel (API + website) + Upstash Redis, top 100 per board with the settings as columns, a ghost viewer.
-  Next: the backend. Keep new sim code on FM.* (never Math.sin etc.) and anything the game writes into the player's
+  Backend (2026-10-29, `leaderboard/`, Vercel project `gridline-leaderboard`, root directory leaderboard, live at
+  https://gridline-leaderboard.vercel.app; `.vercelignore` at the repo root uploads only leaderboard/, src/ and
+  package.json; `.vercel` / `.env*` are in .git/info/exclude, not the user's .gitignore): `lib/verify.js` verifyRun
+  (ranked = time trial, stock car (setup allowed), automatic zones, `SIM_VERSION` equal (src/sim/sim-version.js =
+  a hash of src/sim: `npm run sim-version` after every sim change, a test fails otherwise); replays the run, best clean
+  flying lap (lap ≥ 2), sectors, the strongest assists / gearbox help used in that lap, server-made compact ghost),
+  `lib/boards.js` (anonymous players: name + token (sha256 stored), names unique / filtered; top 100 per board
+  `physics:circuit:aero`, one lap per player, trimmed ones' entry / ghost / replay deleted; rate limits per IP),
+  `lib/store.js` (Upstash Redis via its env vars, else memory), `api/` register, submit (gzip base64 replay),
+  board, ghost (&plain=1 expanded), info; `public/` the website (boards, sector purples, a lap viewer on the circuit
+  map: `public/tracks.json` from `npm run tracks`); `node leaderboard/dev.mjs` = the same locally. Tests:
+  tests/leaderboard.test.js. Next: Upstash Redis on the project (the user accepts its terms), then the game's side
+  (sign up, submit after a time trial, Online ghosts in the ghost list). Keep new sim code on FM.* (never Math.sin etc.) and anything the game writes into the player's
   car going through the replay (inputs via quantizeInput, settings in replay.js FLAGS / PREFS).
 - Smarter AI: started 2026-10-19 (see "LEGEND AI and racecraft"); still open: rivals that learn the player's lines.
   (Earlier notes:) parked 2026-10-19 by the user "for later once better game mechanics are made". User beat Northfold in

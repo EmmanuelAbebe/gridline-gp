@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gridline GP Leaderboard</title>
+<meta name="description" content="The fastest time-trial laps in Gridline GP, checked by replaying them with the game's own physics. Watch any lap drive round the circuit.">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo">Gridline <em>GP</em></span><span class="tag">Leaderboard</span></div>
+  <a class="get" href="https://github.com/EmmanuelAbebe/gridline-gp/releases">Get the game</a>
+</header>
+<main>
+  <p class="intro">The 100 fastest time-trial laps on each circuit. Every lap here was driven again on our server with the game's own physics, from the driver's inputs, and its time is the server's. Click a lap to watch it.</p>
+  <nav class="circuits" id="circuits" aria-label="Circuit"></nav>
+  <div class="bar">
+    <div class="seg" role="group" aria-label="Active aero">
+      <span class="lbl">Active aero</span>
+      <button type="button" data-aero="on" aria-pressed="true">ON</button><button type="button" data-aero="off" aria-pressed="false">OFF</button>
+    </div>
+    <span class="meta" id="meta"></span>
+  </div>
+  <section class="viewer" id="viewer" hidden aria-label="Lap viewer">
+    <canvas id="map" width="900" height="520"></canvas>
+    <div class="vside">
+      <p class="vname" id="vname"></p>
+      <div class="vstats">
+        <div><span class="lbl">Lap time</span><b class="num" id="vtime">0:00.000</b></div>
+        <div><span class="lbl">Speed</span><b class="num" id="vspeed">0</b><small>km/h</small></div>
+      </div>
+      <div class="vsec" id="vsec"></div>
+      <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Position in the lap">
+      <div class="vbtns"><button type="button" id="play">Pause</button><button type="button" id="rate">1×</button><button type="button" id="vclose">Close</button></div>
+    </div>
+  </section>
+  <div class="tablewrap">
+    <table class="board">
+      <thead><tr><th class="r">Pos</th><th>Driver</th><th class="r">Lap</th><th class="r">Gap</th><th class="r">S1</th><th class="r">S2</th><th class="r">S3</th><th>Assists</th><th>Gearbox</th><th>Tyres</th><th>Controller</th><th>Date</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="12" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</main>
+<footer>Laps are checked by replaying the inputs; times on another version of the physics go on a board of their own. Only the stock car on the automatic straight-mode zones is ranked.</footer>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

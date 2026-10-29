@@ -73,3 +73,8 @@ test('quantised inputs; broken or foreign replays are refused', () => {
     assert.throws(() => S.replayRun({ ...replay, ...bad }, { track: T }));
   assert.ok(JSON.stringify(replay).length < 20000, 'small');
 });
+
+test('the sim version stamp is up to date (npm run sim-version after changing src/sim)', async () => {
+  const { simHash } = await import('../tools/sim-version.mjs');
+  assert.equal(S.SIM_VERSION, simHash(), 'src/sim changed: run npm run sim-version');
+});

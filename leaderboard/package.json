@@ -1,0 +1,9 @@
+{
+  "name": "gridline-leaderboard",
+  "private": true,
+  "type": "module",
+  "description": "Gridline GP's online leaderboard: Vercel functions that replay submitted laps with the game's own physics (../src/sim), Upstash Redis for the boards, and the public website (public/).",
+  "engines": { "node": "22.x" },
+  "scripts": { "tracks": "node build-tracks.mjs" },
+  "dependencies": { "@upstash/redis": "1.38.4" }
+}
