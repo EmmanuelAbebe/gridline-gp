@@ -1,6 +1,6 @@
 // Where the boards live: Upstash Redis (Vercel Marketplace: its env vars come with the integration), or memory (tests,
 // local runs without Redis). The few operations the boards need, the same for both.
-//  zget(key, member) → score | null        zadd(key, score, member)        zrank(key, member) → 0-based | null
+//  zget(key, member) → score | null        zadd(key, score, member)        zrem(key, member)        zrank(key, member) → 0-based | null
 //  ztop(key, n) → [{ member, score }] fastest first        ztrimTo(key, n) → the members removed (slowest)
 //  get(key) / set(key, value) / del(...keys) (JSON values)  hit(key, seconds) → count in that window (rate limits)
 export function memoryStore() {
@@ -9,6 +9,7 @@ export function memoryStore() {
   return {
     async zget(key, m) { return z.get(key)?.get(m) ?? null; },
     async zadd(key, score, m) { if (!z.has(key)) z.set(key, new Map()); z.get(key).set(m, score); },
+    async zrem(key, m) { z.get(key)?.delete(m); },
     async zrank(key, m) { const i = sorted(key).findIndex(e => e.member === m); return i < 0 ? null : i; },
     async ztop(key, n) { return sorted(key).slice(0, n); },
     async ztrimTo(key, n) { const out = sorted(key).slice(n).map(e => e.member); for (const m of out) z.get(key).delete(m); return out; },
@@ -30,6 +31,7 @@ export async function redisStore(env = process.env) {
   return {
     async zget(key, m) { const s = await r.zscore(key, m); return s === null || s === undefined ? null : +s; },
     async zadd(key, score, m) { await r.zadd(key, { score, member: m }); },
+    async zrem(key, m) { await r.zrem(key, m); },
     async zrank(key, m) { const i = await r.zrank(key, m); return i === null || i === undefined ? null : i; },
     async ztop(key, n) {
       const flat = await r.zrange(key, 0, n - 1, { withScores: true }), out = [];
