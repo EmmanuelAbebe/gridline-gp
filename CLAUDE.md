@@ -357,6 +357,16 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   (`menuOpen()`). Smoke test: out.png (home), out-menu-grid.png, out-menu-circuit.png, out-trial-menu.png; it opens
   the time trial with `#tileTrial` (was `#typeSeg [data-t="trial"]`).
 
+## Every window in the menu's look (2026-10-30; user: "rework all the windows for the menu, HUD and any user input display
+## same as the above")
+- menus.css's last block restyles the shared parts, so every window follows: `.overlay` flat dark, `.card` = the menu's
+  panel (#0b0e12, border `--rule` #1e242d, radius 6, fixed widths 520 / `.wide` 760 / `.xwide` 1180, narrower only on
+  small screens), `.seg` = separate 44 px chips (`--rule-strong` #2a313b borders, amber pressed), steppers / `.btn` 44–50
+  px, `.btn.ghost` amber on hover. Settings: a 900 × 760 window, tabs as chips, each `.set-item` a row (name + note |
+  control: `.set-item > .row {display: contents}`), also the garage's panel. Pause: the buttons as a column, the pit
+  box beside them (`:has(#pitBox:not([hidden]))`). Results: tower-like rows. The HUD already follows its theme (Design
+  tools: HUD theme sets --amber / --panel / --radius); only `--rule` changed. Checked at 2560 × 1440 and 1280 × 720.
+
 ## Architecture
 Tunables live in data tables (config modules), not inline in the logic.
 1. **SIM** (`src/sim/`, exported as one `SIM` object from `index.js`):

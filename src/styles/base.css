@@ -1,7 +1,7 @@
 /* Theme variables, page reset, panel basics, corner anchors. */
 :root{
   /* Layout: full-bleed 3D view, broadcast-style timing graphics pinned to the corners */
-  --ink:#0b0e12; --panel:rgba(10,13,17,.86); --panel-solid:#12161c; --rule:rgba(255,255,255,.11);
+  --ink:#0b0e12; --panel:rgba(10,13,17,.86); --panel-solid:#12161c; --rule:#1e242d; --rule-strong:#2a313b; --window:#0b0e12;
   --text:#f2f3f0; --muted:#959ca5; --amber:#ffc21a; --red:#ff2b2b; --purple:#b46cff; --green:#36d27f;
   --display:"Saira Condensed","Arial Narrow",Arial,sans-serif;
   --radius:3px;

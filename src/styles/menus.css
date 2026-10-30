@@ -329,3 +329,66 @@ table.ana-corners caption{caption-side:bottom;text-align:left;font-size:12px;col
 .mn-trial .ghost-pick span[data-time]{color:var(--text)}
 .mn-trial .ghost-pick[aria-checked="true"]{background:#1c2129;border-color:var(--amber)}
 .mn-trial .ghost-ctl{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ---- every window in the start menu's look (2026-10-30; user: "rework all the windows … same as the above"): solid
+   dark panels, separate chip buttons 44 px tall, large condensed headings, settings as rows (label + note | control);
+   fixed sizes, only narrower on small screens (min()) ---- */
+.overlay{background:rgba(9,11,15,.82)}
+.card{background:var(--window);border:1px solid var(--rule);border-radius:6px;padding:28px 30px;gap:18px;box-shadow:0 30px 90px rgba(0,0,0,.6);width:min(520px,100%)}
+.card.wide{width:min(760px,100%)}
+.card.xwide{width:min(1180px,100%)}
+.verdict{font-size:46px;letter-spacing:.005em}
+.card .lbl,.mn .lbl{font-size:12px;letter-spacing:.18em}
+.seg{gap:6px;border:0;border-radius:0;overflow:visible;flex-wrap:wrap;width:auto;max-width:100%}
+.seg button{min-height:44px;padding:0 16px;background:#12161c;color:var(--text);border:1px solid var(--rule-strong);border-right:1px solid var(--rule-strong);border-radius:3px;font-size:16px;font-weight:700}
+.seg button:last-child{border-right:1px solid var(--rule-strong)}
+.seg button:hover{border-color:#5b6470}
+.seg button[aria-pressed="true"]{background:var(--amber);border-color:var(--amber);color:#111}
+.stepper{border-color:var(--rule-strong)}
+.stepper button{width:44px;min-height:44px;font-size:20px;background:#12161c}
+.stepper output{font-size:18px;font-weight:700;border-color:var(--rule-strong)}
+.btn{min-height:50px}
+.btn.ghost{border-color:var(--rule-strong)}
+.btn.ghost:hover{border-color:var(--amber);color:var(--amber);filter:none}
+.btn.small{min-height:44px}
+.iconbtn{border-color:var(--rule-strong)}
+/* settings: a bigger window, tabs as chips, every setting a row: its name and what it does on the left, the control on the right */
+.card.settings{width:min(900px,100%);height:min(760px,calc(100vh - 32px));max-height:none;padding:28px 30px 24px}
+.set-tabs{gap:6px}
+.set-tabs button{flex:1 0 auto}
+.set-body{border:1px solid var(--rule);border-radius:4px;padding:6px 22px 18px;gap:0}
+.set-item{padding:14px 0;border-bottom:1px solid var(--rule);gap:4px 24px}
+.set-item:last-child{border-bottom:0}
+.set-item:has(> .row){grid-template-columns:minmax(0,1fr) auto;align-items:center}
+.set-item > .row{display:contents}
+.set-item > .row > .lbl{grid-column:1;font-family:var(--body);font-size:16px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--text)}
+.set-item > .row > :not(.lbl){grid-column:2;grid-row:1/span 2;justify-self:end}
+.set-item > .note{grid-column:1}
+.set-slider{min-width:300px}
+.dev-card{background:#10141a;border-color:var(--rule);padding:16px}
+/* pause: the choices as a column on the left (like the menu's rail), the pit box on the right */
+#pauseOv .card{width:min(420px,100%)}
+#pauseOv .btns{flex-direction:column}
+#pauseOv .btns .btn{flex:none;text-align:left;padding:0 20px}
+#pauseOv .card:has(#pitBox:not([hidden])){width:min(860px,100%);grid-template-columns:340px minmax(0,1fr);column-gap:28px;align-items:start}
+#pauseOv .card:has(#pitBox:not([hidden])) .verdict{grid-column:1/-1}
+#pauseOv .card:has(#pitBox:not([hidden])) #pitBox{grid-column:2;grid-row:2}
+#pauseOv .card:has(#pitBox:not([hidden])) .btns{grid-column:1;grid-row:2}
+/* results: rows like the timing tower */
+#resOv .card{width:min(900px,100%)}
+table.res{font-size:17px}
+table.res th{font-size:12px;letter-spacing:.16em;padding:8px 10px}
+table.res td{padding:9px 10px;border-bottom-color:var(--rule)}
+table.res tr.me td{background:#2a2412}
+table.res tr.me td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
+#resOv .btns .btn{flex:1 0 auto}
+/* small dialogs: are you there?, quit */
+#awayOv .card,#quitOv .card{width:min(520px,100%)}
+/* the pause menu's pit box: rows like the settings, full-size chips; the lap analysis pickers */
+.pit-box{gap:0;margin:0;padding:6px 18px 10px;background:#10141a;border-color:var(--rule)}
+.pit-box .row{padding:10px 0;border-bottom:1px solid var(--rule)}
+.pit-box .row:last-child{border-bottom:0}
+.pit-box .row .lbl{font-family:var(--body);font-size:15px;letter-spacing:0;text-transform:none;color:var(--text)}
+.pit-box .seg button{font-size:15px;padding:0 12px}
+.pit-head{padding:8px 0 4px;font-size:14px}
+.ana-pick select{min-height:44px;font-size:16px;background:#12161c;border-color:var(--rule-strong);padding:0 12px}
