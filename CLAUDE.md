@@ -338,6 +338,10 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   the autopilot sets a time).
 
 ## The start menu (2026-10-29; user picked from three clickable mock-ups on a claude.ai canvas: "the combo")
+- 2026-10-30, the user's own edit of the mock-up (canvas board D): the side rail is gone (sections full width, Paddock / B
+  home); Lap analysis / Aero zones / Test controls = `.mn-tools` under the home tiles; circuit step map bigger, list 275 px,
+  name centred; field step without the line-up; "Grid position" with no box, a 9 px white top line; the controller's state
+  (`#raceCtl`, Hud.setPad) in Race weekend's footer. Ideas for the HUD / windows wait on the canvas's HUD & windows page.
 - A fixed 1280 × 800 panel like the mock-up, shrunk evenly only when the window is smaller (`.mn` transform scale(--mn-scale),
   start-menu.js fit(); user, 1440p: stretched was wrong, scaled up "too big"); `GRIDLINE_SMOKE_SIZE=2560x1440` = a test run's window.
 - `start-menu.js` `createStartMenu(ctx)` arranges `#startOv`: home `#mnHome` = tiles (Continue = start with the saved

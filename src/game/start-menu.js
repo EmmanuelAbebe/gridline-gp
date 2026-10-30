@@ -1,7 +1,7 @@
 // The start menu (2026-10-29; user's pick of three mock-ups, "the combo": the home of one, the race setup of another, the
 // pages and controls of the third). Home = tiles (Continue your last session, Race weekend, Quick race, Time trial,
-// Leaderboard, Garage, Controller, Settings). A section = a rail on the left (jump between Race weekend, Time trial,
-// Leaderboard, Garage, Lap analysis, Aero zones, Settings, Test controls; ‹ GRIDLINE GP goes home) and a page:
+// Leaderboard, Garage, Controller, Settings) and a row of tools under them (Lap analysis, Aero zones, Test controls).
+// A section = one full-width page (2026-10-30, user's edit of the mock-up: the side rail went; Paddock / B go home):
 // Race weekend in four steps (circuit, field, rules, grid: each step's tab shows what is picked and jumps there),
 // Time trial (the ghost to chase), Leaderboard (leaderboard-screen.js). Pad: the D-pad / arrow keys move the focus,
 // A presses, B goes back, LB / RB change the circuit. The setup controls themselves (segments, steppers) stay
@@ -54,7 +54,6 @@ export function createStartMenu(ctx) {
     page = next; step = next === 'race' ? at : 0;
     $('mnHome').hidden = !!page; $('mnSection').hidden = !page;
     $('pageRace').hidden = page !== 'race'; $('pageTrial').hidden = page !== 'trial'; $('lbOv').hidden = page !== 'board';
-    for (const b of document.querySelectorAll('.mn-nav[data-page]')) b.setAttribute('aria-current', b.dataset.page === page ? 'page' : 'false');
     if (page === 'race' && game.setup.type === 'trial') ctx.setType('laps');
     if (page === 'trial' && game.setup.type !== 'trial') ctx.setType('trial');
     if (page === 'board') ctx.leaderboard.show(() => show(null));
@@ -99,11 +98,6 @@ export function createStartMenu(ctx) {
     $('raceMapSvg').setAttribute('aria-label', `Map of ${name}`);
     $('raceMapStart').setAttribute('x', O.start[0] - 1.2); $('raceMapStart').setAttribute('y', O.start[1] - 3.5);
     for (const b of circList.children) b.setAttribute('aria-checked', String(b.dataset.id === T.id));
-    // step 2: the field
-    const field = [...SIM.DRIVERS.filter(d => !d.player).slice(0, Math.max(0, s.cars - 1)), { name: 'You', team: 'Gridline', color: null, you: true }];
-    $('fieldChips').replaceChildren(...field.map(d => { const c = el('span', d.you ? 'you' : ''), sw = el('i');
-      sw.style.background = d.you ? ctx.playerColour() : '#' + d.color.toString(16).padStart(6, '0');
-      c.append(sw, document.createTextNode(d.name + ' '), el('em', '', d.team)); return c; }));
     // step 3: the rules
     for (const seg of ruleRows.querySelectorAll('.seg')) for (const b of seg.children) b.setAttribute('aria-pressed', String(b.dataset.v === String(s[seg.dataset.key])));
     // step 4: the grid (your best against the rivals' times, or qualifying first)
@@ -131,10 +125,7 @@ export function createStartMenu(ctx) {
   $('tileQuick').onclick = () => { if (game.setup.type === 'trial') ctx.setType('laps'); ctx.start(); };
   $('tileTrial').onclick = () => show('trial');
   $('padStatus').onclick = () => ctx.openSettings('controller');
-  $('mnHomeBtn').onclick = () => show(null);
-  for (const b of document.querySelectorAll('.mn-nav[data-page]')) b.onclick = () => show(b.dataset.page);
-  $('railGarage').onclick = () => ctx.openGarage();
-  $('railSettings').onclick = () => ctx.openSettings();
+  $('trialBack').onclick = () => show(null);
   for (const b of document.querySelectorAll('#raceSteps button')) b.onclick = () => goStep(+b.dataset.step);
   $('raceNext').onclick = () => goStep(step + 1);
   $('raceBack').onclick = () => back();

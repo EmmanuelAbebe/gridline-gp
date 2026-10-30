@@ -392,3 +392,13 @@ table.res tr.me td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
 .pit-box .seg button{font-size:15px;padding:0 12px}
 .pit-head{padding:8px 0 4px;font-size:14px}
 .ana-pick select{min-height:44px;font-size:16px;background:#12161c;border-color:var(--rule-strong);padding:0 12px}
+/* 2026-10-30, the user's edit of the mock-up: no rail; tools under the tiles; the circuit step's map bigger and the list
+   narrow, the name centred; the grid without a box, a thick white line on top; the controller's state in the race footer */
+.mn-tools{display:flex;gap:8px;margin-top:-4px}
+.mn-tools .iconbtn{min-height:36px;padding:0 14px}
+.mn-circ{grid-template-columns:minmax(0,1fr) 275px}
+.mn-circhead h2{text-align:center}
+.mn-grid{background:transparent;border:0;border-top:9px solid var(--text);border-radius:0}
+.mn-ctl{display:flex;align-items:center;gap:8px;font-size:13px;color:#c4c9cf;padding:0 12px}
+.mn-ctl .dot{width:9px;height:9px;background:#5b6470}
+.mn-ctl.on .dot{background:var(--green)}

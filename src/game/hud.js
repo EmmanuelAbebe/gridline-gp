@@ -197,6 +197,8 @@ export const Hud = (() => {
       $('padChip').hidden = !on; $('padChip').classList.toggle('on', on);
       const row = $('padStatus');
       row.classList.toggle('on', on); row.classList.toggle('warn', !on && !allowed);
+      // (the start menu's Race weekend footer shows it too)
+      $('raceCtl').classList.toggle('on', on); $('raceCtlText').textContent = on ? 'Controller connected' : 'No controller connected';
       const label = on ? 'Controller connected. A to start; Settings → Controller lists every device.'
         : allowed ? (window.gridlineApp?.phone ? 'Phone wheel: connect it in Settings → Controller. Other controllers: press a button on it once.'
           : 'Phone wheel or controller: press gas or a button once so the browser sees it.')

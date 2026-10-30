@@ -212,7 +212,7 @@ async function smokeTest(win) {
   await win.webContents.executeJavaScript(`document.querySelector('#raceSteps [data-step="0"]').click()`);
   await new Promise(r => setTimeout(r, 300));
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-menu-circuit.png'), (await win.webContents.capturePage()).toPNG());
-  await win.webContents.executeJavaScript(`document.getElementById('mnHomeBtn').click()`);
+  await win.webContents.executeJavaScript(`document.getElementById('raceBack').click()`);
   // start a race: lights take about 5-7 s, so after 9 s the race clock must be running; second screenshot in-race
   await win.webContents.executeJavaScript(`document.getElementById('startBtn').click()`);
   // lights out takes ~5-7 s; on a slow machine (CI: software rendering) longer, so wait for the race clock (≤ 60 s)
@@ -404,7 +404,7 @@ async function smokeTest(win) {
     await js(`document.getElementById('lbPauseBtn').click()`);
     let toast = '';
     for (let i = 0; i < 50 && !/Leaderboard/.test(toast); i++) { await wait(200); toast = await js(`document.getElementById('toast').textContent`); }
-    await js(`gridlineDebug.botDrive(false); gridlineDebug.toMenu(); document.getElementById('tileRace').click(); document.getElementById('mnHomeBtn').click(); document.getElementById('lbBtn').click()`);
+    await js(`gridlineDebug.botDrive(false); gridlineDebug.toMenu(); document.getElementById('tileRace').click(); document.getElementById('raceBack').click(); document.getElementById('lbBtn').click()`);
     await wait(800);
     const screen = await js(`[...document.querySelectorAll('#lbList .lb-row')].map(r => r.textContent)`);
     fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-leaderboard.png'), (await win.webContents.capturePage()).toPNG());

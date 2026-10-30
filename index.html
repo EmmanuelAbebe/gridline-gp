@@ -114,22 +114,12 @@
         <button class="mn-tile padrow" id="padStatus" type="button"><span class="mn-kick">CONTROLLER</span><span class="mn-title" id="tileCtlTitle">CONTROLLER</span><span class="mn-sub"><span class="dot"></span><span id="padText">Phone wheel: press gas on your phone once so the browser sees it.</span></span></button>
         <button class="mn-tile" id="settingsBtn" type="button"><span class="mn-kick">EVERYTHING ELSE</span><span class="mn-title">SETTINGS</span><span class="mn-sub">Driving · controller · sound</span></button>
       </div>
+      <div class="mn-tools" role="group" aria-label="Tools"><button class="iconbtn" id="anaStartBtn" type="button" title="Your best lap here by sector and corner">LAP ANALYSIS</button><button class="iconbtn" id="zonesBtn" type="button" title="Where the cars may open their wings">AERO ZONES</button><button class="iconbtn" id="testCtlBtn" type="button" title="The input monitor (I)">TEST CONTROLS</button></div>
       <footer class="mn-foot"><span><b>A</b> open</span><span><b>B</b> back</span><span><b>LB / RB</b> circuit</span><span><b>✥</b> move</span><p class="gpu" id="setupSummary"></p></footer>
     </section>
 
     <!-- a section: the rail + a page -->
     <section class="mn-section" id="mnSection" hidden>
-      <nav class="mn-rail" aria-label="Menu">
-        <button class="mn-back" id="mnHomeBtn" type="button"><span aria-hidden="true">‹</span> Gridline <em>GP</em></button>
-        <button class="mn-nav" data-page="race" type="button"><b>RACE WEEKEND</b><small>Circuit, field, rules, grid</small></button>
-        <button class="mn-nav" data-page="trial" type="button"><b>TIME TRIAL</b><small>Chase a ghost</small></button>
-        <button class="mn-nav" data-page="board" type="button"><b>LEADERBOARD</b><small>Your laps online</small></button>
-        <button class="mn-nav" id="railGarage" type="button"><b>GARAGE</b><small>Livery and setup</small></button>
-        <button class="mn-nav" id="anaStartBtn" type="button"><b>LAP ANALYSIS</b><small>Your best by sector and corner</small></button>
-        <button class="mn-nav" id="zonesBtn" type="button"><b>AERO ZONES</b><small>Where the wings may open</small></button>
-        <button class="mn-nav" id="railSettings" type="button"><b>SETTINGS</b><small>Driving, controller, sound</small></button>
-        <button class="mn-nav" id="testCtlBtn" type="button"><b>TEST CONTROLS</b><small>The input monitor</small></button>
-      </nav>
       <main class="mn-page">
         <!-- race weekend: the steps -->
         <div class="mn-race" id="pageRace">
@@ -156,7 +146,6 @@
               <div class="row"><span class="lbl">Rivals</span><div class="seg" id="aiSeg"></div></div>
               <p class="gpu" id="aiNote"></p>
               <div class="row"><span class="lbl">Cars on the grid</span><div class="stepper" id="carsStep"><button type="button" data-d="-1" aria-label="Fewer cars">−</button><output id="carsVal">10</output><button type="button" data-d="1" aria-label="More cars">+</button></div></div>
-              <div class="mn-field" id="fieldChips"></div>
             </div>
             <div class="mn-step" data-step="2" hidden>
               <h2>The rules</h2>
@@ -165,7 +154,7 @@
               <div class="mn-rules" id="ruleRows"></div>
             </div>
             <div class="mn-step" data-step="3" hidden>
-              <h2>The grid</h2>
+              <h2>Grid position</h2>
               <div class="row" id="qualiRow"><span class="lbl">Qualifying</span><div class="seg" id="qualiSeg"></div></div>
               <p class="gpu" id="introText">Ten cars, five red lights.</p>
               <div class="mn-grid" id="gridPreview"></div>
@@ -174,6 +163,7 @@
           <footer class="mn-actions">
             <button class="btn ghost" id="raceBack" type="button">Paddock</button>
             <span class="mn-hint"><b>A</b> next · <b>B</b> back · jump to any step above</span>
+            <span class="mn-ctl" id="raceCtl"><span class="dot"></span><span id="raceCtlText">No controller connected</span></span>
             <button class="btn ghost" id="raceNow" type="button">Start now</button>
             <button class="btn" id="raceNext" type="button">Next</button>
             <button class="btn" id="startBtn" type="button">To the grid</button>
@@ -188,13 +178,13 @@
       <div class="ghost-ctl"><button class="iconbtn" id="ghostExport" type="button" title="Save your best lap here to a file, to send to a friend">EXPORT</button><button class="iconbtn" id="ghostLoad" type="button" title="Race a lap from a file (a friend's)">LOAD</button><button class="iconbtn" id="ghostClear" type="button" title="Forget the lap loaded from a file">REMOVE LOADED</button><input type="file" id="ghostFile" accept=".gz,.json,application/gzip,application/json" hidden></div>
       <div class="ghost-list" id="ghostList" role="radiogroup" aria-label="Ghost to race"></div>
     </div>
-          <footer class="mn-actions"><span class="mn-hint"><b>A</b> pick · <b>B</b> back</span><button class="btn" id="trialGo" type="button">Drive</button></footer>
+          <footer class="mn-actions"><button class="btn ghost" id="trialBack" type="button">Paddock</button><span class="mn-hint"><b>A</b> pick · <b>B</b> back</span><button class="btn" id="trialGo" type="button">Drive</button></footer>
         </div>
         <!-- leaderboard -->
         <div class="mn-board" id="lbOv" hidden>
           <h2 id="lbTitle">Leaderboard</h2>
           <div id="lbAccount"></div>
-          <div class="row lb-head"><span class="lbl">Your best laps</span><span class="note" id="lbHint"></span><button class="btn small" id="lbAll" type="button" hidden>Submit all</button><button class="btn ghost small" id="lbSite" type="button">See the boards</button><button class="btn ghost small" id="lbClose" type="button">Back</button></div>
+          <div class="row lb-head"><span class="lbl">Your best laps</span><span class="note" id="lbHint"></span><button class="btn small" id="lbAll" type="button" hidden>Submit all</button><button class="btn ghost small" id="lbSite" type="button">See the boards</button><button class="btn ghost small" id="lbClose" type="button">Paddock</button></div>
           <div id="lbList"></div>
         </div>
       </main>
