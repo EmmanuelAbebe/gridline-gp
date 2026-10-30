@@ -91,7 +91,7 @@ export function createTimeTrial({ game, track, saveSetup, switchTrack, online })
     $('ghostList').replaceChildren(...rows.map(([id, name, sub, g, none]) => {
       const b = document.createElement('button'); b.type = 'button'; b.className = 'ghost-pick'; b.dataset.ghost = id;
       b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(id === sel));
-      const t = document.createElement('span'); t.textContent = g ? fmtTime(g.time) : none;
+      const t = document.createElement('span'); t.textContent = g ? fmtTime(g.time) : none; if (g) t.dataset.time = '';   // (a time, or why there is none)
       const gap = document.createElement('i');
       if (g && mine && g !== mine && id !== 'mine') { const d = g.time - mine.time; gap.textContent = (d >= 0 ? '+' : '−') + Math.abs(d).toFixed(2); gap.className = d >= 0 ? 'up' : 'down';
         gap.title = d >= 0 ? 'slower than your best' : 'faster than your best'; }

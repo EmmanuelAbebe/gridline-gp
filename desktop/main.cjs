@@ -193,6 +193,24 @@ async function smokeTest(win) {
     document.getElementById('zoneClose').click(); await wait(200);
     return { deleted, reset: mode, backToMenu: !document.getElementById('startOv').hidden };
   })()`));
+  // the start menu: home (tiles), Race weekend (circuit, field, rules, grid), the time trial page; then home again
+  info.menu = await win.webContents.executeJavaScript(`(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms)), $ = id => document.getElementById(id);
+    const home = { tiles: document.querySelectorAll('.mn-tile').length, cont: $('contTitle').textContent };
+    // the focus moves with the arrow keys / D-pad: Continue → right = Race weekend → down = Quick race
+    $('tileContinue').focus(); const key = k => dispatchEvent(new KeyboardEvent('keydown', { key: k }));
+    key('ArrowRight'); const right = document.activeElement.id; key('ArrowDown'); home.nav = [right, document.activeElement.id];
+    $('tileRace').click(); await wait(200);
+    const steps = [];
+    for (let k = 0; k < 4; k++) { steps.push(document.querySelector('#raceSteps [data-step="' + k + '"] small').textContent); if (k < 3) { $('raceNext').click(); await wait(150); } }
+    for (let i = 0; i < 40 && /Timing/.test($('gridPreview').textContent); i++) await wait(250);
+    return { home, steps, grid: $('gridPreview').children.length, start: !$('startBtn').hidden && $('startBtn').textContent, circuits: $('circuitList').children.length };
+  })()`);
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-menu-grid.png'), (await win.webContents.capturePage()).toPNG());
+  await win.webContents.executeJavaScript(`document.querySelector('#raceSteps [data-step="0"]').click()`);
+  await new Promise(r => setTimeout(r, 300));
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-menu-circuit.png'), (await win.webContents.capturePage()).toPNG());
+  await win.webContents.executeJavaScript(`document.getElementById('mnHomeBtn').click()`);
   // start a race: lights take about 5-7 s, so after 9 s the race clock must be running; second screenshot in-race
   await win.webContents.executeJavaScript(`document.getElementById('startBtn').click()`);
   // lights out takes ~5-7 s; on a slow machine (CI: software rendering) longer, so wait for the race clock (≤ 60 s)
@@ -373,7 +391,7 @@ async function smokeTest(win) {
   // SUBMIT (the board has room) sends it; the start menu's Leaderboard screen shows it on the board)
   if (process.env.GRIDLINE_SMOKE_ONLINE) {
     const js = c => win.webContents.executeJavaScript(c), wait = ms => new Promise(r => setTimeout(r, ms));
-    await js(`gridlineDebug.onlineApi(${JSON.stringify(process.env.GRIDLINE_SMOKE_ONLINE)}); document.querySelector('#typeSeg [data-t="trial"]').click()`);
+    await js(`gridlineDebug.onlineApi(${JSON.stringify(process.env.GRIDLINE_SMOKE_ONLINE)}); document.getElementById('tileTrial').click()`);
     const joined = await js(`gridlineDebug.onlineJoin('Smoke ' + Date.now().toString(36).slice(-6))`);
     await js(`gridlineDebug.onlineAuto(false); document.getElementById('startBtn').click(); gridlineDebug.botDrive(true)`);
     for (let i = 0; i < 800 && !(await js(`gridlineDebug.playerState().lap >= 3`)); i++) await wait(200);
@@ -384,7 +402,7 @@ async function smokeTest(win) {
     await js(`document.getElementById('lbPauseBtn').click()`);
     let toast = '';
     for (let i = 0; i < 50 && !/Leaderboard/.test(toast); i++) { await wait(200); toast = await js(`document.getElementById('toast').textContent`); }
-    await js(`gridlineDebug.botDrive(false); gridlineDebug.toMenu(); document.querySelector('#typeSeg [data-t="laps"]').click(); document.getElementById('lbBtn').click()`);
+    await js(`gridlineDebug.botDrive(false); gridlineDebug.toMenu(); document.getElementById('tileRace').click(); document.getElementById('mnHomeBtn').click(); document.getElementById('lbBtn').click()`);
     await wait(800);
     const screen = await js(`[...document.querySelectorAll('#lbList .lb-row')].map(r => r.textContent)`);
     fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-leaderboard.png'), (await win.webContents.capturePage()).toPNG());
@@ -400,7 +418,7 @@ async function smokeTest(win) {
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-online.png'), (await win.webContents.capturePage()).toPNG());
   await win.webContents.executeJavaScript(`document.getElementById('setClose').click()`);
   await win.webContents.executeJavaScript(`document.getElementById('setClose')?.click(); gridlineDebug.toMenu();
-    document.querySelector('#typeSeg [data-t="trial"]').click()`);
+    document.getElementById('tileTrial').click()`);
   // (GRIDLINE_SMOKE_GHOST=file: race that ghost lap, loaded the way the LOAD button does)
   if (process.env.GRIDLINE_SMOKE_GHOST) await win.webContents.executeJavaScript(`gridlineDebug.loadGhost(${JSON.stringify(fs.readFileSync(process.env.GRIDLINE_SMOKE_GHOST, 'utf8'))})`);
   // the ghost list: yours + every AI level timed (made in the background), then race the ALIEN's lap

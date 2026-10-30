@@ -337,6 +337,24 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   AGAIN; End race from the pause menu ends the session. Smoke test: out-quali.png, out-quali-results.png (GRIDLINE_SMOKE_LAP:
   the autopilot sets a time).
 
+## The start menu (2026-10-29; user picked from three clickable mock-ups on a claude.ai canvas: "the combo")
+- `start-menu.js` `createStartMenu(ctx)` arranges `#startOv`: home `#mnHome` = tiles (Continue = start with the saved
+  setup, Race weekend, Quick race = the saved race (a time trial setup → laps), Time trial, Leaderboard `#lbBtn`,
+  Garage `#garageBtn`, Controller `#padStatus` (Hud.setPad's status; opens Settings → Controller), Settings
+  `#settingsBtn`), the circuit stepper `#trackStep`; a section `#mnSection` = the rail (‹ GRIDLINE GP home, Race weekend,
+  Time trial, Leaderboard, Garage, Lap analysis `#anaStartBtn`, Aero zones `#zonesBtn`, Settings, Test controls
+  `#testCtlBtn`) + a page: Race weekend `#pageRace` in four steps (circuit: map + `#circuitList`; field: `#aiSeg`,
+  `#carsStep`, the line-up; rules: `#typeSeg` (no TIME TRIAL: that's its own page), `#amountStep`, fuel / tyres /
+  damage / aero / overtake / tyreTemp from RACE_SETUP.choices via setDriving; grid: `#qualiSeg`, `#introText`, the grid
+  from starting-grid.js forRace), each step's tab shows its choice and jumps there; `#startBtn` on the last step,
+  Start now earlier); Time trial `#pageTrial` (`#ghostRow` / `#ghostList`, `#trialGo`); Leaderboard (`#lbOv` is now a
+  page: leaderboard-screen.js, `hide()` when leaving). The setup controls stay screens.js bindSetup's. Circuit outlines:
+  `src/game/circuit-outlines.js` from `npm run outlines` (tests/menu.test.js keeps it current). Pad: Input emits 'nav'
+  on D-pad presses → focus moves to the nearest visible button that way (edge distances; arrow keys too), A presses the
+  focused button (main.js confirm → menu.confirm), B / Escape = a step back / home (menu.back), LB / RB = circuit
+  (`menuOpen()`). Smoke test: out.png (home), out-menu-grid.png, out-menu-circuit.png, out-trial-menu.png; it opens
+  the time trial with `#tileTrial` (was `#typeSeg [data-t="trial"]`).
+
 ## Architecture
 Tunables live in data tables (config modules), not inline in the logic.
 1. **SIM** (`src/sim/`, exported as one `SIM` object from `index.js`):

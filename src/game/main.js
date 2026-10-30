@@ -19,7 +19,7 @@ import { Sound } from './sound.js';
 import { buildWorld } from './world.js';
 import { CarModels } from './car-models.js';
 import { CameraRig } from './camera-rig.js';
-import { createMinimap, drawOutline } from './minimap.js';
+import { createMinimap } from './minimap.js';
 import { Hud } from './hud.js';
 import { Screens } from './screens.js';
 import { WheelScreen } from './wheel-screen.js';
@@ -50,6 +50,7 @@ import { createStartingGrid } from './starting-grid.js';
 import { createOnline, loadAccount, boardOf, gzipBase64 } from './online.js';
 import { loadRuns, runsJson, keepRun, sendable, settle } from './lap-runs.js';
 import { createLeaderboardScreen } from './leaderboard-screen.js';
+import { createStartMenu } from './start-menu.js';
 import { createZoneEditor } from './zone-editor.js';
 import { bindSettings } from './settings-binding.js';
 import { installDebug } from './debug.js';
@@ -106,6 +107,7 @@ const marks = createTyreMarks(Display.scene);  // rubber laid by sliding / locki
 const racingLine = createRacingLine(Display.scene);   // the ALIEN's line, colour by its pedals (pref racingLine)
 const hudMirror = createHudMirror(Display);        // the rear-view strip on the HUD (pref hudMirror)
 // ---- time trial and ghosts (time-trial.js) ----
+let menu = null;                         // the start menu (start-menu.js), made further down
 // ---- the online leaderboard (online.js; server: leaderboard/) ----
 const online = createOnline({ account: loadAccount(Settings.get(CONFIG.storageKeys.online)), save: a => Settings.set(CONFIG.storageKeys.online, JSON.stringify(a)) });
 const trial = createTimeTrial({ game, track: () => track, saveSetup: () => saveSetup(), online,
@@ -385,7 +387,7 @@ function startFromMenu() {
   game.session = s.quali !== 'off' && s.cars > 1 && s.type !== 'trial' ? 'quali' : 'race'; game.qualiGrid = null;
   newRace();
 }
-function toMenu() { game.phase = PHASE.MENU; game.resultsShown = false; Screens.hud(false); Screens.show('start', 'startBtn'); }
+function toMenu() { game.phase = PHASE.MENU; game.resultsShown = false; Screens.hud(false); Screens.show('start'); menu.home(); }
 // auto: the car shifts; semi: you shift up, the car shifts down (you may click down too); manual: you shift.
 function setGearbox(car, mode) { car.autoShift = mode === 'auto'; car.autoDown = mode === 'semi'; car.downQueue = 0; }
 // Paddles (Q/E, phone buttons 1/2, LB/RB). With the automatic gearbox they do nothing; say so once per race.
@@ -397,9 +399,9 @@ function shift(dir) {
 }
 function confirm() {                                   // pad A
   if (AppShell.quitOpen) { AppShell.cancelQuit(); return; }   // (A never quits: the safe answer)
-  if (SettingsScreen.open || InputMonitor.open || analysis.open || leaderboardScreen.open || zoneEditor.open) return;
+  if (SettingsScreen.open || InputMonitor.open || analysis.open || zoneEditor.open || Garage.open) return;
   if (away.open) { away.confirm(); return; }
-  if (game.phase === PHASE.MENU) startFromMenu();
+  if (game.phase === PHASE.MENU) menu.confirm();     // (the start menu: press the button in focus)
   else if (game.resultsShown) again();
   else if (game.paused) togglePause();
 }
@@ -417,8 +419,8 @@ function toggleLayout() {
 // ---- "are you there?" (away.js) ----
 const away = createAway({ game, racing: () => racing(), togglePause: () => togglePause() });
 
-const escape = () => away.open ? away.toPauseMenu() : AppShell.quitOpen ? AppShell.cancelQuit() : analysis.open ? analysis.close() : leaderboardScreen.open ? leaderboardScreen.close() : zoneEditor.open ? zoneEditor.close() : Garage.open ? Garage.close() : InputMonitor.open ? InputMonitor.toggle(false) : SoundStudio.open ? SoundStudio.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
-  : LayoutEditor.active ? LayoutEditor.exit() : togglePause();
+const escape = () => away.open ? away.toPauseMenu() : AppShell.quitOpen ? AppShell.cancelQuit() : analysis.open ? analysis.close() : zoneEditor.open ? zoneEditor.close() : Garage.open ? Garage.close() : InputMonitor.open ? InputMonitor.toggle(false) : SoundStudio.open ? SoundStudio.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
+  : LayoutEditor.active ? LayoutEditor.exit() : menuOpen() && menu.back() ? null : togglePause();
 // "Quit the game?" (Alt+F4 mid-race too): the race pauses behind it
 AppShell.onAskQuit(() => { if (isRunning() && !game.paused) togglePause(); });
 function setPref(key, value) {
@@ -463,6 +465,7 @@ const describeSetup = () => {
 const describeEvent = () => {
   const s = game.setup, cars = s.type === 'trial' ? 1 : s.cars, quali = s.quali !== 'off' ? +s.quali : 0;
   Screens.describeEvent(track, cars, cars > 1 ? grid.forRace() : null, quali);   // (the rivals' times are made in the background)
+  menu?.refresh();                  // (the grid on Race weekend's last step, once the rivals are timed)
 };
 function describeRecord() {
   // (on the zones the next race would use: yours there, else the automatic ones)
@@ -489,14 +492,18 @@ const ACTIONS = { camera: cycleCamera, mute: toggleMute, pause: escape, fps: () 
   settings: () => settings.toggle(),
   tweak: () => TweakPanel.toggle(), layout: toggleLayout, fullscreen: () => AppShell.toggleFullscreen(),
   inputs: () => InputMonitor.toggle(),
-  shiftUp: () => shift(+1), shiftDown: () => shift(-1), box: requestBox, boost: requestBoost, aero: requestAero, limiter: requestLimiter };
+  // (LB / RB in the start menu: the circuit)
+  shiftUp: () => menuOpen() ? menu.circuit(1) : shift(+1), shiftDown: () => menuOpen() ? menu.circuit(-1) : shift(-1),
+  box: requestBox, boost: requestBoost, aero: requestAero, limiter: requestLimiter };
 Input.on('action', name => ACTIONS[name]?.());
 // pad A / B (phone buttons 1 / 2) in menus: confirm / back, whatever they do while racing (button-map.js)
 Input.on('menu', what => {
   if (racing()) return;
   if (what === 'confirm') confirm();
-  else if (SettingsScreen.open) SettingsScreen.close(); else if (game.paused) togglePause();
+  else if (SettingsScreen.open) SettingsScreen.close(); else if (game.paused) togglePause(); else if (menuOpen()) menu.back();
 });
+// the D-pad in the start menu: move the focus
+Input.on('nav', dir => { if (menuOpen()) menu.nav(dir); });
 // BOX (B, pad X, the HUD button): pit at the end of this lap, press again to stay out
 function requestBox() {
   const p = game.player;
@@ -559,11 +566,15 @@ function openZones() {
 $('zonesBtn').onclick = openZones;
 // ---- the online leaderboard: the start menu's screen (your kept laps, SUBMIT) and the pause / results SUBMIT ----
 const leaderboardScreen = createLeaderboardScreen({ online, runs: () => game.runs, send: sendRun });
-$('lbBtn').onclick = () => {
-  if (game.phase !== PHASE.MENU || leaderboardScreen.open) return;
-  if (SettingsScreen.open) SettingsScreen.close();
-  Screens.show(null); leaderboardScreen.show(() => Screens.show('start', 'lbBtn'));
-};
+// ---- the start menu (start-menu.js): home tiles, a rail in the sections, Race weekend in steps ----
+menu = createStartMenu({ game, online, leaderboard: leaderboardScreen, track: () => track,
+  setType: t => { game.setup.type = t; renderSetup(); saveSetup(); },
+  switchTrack: id => { game.setup.track = id; setTrack(id); renderSetup(); saveSetup(); },
+  setDriving, start: startFromMenu, openGarage, openSettings, gridNow: () => grid.forRace(),
+  ghostName: () => ({ mine: 'your best', loaded: 'the loaded lap', online: 'the online #1' })[game.setup.ghost] ?? `the ${RACE_SETUP.choices.ghost.find(c => c[0] === game.setup.ghost)?.[1] ?? 'AI'} ghost`, playerColour: () => '#' + game.garage.livery.color.toString(16).padStart(6, '0') });
+// the start menu is what's on screen (no other screen over it): the pad's D-pad, B and LB / RB work it
+const menuOpen = () => game.phase === PHASE.MENU && Screens.current() === 'start' && !SettingsScreen.open && !InputMonitor.open && !analysis.open && !zoneEditor.open && !Garage.open && !AppShell.quitOpen;
+$('lbBtn').onclick = () => { if (game.phase === PHASE.MENU) menu.show('board'); };
 for (const id of ['lbPauseBtn', 'lbResBtn']) $(id).onclick = () => {
   const run = game.race && game.runs[boardOf(game.race.track.id, game.race.activeAero)];
   if (run && sendable(run)) { $('lbPauseBtn').hidden = $('lbResBtn').hidden = true; sendRun(run); }
@@ -590,6 +601,7 @@ function saveSetup() {
   describeEvent();
   describeSetup();
   describeRecord();                 // (your record and the time trial's ghost list: the type, circuit or active aero changed)
+  menu?.refresh();
 }
 const renderSetup = Screens.bindSetup(game.setup, SIM.DRIVERS.length, Object.values(SIM.CIRCUITS), saveSetup);
 
@@ -692,7 +704,7 @@ function setTrack(id) {
   if (track && track.id === id) return track;
   track = trackOf(id); setPoseTrack(track);
   if (game.race) { game.race = null; game.player = null; trial.reset(); sectors.reset(); wakes.hideAll(); crews.dispose(); marks.clear(); Debris.clear(); racingLine.set(track, null); }    // the last race was on the old circuit
-  drawOutline($('trackPreview'), track); describeRecord();
+  describeRecord();
   world?.dispose();
   world = buildWorld(Display.scene, track, SIM.DRIVERS);
   if (game.gfx) world.applyProfile(GFX_PROFILES[game.gfx]);
@@ -753,7 +765,7 @@ HudStyle.apply(CameraRig.mode.id);
 describeEvent();
 describeSetup();
 $('loading').hidden = true;
-Screens.show('start', 'startBtn');
+Screens.show('start'); menu.home();
 requestAnimationFrame(frame);
 
 // offline cache for the installed app; only over http(s), and never fatal (e.g. inside a sandboxed frame)

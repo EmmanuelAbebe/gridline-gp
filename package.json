@@ -27,7 +27,8 @@
     "car-shot": "electron tools/car-shot.cjs",
     "sound-check": "electron tools/sound-check.cjs",
     "dist": "npm run build && electron-builder --publish never",
-    "sim-version": "node tools/sim-version.mjs"
+    "sim-version": "node tools/sim-version.mjs",
+    "outlines": "node tools/circuit-outlines.mjs"
   },
   "devDependencies": {
     "@types/react": "19.3.0",

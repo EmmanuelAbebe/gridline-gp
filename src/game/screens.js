@@ -13,7 +13,7 @@ export const Screens = (() => {
   const bindSeg = (seg, attr, fn) => seg.addEventListener('click', e => { const b = e.target.closest('button'); if (b) fn(b.dataset[attr]); });
   let shown = null;
   return {
-    show(name, focusId) { for (const [k, el] of Object.entries(overlays)) el.hidden = k !== name; shown?.(name); if (focusId) $(focusId).focus(); },
+    show(name, focusId) { for (const [k, el] of Object.entries(overlays)) el.hidden = k !== name; shown?.(name); if (focusId && $(focusId).offsetParent) $(focusId).focus(); },
     onShow(fn) { shown = fn; },          // fn(name) each time an overlay (or none) is shown
     current() { return Object.keys(overlays).find(k => !overlays[k].hidden) || null; },
     hud(on) { $('hud').hidden = !on; },
@@ -32,7 +32,8 @@ export const Screens = (() => {
     // circuits: [{ id, name, blurb }]; the length is filled in by trackInfo() once the circuit is built
     bindSetup(setup, maxCars, circuits, onChange) {
       const minIdx = () => Math.max(0, RACE_SETUP.minutes.indexOf(setup.minutes));
-      fillSeg($('typeSeg'), 't', RACE_SETUP.choices.type); fillSeg($('aiSeg'), 'l', RACE_SETUP.choices.ai); fillSeg($('qualiSeg'), 'q', RACE_SETUP.choices.quali);
+      fillSeg($('typeSeg'), 't', RACE_SETUP.choices.type.filter(([v]) => v !== 'trial'));   // (a time trial: the menu's own page)
+      fillSeg($('aiSeg'), 'l', RACE_SETUP.choices.ai); fillSeg($('qualiSeg'), 'q', RACE_SETUP.choices.quali);
       function render() {
         $('trackVal').textContent = circuits.find(c => c.id === setup.track)?.name ?? setup.track;
         $('carsVal').textContent = setup.cars === 1 ? '1 (solo)' : String(setup.cars);

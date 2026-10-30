@@ -1,4 +1,4 @@
-// The start menu's Leaderboard screen (#lbOv): your account (the online panel: join / leave), and your best leaderboard
+// The start menu's Leaderboard page (#lbOv, a page of the start menu: start-menu.js): your account (the online panel: join / leave), and your best leaderboard
 // lap on each board kept on this computer (lap-runs.js) with how it went: not sent, on the board at P12, your faster
 // lap stands, outside the top 100, or why it wasn't ranked. SUBMIT sends one, SUBMIT ALL every one not sent yet.
 // ctx: { online, runs() (game.runs), send(run) → promise (main.js sendRun), onClose }
@@ -49,5 +49,6 @@ export function createLeaderboardScreen({ online, runs, send }) {
       poll = setInterval(() => { account.tick(); if (online.signedIn !== wasIn) { wasIn = online.signedIn; redraw(); } }, 400);
     },
     close, redraw,
+    hide() { open = false; clearInterval(poll); },          // (the menu went to another page)
   };
 }

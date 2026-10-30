@@ -5,7 +5,8 @@ import { DEFAULT_MAP, PEDALS, HELD, mapFor, actionOf } from './button-map.js';
 
 // Keyboard, touch buttons and one controller (controllers.js: the phone wheel, or a Gamepad API device in the standard
 // Xbox layout), chosen by prefs.controller.
-// Exposes `drive` (read by the sim) and emits: 'action' (name), 'menu' ('confirm' | 'back': pad A / B, always),
+// Exposes `drive` (read by the sim) and emits: 'action' (name), 'menu' ('confirm' | 'back': pad A / B, always), 'nav'
+// (the D-pad pressed: 'up' | 'down' | 'left' | 'right', for the menus' focus),
 // 'padchange' (connected), 'gesture' (for audio unlock). What each controller button does comes from the player's
 // button maps (button-map.js, Settings → Buttons; setButtonMaps); capture(fn) hands the next button pressed to fn instead.
 export const Input = (() => {
@@ -88,6 +89,7 @@ export const Input = (() => {
         if (catcher) { const f = catcher; catcher = null; f(i, p); continue; }      // (setting a button: it does nothing else)
         if (i === PAD.A) events.emit('menu', 'confirm');
         if (i === PAD.B) events.emit('menu', 'back');
+        if (i >= PAD.UP && i <= PAD.RIGHT) events.emit('nav', ['up', 'down', 'left', 'right'][i - PAD.UP]);   // (menus: move the focus)
         const action = actionOf(map, i);
         if (action && !HELD.has(action)) events.emit('action', action);
       }
