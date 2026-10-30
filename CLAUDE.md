@@ -338,8 +338,8 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   the autopilot sets a time).
 
 ## The start menu (2026-10-29; user picked from three clickable mock-ups on a claude.ai canvas: "the combo")
-- Laid out at the mock-up's 1280 × 800 and scaled evenly to the window (`.mn` transform scale(--mn-scale), start-menu.js
-  fit(); user, 1440p: "too stretched … keep the proportions of the mock"); `GRIDLINE_SMOKE_SIZE=2560x1440` = a test run's window.
+- A fixed 1280 × 800 panel like the mock-up, shrunk evenly only when the window is smaller (`.mn` transform scale(--mn-scale),
+  start-menu.js fit(); user, 1440p: stretched was wrong, scaled up "too big"); `GRIDLINE_SMOKE_SIZE=2560x1440` = a test run's window.
 - `start-menu.js` `createStartMenu(ctx)` arranges `#startOv`: home `#mnHome` = tiles (Continue = start with the saved
   setup, Race weekend, Quick race = the saved race (a time trial setup → laps), Time trial, Leaderboard `#lbBtn`,
   Garage `#garageBtn`, Controller `#padStatus` (Hud.setPad's status; opens Settings → Controller), Settings

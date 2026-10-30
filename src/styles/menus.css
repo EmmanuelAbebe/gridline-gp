@@ -208,8 +208,9 @@ table.ana-corners caption{caption-side:bottom;text-align:left;font-size:12px;col
 
 /* ---- the start menu (2026-10-29, the combined design: home tiles, a rail inside the sections, race weekend steps) ---- */
 #startOv.menu{display:block;padding:0;background:rgba(9,11,15,.9);overflow:hidden}
-/* (laid out at the mock-up's 1280 × 800 and scaled evenly to the window, start-menu.js fit(): never stretched) */
-.mn{position:absolute;left:50%;top:50%;width:1280px;height:800px;display:flex;transform:translate(-50%,-50%) scale(var(--mn-scale,1));transform-origin:center}
+/* (a fixed 1280 × 800 like the mock-up, shrunk evenly only when the window is smaller: start-menu.js fit()) */
+.mn{position:absolute;left:50%;top:50%;width:1280px;height:800px;display:flex;transform:translate(-50%,-50%) scale(var(--mn-scale,1));transform-origin:center;
+  background:#0b0e12;border:1px solid #1e242d;border-radius:6px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.6)}
 .mn button{font-family:var(--display);cursor:pointer;color:var(--text)}
 .mn button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .mn h2{margin:0;font-family:var(--display);font-weight:800;font-size:40px;line-height:1}
