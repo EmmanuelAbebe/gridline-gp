@@ -51,9 +51,11 @@ if (process.env.GRIDLINE_GPU === 'vulkan') {
 }
 
 function createWindow() {
+  // (GRIDLINE_SMOKE_SIZE=2560x1440: a test run's window size, e.g. a 1440p monitor's; default 1280 × 720)
+  const [winW, winH] = /^(\d+)x(\d+)$/.test(process.env.GRIDLINE_SMOKE_SIZE || '') ? process.env.GRIDLINE_SMOKE_SIZE.split('x').map(Number) : [1280, 720];
   const win = new BrowserWindow({
     title: 'Gridline GP', icon: path.join(ROOT, 'public/icons/icon-512.png'),
-    frame: false, fullscreen: !arg('windowed') && !smokeOut && !shotsDir, width: 1280, height: 720,
+    frame: false, fullscreen: !arg('windowed') && !smokeOut && !shotsDir, width: winW, height: winH,
     backgroundColor: '#0b0e12', show: false, autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: true, backgroundThrottling: false, offscreen: !!(smokeOut || shotsDir) },
   });

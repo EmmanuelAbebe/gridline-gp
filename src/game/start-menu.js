@@ -175,6 +175,11 @@ export function createStartMenu(ctx) {
     if (dir) { e.preventDefault(); nav(dir); }
   });
 
+  // the menu keeps the mock-up's proportions: 1280 × 800, scaled evenly to fit the window (styles: .mn)
+  const MENU_SIZE = [1280, 800];
+  const fit = () => root.style.setProperty('--mn-scale', String(Math.min(innerWidth / MENU_SIZE[0], innerHeight / MENU_SIZE[1])));
+  addEventListener('resize', fit); fit();
+
   return {
     get page() { return page; },
     home() { show(null); }, show, refresh, nav, back, circuit,
