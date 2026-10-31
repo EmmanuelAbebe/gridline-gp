@@ -11,12 +11,17 @@ const LT = 6, RT = 7;
 export const PhoneWheel = (() => {
   const api = globalThis.window?.gridlineApp?.phone ?? null, events = createEmitter();
   let status = { running: false, phones: 0, url: '', qr: '', link: null, note: '', error: '' };
-  const input = { s: 0, g: 0, b: 0, k: 0, a: 0, t: 0 };   // a: the phone says it was put down (1) or dropped (2)
+  const input = { s: 0, g: 0, b: 0, k: 0, a: 0, t: 0 };
+  let lastEcu = 0;   // a: the phone says it was put down (1) or dropped (2)
   const buttons = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }));
   const snapshot = { kind: 'phone', key: 'phone', label: 'Phone wheel', id: 'Phone wheel', mapping: 'standard', connected: true,
     timestamp: 0, axes: [0, 0, 0, 0], buttons };
   if (api) {
-    api.onInput(i => { Object.assign(input, i, { t: performance.now() }); });
+    api.onInput(i => {
+      Object.assign(input, i, { t: performance.now() });
+      // the screen's ECU taps (phone-wheel engine.ts ecu()): a new sequence number = a new command
+      if (i.eq && i.eq !== lastEcu) { lastEcu = i.eq; events.emit('ecu', i.e === 4 ? 'auto' : i.e === 5 ? 'manual' : i.e); }
+    });
     api.onStatus(s => { status = s; events.emit('status', s); });
     api.status().then(s => { status = s; events.emit('status', s); });
   }

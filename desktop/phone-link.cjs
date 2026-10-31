@@ -36,7 +36,9 @@ function parseMessage(text) {
   if (![s, g, b, k].every(Number.isFinite)) return null;
   // a = the phone's "away" flag (0 there, 1 put down: web/src/engine/presence.ts; 2 was "dropped", kept for old pages)
   const a = Number.isFinite(num(d.a)) ? clamp(Math.trunc(num(d.a)), 0, 2) : 0;
-  return { msg: d, input: { s: clamp(s, -1, 1), g: clamp(g, 0, 1), b: clamp(b, 0, 1), k: Math.trunc(k) & MASK, a } };
+  // e / eq = an ECU command from the screen (0..3 a map, 4 AUTO, 5 MANUAL) and its sequence number (repeated for a while)
+  const e = num(d.e), eq = num(d.eq), ecu = Number.isInteger(e) && e >= 0 && e <= 5 && Number.isInteger(eq) && eq > 0 && eq < 1e9 ? { e, eq } : {};
+  return { msg: d, input: { s: clamp(s, -1, 1), g: clamp(g, 0, 1), b: clamp(b, 0, 1), k: Math.trunc(k) & MASK, a, ...ecu } };
 }
 
 // ---- pairing code and certificate (kept in dataDir between runs) ----

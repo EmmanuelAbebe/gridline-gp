@@ -6,7 +6,10 @@
 //               everything else at 0 until the driver taps "I'm here"
 //   PC → phone  {pong, hz, gap} for each probe, {fx} = force feedback (haptics.ts), {dash: {g, q, r, v, n, e, m, b, k}} = gear,
 //               queued downshift, revs 0..1 (1 = shift now), km/h, rpm, the ECU map (index into ECU_MAPS, −1 = none), who picks it
-//               ('A' the ECU / 'M' the driver), battery %, energy flow (1 deploying, −1 harvesting) ({} = not driving; Gridline GP only);  GET /check?t= tells a refused socket "wrong pairing code" apart
+//               ('A' the ECU / 'M' the driver), battery %, energy flow (1 deploying, −1 harvesting), position, lap, laps
+//               (0 = no count), delta s (absent = none) ({} = not driving; Gridline GP only);
+//   phone → PC  + e, eq while the driver taps the screen's map row (ecu(): 0..3 a map, 4 AUTO, 5 MANUAL; eq its sequence
+//               number, sent for ECU_SEND ms so a dropped message doesn't lose it);  GET /check?t= tells a refused socket "wrong pairing code" apart
 import { steerCurve, bitOf, type Config, type ButtonId } from '../settings/settings.ts';
 import { idlePlan, planFeedback, type Fx } from './haptics.ts';
 import { createPresence, type Away } from './presence.ts';
@@ -16,7 +19,7 @@ export interface Status { phase: Phase; retryAt: number; attempts: number }
 
 export const state = { steer: 0, gas: 0, brake: 0, gotMotion: false, paused: false, preview: false, away: 0 as Away };
 // the game's dash (Drive: rev strip, gear, speed, the ECU display); g '' = nothing from the game
-export const dash = { g: '', q: 0, r: 0, v: 0, n: 0, e: -1, m: 'A', b: 0, k: 0 };
+export const dash = { g: '', q: 0, r: 0, v: 0, n: 0, e: -1, m: 'A', b: 0, k: 0, p: 0, l: 0, t: 0, d: null as number | null };
 // the game's ECU maps in order (src/sim/tuning.js ECU.maps)
 export const ECU_MAPS = ['HARVEST', 'BALANCED', 'ATTACK', 'QUALI'] as const;
 export const ECU_SHORT = ['HARV', 'BAL', 'ATK', 'QUALI'] as const;
@@ -135,6 +138,15 @@ export function setDash(d: Record<string, unknown>) {
   dash.n = Math.round(num(d.n, 0, 20000));
   dash.e = typeof d.e === 'number' && Number.isInteger(d.e) && d.e >= 0 && d.e < ECU_MAPS.length ? d.e : -1;
   dash.m = d.m === 'M' ? 'M' : 'A'; dash.b = Math.round(num(d.b, 0, 100)); dash.k = Math.sign(num(d.k, -1, 1));
+  dash.p = Math.round(num(d.p, 0, 99)); dash.l = Math.round(num(d.l, 0, 999)); dash.t = Math.round(num(d.t, 0, 999));
+  dash.d = typeof d.d === 'number' && Number.isFinite(d.d) ? Math.max(-999, Math.min(999, d.d)) : null;
+}
+
+// ---------- the screen's ECU taps → the game (map row: a map, or AUTO / MANUAL)
+const ECU_SEND = 1000;
+let ecuSeq = Math.floor(Math.random() * 1e6), ecuCmd = 0, ecuUntil = 0;   // (a reloaded page never repeats the last number)
+export function ecu(cmd: number) {
+  ecuSeq = (ecuSeq % 1e8) + 1; ecuCmd = cmd; ecuUntil = performance.now() + ECU_SEND;
 }
 
 // ---------- tilt → steering angle
@@ -305,6 +317,7 @@ export function start() {
     const now = performance.now(), a = state.away;
     const msg: Record<string, number> = a ? { s: 0, g: 0, b: 0, k: 0, a }   // put down / dropped: nothing but the reason
       : { s: +state.steer.toFixed(3), g: p ? 0 : +state.gas.toFixed(3), b: p ? 0 : +state.brake.toFixed(3), k: p ? 0 : keys() };
+    if (!p && !a && now < ecuUntil) { msg.e = ecuCmd; msg.eq = ecuSeq; }
     if (now - lastPing >= PING_EVERY) {
       msg.p = ++pingSeq; pingSent.set(pingSeq, now); lastPing = now;
       if (link.rtt !== null) msg.r = link.rtt;

@@ -23,6 +23,8 @@ const checks = [
   ['quit closed the app', log.includes('quit via in-game button')],
   ['log file written', r.logFile === true],
   ['no page errors', Array.isArray(r.errors) && r.errors.length === 0],
+  // (where the phone server ran) the race wheel's map row: a tap on ATTACK → the ECU on MANUAL, map 2
+  ['phone map tap reaches the ECU', !r.phone || r.phone.error || (r.phone.ecu?.mode === 'manual' && r.phone.ecu?.map === 2)],
 ];
 for (const [name, ok] of checks) console.log(`${ok ? 'ok  ' : 'FAIL'}  ${name}`);
 console.log(`webgl: ${r.webgl}, compositing: ${r.gpu2d}, phone: ${r.phone?.seen?.state ?? r.phone?.error ?? '?'}`);

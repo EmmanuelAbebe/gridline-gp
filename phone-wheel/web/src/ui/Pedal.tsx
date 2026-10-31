@@ -9,8 +9,9 @@ import './Pedal.css';
 
 const HINT = { ramp: 'hold longer = harder', slide: 'slide up = harder', instant: 'full on touch' };
 
-// toCenter: +1 for the left pedal, -1 for the right (the direction of a flick toward the screen centre)
-export function Pedal({ kind, cfg, flick, toCenter }: { kind: 'gas' | 'brake'; cfg: PedalCfg; flick: FlickCfg; toCenter: 1 | -1 }) {
+// toCenter: +1 for the left pedal, -1 for the right (the direction of a flick toward the screen centre); labels: the
+// word and the hint on it (Layout → Labels on the pedals)
+export function Pedal({ kind, cfg, flick, toCenter, labels = true }: { kind: 'gas' | 'brake'; cfg: PedalCfg; flick: FlickCfg; toCenter: 1 | -1; labels?: boolean }) {
   const el = useRef<HTMLDivElement>(null), fill = useRef<HTMLDivElement>(null), mark = useRef<HTMLDivElement>(null);
   const st = useRef({ pid: null as number | null, t0: 0, y: 0 });
   const cfgRef = useRef(cfg), flickRef = useRef(flick), flicker = useRef(createFlick());
@@ -66,11 +67,11 @@ export function Pedal({ kind, cfg, flick, toCenter }: { kind: 'gas' | 'brake'; c
   const up = (e: React.PointerEvent) => { if (e.pointerId === st.current.pid) release(); };
 
   return (
-    <div className={`pedal ${kind} ${toCenter > 0 ? 'left' : 'right'}`} ref={el} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+    <div aria-label={kind === 'gas' ? 'Gas' : 'Brake'} className={`pedal ${kind} ${toCenter > 0 ? 'left' : 'right'}`} ref={el} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
       <div className="face">
         <div className="fill" ref={fill} />
-        <div className="label">{kind === 'gas' ? 'GAS' : 'BRAKE'}</div>
-        <div className="hint">{HINT[cfg.mode]}{flick.on && <><br />flick {toCenter > 0 ? '→' : '←'} = shift {shift}</>}</div>
+        {labels && <div className="label">{kind === 'gas' ? 'GAS' : 'BRAKE'}</div>}
+        {labels && <div className="hint">{HINT[cfg.mode]}{flick.on && <><br />flick {toCenter > 0 ? '→' : '←'} = shift {shift}</>}</div>}
         <div className="shiftmark" ref={mark}>{shift === 'up' ? '▲' : '▼'}</div>
       </div>
     </div>

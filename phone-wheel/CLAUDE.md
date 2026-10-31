@@ -45,7 +45,25 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   ECU display (2026-10-31, Parts.tsx `EcuReadout`, Layout → ECU display `layout.ecu`: rpm, short map name · A/M, battery %
   + a thin bar yellow deploying / blue harvesting; fits a 390 px tall screen), the extra buttons, then wheel (tap = centre) / Settings /
   Reconnect (dot = link quality, details in its title) / full screen. Layout → Rev lights and gear (`layout.dash`).
-  The status line is gone. Steering: straight ahead moves only with the Center buttons; the reference direction is
+  The status line is gone.
+- The race wheel (2026-10-31; user's pick of the canvas mock-ups, "idea 1", with their edits: flat borderless pedals and
+  shift keys, a big gear): Drive.tsx standard layout = brake | upshift | face | downshift | gas, rev lights over the
+  middle; WheelFace.tsx: `WheelScreen` (a size container: ERS bar, P · LAP l/t and delta, gear, km/h, smaller rpm; the
+  connection state in place of the gear while nothing comes), `Cluster` (PIT left / RACE right: each button's `side`, then
+  wheel + settings / reconnect + full screen as small rounds), `MapRow` (HARV BAL ATK QUALI + A/M: `engine.ecu(cmd)` sends
+  `e` 0..3 a map / 4 AUTO / 5 MANUAL with `eq` a sequence number for 1 s → phone-link.cjs parseMessage → the game's
+  PhoneWheel 'ecu': a map tap switches the ECU to MANUAL and steps to it, one map per sim step). Dash adds p, l, t, d
+  (position, lap, laps, delta). DM Sans bundled (@fontsource/dm-sans). Default buttons BOX (X) / LIM (D-pad down) / REAR
+  (RS) on PIT, DRS (D-pad up) / OT (View) / MAP (Guide) on RACE (the game's PHONE_MAP binds D-pad up / down to straight
+  mode / limiter). `layout.labels` {pedals, shift, gauges} (Layout → Labels on …, default off). Store v4 drops an own
+  layout made for the old screen once. Theme vars --pedal-col, --shift-w, --cluster-w, --clu-btn, --maprow-h, --screen.
+- Layout editor round 2 (2026-10-31, from the canvas mock-up; user: "more robust alignment and resizing … to group buttons
+  and actions"): LayoutEditor.tsx works in px: 8 px grid snap (GRID), snapping to other boxes' edges / centres / the
+  screen's centre with guide lines, + SEL multi-select, align ⇤ ⇹ ⇥ ⤒ ↕ ⤓ (one box: to the screen), SIZE =, SPREAD,
+  GROUP / UNGROUP (`layout.groups` id → name; a group moves as one, dashed named frame; the first edit starts with the
+  clusters as PIT / RACE), MIRROR (Drive.tsx `mirrorPairs`: pedals, shift keys, rounds, k-th PIT ↔ k-th RACE button),
+  UNDO (30), ⇅ bar up / down, STD, ✕, DONE.
+  Steering: straight ahead moves only with the Center buttons; the reference direction is
   decided from the first reading and kept (a 90° turn = portrait used to switch the steering round); GravitySensor
   preferred; full lock is felt from the phone's own steering.
 - Your own layout (2026-10-26; user: "manipulate the UI as I want … simple relocation and resizing of elements"):

@@ -14,7 +14,7 @@ export function installDebug(setTrack, current, player = () => null, toMenu = ()
     // setCamera('cockpit', { back, height, fov }): a camera's settings, as the design tools would (screenshots of a player's view)
     setCamera: (id, fields) => { const c = Design.data.cameras.find(x => x.id === id); if (c) Object.assign(c, fields); return c; },
     autopilot,                                                         // autopilot(skill): the AI drives your car (0 = you)
-    playerState: () => { const c = player(); return c && { slip: +c.slip.toFixed(2), slideR: +c.slideR.toFixed(2), lockF: c.lockF, kmh: Math.round(c.v * 3.6), idx: c.idx, lap: c.lap }; },
+    playerState: () => { const c = player(); return c && { slip: +c.slip.toFixed(2), slideR: +c.slideR.toFixed(2), lockF: c.lockF, kmh: Math.round(c.v * 3.6), idx: c.idx, lap: c.lap, ecuMode: c.ecuMode, ecuMap: c.ecuMap }; },
     toMenu, loadGhost, showLine, setPref,                              // (setPref(key, value): a Settings choice, e.g. hudMirror)
                                           // (showLine: the racing line on this circuit, no race needed)
     renderMs: n => Display.timeRender(n),                                // ms per frame of the current view (GPU included)

@@ -8,7 +8,8 @@ import './RevStrip.css';
 
 const N = 15, colour = (i: number) => (i < 5 ? 'g' : i < 10 ? 'r' : 'b');
 
-export function RevStrip() {
+// label: REV before the lights (Layout → Labels on the gauges)
+export function RevStrip({ label = false }: { label?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
   let shown = '';
   useFrame(() => {
@@ -20,5 +21,6 @@ export function RevStrip() {
     el.classList.toggle('now', now);
     [...el.children].forEach((led, i) => { led.className = `led ${now ? 'b on' : colour(i) + (i < lit ? ' on' : '')}`; });
   });
-  return <div className="revstrip" ref={box} aria-hidden="true">{Array.from({ length: N }, (_, i) => <i key={i} className={`led ${colour(i)}`} />)}</div>;
+  const leds = <div className="revstrip" ref={box} aria-hidden="true">{Array.from({ length: N }, (_, i) => <i key={i} className={`led ${colour(i)}`} />)}</div>;
+  return label ? <div className="revrow"><span className="gauge-label">REV</span>{leds}</div> : leds;
 }

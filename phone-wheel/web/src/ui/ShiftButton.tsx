@@ -6,7 +6,8 @@ import type { ButtonId } from '../settings/settings.ts';
 import { buzz } from './screen.ts';
 import './ShiftButton.css';
 
-export function ShiftButton({ side, dir, bind }: { side: 'left' | 'right'; dir: 'up' | 'down'; bind: ButtonId }) {
+// labels: UP / DOWN under the arrow (Layout → Labels on the shift keys)
+export function ShiftButton({ side, dir, bind, labels = true }: { side: 'left' | 'right'; dir: 'up' | 'down'; bind: ButtonId; labels?: boolean }) {
   const el = useRef<HTMLDivElement>(null);
   const press = (e: React.PointerEvent) => {
     engine.tap(bind); buzz(20);
@@ -15,8 +16,8 @@ export function ShiftButton({ side, dir, bind }: { side: 'left' | 'right'; dir: 
   };
   const lift = () => el.current?.classList.remove('pressed');
   return (
-    <div className={`shift ${side} ${dir}`} ref={el} onPointerDown={press} onPointerUp={lift} onPointerCancel={lift}>
-      <div className="face"><span className="arrow">{dir === 'up' ? '▲' : '▼'}</span><span className="word">{dir === 'up' ? 'UPSHIFT' : 'DOWNSHIFT'}</span></div>
+    <div aria-label={dir === 'up' ? 'Shift up' : 'Shift down'} className={`shift ${side} ${dir}`} ref={el} onPointerDown={press} onPointerUp={lift} onPointerCancel={lift}>
+      <div className="face"><span className="arrow">{dir === 'up' ? '▲' : '▼'}</span>{labels && <span className="word">{dir === 'up' ? 'UP' : 'DOWN'}</span>}</div>
     </div>
   );
 }

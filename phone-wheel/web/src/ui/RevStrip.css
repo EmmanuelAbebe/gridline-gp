@@ -6,3 +6,6 @@
 .revstrip.now .led { animation: shift-now .16s steps(2) infinite; }
 @keyframes shift-now { 50% { opacity: .25; } }
 @media (prefers-reduced-motion: reduce) { .revstrip.now .led { animation: none; } }
+.revrow { display: flex; align-items: center; gap: 8px; height: 100%; }
+.revrow .revstrip { flex: 1; }
+.gauge-label { font-size: 9px; font-weight: 800; letter-spacing: .16em; color: var(--muted); }

@@ -305,7 +305,11 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
 - Game: Settings → Driving ECU maps AUTO (default) / MANUAL (`setup.ecu`, setDriverButtons → ecuMode); keys , / . and
   button actions mapUp / mapDown (Settings → Buttons; unbound by default: bind the phone's M button); toast on your
   presses only (AUTO changes come every lap: HUD only). HUD: `#ecuMap` under the ERS bar ("ATTACK · A", coloured per
-  map), rpm under the km/h (`#rpmNum`). Phone dash carries n / e / m / b / k (phone-wheel/CLAUDE.md).
+  map), rpm under the km/h (`#rpmNum`). Phone dash carries n / e / m / b / k + p / l / t / d (phone-wheel/CLAUDE.md).
+- The phone's race wheel (2026-10-31, phone-wheel/CLAUDE.md): its map row sends ECU commands (phone-link.cjs `e` / `eq`
+  → PhoneWheel 'ecu' → main.js: a map = MANUAL + `pendingMap` steps the shorter way round, one per sim step; 'auto' /
+  'manual' = setDriving('ecu')); `Hud.delta` = the time-trial delta for its screen; button-map.js `PHONE_MAP` (the
+  phone's defaults: D-pad up = straight mode, down = pit limiter). Smoke: a fake phone taps ATTACK (check-smoke).
 
 ## Your own straight-mode zones (2026-10-28; user: "override and adjust the automatic DRS system on the map")
 - SIM active-aero.js: `setAeroZones(track, [{ from, to }] metres | null)` replaces track.aeroZone / aeroZones (merging

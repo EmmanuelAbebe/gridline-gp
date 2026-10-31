@@ -26,7 +26,8 @@ export function startPreview() {
     if (rpm < 7600 && gear > 1 && state.gas < 0.1) { gear--; rpm = rpm * TOP[gear + 1] / TOP[gear]; }
     soc = Math.max(0, Math.min(100, soc + dt * (state.gas > 0.9 ? -8 : state.brake > 0.1 ? 12 : 2)));
     setDash({ g: String(gear), q: 0, r: Math.min(1, Math.max(0, (rpm - 8500) / 3300)), v: TOP[gear] * rpm / 12000,
-      n: Math.round(rpm / 50) * 50, e: soc < 30 ? 0 : state.gas > 0.9 ? 2 : 1, m: 'A', b: soc, k: state.gas > 0.9 ? 1 : state.brake > 0.1 ? -1 : 0 });
+      n: Math.round(rpm / 50) * 50, e: soc < 30 ? 0 : state.gas > 0.9 ? 2 : 1, m: 'A', b: soc, k: state.gas > 0.9 ? 1 : state.brake > 0.1 ? -1 : 0,
+      p: 4, l: 3, t: 5, d: -0.214 });
     keys = held ? Math.max(-RANGE, Math.min(RANGE, keys + held * 2)) : keys * 0.85;
     previewTilt(mouse + keys);
     requestAnimationFrame(tick);

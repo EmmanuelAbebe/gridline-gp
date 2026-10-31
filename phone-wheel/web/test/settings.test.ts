@@ -14,7 +14,10 @@ test('sanitize: defaults round-trip, junk and out-of-range values are fixed, old
   const s = sanitize({ steer: { sensitivity: 999, smoothing: 'x', invert: 1 }, gas: { mode: 'warp', max: -3 }, buttons: [{ label: 'LONGER', bind: 'Z' }, null], layout: { buttonSize: 'xl' } });
   assert.equal(s.steer.sensitivity, 70); assert.equal(s.steer.smoothing, DEFAULTS.steer.smoothing); assert.equal(s.steer.invert, false);
   assert.equal(s.gas.mode, 'ramp'); assert.equal(s.gas.max, 0.1);
-  assert.deepEqual(s.buttons, [{ label: 'LONG', bind: 'A', toggle: false }, { label: '2', bind: 'A', toggle: false }]);
+  assert.deepEqual(s.buttons, [{ label: 'LONG', bind: 'A', toggle: false, side: 'race' }, { label: '2', bind: 'A', toggle: false, side: 'race' }]);
+  // a button without a side: pit things on the PIT side
+  assert.equal(sanitize({ buttons: [{ label: 'PIT', bind: 'Y' }] }).buttons[0].side, 'pit');
+  assert.deepEqual(s.layout.labels, { pedals: false, shift: false, gauges: false });
   assert.equal(s.layout.buttonSize, 'm');
   // the old page's store format
   const store = loadStore(JSON.stringify({ active: 'Race', profiles: { Race: { steer: { sensitivity: 50 } }, Default: {} } }));
@@ -80,7 +83,16 @@ test('older stores get the REAR (look back) and MAP (ECU map) buttons once; remo
   // a v2 store (REAR already offered) only gets MAP
   const v2 = JSON.stringify({ v: 2, active: 'A', profiles: { A: { buttons: [{ label: 'BOX', bind: 'X' }] } } });
   assert.deepEqual(loadStore(v2).profiles.A.buttons.map((b) => b.bind), ['X', 'GUIDE']);
-  assert.deepEqual(loadStore(null).profiles.Default.buttons.map((b) => b.label), ['BOX', 'REAR', 'MAP']);
+  assert.deepEqual(loadStore(null).profiles.Default.buttons.map((b) => b.label), ['BOX', 'LIM', 'REAR', 'DRS', 'OT', 'MAP']);
+});
+
+test('v4: the race wheel is the standard layout: an own layout made for the old one is dropped once, groups kept per layout', () => {
+  const free = { brake: { x: 0, y: 0, w: 0.2, h: 1 } };
+  const v3 = JSON.stringify({ v: 3, active: 'A', profiles: { A: { layout: { free, groups: { brake: 'G' } } } } });
+  assert.equal(loadStore(v3).profiles.A.layout.free, null);
+  const v4 = JSON.stringify({ v: 4, active: 'A', profiles: { A: { layout: { free, groups: { brake: 'G', 'Bad id!': 'x' } } } } });
+  const L = loadStore(v4).profiles.A.layout;
+  assert.ok(L.free?.brake); assert.deepEqual(L.groups, { brake: 'G' });
 });
 
 test('your own layout: boxes stay on the screen and keep a usable size; anything malformed is dropped', () => {

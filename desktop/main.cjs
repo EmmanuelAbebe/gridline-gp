@@ -336,6 +336,10 @@ async function smokeTest(win) {
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('#setBody button')].find(b => b.textContent === 'Reset to default').click();
       document.getElementById('setClose').click(); document.getElementById('resumeBtn').click()`);
     await new Promise(r => setTimeout(r, 200));
+    // the race wheel's map row: a tap on ATTACK (2) switches the ECU to MANUAL and picks it (phone e / eq)
+    const ecuFeed = setInterval(() => ws.send(JSON.stringify({ s: 0, g: 0, b: 0, k: 0, e: 2, eq: 4242 })), 16);
+    await new Promise(r => setTimeout(r, 400)); clearInterval(ecuFeed);
+    const ecu = await win.webContents.executeJavaScript(`gridlineDebug.playerState()`);
     await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click(); document.getElementById('pauseSettingsBtn').click();
       [...document.querySelectorAll('#setTabs button')].find(b => b.textContent === 'Controller').click()`);
     await new Promise(r => setTimeout(r, 300));          // paused: the rumble's last message (all 0) arrives
@@ -344,7 +348,7 @@ async function smokeTest(win) {
     const after = await win.webContents.executeJavaScript(`gridlineDebug.input()`);
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('#setBody button')].find(b => b.textContent === 'Stop').click()`);
     await new Promise(r => setTimeout(r, 400));
-    return { link: st.link, port: st.port, qr: st.qr.startsWith('<svg'), seen, releasedSteer: after.steer, stopped: !phone.status().running, away: { ...awayShown, back: awayBack }, buttons: { live: buttonsLive, bound: buttonsBound },
+    return { link: st.link, port: st.port, qr: st.qr.startsWith('<svg'), seen, releasedSteer: after.steer, stopped: !phone.status().running, away: { ...awayShown, back: awayBack }, buttons: { live: buttonsLive, bound: buttonsBound }, ecu: { mode: ecu?.ecuMode, map: ecu?.ecuMap },
       feedback: { messages: fx.length, felt: [...new Set(fx.flatMap(f => Object.keys(f).filter(k => k !== 'kh' && f[k] > 0)))], endsAtZero: !!fx.length && !fx.at(-1).k && !fx.at(-1).o && !fx.at(-1).s } };
   })();
   // the race so far (the phone's full lock and gas, pauses, settings opened) driven again from its replay: the same car

@@ -1,7 +1,7 @@
 // Controller button maps (src/game/button-map.js): per device, defaults, one action per button, saved JSON checked.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_MAP, ACTIONS, MAX_PER_ACTION, loadButtonMaps, mapFor, bindButton, unbindButton, resetDevice, actionOf, cleanMap, buttonName } from '../src/game/button-map.js';
+import { DEFAULT_MAP, PHONE_MAP, ACTIONS, MAX_PER_ACTION, loadButtonMaps, mapFor, bindButton, unbindButton, resetDevice, actionOf, cleanMap, buttonName } from '../src/game/button-map.js';
 
 test('button maps: the defaults are the old fixed layout, every action listed, no button twice, no pedals', () => {
   assert.deepEqual(Object.keys(DEFAULT_MAP).sort(), ACTIONS.map(a => a[0]).sort());
@@ -13,7 +13,9 @@ test('button maps: the defaults are the old fixed layout, every action listed, n
   assert.equal(actionOf(DEFAULT_MAP, 6), null);
   assert.equal(actionOf(DEFAULT_MAP, 16), 'mapUp');             // Guide: the phone's MAP button
   assert.equal(buttonName(8), 'View');
-  assert.equal(mapFor(loadButtonMaps(null), 'phone'), DEFAULT_MAP);
+  assert.equal(mapFor(loadButtonMaps(null), 'pad:x'), DEFAULT_MAP);
+  assert.equal(mapFor(loadButtonMaps(null), 'phone'), PHONE_MAP);                 // its LIM / DRS buttons: D-pad down / up
+  assert.equal(actionOf(PHONE_MAP, 12), 'aero'); assert.equal(actionOf(PHONE_MAP, 13), 'limiter');
 });
 
 test('button maps: binding moves a button to the new action, per device; unbind, reset; saved JSON round trip', () => {
@@ -32,7 +34,7 @@ test('button maps: binding moves a button to the new action, per device; unbind,
   assert.deepEqual(mapFor(s, 'phone').limiter, [14]);
   const back = loadButtonMaps(JSON.stringify(s));
   assert.deepEqual(back, s);
-  assert.equal(mapFor(resetDevice(s, 'phone'), 'phone'), DEFAULT_MAP);
+  assert.equal(mapFor(resetDevice(s, 'phone'), 'phone'), PHONE_MAP);
   // a hand-edited / broken save: bad buttons dropped, a button on two actions kept by the first, missing actions = default
   const bad = loadButtonMaps(JSON.stringify({ devices: { phone: { shiftDown: [0, 'x', 7, 99], shiftUp: [0, 1], pause: 'START' } } }));
   assert.deepEqual(bad.devices.phone.shiftDown, [0]);

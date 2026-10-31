@@ -19,35 +19,48 @@ export const MAX_BUTTONS = 8;
 export type PedalMode = 'ramp' | 'slide' | 'instant';
 export interface PedalCfg { mode: PedalMode; rampTime: number; min: number; curve: number; max: number }
 export interface SteerCfg { sensitivity: number; smoothing: number; deadzone: number; curve: number; invert: boolean }
-export interface ButtonCfg { label: string; bind: ButtonId; toggle: boolean }
+// side: the cluster it sits in on the wheel (pit = left of the screen, race = right)
+export type Side = 'pit' | 'race';
+export interface ButtonCfg { label: string; bind: ButtonId; toggle: boolean; side: Side }
 export interface FlickCfg { on: boolean; distance: number; time: number; down: ButtonId; up: ButtonId }
 export type ButtonSize = 's' | 'm' | 'l';
 // shiftButtons: the UPSHIFT / DOWNSHIFT keys beside the pedals (they send flick.up / flick.down); swapShift puts
 // upshift beside the gas instead of the brake.
 // putDown: stop sending and ask "are you there?" when the phone is put down flat or dropped (engine/presence.ts)
-export interface LayoutCfg { swapPedals: boolean; pedalSize: number; buttonSize: ButtonSize; showWheel: boolean; haptics: boolean; shiftButtons: boolean; swapShift: boolean; putDown: boolean; dash: boolean; ecu: boolean; free: FreeLayout | null }
+export interface LayoutCfg { swapPedals: boolean; pedalSize: number; buttonSize: ButtonSize; showWheel: boolean; haptics: boolean; shiftButtons: boolean; swapShift: boolean; putDown: boolean; dash: boolean; ecu: boolean;
+  labels: LabelsCfg; free: FreeLayout | null; groups: Groups }
+// words on the pedals (BRAKE / GAS + hints), the shift keys (UP / DOWN) and the gauges (REV, ERS, battery %)
+export interface LabelsCfg { pedals: boolean; shift: boolean; gauges: boolean }
+// your own layout's groups (Layout → Move and resize: GROUP): element id → group name; a group moves as one
 // Your own layout (Layout → Move and resize): each element's box as shares of the screen (0..1); null = the standard grid
 export interface Rect { x: number; y: number; w: number; h: number }
 export type FreeLayout = Record<string, Rect>
+export type Groups = Record<string, string>
 // force feedback from the game (engine/haptics.ts): strength × every effect, and which effects play
 export interface FeedbackCfg { on: boolean; strength: number; hits: boolean; kerbs: boolean; offTrack: boolean; slides: boolean; shifts: boolean; lock: boolean }
 export interface Config { steer: SteerCfg; gas: PedalCfg; brake: PedalCfg; buttons: ButtonCfg[]; flick: FlickCfg; layout: LayoutCfg; feedback: FeedbackCfg }
 // v: store format; 2 (2026-10-21) = profiles have been given the REAR (look back) button once
 export interface Store { active: string; profiles: Record<string, Config>; v?: number }
-export const STORE_VERSION = 3;
+export const STORE_VERSION = 4;
 // the ECU map button (Gridline GP: Guide = ECU map up, round the maps; 2026-10-31)
-export const MAP_BUTTON: ButtonCfg = { label: 'MAP', bind: 'GUIDE', toggle: false };
+export const MAP_BUTTON: ButtonCfg = { label: 'MAP', bind: 'GUIDE', toggle: false, side: 'race' };
+// a button without a side (older profiles): pit things on the left, the rest on the right
+export const sideOf = (label: string, bind: string): Side => /BOX|PIT|LIM|REAR|BACK/i.test(label) || ['X', 'RS', 'DOWN'].includes(bind) ? 'pit' : 'race';
 
 export const DEFAULTS: Config = {
   steer: { sensitivity: 40, smoothing: 20, deadzone: 0, curve: 1, invert: false },
   gas: { mode: 'ramp', rampTime: 1.5, min: 0.2, curve: 1, max: 1 },
   brake: { mode: 'ramp', rampTime: 1.5, min: 0.2, curve: 1, max: 1 },
-  // Gridline GP: X = box this lap, RS (held) = look back, Guide = the next ECU map (shifting has its own keys)
-  buttons: [{ label: 'BOX', bind: 'X', toggle: false }, { label: 'REAR', bind: 'RS', toggle: false }, { label: 'MAP', bind: 'GUIDE', toggle: false }],
+  // Gridline GP (the race wheel, 2026-10-31): PIT side X = box this lap, D-pad down = pit limiter, RS (held) = look back;
+  // RACE side D-pad up = straight mode (DRS), View = overtake, Guide = the next ECU map (shifting has its own keys)
+  buttons: [{ label: 'BOX', bind: 'X', toggle: false, side: 'pit' }, { label: 'LIM', bind: 'DOWN', toggle: false, side: 'pit' },
+    { label: 'REAR', bind: 'RS', toggle: false, side: 'pit' }, { label: 'DRS', bind: 'UP', toggle: false, side: 'race' },
+    { label: 'OT', bind: 'BACK', toggle: false, side: 'race' }, { label: 'MAP', bind: 'GUIDE', toggle: false, side: 'race' }],
   // flick a thumb sideways toward the screen centre while on a pedal to shift: brake = down, gas = up
   // (`distance` px within `time` ms, mostly sideways); each flick taps the bound button once
   flick: { on: true, distance: 40, time: 160, down: 'LB', up: 'RB' },
-  layout: { swapPedals: false, pedalSize: 1, buttonSize: 'm', showWheel: true, haptics: true, shiftButtons: true, swapShift: false, putDown: true, dash: true, ecu: true, free: null },
+  layout: { swapPedals: false, pedalSize: 1, buttonSize: 'm', showWheel: true, haptics: true, shiftButtons: true, swapShift: false, putDown: true, dash: true, ecu: true,
+    labels: { pedals: false, shift: false, gauges: false }, free: null, groups: {} },
   feedback: { on: true, strength: 1, hits: true, kerbs: true, offTrack: true, slides: true, shifts: false, lock: true },
 };
 
@@ -82,6 +95,11 @@ export function freeLayout(raw: unknown): FreeLayout | null {
   }
   return Object.keys(out).length ? out : null;
 }
+export function groupsOf(raw: unknown): Groups {
+  const out: Groups = {};
+  for (const [id, g] of Object.entries(obj(raw)).slice(0, 40)) if (/^[a-z0-9]{1,12}$/.test(id) && typeof g === 'string' && g) out[id] = g.slice(0, 12);
+  return out;
+}
 export function clampRect(r: Rect): Rect {
   const w = Math.min(1, Math.max(MIN_BOX, r.w)), h = Math.min(1, Math.max(MIN_BOX, r.h));
   return { x: Math.min(1 - w, Math.max(0, r.x)), y: Math.min(1 - h, Math.max(0, r.y)), w, h };
@@ -103,7 +121,8 @@ export function sanitize(input: unknown): Config {
     brake: pedal(s.brake, D.brake),
     buttons: buttons.slice(0, MAX_BUTTONS).map((raw: unknown, i: number) => {
       const b = obj(raw);
-      return { label: typeof b.label === 'string' ? b.label.slice(0, 4) : String(i + 1), bind: pick(b.bind, IDS, 'A'), toggle: bool(b.toggle, false) };
+      const label = typeof b.label === 'string' ? b.label.slice(0, 4) : String(i + 1), bind = pick(b.bind, IDS, 'A');
+      return { label, bind, toggle: bool(b.toggle, false), side: pick(b.side, ['pit', 'race'] as const, sideOf(label, bind)) };
     }),
     flick: {
       on: bool(f.on, D.flick.on),
@@ -121,7 +140,9 @@ export function sanitize(input: unknown): Config {
       shiftButtons: bool(l.shiftButtons, D.layout.shiftButtons),
       dash: bool(l.dash, D.layout.dash),
       ecu: bool(l.ecu, D.layout.ecu),
+      labels: { pedals: bool(obj(l.labels).pedals, false), shift: bool(obj(l.labels).shift, false), gauges: bool(obj(l.labels).gauges, false) },
       free: freeLayout(l.free),
+      groups: groupsOf(l.groups),
       swapShift: bool(l.swapShift, D.layout.swapShift),
       putDown: bool(l.putDown, D.layout.putDown),
     },
@@ -149,7 +170,9 @@ export function loadStore(raw: string | null = readStorage(STORE_KEY)): Store {
   for (const [name, p] of Object.entries(obj(data?.profiles))) profiles[name] = sanitize(p);
   // older stores: add the REAR button to every profile that has room and doesn't use RS yet (once; removing it sticks)
   if (!(Number(data?.v) >= 2)) for (const c of Object.values(profiles))
-    if (c.buttons.length < MAX_BUTTONS && !c.buttons.some((b) => b.bind === 'RS')) c.buttons.push({ label: 'REAR', bind: 'RS', toggle: false });
+    if (c.buttons.length < MAX_BUTTONS && !c.buttons.some((b) => b.bind === 'RS')) c.buttons.push({ label: 'REAR', bind: 'RS', toggle: false, side: 'pit' });
+  // v4 (2026-10-31): the race wheel is the new standard layout: an own layout made for the old one is dropped once
+  if (!(Number(data?.v) >= 4)) for (const c of Object.values(profiles)) { c.layout.free = null; c.layout.groups = {}; }
   // and the MAP button (v3), the same way
   if (!(Number(data?.v) >= 3)) for (const c of Object.values(profiles))
     if (c.buttons.length < MAX_BUTTONS && !c.buttons.some((b) => b.bind === 'GUIDE')) c.buttons.push({ ...MAP_BUTTON });

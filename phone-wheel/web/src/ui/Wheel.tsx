@@ -1,4 +1,4 @@
-// The steering wheel drawing (Center turns it with the steering, without re-rendering).
+// The steering wheel drawing (Parts.tsx WheelButton turns it with the steering, without re-rendering).
 import type { Ref } from 'react';
 
 export function Wheel({ ref }: { ref: Ref<SVGSVGElement> }) {

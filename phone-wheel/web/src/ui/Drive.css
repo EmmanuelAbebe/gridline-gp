@@ -1,66 +1,44 @@
-/* The grid: pedals full height on the outside, shift keys and the middle column between them, the rev lights above. */
+/* The race wheel (Drive.tsx standard layout): pedals full height on the outside, the shift keys beside them, the wheel
+   face in the middle, the rev lights above the middle. Widths: --pedal-w × the Pedal width setting, --shift-w. */
 .drive {
   position: fixed; inset: 0; display: grid; gap: var(--drive-gap); padding: var(--pedal-margin);
-  grid-template-columns: var(--pedal-fr) var(--shift-fr) var(--center-fr) var(--shift-fr) var(--pedal-fr);
+  --pedal-w: calc(var(--pedal-col) * var(--pedal-size, 1));
+  grid-template-columns: var(--pedal-w) var(--shift-w) minmax(0, 1fr) var(--shift-w) var(--pedal-w);
   grid-template-rows: minmax(0, 1fr);
   grid-template-areas: "p1 s1 mid s2 p2";
 }
-.drive.with-dash { grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "rev rev rev rev rev" "p1 s1 mid s2 p2"; row-gap: var(--led-row-gap); }
-.drive.no-shift { grid-template-columns: var(--pedal-fr) calc(var(--center-fr) + 2 * var(--shift-fr)) var(--pedal-fr); grid-template-areas: "p1 mid p2"; }
-.drive.no-shift.with-dash { grid-template-areas: "rev rev rev" "p1 mid p2"; }
-.drive > .center { grid-area: mid; }
+.drive.with-dash { grid-template-rows: var(--led-h) minmax(0, 1fr); grid-template-areas: "p1 rev rev rev p2" "p1 s1 mid s2 p2"; }
+.drive.no-shift { grid-template-columns: var(--pedal-w) minmax(0, 1fr) var(--pedal-w); grid-template-areas: "p1 mid p2"; }
+.drive.no-shift.with-dash { grid-template-areas: "p1 rev p2" "p1 mid p2"; }
 /* each element's box (data-slot): the pedals and shift keys fill theirs */
-.drive > .slot { position: relative; min-width: 0; min-height: 0; }
+.drive .slot { position: relative; min-width: 0; min-height: 0; }
 .slot > .pedal, .slot > .shift { position: absolute; inset: 0; }
+
+/* the face: PIT buttons | screen | RACE buttons, the ECU map row under */
+.face { display: grid; grid-template-columns: var(--cluster-w) minmax(0, 1fr) var(--cluster-w); grid-template-rows: minmax(0, 1fr);
+  gap: var(--gap); min-width: 0; min-height: 0; }
+.face.with-maps { grid-template-rows: minmax(0, 1fr) var(--maprow-h); }
+.face > .maps { grid-column: 1 / -1; }
+.face > [data-slot="screen"] { display: grid; }
 
 /* your own layout (Layout → Move and resize): every box placed by itself, its contents filling it */
 .drive.free { display: block; padding: 0; }
 .drive.free > .slot { position: absolute; display: grid; place-items: center; container-type: size; }
-.drive.free > .slot > .revstrip { width: 100%; height: 100%; --led-h: 100%; --led-w: calc((100cqw - 14 * var(--led-gap)) / 15); }
-.drive.free > .slot > .auxbtn { width: 100%; height: 100%; font-size: min(40cqh, 26cqw); }
+.drive.free > .slot > .revstrip, .drive.free > .slot > .revrow { width: 100%; height: 100%; --led-h: 100%; --led-w: calc((100cqw - 14 * var(--led-gap)) / 15); }
+.drive.free > .slot > .revrow { --led-w: calc((100cqw - 40px - 14 * var(--led-gap)) / 15); }
+.drive.free > .slot > .auxbtn { width: 100%; height: 100%; font-size: min(36cqh, 26cqw); border-radius: min(50cqh, 50cqw); }
 .drive.free > .slot > button.round { width: 100%; height: 100%; border-radius: 999px; font-size: min(45cqh, 45cqw); }
 .drive.free > .slot > button.round .wheel { width: auto; height: 80%; aspect-ratio: 1; }
-.drive.free > .slot .gear { font-size: min(62cqh, 80cqw); }
-.drive.free > .slot .kmh { font-size: min(16cqh, 18cqw); }
-.drive.free > .slot .queued { font-size: min(12cqh, 14cqw); }
-.drive.free > .slot > .conn { width: 100%; }
+.drive.free > .slot > .wscreen, .drive.free > .slot > .maprow { width: 100%; height: 100%; }
 
-/* the middle column: gear + speed at the top, the extra buttons under it, the small round buttons at the bottom */
-.center { display: flex; flex-direction: column; align-items: center; gap: var(--gap); min-width: 0; min-height: 0; overflow: hidden; }
-.drive .dash { display: grid; justify-items: center; line-height: 1; position: relative; }
-.drive .gear { font: 800 var(--gear-size) / 1 var(--font); font-variant-numeric: tabular-nums; }
-.drive .kmh { font-size: var(--text-m); color: var(--muted); font-variant-numeric: tabular-nums; min-height: 1.2em; margin-top: 2px; }
-/* a downshift waiting for the revs: beside the gear, so it takes no line of its own (room for the ECU display) */
-.drive .queued { position: absolute; left: 100%; top: 0.3em; white-space: nowrap; font-size: var(--text-s); font-weight: 800; color: var(--accent); }
-/* the ECU display (Parts.tsx EcuReadout): rpm, the map (A / M) + battery %, the battery as a thin bar */
-.drive .ecu { display: grid; justify-items: center; gap: 1px; margin-top: -8px; line-height: 1.05; font-variant-numeric: tabular-nums; font-size: var(--text-s); }
-.drive .ecu[hidden] { display: none; }
-.drive .ecu .rpm { color: var(--muted); }
-.drive .ecu .ecu-row { display: flex; gap: 6px; }
-.drive .ecu .ecu-map { font-weight: 800; letter-spacing: .06em; color: var(--text); }
-.drive .ecu .ecu-map[data-map="harvest"] { color: #3fa9ff; }
-.drive .ecu .ecu-map[data-map="attack"] { color: #ffd21f; }
-.drive .ecu .ecu-map[data-map="quali"] { color: #b46cff; }
-.drive .ecu .ecu-pct { color: var(--muted); }
-.drive .ecu .ecu-bat { display: block; width: 100%; min-width: 60px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.14); overflow: hidden; }
-.drive .ecu .ecu-bat b { display: block; height: 100%; width: 0; background: var(--good, #36d27f); }
-.drive .ecu[data-flow="out"] .ecu-bat b { background: #ffd21f; }
-.drive .ecu[data-flow="in"] .ecu-bat b { background: #3fa9ff; }
-.drive.free > .slot > .ecu { font-size: min(14cqh, 12cqw); }
-.drive .conn { font-size: var(--text-s); color: var(--muted); text-align: center; padding: 8px 0; }
-.drive .conn.bad { color: var(--brake); }
-.center .aux { flex: 1 1 auto; align-content: center; display: grid; grid-template-columns: repeat(auto-fit, minmax(min-content, 1fr)); justify-items: center; }
-/* more than two extra buttons: small ones, two to a row */
-.center.crowded .aux { grid-template-columns: repeat(2, auto); }
-.center.crowded .auxbtn { height: var(--aux-size-s); width: calc(var(--aux-size-s) * 1.2); font-size: 15px; }
-.center .rounds { display: grid; grid-template-columns: repeat(2, auto); gap: var(--gap); margin-top: auto; }
+/* the small round buttons (wheel = centre the steering, settings, reconnect, full screen) */
 .drive button.round { width: var(--round-size); height: var(--round-size); border-radius: 50%; padding: 0; font-size: var(--icon-size);
   display: grid; place-items: center; flex-shrink: 0; position: relative; }
 .drive button.round svg { vertical-align: 0; }
-.drive button.round .q { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.drive button.round .q { position: absolute; top: 2px; right: 2px; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
 .drive button.round .q.good { background: var(--good); } .drive button.round .q.fair { background: var(--fair); }
 .drive button.round .q.poor, .drive button.round .q.stalled { background: var(--poor); }
 .wheel-btn { background: none; border: none; padding: 0; border-radius: 50%; }
 .wheel { width: 80%; height: 80%; color: var(--text); transition: transform .03s linear; display: block; }
 .wheel-btn.centred .wheel { color: var(--accent); }
-.wheel.lock { color: var(--brake); }   /* at full lock (Center.tsx) */
+.wheel.lock { color: var(--brake); }   /* at full lock (WheelFace.tsx) */

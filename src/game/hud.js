@@ -43,8 +43,10 @@ export const Hud = (() => {
     return left > 0 ? fmtClock(left) + ' LEFT' : 'FINAL LAP';
   }
 
+  let lastDelta = null;
   return {
     flash, toast, radio,
+    get delta() { return lastDelta; },          // (the phone wheel's screen)
     // fades out flash/toast on real time
     tick(dt) {
       if (msgTimer > 0 && (msgTimer -= dt) <= 0) $('msg').classList.remove('show');
@@ -74,6 +76,7 @@ export const Hud = (() => {
     },
     // time trial: your lap time minus the ghost's at the same point (+ = slower; null = no ghost / before the first split)
     setDelta(d, on) {
+      lastDelta = on && Number.isFinite(d) ? d : null;
       setOnce('deltaOn', on, v => { $('tDelta').hidden = $('deltaLbl').hidden = !v; });
       const t = d === null || d === undefined ? '–' : (d > 0 ? '+' : d < 0 ? '−' : '±') + Math.abs(d).toFixed(2);
       setOnce('deltaTxt', t, v => { $('tDelta').textContent = v; $('tDelta').className = 'num ' + (d > 0.005 ? 'slower' : d < -0.005 ? 'faster' : ''); });

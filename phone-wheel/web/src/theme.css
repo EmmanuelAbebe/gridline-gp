@@ -27,24 +27,30 @@
   /* shapes */
   --radius-s: 10px;
   --radius-m: 12px;
-  --radius-l: 22px;         /* pedals */
+  --radius-l: 8px;          /* pedals, shift keys (22 until the race wheel, 2026-10-31) */
   --border: 1px;
-  --pedal-border: 2px;
+  --pedal-border: 0px;      /* (the race wheel: flat, no borders) */
 
   /* spacing */
   --gap: 8px;
   --pedal-margin: 14px;
 
-  /* driving screen: brake | upshift | middle | downshift | gas (widths as shares; pedals × the Pedal width setting) */
+  /* driving screen: brake | upshift | the wheel face | downshift | gas (the race wheel: widths below) */
   --shift: var(--accent);   /* shift key colour */
-  --shift-fr: 1fr;
-  --center-fr: .8fr;
   --drive-gap: 10px;        /* between the columns */
-  --pedal-depth: 12px;      /* how thick a pedal looks = how far its face sinks at full press */
-  --shift-depth: 8px;
+  --pedal-depth: 0px;       /* how thick a pedal looks = how far its face sinks at full press (flat since the race wheel) */
+  --shift-depth: 0px;
   --shift-arrow: 34px;
   --round-size: 44px;       /* settings / reconnect buttons */
-  --gear-size: min(22vh, 9vw);   /* the game's gear at the top of the middle column */
+  /* the race wheel (Drive.tsx, WheelFace.tsx) */
+  --pedal-col: 17.8vw;      /* a pedal's width (× the Pedal width setting) */
+  --shift-w: 6.9vw;
+  --cluster-w: 62px;        /* the PIT / RACE button columns */
+  --clu-btn: min(54px, 13vh); --clu-btn-s: min(44px, 11vh); --clu-btn-l: min(60px, 14vh);
+  --util-size: 28px;        /* the small round buttons under the clusters */
+  --maprow-h: min(12vh, 46px);
+  --screen: #07090c;        /* the wheel's screen */
+  --screen-font: 'DM Sans', var(--font);
   /* the rev lights along the top (RevStrip) */
   --led-g: #2bd96b; --led-r: #ff3b3b; --led-b: #3d8bff; --led-off: #23272f;
   --led-w: min(4.2vw, 34px); --led-h: min(3.2vh, 14px); --led-gap: min(1.4vw, 12px); --led-row-gap: 6px;

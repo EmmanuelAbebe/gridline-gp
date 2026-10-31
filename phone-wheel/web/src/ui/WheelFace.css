@@ -1,0 +1,43 @@
+/* The race wheel's face (WheelFace.tsx). The screen is a size container: its text scales with its box (also in your own
+   layout). Map colours as the game's HUD: HARVEST blue, ATTACK yellow, QUALI purple. */
+.wscreen { container-type: size; box-sizing: border-box; width: 100%; height: 100%; min-width: 0; background: var(--screen); border-radius: 14px;
+  padding: min(4cqh, 12px) min(5cqw, 14px); display: flex; flex-direction: column; gap: min(2cqh, 6px); font-variant-numeric: tabular-nums;
+  font-family: var(--screen-font); overflow: hidden; }
+.wscreen .ers { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--muted); }
+.wscreen .ers .bar { flex: 1; height: 6px; border-radius: 3px; background: var(--led-off); overflow: hidden; display: block; }
+.wscreen .ers .bar b { display: block; height: 100%; width: 0; background: var(--good); }
+.wscreen .ers .bar b[data-flow="out"] { background: #ffd21f; }
+.wscreen .ers .bar b[data-flow="in"] { background: #3fa9ff; }
+.wscreen .info { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--text-s); color: var(--muted); min-height: 1.3em; }
+.wscreen .info b { font-size: 15px; color: var(--text); }
+.wscreen .info .delta.faster { color: var(--good); } .wscreen .info .delta.slower { color: var(--brake); }
+.wscreen .gearbox { flex: 1; min-height: 0; display: grid; place-items: center; position: relative; }
+.wscreen .gear { font-weight: 800; font-size: min(46cqh, 52cqw); line-height: .82; }
+.wscreen .queued { position: absolute; right: 8%; top: 10%; font-size: var(--text-m); font-weight: 800; color: var(--accent); }
+.wscreen .status { flex: 1; display: grid; place-items: center; text-align: center; font-size: var(--text-m); color: var(--muted); }
+.wscreen .status.bad { color: var(--brake); }
+.wscreen .speed, .wscreen .rpm { display: flex; justify-content: center; align-items: baseline; gap: 4px; color: var(--muted); }
+.wscreen .speed b { font-size: min(9cqh, 22px); color: var(--text); }
+.wscreen .speed span { font-size: 11px; }
+.wscreen .rpm { margin-top: -4px; }
+.wscreen .rpm b { font-size: min(6cqh, 14px); font-weight: 600; color: #c4c9d2; }
+.wscreen .rpm span { font-size: 10px; }
+
+/* the ECU map row: 4 maps + A / M */
+.maprow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) var(--maprow-h); gap: 6px; height: 100%; }
+.maprow button { padding: 0; border-radius: 10px; border: 2px solid var(--line); background: var(--bg); color: var(--muted);
+  font: 800 12px var(--screen-font); letter-spacing: .06em; min-width: 0; }
+.maprow button.on { background: var(--panel); color: var(--text); border-color: var(--text); }
+.maprow button.on[data-map="harvest"] { color: #3fa9ff; border-color: #3fa9ff; }
+.maprow button.on[data-map="attack"] { color: #ffd21f; border-color: #ffd21f; }
+.maprow button.on[data-map="quali"] { color: #b46cff; border-color: #b46cff; }
+.maprow .am { font-size: 18px; border-color: var(--accent); color: var(--accent); background: var(--panel); }
+.maprow .am.on { background: var(--accent); color: var(--accent-ink); }
+
+/* the button clusters beside the screen */
+.cluster { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; min-height: 0; }
+.cluster-name { font-size: 10px; font-weight: 800; letter-spacing: .18em; color: var(--muted); }
+.drive .cluster .auxbtn { width: var(--clu-btn); height: var(--clu-btn); border-radius: 50%; padding: 0; font: 800 12px var(--screen-font); letter-spacing: .04em; }
+.drive.size-s .cluster .auxbtn { --clu-btn: var(--clu-btn-s); } .drive.size-l .cluster .auxbtn { --clu-btn: var(--clu-btn-l); font-size: 14px; }
+.cluster .utils { display: flex; gap: 4px; margin-top: 4px; }
+.cluster .utils button.round { width: var(--util-size); height: var(--util-size); font-size: 14px; }

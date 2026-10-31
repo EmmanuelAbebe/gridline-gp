@@ -1,14 +1,25 @@
-/* The layout editor: a box over every element, a bar with the buttons */
+/* The layout editor: a box over every element, group frames, guide lines, a bar with the tools */
 .layout-editor { position: fixed; inset: 0; z-index: 30; touch-action: none; background: color-mix(in srgb, var(--bg) 35%, transparent); }
+.layout-editor.grid { background-image: radial-gradient(circle, color-mix(in srgb, var(--muted) 45%, transparent) 1px, transparent 1.3px); background-size: 8px 8px; }
 .ed-box { position: absolute; box-sizing: border-box; border: 2px dashed color-mix(in srgb, var(--accent) 70%, transparent); border-radius: var(--radius-s);
-  background: color-mix(in srgb, var(--accent) 8%, transparent); display: grid; place-items: center; overflow: hidden; touch-action: none; cursor: move; }
-.ed-box.sel { border-style: solid; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); z-index: 1; }
+  background: color-mix(in srgb, var(--accent) 8%, transparent); display: grid; place-items: center; overflow: visible; touch-action: none; cursor: move; }
+.ed-box.sel { border-style: solid; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); z-index: 1;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
 .ed-label { font-size: var(--text-s); font-weight: 800; letter-spacing: .08em; color: var(--text); background: color-mix(in srgb, var(--bg) 75%, transparent);
-  padding: 2px 6px; border-radius: 6px; pointer-events: none; white-space: nowrap; }
-.ed-size { position: absolute; right: 0; bottom: 0; width: 26px; height: 26px; cursor: nwse-resize; touch-action: none;
-  background: linear-gradient(135deg, transparent 50%, var(--accent) 50%); border-bottom-right-radius: var(--radius-s); }
-.ed-bar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2; display: flex; gap: var(--gap); align-items: center;
-  background: var(--panel); border: var(--border) solid var(--line); border-radius: var(--radius-m); padding: 6px 8px; box-shadow: 0 6px 24px #0008; max-width: calc(100vw - 16px); }
-.ed-bar.down { top: auto; bottom: 8px; }
-.ed-info { font-size: var(--text-s); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; padding: 0 4px; }
-.ed-bar button { flex-shrink: 0; }
+  padding: 2px 6px; border-radius: 6px; pointer-events: none; white-space: nowrap; max-width: calc(100% - 4px); overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
+.ed-size { position: absolute; right: -9px; bottom: -9px; width: 22px; height: 22px; border-radius: 50%; cursor: nwse-resize; touch-action: none;
+  background: var(--accent); border: 3px solid var(--bg); }
+.ed-group { position: absolute; box-sizing: border-box; border: 1px dashed var(--accent); border-radius: 14px; pointer-events: none; }
+.ed-group span { position: absolute; top: -8px; left: 8px; padding: 0 5px; background: var(--bg); font-size: 10px; font-weight: 800; letter-spacing: .16em; color: var(--accent); }
+.ed-guide { position: absolute; pointer-events: none; background: #ff4fa3; z-index: 3; }
+.ed-guide.v { top: 0; bottom: 0; width: 1px; } .ed-guide.h { left: 0; right: 0; height: 1px; }
+.ed-guide.mid { background: #b46cff; }
+.ed-bar { position: fixed; top: 6px; left: 50%; transform: translateX(-50%); z-index: 4; display: flex; flex-direction: column; gap: 4px; align-items: stretch;
+  background: var(--panel); border: var(--border) solid var(--line); border-radius: var(--radius-m); padding: 5px 6px; box-shadow: 0 6px 24px #0008;
+  width: max-content; max-width: calc(100vw - 12px); box-sizing: border-box; }
+.ed-bar.down { top: auto; bottom: 6px; }
+.ed-info { font-size: var(--text-s); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+.ed-tools { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; }
+.ed-tools button { flex-shrink: 0; height: 34px; min-width: 34px; padding: 0 7px; font-size: 11px; font-weight: 800; letter-spacing: .03em; border-radius: 8px; }
+.ed-tools button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.ed-tools button:disabled { opacity: .35; }

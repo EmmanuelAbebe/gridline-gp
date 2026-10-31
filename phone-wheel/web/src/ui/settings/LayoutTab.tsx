@@ -7,7 +7,7 @@ export function LayoutTab({ cfg, update, editLayout }: TabProps) {
   const L = cfg.layout;
   return <>
     <h2>Layout</h2>
-    <Field label="Move and resize" hint={L.free ? 'your own layout: the pedal width, swap and shift key side options below don\'t apply to it' : 'drag any element on the driving screen to where you want it, its corner to resize it'}>
+    <Field label="Move and resize" hint={L.free ? 'your own layout: the pedal width, swap and shift key side options below don\'t apply to it' : 'drag any element on the driving screen to where you want it, its corner to resize it; snap, align, group and mirror'}>
       <div className="seg"><button className="primary" onClick={editLayout}>Edit layout</button>
         {L.free && <button onClick={() => update((c) => { c.layout.free = null; })}>Standard</button>}</div>
     </Field>
@@ -21,10 +21,13 @@ export function LayoutTab({ cfg, update, editLayout }: TabProps) {
       onChange={(v) => update((c) => { c.layout.swapShift = v; })} />}
     <Toggle label="Pause when put down" hint="on a table or left alone for 10 s: the phone stops sending and the game pauses until you tap I'M HERE"
       value={L.putDown} onChange={(v) => update((c) => { c.layout.putDown = v; })} />
-    <Toggle label="Rev lights and gear" hint="the game's rev lights along the top, gear and speed in the middle (Gridline GP)" value={L.dash}
+    <Toggle label="Rev lights and screen" hint="the game's rev lights along the top; gear, speed, rpm, place, lap and delta on the screen (Gridline GP)" value={L.dash}
       onChange={(v) => update((c) => { c.layout.dash = v; })} />
-    {L.dash && <Toggle label="ECU display" hint="under the speed: the engine's rpm, the ECU's battery map (A = the ECU picks it, M = you) and the battery (Gridline GP)"
-      value={L.ecu} onChange={(v) => update((c) => { c.layout.ecu = v; })} />}
+    <Toggle label="ECU maps and battery" hint="the battery bar on the screen and the map row under it: tap a map (the game switches to MANUAL), A / M = AUTO / MANUAL (Gridline GP)"
+      value={L.ecu} onChange={(v) => update((c) => { c.layout.ecu = v; })} />
+    <Toggle label="Labels on the pedals" hint="BRAKE / GAS and how they work" value={L.labels.pedals} onChange={(v) => update((c) => { c.layout.labels.pedals = v; })} />
+    <Toggle label="Labels on the shift keys" hint="UP / DOWN under the arrows" value={L.labels.shift} onChange={(v) => update((c) => { c.layout.labels.shift = v; })} />
+    <Toggle label="Labels on the gauges" hint="REV before the rev lights, ERS and the battery % around the battery bar" value={L.labels.gauges} onChange={(v) => update((c) => { c.layout.labels.gauges = v; })} />
     <Toggle label="Show wheel" hint="tap the wheel to set straight ahead" value={L.showWheel} onChange={(v) => update((c) => { c.layout.showWheel = v; })} />
     <Toggle label="Touch vibration" hint="buzz when you press a pedal or button (game feedback: Feedback tab)" value={L.haptics} onChange={(v) => update((c) => { c.layout.haptics = v; })} />
     {L.haptics && <Field label="Test vibration" hint="nothing? Check the phone's own vibration setting"><button onClick={() => buzz([60, 60, 120])}>Buzz</button></Field>}

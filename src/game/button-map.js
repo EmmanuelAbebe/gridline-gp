@@ -52,7 +52,10 @@ export function loadButtonMaps(json) {
   for (const [k, m] of Object.entries(s.devices || {})) if (typeof k === 'string' && m && typeof m === 'object') devices[k] = cleanMap(m);
   return { devices };
 }
-export const mapFor = (store, key) => store.devices[key] || DEFAULT_MAP;
+// the phone wheel's defaults: its LIM and DRS buttons press D-pad down / up (phone-wheel settings.ts DEFAULTS)
+export const PHONE_MAP = Object.freeze({ ...DEFAULT_MAP, aero: [12], limiter: [13] });
+export const defaultFor = key => key === 'phone' ? PHONE_MAP : DEFAULT_MAP;
+export const mapFor = (store, key) => store.devices[key] || defaultFor(key);
 export const isCustom = (store, key) => !!store.devices[key];
 
 // button i now does `action` on that device (taken off any other action; an action keeps its newest MAX_PER_ACTION)

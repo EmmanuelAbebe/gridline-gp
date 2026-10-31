@@ -24,6 +24,9 @@ test('phone messages: clamped, masked, bad ones ignored', () => {
   assert.equal(parseMessage('{"a": 1}').input.a, 1, 'the phone was put down');
   assert.equal(parseMessage('{"a": 9}').input.a, 2);
   assert.equal(parseMessage('{"p": 4}').msg.p, 4);
+  // the screen's ECU taps: a map 0..3 or AUTO 4 / MANUAL 5, with a sequence number; anything else is dropped
+  assert.deepEqual(parseMessage(JSON.stringify({ e: 2, eq: 17 })).input, { s: 0, g: 0, b: 0, k: 0, a: 0, e: 2, eq: 17 });
+  for (const e of [{ e: 6, eq: 1 }, { e: 1.5, eq: 1 }, { e: 1, eq: 0 }, { e: 1 }, { e: '2', eq: 'x' }]) assert.equal(parseMessage(JSON.stringify(e)).input.e, undefined, JSON.stringify(e));
   for (const bad of ['not json', '{"s": "left"}', '{"k": null}', '[1, 2]', '42', 'null']) assert.equal(parseMessage(bad), null, bad);
 });
 

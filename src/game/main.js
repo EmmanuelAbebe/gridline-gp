@@ -337,10 +337,10 @@ function simStep(dt) {
     else if (c.player && !c.finished) {
       // (quantised before the car gets them, and recorded: the replay feeds the car the very same numbers)
       const drive = game.botInput ? game.botInput(c) : Input.drive;          // (gridlineDebug.botDrive: a test driver on your controls)
-      const inp = SIM.quantizeInput({ ...drive, brk: drive.brk * game.prefs.brakeForce / 100, steerRate: game.steerRate, calm: game.prefs.calm / 100, speedSteer: game.prefs.speedSteer === 'on' ? SIM.ASSISTS.medium.steer : 0, shift: game.pendingShift, boost: game.pendingBoost, aero: game.pendingAero, limiter: game.pendingLimiter, map: game.pendingMap });
+      const inp = SIM.quantizeInput({ ...drive, brk: drive.brk * game.prefs.brakeForce / 100, steerRate: game.steerRate, calm: game.prefs.calm / 100, speedSteer: game.prefs.speedSteer === 'on' ? SIM.ASSISTS.medium.steer : 0, shift: game.pendingShift, boost: game.pendingBoost, aero: game.pendingAero, limiter: game.pendingLimiter, map: Math.sign(game.pendingMap) });
       game.replayRec?.step(c, inp);
       SIM.drivePlayer(race, c, inp, dt);
-      game.pendingShift = game.pendingMap = 0; game.pendingBoost = game.pendingAero = game.pendingLimiter = false; }
+      game.pendingShift = 0; game.pendingMap -= Math.sign(game.pendingMap); game.pendingBoost = game.pendingAero = game.pendingLimiter = false; }
     else SIM.driveAI(race, c, dt, c.finished ? CONFIG.finishedAiSkill : 0);
   }
   SIM.collide(race);
@@ -541,6 +541,15 @@ function requestMap(d) {
   if (!racing() || !p || p.finished) return;
   if (p.ecuMode !== 'manual') showMessage(SAY.ecuAuto); else game.pendingMap = d;
 }
+// the phone wheel's map row (PhoneWheel 'ecu'): 0..3 = that map (a tap while on AUTO switches to MANUAL), 'auto' / 'manual'
+PhoneWheel.on('ecu', cmd => {
+  const p = game.player;
+  if (cmd === 'auto' || cmd === 'manual') { setDriving('ecu', cmd); showMessage({ toast: `ECU maps ${cmd.toUpperCase()}`, secs: 1.5 }); return; }
+  if (!racing() || !p || p.finished) return;
+  if (p.ecuMode !== 'manual') setDriving('ecu', 'manual');
+  const n = SIM.ECU.maps.length, up = ((cmd - p.ecuMap) % n + n) % n;
+  game.pendingMap = up <= n / 2 ? up : up - n;            // the shorter way round, one map per sim step
+});
 Input.on('gesture', Sound.init);
 Input.on('padchange', (on, label) => { Hud.setPad(on, Input.gamepadAllowed); if (on && game.phase !== PHASE.MENU) showMessage({ toast: `${label} connected` }); });
 
@@ -650,10 +659,13 @@ function renderFrame(dt) {
 
   const drive = Input.drive, onLights = game.phase === PHASE.LIGHTS;
   const gi = dashGear(player, onLights, drive.thr);
-  // (+ the ECU: n rpm, e map index (−1 none), m 'A' / 'M', b battery %, k −1 harvesting / 0 / 1 deploying)
+  // (+ the ECU: n rpm, e map index (−1 none), m 'A' / 'M', b battery %, k −1 harvesting / 0 / 1 deploying; the screen:
+  // p position, l lap, t laps (0 = no lap count), d delta s (time trial; absent = none))
   phoneDash.next = { g: gi.gear, q: gi.next ?? 0, r: Math.round(gi.revs * 50) / 50, v: Math.round(SIM.speedOf(player) * 3.6),
     n: Math.round(gi.rpm / 50) * 50, e: player.ecuMode ? player.ecuMap : -1, m: player.ecuMode === 'manual' ? 'M' : 'A',
-    b: Math.round(player.soc / SIM.ERS.store * 100), k: player.ersKw > 5 ? 1 : player.ersKw < -5 ? -1 : 0 };
+    b: Math.round(player.soc / SIM.ERS.store * 100), k: player.ersKw > 5 ? 1 : player.ersKw < -5 ? -1 : 0,
+    p: SIM.order(race).indexOf(player) + 1, l: Math.max(1, Math.min(player.lap, race.laps)), t: race.laps < Infinity ? race.laps : 0,
+    ...(Hud.delta !== null ? { d: Math.round(Hud.delta * 1000) / 1000 } : {}) };
   Hud.updateDash({
     kmh: Math.round(SIM.speedOf(player) * 3.6), rpm: Math.round(gi.rpm / 50) * 50, gear: gi.gear, gearNext: gi.next, revs: gi.revs, slip: onLights ? 0 : player.slip,
     steer: player.finished ? 0 : player.steer, steerIn: player.finished ? 0 : player.steerIn, thr: drive.thr, brk: drive.brk,
