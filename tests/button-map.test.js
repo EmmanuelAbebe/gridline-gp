@@ -11,6 +11,7 @@ test('button maps: the defaults are the old fixed layout, every action listed, n
   assert.equal(actionOf(DEFAULT_MAP, 8), 'boost');
   assert.equal(actionOf(DEFAULT_MAP, 0), 'shiftDown');
   assert.equal(actionOf(DEFAULT_MAP, 6), null);
+  assert.equal(actionOf(DEFAULT_MAP, 16), 'mapUp');             // Guide: the phone's MAP button
   assert.equal(buttonName(8), 'View');
   assert.equal(mapFor(loadButtonMaps(null), 'phone'), DEFAULT_MAP);
 });

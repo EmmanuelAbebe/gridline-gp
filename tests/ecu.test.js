@@ -48,17 +48,17 @@ test('the ECU learns where the driver lifts, and only ever stops deploying earli
   assert.ok(earlier > 0, 'the driver\'s own lifts add cut points');
 });
 
-test('MANUAL: the map buttons step through the maps, stop at the ends and say so', () => {
+test('MANUAL: the map buttons step round the maps (QUALI → HARVEST) and say so', () => {
   const T = trackOf('elkmoor'), race = S.createRace(3, { track: T, drivers: [S.DRIVERS.find(d => d.player)], seed: 1 });
   const c = race.cars[0]; c.ecuMode = 'manual';
   const seen = [];
   const press = map => { race.t += DT; S.drivePlayer(race, c, S.quantizeInput({ steer: 0, thr: 1, brk: 0, map }), DT); seen.push(...c.events.filter(e => e.type === S.EV.ECU)); c.events.length = 0; };
   assert.equal(c.ecuMap, idOf('balanced'));
   press(1); press(0); press(1); press(1);
-  assert.equal(c.ecuMap, idOf('quali'));
-  assert.deepEqual(seen.map(e => [e.map, e.end]), [['ATTACK', false], ['QUALI', false], ['QUALI', true]]);
-  for (let k = 0; k < 6; k++) press(-1);
   assert.equal(c.ecuMap, idOf('harvest'));
+  assert.deepEqual(seen.map(e => e.map), ['ATTACK', 'QUALI', 'HARVEST']);
+  press(-1);
+  assert.equal(c.ecuMap, idOf('quali'));
 });
 
 test('AUTO: HARVEST when the battery runs low, back to BALANCED once refilled, QUALI on the last lap', () => {

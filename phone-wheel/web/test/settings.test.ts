@@ -71,13 +71,16 @@ test('tilt: turning the wheel past 90° and 135° keeps turning the same way, ev
   for (let k = 0; k < 200; k++) assert.ok(Math.abs(Math.abs(tiltDegrees(-1, 0, 270)) - 180) < 1e-6);
 });
 
-test('older stores get the REAR (look back) button once; removing it sticks', () => {
+test('older stores get the REAR (look back) and MAP (ECU map) buttons once; removing them sticks', () => {
   const old = JSON.stringify({ active: 'A', profiles: { A: { buttons: [{ label: 'BOX', bind: 'X' }] } } });
   const s = loadStore(old);
-  assert.deepEqual(s.profiles.A.buttons.map((b) => b.bind), ['X', 'RS']);
-  s.profiles.A.buttons.pop();
+  assert.deepEqual(s.profiles.A.buttons.map((b) => b.bind), ['X', 'RS', 'GUIDE']);
+  s.profiles.A.buttons.pop(); s.profiles.A.buttons.pop();
   assert.deepEqual(loadStore(JSON.stringify(s)).profiles.A.buttons.map((b) => b.bind), ['X'], 'not added again');
-  assert.deepEqual(loadStore(null).profiles.Default.buttons.map((b) => b.label), ['BOX', 'REAR']);
+  // a v2 store (REAR already offered) only gets MAP
+  const v2 = JSON.stringify({ v: 2, active: 'A', profiles: { A: { buttons: [{ label: 'BOX', bind: 'X' }] } } });
+  assert.deepEqual(loadStore(v2).profiles.A.buttons.map((b) => b.bind), ['X', 'GUIDE']);
+  assert.deepEqual(loadStore(null).profiles.Default.buttons.map((b) => b.label), ['BOX', 'REAR', 'MAP']);
 });
 
 test('your own layout: boxes stay on the screen and keep a usable size; anything malformed is dropped', () => {

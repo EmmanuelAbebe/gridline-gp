@@ -6,7 +6,6 @@
 // button was pressed); AUTO: the ECU picks one from the battery and the cars around. Called from chassis.js before the
 // drivetrain, so a test bot driving the car gets it too.
 import { ECU, ERS, EV } from './tuning.js';
-import { clamp } from './math.js';
 import { gapAhead } from './active-aero.js';
 import { emit } from './events.js';
 /** @typedef {import('./types.js').Car} Car */
@@ -71,8 +70,9 @@ export function updateEcu(race, c, inp) {
   if (thr < L.lift && !c.ecuBraking) { c.ecuBraking = true; if (c.v > L.minSpeed && !c.pit) c.ecuStarts.push(c.idx); }
   else if (thr >= L.full) c.ecuBraking = false;
   const was = c.ecuMap;
-  if (c.ecuMode === 'manual') { if (inp.map) c.ecuMap = clamp(c.ecuMap + Math.sign(inp.map), 0, ECU.maps.length - 1); }
+  // (round and round: one button is enough, QUALI → HARVEST; 2026-10-31, user's phone has one M button)
+  const n = ECU.maps.length;
+  if (c.ecuMode === 'manual') { if (inp.map) c.ecuMap = (c.ecuMap + Math.sign(inp.map) + n) % n; }
   else { const id = autoMap(race, c); c.ecuMap = ECU.maps.findIndex(m => m.id === id); }
-  if (c.ecuMap !== was || (inp.map && c.ecuMode === 'manual'))
-    emit(c, EV.ECU, { map: ECU.maps[c.ecuMap].name, auto: c.ecuMode === 'auto', press: !!inp.map, end: c.ecuMap === was });
+  if (c.ecuMap !== was) emit(c, EV.ECU, { map: ECU.maps[c.ecuMap].name, auto: c.ecuMode === 'auto', press: !!inp.map });
 }

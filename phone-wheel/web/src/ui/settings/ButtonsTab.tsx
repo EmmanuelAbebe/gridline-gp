@@ -1,4 +1,4 @@
-import { BUTTONS, KEYBOARD_KEYS, MAX_BUTTONS, type ButtonCfg, type ButtonId } from '../../settings/settings.ts';
+import { BUTTONS, KEYBOARD_KEYS, MAP_BUTTON, MAX_BUTTONS, type ButtonCfg, type ButtonId } from '../../settings/settings.ts';
 import type { TabProps } from './Settings.tsx';
 
 export function ButtonsTab({ cfg, update }: TabProps) {
@@ -9,10 +9,12 @@ export function ButtonsTab({ cfg, update }: TabProps) {
     const used = new Set(c.buttons.map((b) => b.bind)), free = BUTTONS.find(([id]) => !used.has(id)) ?? BUTTONS[0];
     c.buttons.push({ label: String(c.buttons.length + 1), bind: free[0], toggle: false });
   });
+  const addMap = () => update((c) => { c.buttons.push({ ...MAP_BUTTON }); });
   return <>
     <h2>Buttons</h2>
     <p className="note">Each on-screen button presses a controller button. In Gridline GP: A / B shift down / up while racing, X boxes,
-      Y changes camera, View (Back) is overtake mode. In keyboard mode (server.py) A…RS press the keys {KEYBOARD_KEYS.split('').join(' ')}.</p>
+      Y changes camera, View (Back) is overtake mode, Guide (MAP) steps round the ECU maps (the game's ECU maps on MANUAL); the game's
+      Settings → Buttons can change any of them. In keyboard mode (server.py) A…RS press the keys {KEYBOARD_KEYS.split('').join(' ')}.</p>
     {list.map((b, i) => (
       <div className="btnrow" key={i}>
         <input className="text" maxLength={4} value={b.label} onChange={(e) => edit(i, { label: e.target.value })} aria-label="Label" />
@@ -24,5 +26,6 @@ export function ButtonsTab({ cfg, update }: TabProps) {
       </div>
     ))}
     {list.length < MAX_BUTTONS && <button onClick={add}>+ Add button</button>}
+    {list.length < MAX_BUTTONS && !list.some((b) => b.bind === 'GUIDE') && <button onClick={addMap}>+ MAP button (ECU map)</button>}
   </>;
 }

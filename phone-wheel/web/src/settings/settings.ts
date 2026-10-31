@@ -34,14 +34,16 @@ export interface FeedbackCfg { on: boolean; strength: number; hits: boolean; ker
 export interface Config { steer: SteerCfg; gas: PedalCfg; brake: PedalCfg; buttons: ButtonCfg[]; flick: FlickCfg; layout: LayoutCfg; feedback: FeedbackCfg }
 // v: store format; 2 (2026-10-21) = profiles have been given the REAR (look back) button once
 export interface Store { active: string; profiles: Record<string, Config>; v?: number }
-export const STORE_VERSION = 2;
+export const STORE_VERSION = 3;
+// the ECU map button (Gridline GP: Guide = ECU map up, round the maps; 2026-10-31)
+export const MAP_BUTTON: ButtonCfg = { label: 'MAP', bind: 'GUIDE', toggle: false };
 
 export const DEFAULTS: Config = {
   steer: { sensitivity: 40, smoothing: 20, deadzone: 0, curve: 1, invert: false },
   gas: { mode: 'ramp', rampTime: 1.5, min: 0.2, curve: 1, max: 1 },
   brake: { mode: 'ramp', rampTime: 1.5, min: 0.2, curve: 1, max: 1 },
-  // Gridline GP: X = box this lap, RS (held) = look back (shifting has its own keys)
-  buttons: [{ label: 'BOX', bind: 'X', toggle: false }, { label: 'REAR', bind: 'RS', toggle: false }],
+  // Gridline GP: X = box this lap, RS (held) = look back, Guide = the next ECU map (shifting has its own keys)
+  buttons: [{ label: 'BOX', bind: 'X', toggle: false }, { label: 'REAR', bind: 'RS', toggle: false }, { label: 'MAP', bind: 'GUIDE', toggle: false }],
   // flick a thumb sideways toward the screen centre while on a pedal to shift: brake = down, gas = up
   // (`distance` px within `time` ms, mostly sideways); each flick taps the bound button once
   flick: { on: true, distance: 40, time: 160, down: 'LB', up: 'RB' },
@@ -148,6 +150,9 @@ export function loadStore(raw: string | null = readStorage(STORE_KEY)): Store {
   // older stores: add the REAR button to every profile that has room and doesn't use RS yet (once; removing it sticks)
   if (!(Number(data?.v) >= 2)) for (const c of Object.values(profiles))
     if (c.buttons.length < MAX_BUTTONS && !c.buttons.some((b) => b.bind === 'RS')) c.buttons.push({ label: 'REAR', bind: 'RS', toggle: false });
+  // and the MAP button (v3), the same way
+  if (!(Number(data?.v) >= 3)) for (const c of Object.values(profiles))
+    if (c.buttons.length < MAX_BUTTONS && !c.buttons.some((b) => b.bind === 'GUIDE')) c.buttons.push({ ...MAP_BUTTON });
   const names = Object.keys(profiles);
   if (names.length) return { active: typeof data?.active === 'string' && profiles[data.active] ? data.active : names[0], profiles, v: STORE_VERSION };
   return { active: 'Default', profiles: { Default: sanitize(clone(DEFAULTS)) }, v: STORE_VERSION };
