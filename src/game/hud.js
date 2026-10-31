@@ -56,8 +56,9 @@ export const Hud = (() => {
     setLapTimes(last, best, lastInvalid = false) { $('tLast').textContent = fmtTime(last); $('tLast').classList.toggle('invalid', lastInvalid); $('tBest').textContent = fmtTime(best); },
     // revs: rev-light fraction 0..1 (all lit = shift); slip: slipstream strength 0..1; dirt: tyre dirt 0..1
     // gearNext: the gear a waiting manual downshift will drop to (shown in the gear label), or null
-    updateDash({ kmh, gear, gearNext = null, revs, steer, steerIn, thr, brk, lapTime, slip = 0, lapInvalid = false, dirt = 0 }) {
+    updateDash({ kmh, rpm = 0, gear, gearNext = null, revs, steer, steerIn, thr, brk, lapTime, slip = 0, lapInvalid = false, dirt = 0 }) {
       setText('spd', kmh);
+      setText('rpmNum', rpm.toLocaleString('en-GB'));          // the engine's rpm under the speed
       setText('gear', gear);
       setOnce('gearNext', gearNext, n => { $('gearLbl').textContent = n ? '▼ ' + n : 'Gear'; $('gearLbl').classList.toggle('queued', !!n); });
       setOnce('revs', Math.round(revs * REV_LEDS), n => revEls.forEach((s, i) => s.classList.toggle('on', i < n)));
@@ -137,6 +138,9 @@ export const Hud = (() => {
       const soc = Math.round(c.soc / SIM.ERS.store * 100), ers = c.ersKw > 5 ? 'out' : c.ersKw < -5 ? 'in' : '';
       setOnce('ersPct', soc, v => { $('ersPct').textContent = v + '%'; $('ersFill').style.width = v + '%'; });
       setOnce('ersFlow', ers, k => { $('ers').className = k; });
+      // the ECU map (SIM ecu.js): its name, A = picked by the ECU, M = yours
+      const ecu = c.ecuMode ? SIM.ECU.maps[c.ecuMap].name + (c.ecuMode === 'auto' ? ' · A' : ' · M') : '';
+      setOnce('ecuTxt', ecu, t => { $('ecuMap').textContent = t; $('ecuMap').hidden = !t; $('ecuMap').dataset.map = c.ecuMode ? SIM.ECU.maps[c.ecuMap].id : ''; });
       const pit = c.pit ? (c.pit.phase === 'stop' ? 'PIT STOP' : c.pitLimiter ? 'PIT LIMITER' : c.pit.drive && !c.pit.entered ? 'PIT ENTRY' : 'PIT EXIT')
         : c.pitLimiter ? 'PIT LIMITER' : c.pitRequest ? 'BOX THIS LAP' : '';
       // active aero: straight mode chip (on the button setting: dim = in a zone, yours to open), overtake mode (ready /

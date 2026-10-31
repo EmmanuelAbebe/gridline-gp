@@ -10,7 +10,7 @@ import { ShiftButton } from './ShiftButton.tsx';
 import { Center } from './Center.tsx';
 import { RevStrip } from './RevStrip.tsx';
 import { AuxButton } from './AuxButton.tsx';
-import { DashReadout, FullButton, ReconnectButton, SettingsButton, WheelButton } from './Parts.tsx';
+import { DashReadout, EcuReadout, FullButton, ReconnectButton, SettingsButton, WheelButton } from './Parts.tsx';
 import './Drive.css';
 
 export interface Slot { id: string; label: string; el: ReactNode }
@@ -25,6 +25,7 @@ export function slotsOf(cfg: Config, openSettings: () => void, preview: boolean)
     { id: 'down', label: 'DOWNSHIFT', el: <ShiftButton side="right" dir="down" bind={cfg.flick.down} /> });
   if (L.dash) out.push({ id: 'rev', label: 'REV LIGHTS', el: <RevStrip /> });
   out.push({ id: 'dash', label: L.dash ? 'GEAR' : 'STATUS', el: <DashReadout cfg={cfg} preview={preview} /> });
+  if (L.dash && L.ecu) out.push({ id: 'ecu', label: 'ECU', el: <EcuReadout cfg={cfg} preview={preview} /> });
   cfg.buttons.forEach((b, i) => out.push({ id: `btn${i}`, label: b.label || b.bind, el: <AuxButton key={`${i}-${b.bind}-${b.toggle}`} index={i} btn={b} /> }));
   out.push(
     { id: 'wheel', label: 'WHEEL', el: <WheelButton cfg={cfg} /> },

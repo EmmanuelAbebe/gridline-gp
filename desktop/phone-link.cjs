@@ -246,7 +246,8 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
     const text = JSON.stringify({ fx });
     for (const ws of wss.clients) if (ws.readyState === 1 && ws.bufferedAmount < 4096) ws.send(text);
   }
-  // the dash (2026-10-26): { g gear, q queued downshift, r revs 0..1 (1 = shift now), v km/h } or {} = not driving
+  // the dash (2026-10-26): { g gear, q queued downshift, r revs 0..1 (1 = shift now), v km/h, + the ECU (2026-10-31): n rpm,
+  // e map index (−1 none), m 'A' / 'M', b battery %, k 1 deploying / −1 harvesting } or {} = not driving
   function dash(d) {
     if (!d || typeof d !== 'object') return;
     const text = JSON.stringify({ dash: d });

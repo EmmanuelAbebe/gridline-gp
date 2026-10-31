@@ -38,9 +38,12 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   from the screen (and `layout.quickSliders` from the profile, 2026-10-21); new profiles have one extra button, BOX (X).
 - Driving screen round 2 (2026-10-26; user picked a rev strip from four mock-ups, then: no status line, gear + speed as
   high as possible, the important buttons under them): `RevStrip` = 15 LEDs along the top (green / red / blue, all blue
-  flashing = shift now) from Gridline GP's `{dash: {g, q, r, v}}` (gear, queued downshift, revs 0..1, km/h; {} = not
-  driving; main.js `sendPhoneDash` → preload `phone.dash` → phone-link.cjs `dash`), `engine.dash`; middle column = gear +
-  km/h (or the connection state while nothing comes), the extra buttons, then wheel (tap = centre) / Settings /
+  flashing = shift now) from Gridline GP's `{dash: {g, q, r, v, n, e, m, b, k}}` (gear, queued downshift, revs 0..1, km/h,
+  rpm, ECU map index (engine.ts ECU_MAPS / ECU_SHORT; −1 none), 'A' / 'M' who picks it, battery %, flow 1 deploying / −1
+  harvesting; {} = not driving; main.js `sendPhoneDash` → preload `phone.dash` → phone-link.cjs `dash`), `engine.dash`;
+  middle column = gear + km/h (or the connection state while nothing comes; a queued downshift ▼ n beside the gear), the
+  ECU display (2026-10-31, Parts.tsx `EcuReadout`, Layout → ECU display `layout.ecu`: rpm, short map name · A/M, battery %
+  + a thin bar yellow deploying / blue harvesting; fits a 390 px tall screen), the extra buttons, then wheel (tap = centre) / Settings /
   Reconnect (dot = link quality, details in its title) / full screen. Layout → Rev lights and gear (`layout.dash`).
   The status line is gone. Steering: straight ahead moves only with the Center buttons; the reference direction is
   decided from the first reading and kept (a 90° turn = portrait used to switch the steering round); GravitySensor

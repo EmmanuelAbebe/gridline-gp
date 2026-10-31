@@ -25,7 +25,7 @@ export type ButtonSize = 's' | 'm' | 'l';
 // shiftButtons: the UPSHIFT / DOWNSHIFT keys beside the pedals (they send flick.up / flick.down); swapShift puts
 // upshift beside the gas instead of the brake.
 // putDown: stop sending and ask "are you there?" when the phone is put down flat or dropped (engine/presence.ts)
-export interface LayoutCfg { swapPedals: boolean; pedalSize: number; buttonSize: ButtonSize; showWheel: boolean; haptics: boolean; shiftButtons: boolean; swapShift: boolean; putDown: boolean; dash: boolean; free: FreeLayout | null }
+export interface LayoutCfg { swapPedals: boolean; pedalSize: number; buttonSize: ButtonSize; showWheel: boolean; haptics: boolean; shiftButtons: boolean; swapShift: boolean; putDown: boolean; dash: boolean; ecu: boolean; free: FreeLayout | null }
 // Your own layout (Layout → Move and resize): each element's box as shares of the screen (0..1); null = the standard grid
 export interface Rect { x: number; y: number; w: number; h: number }
 export type FreeLayout = Record<string, Rect>
@@ -45,7 +45,7 @@ export const DEFAULTS: Config = {
   // flick a thumb sideways toward the screen centre while on a pedal to shift: brake = down, gas = up
   // (`distance` px within `time` ms, mostly sideways); each flick taps the bound button once
   flick: { on: true, distance: 40, time: 160, down: 'LB', up: 'RB' },
-  layout: { swapPedals: false, pedalSize: 1, buttonSize: 'm', showWheel: true, haptics: true, shiftButtons: true, swapShift: false, putDown: true, dash: true, free: null },
+  layout: { swapPedals: false, pedalSize: 1, buttonSize: 'm', showWheel: true, haptics: true, shiftButtons: true, swapShift: false, putDown: true, dash: true, ecu: true, free: null },
   feedback: { on: true, strength: 1, hits: true, kerbs: true, offTrack: true, slides: true, shifts: false, lock: true },
 };
 
@@ -118,6 +118,7 @@ export function sanitize(input: unknown): Config {
       haptics: bool(l.haptics, D.layout.haptics),
       shiftButtons: bool(l.shiftButtons, D.layout.shiftButtons),
       dash: bool(l.dash, D.layout.dash),
+      ecu: bool(l.ecu, D.layout.ecu),
       free: freeLayout(l.free),
       swapShift: bool(l.swapShift, D.layout.swapShift),
       putDown: bool(l.putDown, D.layout.putDown),

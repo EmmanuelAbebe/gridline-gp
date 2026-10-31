@@ -290,6 +290,23 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   page's own buttons each send a standard button (phone Settings → Buttons); the game maps those. Smoke test:
   out-buttons.png (the phone's View shows its action, SET + Guide binds straight mode).
 
+## ECU maps (2026-10-31; user: "ECU manual and map control (map similar to aero controls but adaptive to racer style of
+## driving) … the ECU display on the phone-wheel as well as the rpm of the engine under the speedometer")
+- SIM `ecu.js` + `ECU` (tuning.js): car `ecuMode` '' (none: every AI car, deployment = ERS.map exactly: sim-trace
+  identical) / 'auto' / 'manual', `ecuMap` (ECU.maps index: HARVEST, BALANCED = ERS's numbers, ATTACK, QUALI: deploy share,
+  near / far / fade cut before the braking point, part-throttle harvest ×, clipBelow, low), `ecuBrk` = metres to the
+  driver's next lift per sample (learnt: each lap's lifts off full throttle become the next lap's; the ECU cuts at the
+  nearer of those and the track's BRK: learnt-only emptied the battery), `ecuStarts`, `ecuLap`, `ecuBraking`. `updateEcu`
+  in chassis.js before the drivetrain (test bots get it too); vehicle.js `ers` takes the map's low / clipBelow / part.
+  MANUAL: `inp.map` ±1 (replay flags 32 / 64; `ecuMode` in replay FLAGS); AUTO: last lap of a race QUALI (> 15 %), HARVEST
+  < 30 % until 55 %, ATTACK within 1.0 s of the car ahead / 0.8 s behind (`gapBehind`) with > 40 %, else BALANCED. EV.ECU
+  {map, auto, press, end}. Measured (VOS solo): BALANCED = no ECU to the ms; HARVEST +0.2 s a lap, battery fills; ATTACK
+  −0.1…0.4, QUALI −0.4…0.6 s a lap while it lasts. tests/ecu.test.js.
+- Game: Settings → Driving ECU maps AUTO (default) / MANUAL (`setup.ecu`, setDriverButtons → ecuMode); keys , / . and
+  button actions mapUp / mapDown (Settings → Buttons; unbound by default: bind the phone's M button); toast on your
+  presses only (AUTO changes come every lap: HUD only). HUD: `#ecuMap` under the ERS bar ("ATTACK · A", coloured per
+  map), rpm under the km/h (`#rpmNum`). Phone dash carries n / e / m / b / k (phone-wheel/CLAUDE.md).
+
 ## Your own straight-mode zones (2026-10-28; user: "override and adjust the automatic DRS system on the map")
 - SIM active-aero.js: `setAeroZones(track, [{ from, to }] metres | null)` replaces track.aeroZone / aeroZones (merging
   overlaps; null = the automatic ones, kept in `track.aeroAuto`), `track.aeroKey` ('auto' / 'none' / the zones' metres);

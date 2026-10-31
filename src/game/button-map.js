@@ -20,6 +20,8 @@ export const ACTIONS = [
   ['boost', 'Overtake mode', 'With Overtake mode on BUTTON (Settings → Driving).'],
   ['limiter', 'Pit limiter', 'With Pit limiter on BUTTON (Settings → Driving): on before the pit lane, off after it.'],
   ['box', 'Box this lap', 'Tells the team you are coming in.'],
+  ['mapUp', 'ECU map up', 'With ECU maps on MANUAL (Settings → Driving): HARVEST → BALANCED → ATTACK → QUALI.'],
+  ['mapDown', 'ECU map down', 'With ECU maps on MANUAL: back towards HARVEST.'],
   ['pause', 'Menu / pause', ''],
   ['camera', 'Camera', ''],
   ['lookBack', 'Look back', 'While held.', true],
@@ -28,7 +30,7 @@ export const ACTIONS = [
 export const HELD = new Set(ACTIONS.filter(a => a[3]).map(a => a[0]));
 
 export const DEFAULT_MAP = Object.freeze({
-  shiftDown: [0, 4], shiftUp: [1, 5], aero: [], boost: [8], limiter: [], box: [2], pause: [9], camera: [3],
+  shiftDown: [0, 4], shiftUp: [1, 5], aero: [], boost: [8], limiter: [], box: [2], mapUp: [], mapDown: [], pause: [9], camera: [3],
   lookBack: [11], handbrake: [10],
 });
 

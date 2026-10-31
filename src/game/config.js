@@ -97,7 +97,7 @@ const AI_LEVELS = {
   alien:  { pace: 1.0, follow: 6, alien: true, note: 'Faster than a great lap, and they hunt you down: they sit in your tow and pull out late (Northfold: about 0:59.1, Elkmoor 29.1 s).' },
 };
 export const RACE_SETUP = Object.freeze({
-  defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10, gearbox: 'auto', assists: 'medium', ai: 'pro', fuel: 'normal', tyres: 'normal', tyreTemp: 'on', damage: 'on', aero: 'on', overtake: 'auto', straight: 'auto', limiter: 'auto', ghost: 'mine', quali: 'off' },
+  defaults: { cars: 10, type: 'laps', laps: 3, minutes: 10, gearbox: 'auto', assists: 'medium', ai: 'pro', fuel: 'normal', tyres: 'normal', tyreTemp: 'on', damage: 'on', aero: 'on', overtake: 'auto', straight: 'auto', limiter: 'auto', ecu: 'auto', ghost: 'mine', quali: 'off' },
   aiLevels: AI_LEVELS,
   // Every setup choice that is one of a list: [value, button label]. The saved setup is checked against these (an
   // unknown value falls back to the default), the Settings screen and the start menu draw their buttons from them,
@@ -116,6 +116,8 @@ export const RACE_SETUP = Object.freeze({
     // the driver's own buttons for straight mode (DRS-like) and the pit limiter, or automatic as for the AI
     straight: [['auto', 'AUTO'], ['button', 'BUTTON']],
     limiter: [['auto', 'AUTO'], ['button', 'BUTTON']],
+    // the ECU's energy maps (SIM ecu.js): picked for you, adapting to your driving, or by your own map buttons
+    ecu: [['auto', 'AUTO'], ['manual', 'MANUAL']],
     // qualifying before a race (minutes alone on the circuit: your best lap sets your grid slot; OFF = your best lap
     // here does: starting-grid.js)
     quali: [['off', 'OFF'], ['5', '5 MIN'], ['10', '10 MIN'], ['15', '15 MIN']],

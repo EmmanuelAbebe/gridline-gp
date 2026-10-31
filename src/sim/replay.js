@@ -3,7 +3,7 @@
 // pure and every random draw is the race's own rng), so a server can drive a submitted lap again and read the time off
 // its own result. What the game feeds the player's car each 120 Hz step: the controls (quantised here *before* the car
 // uses them, so the live race and the replay see the very same numbers) and the settings it can change mid-race
-// (assists, gearbox mode, overtake / straight mode / limiter buttons, the BOX call, the pit plan, steering prefs),
+// (assists, gearbox mode, overtake / straight mode / limiter / ECU map buttons, the ECU mode, the BOX call, the pit plan, steering prefs),
 // recorded only when they change. Pure: no DOM; tests/replay.test.js.
 import { createRace } from './race.js';
 import { buildTrack } from './track.js';
@@ -31,20 +31,20 @@ export const REPLAY = Object.freeze({
 const q = (v, k) => Math.round(Math.max(-1, Math.min(1, +v || 0)) * k) / k;
 export function quantizeInput(inp) {
   return { steer: q(inp.steer, REPLAY.steer), thr: Math.max(0, q(inp.thr, REPLAY.pedal)), brk: Math.max(0, q(inp.brk, REPLAY.pedal)),
-    analog: !!inp.analog, hb: inp.hb ? 1 : 0, shift: Math.sign(inp.shift || 0), boost: !!inp.boost, aero: !!inp.aero, limiter: !!inp.limiter,
+    analog: !!inp.analog, hb: inp.hb ? 1 : 0, shift: Math.sign(inp.shift || 0), boost: !!inp.boost, aero: !!inp.aero, limiter: !!inp.limiter, map: Math.sign(inp.map || 0),
     steerRate: inp.steerRate, calm: inp.calm, speedSteer: inp.speedSteer };
 }
 // one step's controls as whole numbers (the channels of a replay) and back
 const CH = ['steer', 'thr', 'brk', 'flags', 'shift'];
 function toInts(inp) {
-  const flags = (inp.analog ? 1 : 0) | (inp.hb ? 2 : 0) | (inp.boost ? 4 : 0) | (inp.aero ? 8 : 0) | (inp.limiter ? 16 : 0);
+  const flags = (inp.analog ? 1 : 0) | (inp.hb ? 2 : 0) | (inp.boost ? 4 : 0) | (inp.aero ? 8 : 0) | (inp.limiter ? 16 : 0) | (inp.map > 0 ? 32 : 0) | (inp.map < 0 ? 64 : 0);
   return [Math.round(inp.steer * REPLAY.steer), Math.round(inp.thr * REPLAY.pedal), Math.round(inp.brk * REPLAY.pedal), flags, inp.shift];
 }
 /** @param {ArrayLike<number>} v */
 function fromInts(v, prefs) {
   const [steer, thr, brk, flags, shift] = Array.from(v);
   return { steer: steer / REPLAY.steer, thr: thr / REPLAY.pedal, brk: brk / REPLAY.pedal, analog: !!(flags & 1), hb: flags & 2 ? 1 : 0,
-    boost: !!(flags & 4), aero: !!(flags & 8), limiter: !!(flags & 16), shift, ...prefs };
+    boost: !!(flags & 4), aero: !!(flags & 8), limiter: !!(flags & 16), map: flags & 32 ? 1 : flags & 64 ? -1 : 0, shift, ...prefs };
 }
 // a channel: its values' changes from step to step as runs [change, how many steps, …] (constant = one pair)
 function encode(values) {
@@ -63,7 +63,7 @@ function decode(runs, n) {
 }
 
 // ---- the settings the game may change on the player's car mid-race ----
-const FLAGS = ['autoShift', 'autoDown', 'boostAuto', 'aeroAuto', 'limiterAuto', 'pitRequest'];
+const FLAGS = ['autoShift', 'autoDown', 'boostAuto', 'aeroAuto', 'limiterAuto', 'pitRequest', 'ecuMode'];
 const PREFS = ['steerRate', 'calm', 'speedSteer'];
 const num = v => v === Infinity ? 'inf' : v ?? null;                 // (JSON keeps no Infinity)
 const unnum = v => v === 'inf' ? Infinity : v ?? undefined;

@@ -29,6 +29,7 @@ export function loadSetup(json) {
     overtake: oneOf('overtake'),
     straight: oneOf('straight'),
     limiter: oneOf('limiter'),
+    ecu: oneOf('ecu'),
     ghost: oneOf('ghost'),
     quali: oneOf('quali'),
     track: Object.hasOwn(SIM.CIRCUITS, s.track || '') ? s.track : SIM.track.id,

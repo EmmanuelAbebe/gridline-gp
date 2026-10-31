@@ -96,7 +96,7 @@ const game = {
   ghost: null, ghostStart: null, trial: false, rival: null,   // rival: a live AI ghost (ai-ghosts.js createRival)
   lights: { t: 0, lit: 0, hold: 0 }, resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
   towerT: 0, mapT: 0, slowWindows: 0, acc: 0, carsDirty: false,
-  pendingShift: 0, pendingAero: false, pendingLimiter: false, autoShiftHinted: false, queueHinted: false, steerRate: Infinity,   // paddle press waiting for the next sim step
+  pendingShift: 0, pendingAero: false, pendingLimiter: false, pendingMap: 0, autoShiftHinted: false, queueHinted: false, steerRate: Infinity,   // paddle press waiting for the next sim step
 };
 Input.setButtonMaps(game.buttonMaps);
 const isRunning = () => !!game.race && game.phase !== PHASE.MENU && !game.paused && !game.frozen;
@@ -214,7 +214,7 @@ function newRace() {
   sectors.start(race, player);
   racingLine.set(track, trial.aiLapOf('alien', race.activeAero)?.line);
   crews.build(race, Design.data.car); marks.clear(); Debris.clear();
-  Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, pendingBoost: false, pendingAero: false, pendingLimiter: false, autoShiftHinted: false, queueHinted: false,
+  Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, pendingBoost: false, pendingAero: false, pendingLimiter: false, pendingMap: 0, autoShiftHinted: false, queueHinted: false,
     resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
     lights: { t: 0, lit: 0, hold: L.holdMin + Math.random() * L.holdRand } });
   setStartLights(0); Hud.showLights(true); Hud.setLapTimes(0, 0); raceAudio.reset();
@@ -337,10 +337,10 @@ function simStep(dt) {
     else if (c.player && !c.finished) {
       // (quantised before the car gets them, and recorded: the replay feeds the car the very same numbers)
       const drive = game.botInput ? game.botInput(c) : Input.drive;          // (gridlineDebug.botDrive: a test driver on your controls)
-      const inp = SIM.quantizeInput({ ...drive, brk: drive.brk * game.prefs.brakeForce / 100, steerRate: game.steerRate, calm: game.prefs.calm / 100, speedSteer: game.prefs.speedSteer === 'on' ? SIM.ASSISTS.medium.steer : 0, shift: game.pendingShift, boost: game.pendingBoost, aero: game.pendingAero, limiter: game.pendingLimiter });
+      const inp = SIM.quantizeInput({ ...drive, brk: drive.brk * game.prefs.brakeForce / 100, steerRate: game.steerRate, calm: game.prefs.calm / 100, speedSteer: game.prefs.speedSteer === 'on' ? SIM.ASSISTS.medium.steer : 0, shift: game.pendingShift, boost: game.pendingBoost, aero: game.pendingAero, limiter: game.pendingLimiter, map: game.pendingMap });
       game.replayRec?.step(c, inp);
       SIM.drivePlayer(race, c, inp, dt);
-      game.pendingShift = 0; game.pendingBoost = game.pendingAero = game.pendingLimiter = false; }
+      game.pendingShift = game.pendingMap = 0; game.pendingBoost = game.pendingAero = game.pendingLimiter = false; }
     else SIM.driveAI(race, c, dt, c.finished ? CONFIG.finishedAiSkill : 0);
   }
   SIM.collide(race);
@@ -438,16 +438,17 @@ function setDriving(key, value) {
     if (key === 'gearbox') setGearbox(game.player, value);
     if (key === 'assists' || key.startsWith('a.')) { game.player.assists = assistsOf(game.setup); const ai = aiAssistsOf(game.setup); for (const c of game.race.cars) if (!c.player) c.assists = ai; }
     if (key === 'overtake') game.player.boostAuto = value === 'auto';
-    if (key === 'limiter' || key === 'straight') setDriverButtons(game.player, game.setup);
+    if (key === 'limiter' || key === 'straight' || key === 'ecu') setDriverButtons(game.player, game.setup);
   }
 }
 // Pit limiter / straight mode: automatic (as the AI) or the driver's own buttons (Settings → Driving). Switching back to
-// automatic mid-race lets go of whatever the button had on.
+// automatic mid-race lets go of whatever the button had on. The ECU maps: AUTO or MANUAL (SIM ecu.js; MANUAL keeps the
+// map AUTO was on).
 function setDriverButtons(p, s) {
   const limiterAuto = s.limiter !== 'button', aeroAuto = s.straight !== 'button';
   if (limiterAuto && !p.limiterAuto) { p.limiterOn = false; p.pitLimiter = false; }
   if (aeroAuto !== p.aeroAuto) p.aeroWant = false;
-  Object.assign(p, { limiterAuto, aeroAuto });
+  Object.assign(p, { limiterAuto, aeroAuto, ecuMode: s.ecu === 'manual' ? 'manual' : 'auto' });
 }
 function setButtonMaps(store) {
   game.buttonMaps = store; Input.setButtonMaps(store);
@@ -494,7 +495,7 @@ const ACTIONS = { camera: cycleCamera, mute: toggleMute, pause: escape, fps: () 
   inputs: () => InputMonitor.toggle(),
   // (LB / RB in the start menu: the circuit)
   shiftUp: () => menuOpen() ? menu.circuit(1) : shift(+1), shiftDown: () => menuOpen() ? menu.circuit(-1) : shift(-1),
-  box: requestBox, boost: requestBoost, aero: requestAero, limiter: requestLimiter };
+  box: requestBox, boost: requestBoost, aero: requestAero, limiter: requestLimiter, mapUp: () => requestMap(+1), mapDown: () => requestMap(-1) };
 Input.on('action', name => ACTIONS[name]?.());
 // pad A / B (phone buttons 1 / 2) in menus: confirm / back, whatever they do while racing (button-map.js)
 Input.on('menu', what => {
@@ -533,6 +534,12 @@ function requestLimiter() {
   const p = game.player;
   if (!racing() || !p || p.finished) return;
   if (p.limiterAuto) showMessage(SAY.limiterAuto); else game.pendingLimiter = true;
+}
+// the ECU map (, / . or a controller button) with ECU maps on MANUAL: one map up / down
+function requestMap(d) {
+  const p = game.player;
+  if (!racing() || !p || p.finished) return;
+  if (p.ecuMode !== 'manual') showMessage(SAY.ecuAuto); else game.pendingMap = d;
 }
 Input.on('gesture', Sound.init);
 Input.on('padchange', (on, label) => { Hud.setPad(on, Input.gamepadAllowed); if (on && game.phase !== PHASE.MENU) showMessage({ toast: `${label} connected` }); });
@@ -612,10 +619,10 @@ const V = SIM.VEHICLE, REV_FROM = CONFIG.revLights.from;
 function dashGear(p, onLights, thr) {
   const rpm = onLights ? V.idle + thr * (V.redline - V.idle) * (0.9 + Math.random() * 0.06) : p.rpm;
   return { gear: onLights ? 'N' : p.gear === -1 ? 'R' : String(p.gear), next: !onLights && p.downQueue > 0 ? p.gear - p.downQueue : null,
-    revs: SIM.clamp((rpm - REV_FROM) / (V.autoUp - REV_FROM), 0, 1) };
+    revs: SIM.clamp((rpm - REV_FROM) / (V.autoUp - REV_FROM), 0, 1), rpm };
 }
-// the phone wheel's rev strip and gear (phone-wheel/web: Dash): 20 a second while it changes, once a second otherwise
-// (a phone that connects later gets it too), {} = not driving
+// the phone wheel's rev strip, gear and ECU display (phone-wheel/web: Dash): 20 a second while it changes, once a second
+// otherwise (a phone that connects later gets it too), {} = not driving
 const phoneDash = { next: null, sent: '', wait: 0, since: 0 };
 function sendPhoneDash(dt, driving) {
   const d = driving && phoneDash.next ? phoneDash.next : {}, text = JSON.stringify(d);
@@ -643,9 +650,12 @@ function renderFrame(dt) {
 
   const drive = Input.drive, onLights = game.phase === PHASE.LIGHTS;
   const gi = dashGear(player, onLights, drive.thr);
-  phoneDash.next = { g: gi.gear, q: gi.next ?? 0, r: Math.round(gi.revs * 50) / 50, v: Math.round(SIM.speedOf(player) * 3.6) };
+  // (+ the ECU: n rpm, e map index (−1 none), m 'A' / 'M', b battery %, k −1 harvesting / 0 / 1 deploying)
+  phoneDash.next = { g: gi.gear, q: gi.next ?? 0, r: Math.round(gi.revs * 50) / 50, v: Math.round(SIM.speedOf(player) * 3.6),
+    n: Math.round(gi.rpm / 50) * 50, e: player.ecuMode ? player.ecuMap : -1, m: player.ecuMode === 'manual' ? 'M' : 'A',
+    b: Math.round(player.soc / SIM.ERS.store * 100), k: player.ersKw > 5 ? 1 : player.ersKw < -5 ? -1 : 0 };
   Hud.updateDash({
-    kmh: Math.round(SIM.speedOf(player) * 3.6), gear: gi.gear, gearNext: gi.next, revs: gi.revs, slip: onLights ? 0 : player.slip,
+    kmh: Math.round(SIM.speedOf(player) * 3.6), rpm: Math.round(gi.rpm / 50) * 50, gear: gi.gear, gearNext: gi.next, revs: gi.revs, slip: onLights ? 0 : player.slip,
     steer: player.finished ? 0 : player.steer, steerIn: player.finished ? 0 : player.steerIn, thr: drive.thr, brk: drive.brk,
     lapTime: onLights ? '0:00.000' : fmtTime(player.finished ? player.finishTime : race.t - player.lapStart),
     lapInvalid: !onLights && !player.finished && player.lapInvalid, dirt: onLights ? 0 : player.dirt,

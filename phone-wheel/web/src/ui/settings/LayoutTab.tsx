@@ -23,6 +23,8 @@ export function LayoutTab({ cfg, update, editLayout }: TabProps) {
       value={L.putDown} onChange={(v) => update((c) => { c.layout.putDown = v; })} />
     <Toggle label="Rev lights and gear" hint="the game's rev lights along the top, gear and speed in the middle (Gridline GP)" value={L.dash}
       onChange={(v) => update((c) => { c.layout.dash = v; })} />
+    {L.dash && <Toggle label="ECU display" hint="under the speed: the engine's rpm, the ECU's battery map (A = the ECU picks it, M = you) and the battery (Gridline GP)"
+      value={L.ecu} onChange={(v) => update((c) => { c.layout.ecu = v; })} />}
     <Toggle label="Show wheel" hint="tap the wheel to set straight ahead" value={L.showWheel} onChange={(v) => update((c) => { c.layout.showWheel = v; })} />
     <Toggle label="Touch vibration" hint="buzz when you press a pedal or button (game feedback: Feedback tab)" value={L.haptics} onChange={(v) => update((c) => { c.layout.haptics = v; })} />
     {L.haptics && <Field label="Test vibration" hint="nothing? Check the phone's own vibration setting"><button onClick={() => buzz([60, 60, 120])}>Buzz</button></Field>}

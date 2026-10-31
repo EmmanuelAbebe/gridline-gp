@@ -159,6 +159,13 @@
 #ers.out u{background:#ffd21f}
 #ers.in u{background:#3fa9ff}
 #ers .num{min-width:3.2em;text-align:right;font-size:12px}
+/* the ECU map under the battery (SIM ecu.js) and the engine's rpm under the speed */
+#ecuMap{grid-column:1/-1;margin:-4px 0 6px;font-family:var(--display);font-weight:700;font-size:12px;letter-spacing:.12em;color:var(--muted)}
+#ecuMap[data-map="harvest"]{color:#3fa9ff}
+#ecuMap[data-map="attack"]{color:#ffd21f}
+#ecuMap[data-map="quali"]{color:var(--purple)}
+.spd .rpm{display:block;text-align:right;margin-top:3px;font-size:11px;letter-spacing:.08em;color:var(--muted)}
+.spd .rpm b{font-weight:600;font-size:14px;color:var(--text,#f2f3f0);min-width:5ch;display:inline-block;text-align:right}
 /* tyre compounds (S / M / H): a ring in the compound's colour, as on the sidewall */
 .cmp{display:inline-grid;place-items:center;width:1.45em;height:1.45em;border-radius:50%;border:2px solid currentColor;font-family:var(--display);font-weight:800;font-size:.78em;line-height:1;vertical-align:middle}
 .cmp.soft{color:#ff3b3b} .cmp.medium{color:#ffd21e} .cmp.hard{color:#f2f3f0}

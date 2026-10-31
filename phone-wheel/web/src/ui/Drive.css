@@ -27,10 +27,26 @@
 
 /* the middle column: gear + speed at the top, the extra buttons under it, the small round buttons at the bottom */
 .center { display: flex; flex-direction: column; align-items: center; gap: var(--gap); min-width: 0; min-height: 0; overflow: hidden; }
-.drive .dash { display: grid; justify-items: center; line-height: 1; }
+.drive .dash { display: grid; justify-items: center; line-height: 1; position: relative; }
 .drive .gear { font: 800 var(--gear-size) / 1 var(--font); font-variant-numeric: tabular-nums; }
 .drive .kmh { font-size: var(--text-m); color: var(--muted); font-variant-numeric: tabular-nums; min-height: 1.2em; margin-top: 2px; }
-.drive .queued { font-size: var(--text-s); font-weight: 800; color: var(--accent); min-height: 1.2em; }
+/* a downshift waiting for the revs: beside the gear, so it takes no line of its own (room for the ECU display) */
+.drive .queued { position: absolute; left: 100%; top: 0.3em; white-space: nowrap; font-size: var(--text-s); font-weight: 800; color: var(--accent); }
+/* the ECU display (Parts.tsx EcuReadout): rpm, the map (A / M) + battery %, the battery as a thin bar */
+.drive .ecu { display: grid; justify-items: center; gap: 1px; margin-top: -8px; line-height: 1.05; font-variant-numeric: tabular-nums; font-size: var(--text-s); }
+.drive .ecu[hidden] { display: none; }
+.drive .ecu .rpm { color: var(--muted); }
+.drive .ecu .ecu-row { display: flex; gap: 6px; }
+.drive .ecu .ecu-map { font-weight: 800; letter-spacing: .06em; color: var(--text); }
+.drive .ecu .ecu-map[data-map="harvest"] { color: #3fa9ff; }
+.drive .ecu .ecu-map[data-map="attack"] { color: #ffd21f; }
+.drive .ecu .ecu-map[data-map="quali"] { color: #b46cff; }
+.drive .ecu .ecu-pct { color: var(--muted); }
+.drive .ecu .ecu-bat { display: block; width: 100%; min-width: 60px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.14); overflow: hidden; }
+.drive .ecu .ecu-bat b { display: block; height: 100%; width: 0; background: var(--good, #36d27f); }
+.drive .ecu[data-flow="out"] .ecu-bat b { background: #ffd21f; }
+.drive .ecu[data-flow="in"] .ecu-bat b { background: #3fa9ff; }
+.drive.free > .slot > .ecu { font-size: min(14cqh, 12cqw); }
 .drive .conn { font-size: var(--text-s); color: var(--muted); text-align: center; padding: 8px 0; }
 .drive .conn.bad { color: var(--brake); }
 .center .aux { flex: 1 1 auto; align-content: center; display: grid; grid-template-columns: repeat(auto-fit, minmax(min-content, 1fr)); justify-items: center; }

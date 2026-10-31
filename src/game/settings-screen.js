@@ -26,6 +26,7 @@ const KEYS = `<div class="keys">
   <span><kbd>Q</kbd> <kbd>E</kbd></span><span>Shift down / up (semi-auto and manual gearbox)</span>
   <span><kbd>B</kbd> <kbd>X</kbd></span><span>Box this lap, overtake mode (when set to BUTTON)</span>
   <span><kbd>Z</kbd> <kbd>N</kbd></span><span>Straight mode, pit limiter (when set to BUTTON in Settings → Driving)</span>
+  <span><kbd>,</kbd> <kbd>.</kbd></span><span>ECU map down / up (ECU maps on MANUAL in Settings → Driving)</span>
   <span><kbd>C</kbd></span><span>Camera</span>
   <span><kbd>R</kbd></span><span>Look back (hold)</span>
   <span><kbd>Space</kbd></span><span>Handbrake (hold): locks the rear wheels, for hairpins</span>
@@ -84,6 +85,9 @@ const TABS = [
     seg('limiter', 'Pit limiter', C.limiter, v => v === 'auto'
       ? 'The car holds 80 km/h by itself from the pit wall\'s start to its end.'
       : 'Your own limiter (N or your controller\'s pit-limiter button): switch it on before the pit lane\'s line, off after the end of the pit wall. It holds 80 km/h but does not brake: over 80 in the pit lane is a 5 s time penalty, as in F1. Left on, it holds you to 80 on the track too.'),
+    seg('ecu', 'ECU maps', C.ecu, v => v === 'auto'
+      ? 'The ECU picks the battery map for you: HARVEST when the battery is low, ATTACK within a second of a car ahead or behind, QUALI on the last lap, else BALANCED. Either way it learns where you lift each lap and stops the electric motor before those points.'
+      : 'You pick the map (, and . or your controller\'s map buttons: Settings → Buttons): HARVEST (fills the battery, ~0.2 s a lap slower), BALANCED, ATTACK and QUALI (faster while the battery lasts; QUALI empties it in about a lap). It still learns where you lift. The AI keeps its own map.'),
   ] },
   { id: 'controller', label: 'Controller', items: [
     panel(createControllerPanel),

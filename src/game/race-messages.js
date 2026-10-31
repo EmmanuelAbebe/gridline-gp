@@ -45,6 +45,8 @@ export const EVENT_MESSAGES = {
   // your own pit limiter and straight mode (Settings → Driving BUTTON)
   [EV.LIMITER]: e => ({ toast: e.on ? 'Pit limiter ON  ·  80 km/h' : 'Pit limiter off', secs: 1.5 }),
   [EV.PIT_SPEEDING]: e => ({ toast: `+${e.seconds} s penalty  ·  speeding in the pit lane (${Math.round(e.kmh)} km/h)  (total +${e.total} s)`, kind: 'warn', secs: 4 }),
+  // the ECU map (SIM ecu.js): your own presses; AUTO's changes show on the HUD only (they come every lap)
+  [EV.ECU]: e => e.auto ? null : e.end && e.press ? { toast: `ECU map ${e.map}  ·  no map further that way`, secs: 1.5 } : { toast: `ECU map ${e.map}`, secs: 1.5 },
   [EV.AERO]: e => e.press && !e.zone ? { toast: 'Straight mode only in the zones (green on the map)', secs: 1.5 } : null,
   [EV.FUEL_LOW]: () => ({ radio: 'Fuel is getting low: about 2 laps left, not enough for the finish. Box when you can (B / pad X).', secs: 6 }),
   [EV.FUEL_BOX]: () => ({ radio: 'Box this lap or you will run out of fuel!', secs: 5 }),
@@ -76,6 +78,7 @@ export const SAY = {
   boostAuto: { toast: 'Overtake mode is on AUTO: pick BUTTON in Settings → Driving to fire it yourself' },
   aeroOff: { toast: 'Active aero is off for this race (Settings → Driving)' },
   aeroAuto: { toast: 'Straight mode is on AUTO: pick BUTTON in Settings → Driving to open the wings yourself' },
+  ecuAuto: { toast: 'The ECU maps are on AUTO: pick MANUAL in Settings → Driving to choose them yourself' },
   limiterAuto: { toast: 'The pit limiter is on AUTO: pick BUTTON in Settings → Driving to use your own' },
 };
 // box this lap, with the tyres the crew has ready: the pit plan's compound, or the team's choice

@@ -4,8 +4,9 @@
 //   phone → PC  {s, g, b, k} at ~60 Hz (steer −1..1, gas 0..1, brake 0..1, button bitmask), every 500 ms plus
 //               p (probe sequence) and r (our last round trip); a = 1 away (presence.ts: on a table / left alone 10 s), sent with
 //               everything else at 0 until the driver taps "I'm here"
-//   PC → phone  {pong, hz, gap} for each probe, {fx} = force feedback (haptics.ts), {dash: {g, q, r, v}} = gear,
-//               queued downshift, revs 0..1 (1 = shift now), km/h ({} = not driving; Gridline GP only);  GET /check?t= tells a refused socket "wrong pairing code" apart
+//   PC → phone  {pong, hz, gap} for each probe, {fx} = force feedback (haptics.ts), {dash: {g, q, r, v, n, e, m, b, k}} = gear,
+//               queued downshift, revs 0..1 (1 = shift now), km/h, rpm, the ECU map (index into ECU_MAPS, −1 = none), who picks it
+//               ('A' the ECU / 'M' the driver), battery %, energy flow (1 deploying, −1 harvesting) ({} = not driving; Gridline GP only);  GET /check?t= tells a refused socket "wrong pairing code" apart
 import { steerCurve, bitOf, type Config, type ButtonId } from '../settings/settings.ts';
 import { idlePlan, planFeedback, type Fx } from './haptics.ts';
 import { createPresence, type Away } from './presence.ts';
@@ -14,8 +15,11 @@ export type Phase = 'idle' | 'connecting' | 'connected' | 'lost' | 'unpaired';
 export interface Status { phase: Phase; retryAt: number; attempts: number }
 
 export const state = { steer: 0, gas: 0, brake: 0, gotMotion: false, paused: false, preview: false, away: 0 as Away };
-// the game's dash (Drive: rev strip, gear, speed); g '' = nothing from the game
-export const dash = { g: '', q: 0, r: 0, v: 0 };
+// the game's dash (Drive: rev strip, gear, speed, the ECU display); g '' = nothing from the game
+export const dash = { g: '', q: 0, r: 0, v: 0, n: 0, e: -1, m: 'A', b: 0, k: 0 };
+// the game's ECU maps in order (src/sim/tuning.js ECU.maps)
+export const ECU_MAPS = ['HARVEST', 'BALANCED', 'ATTACK', 'QUALI'] as const;
+export const ECU_SHORT = ['HARV', 'BAL', 'ATK', 'QUALI'] as const;
 export const link = { rtt: null as number | null, rttMax: null as number | null, hz: 0, gap: 0, sendGap: 0, quality: '' as '' | 'good' | 'fair' | 'poor' | 'stalled' };
 let status: Status = { phase: 'idle', retryAt: 0, attempts: 0 };
 export const getStatus = () => status;
@@ -128,6 +132,9 @@ const num = (v: unknown, lo: number, hi: number) => (typeof v === 'number' && Nu
 export function setDash(d: Record<string, unknown>) {
   dash.g = typeof d.g === 'string' ? d.g.slice(0, 2) : '';
   dash.q = num(d.q, 0, 9); dash.r = num(d.r, 0, 1); dash.v = Math.round(num(d.v, 0, 999));
+  dash.n = Math.round(num(d.n, 0, 20000));
+  dash.e = typeof d.e === 'number' && Number.isInteger(d.e) && d.e >= 0 && d.e < ECU_MAPS.length ? d.e : -1;
+  dash.m = d.m === 'M' ? 'M' : 'A'; dash.b = Math.round(num(d.b, 0, 100)); dash.k = Math.sign(num(d.k, -1, 1));
 }
 
 // ---------- tilt → steering angle

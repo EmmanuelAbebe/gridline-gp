@@ -2,7 +2,7 @@
 // One model for every car, with the car's own numbers from its spec (spec.js: STOCK for the AI, the garage setup for
 // the player; every function takes it, default STOCK); the tyres and chassis are in chassis.js, the drivers in driving.js.
 // Everything is per unit mass (m/s²) so it reads as accelerations.
-import { TUNING, CAR, CHASSIS, SLIP, EV, ACTIVE_AERO, ERS } from './tuning.js';
+import { TUNING, CAR, CHASSIS, SLIP, EV, ACTIVE_AERO, ERS, ECU } from './tuning.js';
 import { clamp } from './math.js';
 import { emit } from './events.js';
 import { STOCK } from './spec.js';
@@ -181,17 +181,19 @@ function ers(c, thr, brk, v, dt, room = 1, iceKw = 0, pedal = thr) {
   const charge = j => { const room = Math.min(ERS.store - c.soc, ERS.perLap - c.harvested), got = Math.max(0, Math.min(j, room)); c.soc += got; c.harvested += got; return got; };
   const from = c.boostOn ? ERS.taperFromBoost : ERS.taperFrom, taper = clamp((ERS.taperTo - sp) / (ERS.taperTo - from), 0, 1);
   let drive = 0, resist = 0, kw = 0;
+  const map = c.ecuMode ? ECU.maps[c.ecuMap] : null;       // (ecu.js: the car's ECU map; none = ERS's own numbers)
+  const low = map ? map.low : ERS.low, clipBelow = map ? map.clipBelow : ERS.clipBelow, partKw = map ? ERS.partKw * map.part : ERS.partKw;
   if (pedal >= 0.05 && sp > 0.5) {
-    const full = clamp((c.soc / ERS.store) / ERS.low, 0, 1) || (c.boostOn && c.soc > 0 ? 1 : 0);
+    const full = clamp((c.soc / ERS.store) / low, 0, 1) || (c.boostOn && c.soc > 0 ? 1 : 0);
     let p = ERS.kw * 1000 * s.power * thr * taper * full * room * (c.boostOn ? 1 : c.deploy ?? 1);
     p = Math.min(p, c.soc / dt);
     if (p > 0) { c.soc -= p * dt; drive = p / (m * Math.max(sp, ERS.minSpeed)); kw = p / 1000; }
     // super clipping: past the taper with the battery low, the MGU-K charges from the engine instead
-    if (taper < 1 && thr > 0.9 && c.soc < ERS.clipBelow * ERS.store && !c.boostOn) {
+    if (taper < 1 && thr > 0.9 && c.soc < clipBelow * ERS.store && !c.boostOn) {
       const got = charge(ERS.clipKw * 1000 * (1 - taper) * dt) / dt; resist += got / (m * sp); kw -= got / 1000;
     }
     // part throttle: the engine runs harder than the wheels ask and the MGU-K stores the rest (the drive is the same)
-    if (thr < ERS.partBelow) { const got = charge(Math.min(ERS.partKw * 1000, iceKw * 1000 * (1 - thr)) * dt) / dt; kw -= got / 1000; }
+    if (thr < ERS.partBelow) { const got = charge(Math.min(partKw * 1000, iceKw * 1000 * (1 - thr)) * dt) / dt; kw -= got / 1000; }
   } else if (sp > 0.5) {
     // braking: as much as the rear brakes ask (their share ~43 %), up to harvestKw; lifting: coastKw of engine braking
     const brakeP = brk > 0 ? brakeMax(sp, s) * brk * m * sp * 0.43 : 0;

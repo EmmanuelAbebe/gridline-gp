@@ -12,7 +12,7 @@ import { DEFAULT_MAP, PEDALS, HELD, mapFor, actionOf } from './button-map.js';
 export const Input = (() => {
   const KEY_DRIVE = { ArrowUp:'up', KeyW:'up', ArrowDown:'down', KeyS:'down', ArrowLeft:'left', KeyA:'left', ArrowRight:'right', KeyD:'right', KeyR:'back', Space:'hb' };
   const KEY_ACTIONS = { KeyC:'camera', KeyM:'mute', KeyP:'pause', Escape:'pause', KeyF:'fps', KeyG:'graphics', KeyT:'tweak', KeyL:'layout', KeyV:'fullscreen', KeyI:'inputs', KeyO:'settings',
-    KeyQ:'shiftDown', KeyE:'shiftUp', KeyB:'box', KeyX:'boost', KeyZ:'aero', KeyN:'limiter' };
+    KeyQ:'shiftDown', KeyE:'shiftUp', KeyB:'box', KeyX:'boost', KeyZ:'aero', KeyN:'limiter', Comma:'mapDown', Period:'mapUp' };
   const PAD = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, BACK: 8, START: 9, LS: 10, RS: 11, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
   const TOUCH = { tLeft: 'left', tRight: 'right', tBrake: 'down', tGas: 'up' };
 

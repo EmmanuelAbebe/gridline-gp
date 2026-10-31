@@ -422,6 +422,34 @@ export const ERS = Object.freeze({
                          // gearbox: its full power from fullRpm of the engine up, less below, torque-limited)   // m/s² at most from lifting (the motor's torque)   // m/s: deployment's force below this as at it (the motor's torque limit)
 });
 
+// The ECU's energy maps (ecu.js, 2026-10-31; user: "ECU manual and map control (map similar to aero controls but adaptive
+// to racer style of driving)"). A car with an ECU mode (the player's: Settings → Driving ECU maps AUTO / MANUAL; the AI
+// and a car without one use ERS.map as before) deploys by its map: `deploy` = share of the MGU-K's power, no deployment
+// within near + far × (1 − charge share) m of its braking point (fading over `fade` m), the part-throttle harvest × `part`,
+// super clipping below `clipBelow`, deployment fading below `low` of the battery. BALANCED = ERS's numbers.
+// The lift points are learnt from the driver (`learn`): each lap's lifts (throttle under `lift`, or the brake ≥ `brk`,
+// after being at `full` or more; faster than minSpeed, not in the pit lane) become the next lap's braking points once
+// there are `min` of them; until then the track's own (the AI line's). The ECU cuts at the nearer of the two: the driver's
+// lifts only ever add cut points (braking alone missed the corners only lifted for, and the AI's own lifts measured later
+// than the line's braking points: deploying up to them emptied the battery and lost 0.2–0.6 s a lap).
+// AUTO picks the map (`auto`): the last lap of a race QUALI while more than `lastFrom` is left (energy is worth nothing
+// after the flag), else HARVEST below `harvest` of the battery until it is back over `refill`, ATTACK in a fight (within
+// `chase` s of the car ahead or `defend` s of the one behind; out again past × `exit`) with more than `attackFrom` charge,
+// else BALANCED. Measured (VOS alone; BALANCED = the AI's own map to the ms): HARVEST +0.2 s a lap and the battery fills
+// (Elkmoor 57 → 91 %, Harrow 22 → 72 %); ATTACK −0.1…0.4 s and QUALI −0.4…0.6 s a lap while the battery lasts (QUALI
+// empties it in about a lap).
+export const ECU = Object.freeze({
+  maps: Object.freeze([
+    Object.freeze({ id: 'harvest', name: 'HARVEST', deploy: 0.6, near: 30, far: 260, fade: 80, part: 1.5, clipBelow: 0.5, low: 0.4 }),
+    Object.freeze({ id: 'balanced', name: 'BALANCED', deploy: 1, near: 30, far: 150, fade: 80, part: 1, clipBelow: 0.3, low: 0.25 }),
+    Object.freeze({ id: 'attack', name: 'ATTACK', deploy: 1, near: 15, far: 60, fade: 50, part: 0.6, clipBelow: 0.15, low: 0.12 }),
+    Object.freeze({ id: 'quali', name: 'QUALI', deploy: 1, near: 8, far: 0, fade: 30, part: 0.25, clipBelow: 0, low: 0.04 }),
+  ]),
+  start: 1,
+  learn: Object.freeze({ lift: 0.5, full: 0.9, brk: 0.2, minSpeed: 20, min: 3 }),
+  auto: Object.freeze({ harvest: 0.3, refill: 0.55, chase: 1.0, defend: 0.8, exit: 1.4, attackFrom: 0.4, lastFrom: 0.15 }),
+});
+
 // Sectors and corners (sectors.js, 2026-10-26; user: sectors "to determine where a player is slow or faster"). Corners
 // = the minima of the ALIEN line's speed profile: two closer than `merge` m/s (the speed between them never rises more
 // than that above the faster one) are one corner, one dropping less than `minDrop` m/s from the speed before it is no
@@ -550,4 +578,4 @@ export const EV = Object.freeze({ LAP: 'lap', FASTEST: 'fastest', FINISH: 'finis
   SAUSAGE: 'sausage', BEACHED: 'beached', RECOVERED: 'recovered',
   PIT_IN: 'pit-in', PIT_STOP: 'pit-stop', PIT_READY: 'pit-ready', PIT_GO: 'pit-go', PIT_OUT: 'pit-out', DAMAGE: 'damage',
   FUEL_LOW: 'fuel-low', FUEL_BOX: 'fuel-box', FUEL_OUT: 'fuel-out', TYRES_WORN: 'tyres-worn', TYRES_WARM: 'tyres-warm', TYRES_HOT: 'tyres-hot',
-  BOOST_READY: 'boost-ready', BOOST: 'boost', PIT_SPEEDING: 'pit-speeding', LIMITER: 'limiter', AERO: 'aero', LAUNCHED: 'launched', LANDED: 'landed', WING_OFF: 'wing-off' });
+  BOOST_READY: 'boost-ready', BOOST: 'boost', PIT_SPEEDING: 'pit-speeding', LIMITER: 'limiter', AERO: 'aero', ECU: 'ecu', LAUNCHED: 'launched', LANDED: 'landed', WING_OFF: 'wing-off' });

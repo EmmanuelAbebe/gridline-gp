@@ -1,5 +1,5 @@
 // Car state, where a car is on the track (nearest sample, lateral offset), walls and surface.
-import { EV, BARRIER, BARRIERS, ROUGH, OFFTRACK, WALLS, AI, ERS } from './tuning.js';
+import { EV, BARRIER, BARRIERS, ROUGH, OFFTRACK, WALLS, AI, ERS, ECU } from './tuning.js';
 import { surfaceAt } from './runoff.js';
 import { wrapA, wrapIdx, speedOf } from './math.js';
 import { gridSlot, headingAt } from './track.js';
@@ -53,6 +53,9 @@ export function createCar(track, driver, slot, rng) {
     aeroOpen: 0, boostLeft: 0, boostOn: false, boostLap: 0, boostAuto: false, aeroAuto: true, aeroWant: false,
     // the power unit's battery (vehicle.js ers): charge (J), harvested this lap (J), the lap that counts, kW now (+ deploying)
     soc: ERS.store * ERS.start, harvested: 0, ersLap: 0, ersKw: 0, deploy: 1,
+    // the ECU (ecu.js): mode '' (none: ERS.map, every AI car) / 'auto' / 'manual', the map (ECU.maps index), the braking
+    // points learnt from this car's driving (metres to the next per sample; null = the track's), this lap's starts
+    ecuMode: '', ecuMap: Number(ECU.start), ecuBrk: /** @type {Float32Array} */ (null), ecuStarts: /** @type {number[]} */ ([]), ecuLap: 0, ecuBraking: false,
     // chassis (chassis.js): lateral speed (m/s, + = right), yaw rate (rad/s), last longitudinal accel,
     // how saturated each axle is (0..1), lock-up / wheel spin flags; assists (ASSISTS levels, set by createRace / the game)
     vy: 0, yawRate: 0, ax: 0, ay: 0, slideF: 0, slideR: 0, lockF: false, lockR: false, spinR: false, assists: null,

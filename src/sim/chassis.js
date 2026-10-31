@@ -6,7 +6,8 @@
 //
 // State on the car: v (forward speed), vy (sideways speed, + = right), yawRate (rad/s, + = turning right), ax.
 // Everything is per unit mass, so forces read as accelerations (m/s²).
-import { TUNING, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT, ACTIVE_AERO, HANDBRAKE, ERS, TYRE_TEMP as TTC } from './tuning.js';
+import { TUNING, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT, ACTIVE_AERO, HANDBRAKE, ERS, ECU, TYRE_TEMP as TTC } from './tuning.js';
+import { updateEcu, brakeAhead } from './ecu.js';
 import { axleTempGrip, stepTyreTemps, tyreEvents } from './tyre-temp.js';
 import { clamp, speedOf } from './math.js';
 import { lateralGrip, brakeMax, drivetrain, tyreGrip } from './vehicle.js';
@@ -89,7 +90,12 @@ export function stepChassis(race, c, inp, dt) {
   const A = c.assists || ASSISTS.medium, surf = SURFACES[c.surface] || SURFACES.track, S = c.spec;   // S: the car's own numbers (spec.js)
   // the deployment map (as the real cars' ECU, by where the car is): no electrical power in the last metres before a
   // braking zone (the energy would only go into the brakes), stopping earlier the emptier the battery (ERS.map)
-  { const M = ERS.map, T = race.track, to = T.BRK ? T.BRK[c.idx] * T.ds : Infinity, cut = M.near + M.far * (1 - c.soc / ERS.store);
+  if (c.ecuMode) {
+    // a car with an ECU mode (ecu.js: the player's): its map, by the braking points learnt from its own driving
+    updateEcu(race, c, inp);
+    const M = ECU.maps[c.ecuMap], cut = M.near + M.far * (1 - c.soc / ERS.store);
+    c.deploy = clamp((brakeAhead(race, c) - cut) / M.fade, 0, 1) * M.deploy;
+  } else { const M = ERS.map, T = race.track, to = T.BRK ? T.BRK[c.idx] * T.ds : Infinity, cut = M.near + M.far * (1 - c.soc / ERS.store);
     c.deploy = clamp((to - cut) / M.fade, 0, 1); }
   const d = drivetrain(c, inp, dt);
   // the car's condition (pit.js): worn tyres, damage, empty tank (limp)

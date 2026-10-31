@@ -28,6 +28,35 @@ export function DashReadout({ cfg, preview }: { cfg: Config; preview: boolean })
   return <div className="dash"><div className="gear" ref={gear}>–</div><div className="kmh" ref={kmh} /><div className="queued" ref={queued} /></div>;
 }
 
+// The ECU display (Layout → ECU display): the engine's rpm, the ECU's battery map with who picks it (A the ECU, M you:
+// the game's Settings → Driving ECU maps; your map buttons step it) and the battery, yellow while deploying, blue
+// while harvesting. Hidden until the game sends an ECU.
+export function EcuReadout({ cfg, preview }: { cfg: Config; preview: boolean }) {
+  const box = useRef<HTMLDivElement>(null), rpm = useRef<HTMLDivElement>(null), map = useRef<HTMLSpanElement>(null);
+  const fill = useRef<HTMLElement>(null), pct = useRef<HTMLSpanElement>(null);
+  const status = useStatus(), ok = status.phase === 'connected';
+  useFrame(() => {
+    const d = engine.dash, el = box.current;   // (short map names: the middle column is narrow)
+    if (!el) return;
+    el.hidden = !d.g;
+    if (!d.g) return;
+    if (rpm.current) rpm.current.textContent = `${d.n.toLocaleString('en-GB')} rpm`;
+    const name = d.e >= 0 ? engine.ECU_MAPS[d.e] : '';
+    if (map.current) { map.current.textContent = name ? `${engine.ECU_SHORT[d.e]} · ${d.m}` : ''; map.current.dataset.map = name.toLowerCase(); }
+    if (fill.current) fill.current.style.width = `${d.b}%`;
+    if (pct.current) pct.current.textContent = `${d.b}%`;
+    el.dataset.flow = d.k > 0 ? 'out' : d.k < 0 ? 'in' : '';
+  });
+  if (!cfg.layout.dash || !cfg.layout.ecu || !(ok || preview)) return null;
+  return (
+    <div className="ecu" ref={box} hidden>
+      <div className="rpm" ref={rpm} />
+      <div className="ecu-row"><span className="ecu-map" ref={map} /><span className="ecu-pct" ref={pct} /></div>
+      <i className="ecu-bat"><b ref={fill} /></i>
+    </div>
+  );
+}
+
 export function WheelButton({ cfg }: { cfg: Config }) {
   const wheel = useRef<SVGSVGElement>(null);
   const [centred, setCentred] = useState(false);
