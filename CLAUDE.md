@@ -375,7 +375,7 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   per tick (intro line "Timing the rivals…" → "Your best here (…) puts you 4th"), a race made before then makes them at once.
 - Without qualifying your time = your lap record there (garage-store records, your class + zone layout); with no record you
   start last. Setup `quali` OFF / 5 / 10 / 15 MIN (start menu row, hidden solo and in a time trial): `game.session` 'quali' =
-  you alone, a timed session (no lights, wear off, your start compound), the tower is the timing screen (Hud.updateQualiTower),
+  you alone, a timed session (the five lights like every start since 2026-11-02: it used to say GO at once; wear off, your start compound), the tower is the timing screen (Hud.updateQualiTower),
   your best valid lap counts (the standing first lap too), the flag at time up lets you finish the lap; results = the
   classification (Hud.renderQualiResults) with START THE RACE (`game.qualiGrid`, kept for Race again until the menu) / QUALIFY
   AGAIN; End race from the pause menu ends the session. Smoke test: out-quali.png, out-quali-results.png (GRIDLINE_SMOKE_LAP:

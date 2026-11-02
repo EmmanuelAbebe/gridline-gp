@@ -392,7 +392,10 @@ async function smokeTest(win) {
   for (let i = 0; i < 40 && /Timing the rivals/.test(await win.webContents.executeJavaScript(`document.getElementById('introText').textContent`)); i++) await new Promise(r => setTimeout(r, 250));
   info.quali = { menu: await win.webContents.executeJavaScript(`document.getElementById('introText').textContent`) };
   await win.webContents.executeJavaScript(`document.querySelector('#qualiSeg [data-q="5"]').click(); document.getElementById('startBtn').click()`);
-  await new Promise(r => setTimeout(r, 2500));
+  // every start goes through the five lights, qualifying too (it used to say GO at once)
+  await new Promise(r => setTimeout(r, 1500));
+  info.quali.lights = await win.webContents.executeJavaScript(`!document.getElementById('lights').hidden && document.querySelectorAll('#lights .on').length`);
+  await new Promise(r => setTimeout(r, 7000));
   Object.assign(info.quali, await win.webContents.executeJavaScript(`({ title: document.getElementById('towerLap').textContent, rows: document.querySelectorAll('#towerList > *').length,
     first: document.querySelector('#towerList li .g').textContent, timeLeft: document.getElementById('timeLeft').textContent, cars: gridlineDebug.playerState() && document.querySelectorAll('#towerList li.me').length })`));
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-quali.png'), (await win.webContents.capturePage()).toPNG());

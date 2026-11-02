@@ -222,7 +222,8 @@ function newRace() {
   setStartLights(0); Hud.showLights(true); Hud.setLapTimes(0, 0); raceAudio.reset();
   Screens.show(null); Screens.hud(true);
   snapCamera();
-  if (quali) { grid.startQuali(race); lightsOut(); showMessage(SAY.qualiStart); }   // (a session: no start lights, the clock runs)
+  if (quali) grid.startQuali(race);
+  // every start goes through the five lights, qualifying too (newRace is the only way into a race: lights → lightsOut)
 }
 
 function stepStartLights(dt) {
@@ -240,7 +241,8 @@ function lightsOut() {
   game.replayRec = SIM.createReplayRecorder(game.race, game.raceOpts, { setup: G.setup, mods: G.mods, compound: G.tyres.start });
   trial.lightsOut();
   sectors.lightsOut(game.player);
-  if (game.race.tyreTemp) showMessage(SAY.coldTyres);
+  if (qualifying()) showMessage(SAY.qualiStart);
+  else if (game.race.tyreTemp) showMessage(SAY.coldTyres);
   setStartLights(0); Hud.flash('GO', 0.8); Sound.beep(...SFX.go);
   timers.after(CONFIG.lights.hideAfterGo, () => Hud.showLights(false));
 }
