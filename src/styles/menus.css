@@ -220,10 +220,7 @@ table.ana-corners caption{caption-side:bottom;text-align:left;font-size:12px;col
 .mn-top{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
 .mn-logo{margin:0;font-family:var(--display);font-weight:800;font-size:34px;letter-spacing:.02em;text-transform:uppercase;line-height:1}
 .mn-logo em{font-style:normal;color:var(--amber)}
-.mn-top .stepper.circuit{margin-left:auto}
-.mn-top .stepper.circuit output{min-width:200px;font-size:20px;font-weight:700}
-.mn-top .stepper.circuit button{width:46px;font-size:22px}
-.mn-topbtns{display:flex;gap:8px}
+.mn-topbtns{display:flex;gap:8px;margin-left:auto}
 .mn-tiles{flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(3,minmax(110px,1fr));gap:14px}
 .mn-tile{position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-start;gap:6px;padding:20px;background:#12161c;border:1px solid #1e242d;border-radius:4px;text-align:left}
 .mn-tile:hover{border-color:#5b6470;background:#151a21}
@@ -238,6 +235,26 @@ table.ana-corners caption{caption-side:bottom;text-align:left;font-size:12px;col
 .mn-bigmap{position:absolute;right:-12px;top:4px;width:66%;opacity:.85}
 .mn-bigmap .under,.mn-map .under{fill:none;stroke:#232a34;stroke-width:7;stroke-linejoin:round}
 .mn-bigmap .over{fill:none;stroke:var(--amber);stroke-width:1.4;stroke-linejoin:round}
+/* Continue (2026-11-02, the user's pick B of five on the canvas): the circuit's map fills the tile, the circuit picker
+   (arrows + a dot per circuit) in the bottom right corner, the title above PICK UP WHERE YOU LEFT */
+.mn-cont{gap:8px;font-family:var(--display)}
+.mn-cont .mn-title{font-size:44px}
+.cont-maps{position:absolute;inset:0;overflow:hidden}
+.cont-map{position:absolute;left:-4%;top:-4%;width:108%;height:108%}
+.cont-map .under{fill:none;stroke:#1d232c;stroke-width:5;stroke-linejoin:round}
+.cont-map .over{fill:none;stroke:var(--amber);stroke-opacity:.7;stroke-width:1.1;stroke-linejoin:round}
+.mn-cont::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,#12161c 18%,rgba(18,22,28,0) 62%);pointer-events:none}
+.mn-cont > :not(.cont-maps){position:relative;z-index:1}
+.mn .mn-cont .mn-cta{margin-top:15px;height:52px;padding:0 22px;border:0;border-radius:0;background:var(--amber);color:#111;font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:.1em}
+.mn .mn-cont .mn-cta:hover{filter:brightness(1.1)}
+.mn-cont .cont-pick{position:absolute;right:28px;bottom:32px;height:44px;display:flex;align-items:center;gap:6px;padding:0 4px;background:rgba(11,14,18,.85);border:1px solid var(--rule-strong);border-radius:3px}
+.mn .cont-pick > button{width:36px;height:36px;padding:0;background:transparent;border:0;color:var(--text);font-size:22px}
+.mn .cont-pick > button:hover{color:var(--amber)}
+.cont-dots{display:flex;align-items:center}
+.mn .cont-dots button{width:12px;height:24px;padding:0;background:transparent;border:0;display:flex;align-items:center;justify-content:center}
+.cont-dots button::before{content:'';width:6px;height:6px;border-radius:3px;background:#3a424d;transition:width .25s ease}
+.cont-dots button[aria-current="true"]{width:24px}
+.cont-dots button[aria-current="true"]::before{width:18px;background:var(--amber)}
 .mn-tile.padrow{padding:20px;border-radius:4px;font-size:inherit;line-height:inherit}
 .mn-tile.padrow .dot{width:9px;height:9px;flex:none;border-radius:50%;background:#5b6470}
 .mn-tile.padrow.on .dot{background:var(--green)}

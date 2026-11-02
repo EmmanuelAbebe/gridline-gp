@@ -204,7 +204,7 @@ async function smokeTest(win) {
     const wait = ms => new Promise(r => setTimeout(r, ms)), $ = id => document.getElementById(id);
     const home = { tiles: document.querySelectorAll('.mn-tile').length, cont: $('contTitle').textContent };
     // the focus moves with the arrow keys / D-pad: Continue → right = Race weekend → down = Quick race
-    $('tileContinue').focus(); const key = k => dispatchEvent(new KeyboardEvent('keydown', { key: k }));
+    $('contGo').focus(); const key = k => dispatchEvent(new KeyboardEvent('keydown', { key: k }));
     key('ArrowRight'); const right = document.activeElement.id; key('ArrowDown'); home.nav = [right, document.activeElement.id];
     $('tileRace').click(); await wait(200);
     const steps = [];

@@ -35,7 +35,6 @@ export const Screens = (() => {
       fillSeg($('typeSeg'), 't', RACE_SETUP.choices.type.filter(([v]) => v !== 'trial'));   // (a time trial: the menu's own page)
       fillSeg($('aiSeg'), 'l', RACE_SETUP.choices.ai); fillSeg($('qualiSeg'), 'q', RACE_SETUP.choices.quali);
       function render() {
-        $('trackVal').textContent = circuits.find(c => c.id === setup.track)?.name ?? setup.track;
         $('carsVal').textContent = setup.cars === 1 ? '1 (solo)' : String(setup.cars);
         markSeg($('typeSeg'), 't', setup.type);
         markSeg($('aiSeg'), 'l', setup.ai); markSeg($('qualiSeg'), 'q', setup.quali);

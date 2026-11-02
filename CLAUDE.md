@@ -386,6 +386,10 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   home); Lap analysis / Aero zones / Test controls = `.mn-tools` under the home tiles; circuit step map bigger, list 275 px,
   name centred; field step without the line-up; "Grid position" with no box, a 9 px white top line; the controller's state
   (`#raceCtl`, Hud.setPad) in Race weekend's footer. Ideas for the HUD / windows wait on the canvas's HUD & windows page.
+- Continue tile (2026-11-02, the user's pick B of five layouts on the sub-menus canvas): the circuit picker left the top bar
+  (now logo + QUIT) for the tile: the circuit's map fills it (`#contMaps`, start-menu.js showMap: slides in from the side
+  of the circuit picked, the shorter way round), `#trackStep` = ‹ + a dot per circuit (`#contDots`) + › in its bottom
+  right corner, the title over the button `#contGo` (the tile is a div now; the focus starts on #contGo).
 - A fixed 1280 × 800 panel like the mock-up, shrunk evenly only when the window is smaller (`.mn` transform scale(--mn-scale),
   start-menu.js fit(); user, 1440p: stretched was wrong, scaled up "too big"); `GRIDLINE_SMOKE_SIZE=2560x1440` = a test run's window.
 - `start-menu.js` `createStartMenu(ctx)` arranges `#startOv`: home `#mnHome` = tiles (Continue = start with the saved

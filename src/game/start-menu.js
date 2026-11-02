@@ -35,6 +35,13 @@ export function createStartMenu(ctx) {
     b.onclick = () => ctx.switchTrack(id);
     circList.append(b);
   }
+  // the Continue tile's circuit picker: a dot per circuit (the arrows: screens.js bindSetup, #trackStep)
+  for (const id of ids) {
+    const b = el('button'); b.type = 'button'; b.setAttribute('aria-label', SIM.CIRCUITS[id].name); b.dataset.id = id;
+    b.onclick = () => ctx.switchTrack(id);
+    $('contDots').append(b);
+  }
+  let shownMap = null;
   const ruleRows = $('ruleRows');
   for (const [key, label, note] of RULES) {
     const row = el('div', 'rule'), info = el('div'), seg = el('div', 'seg');
@@ -62,7 +69,7 @@ export function createStartMenu(ctx) {
   }
   function goStep(k) { step = Math.max(0, Math.min(STEPS - 1, k)); refresh(); focusFirst(); }
   const focusFirst = () => requestAnimationFrame(() => {
-    const target = !page ? $('tileContinue') : page === 'race' ? document.querySelector(`#raceSteps [data-step="${step}"]`) : page === 'trial' ? $('trialGo') : $('lbClose');
+    const target = !page ? $('contGo') : page === 'race' ? document.querySelector(`#raceSteps [data-step="${step}"]`) : page === 'trial' ? $('trialGo') : $('lbClose');
     if (root.hidden) return;
     target?.focus({ preventScroll: true });
   });
@@ -72,7 +79,7 @@ export function createStartMenu(ctx) {
     const s = game.setup, T = ctx.track(), O = OUTLINES[T.id], name = SIM.CIRCUITS[T.id].name, trial = s.type === 'trial';
     const level = choiceLabel('ai', s.ai), dist = s.type === 'timed' ? s.minutes + ' min' : s.type === 'unlimited' ? 'no limit' : s.laps + (s.laps === 1 ? ' lap' : ' laps');
     // home
-    $('contMap').setAttribute('d', O.d); $('contMapU').setAttribute('d', O.d);
+    showMap(T.id);
     $('contTitle').textContent = trial ? `Time trial · ${name}` : `Race · ${name}`;
     $('contSub').textContent = trial ? `Chasing ${ctx.ghostName()}` : `${s.cars === 1 ? 'Solo' : s.cars + ' cars · ' + level} · ${dist}`;
     $('tileRaceSub').textContent = `${name} · ${level} · ${trial ? s.laps + ' laps' : dist}`;
@@ -106,6 +113,24 @@ export function createStartMenu(ctx) {
     $('trialTitle').textContent = `Time trial · ${name}`;
     $('trialGo').textContent = `Drive · chase ${ctx.ghostName()}`;
   }
+  // the Continue tile's map: slides in from the side of the circuit picked (the shorter way round), the old one out
+  function showMap(id) {
+    if (id === shownMap) return;
+    const box = $('contMaps'), cur = box.lastElementChild, d = OUTLINES[id].d;
+    for (const b of $('contDots').children) b.setAttribute('aria-current', String(b.dataset.id === id));
+    const calm = !shownMap || root.hidden || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let dir = (ids.indexOf(id) - ids.indexOf(shownMap) + ids.length) % ids.length;
+    dir = dir > ids.length / 2 ? -1 : 1;
+    shownMap = id;
+    while (box.children.length > 1) box.firstElementChild.remove();
+    if (calm) { for (const p of cur.children) p.setAttribute('d', d); return; }
+    const next = cur.cloneNode(true);
+    for (const p of next.children) p.setAttribute('d', d);
+    box.append(next);
+    const ease = { duration: 450, easing: 'ease' };
+    cur.animate([{ transform: 'none', opacity: 1 }, { transform: `translateX(${-dir * 100}%)`, opacity: 0 }], ease).onfinish = () => cur.remove();
+    next.animate([{ transform: `translateX(${dir * 100}%)`, opacity: 0 }, { transform: 'none', opacity: 1 }], ease);
+  }
   function drawGrid() {
     const s = game.setup, box = $('gridPreview'), g = ctx.gridNow(), quali = s.quali !== 'off';
     if (s.cars === 1) { box.replaceChildren(el('p', 'gpu', 'Just you and the circuit.')); return; }
@@ -120,7 +145,7 @@ export function createStartMenu(ctx) {
   }
 
   // ---- buttons ----
-  $('tileContinue').onclick = () => ctx.start();
+  $('contGo').onclick = () => ctx.start();
   $('tileRace').onclick = () => show('race');
   $('tileQuick').onclick = () => { if (game.setup.type === 'trial') ctx.setType('laps'); ctx.start(); };
   $('tileTrial').onclick = () => show('trial');

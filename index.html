@@ -88,16 +88,16 @@
     <section class="mn-home" id="mnHome" aria-label="Start">
       <header class="mn-top">
         <h1 class="mn-logo">Gridline <em>GP</em> <small class="build-tag" id="versionTag"></small></h1>
-        <div class="stepper circuit" id="trackStep"><button type="button" data-d="-1" aria-label="Previous circuit">‹</button><output id="trackVal">Elkmoor Park</output><button type="button" data-d="1" aria-label="Next circuit">›</button></div>
         <div class="mn-topbtns"><button class="iconbtn mn-quit" type="button" data-quit hidden>QUIT</button></div>
       </header>
       <div class="update-bar" id="updateBar" hidden><span id="updateText"></span><button class="iconbtn" id="updateBtn" type="button">DOWNLOAD</button><button class="iconbtn" id="updateHide" type="button" aria-label="Not now">✕</button></div>
       <div class="mn-tiles">
-        <button class="mn-tile mn-big" id="tileContinue" type="button">
-          <svg class="mn-bigmap" viewBox="0 0 200 120" aria-hidden="true"><path class="under" id="contMapU" d=""></path><path class="over" id="contMap" d=""></path></svg>
+        <div class="mn-tile mn-big mn-cont" id="tileContinue">
+          <div class="cont-maps" id="contMaps" aria-hidden="true"><svg class="cont-map" viewBox="0 0 200 120" preserveAspectRatio="xMidYMid meet"><path class="under" d=""></path><path class="over" d=""></path></svg></div>
           <span class="mn-kick">CONTINUE</span><span class="mn-title" id="contTitle"></span><span class="mn-sub" id="contSub"></span>
-          <span class="mn-cta">PICK UP WHERE YOU LEFT</span>
-        </button>
+          <button class="mn-cta" id="contGo" type="button">PICK UP WHERE YOU LEFT</button>
+          <div class="cont-pick" id="trackStep" role="group" aria-label="Circuit"><button type="button" data-d="-1" aria-label="Previous circuit">‹</button><span class="cont-dots" id="contDots"></span><button type="button" data-d="1" aria-label="Next circuit">›</button></div>
+        </div>
         <button class="mn-tile mn-wide mn-hot" id="tileRace" type="button"><span class="mn-kick">STEP BY STEP</span><span class="mn-title">RACE WEEKEND</span><span class="mn-sub" id="tileRaceSub"></span></button>
         <button class="mn-tile" id="tileQuick" type="button"><span class="mn-kick">ONE TAP</span><span class="mn-title">QUICK RACE</span><span class="mn-sub" id="tileQuickSub">Same as last time</span></button>
         <button class="mn-tile" id="tileTrial" type="button"><span class="mn-kick">ALONE</span><span class="mn-title">TIME TRIAL</span><span class="mn-sub" id="tileTrialSub">Chase a ghost</span></button>
