@@ -20,5 +20,9 @@ contextBridge.exposeInMainWorld('gridlineApp', {
     feedback: fx => ipcRenderer.send('phone:feedback', fx),      // force feedback → the phone's vibration
     dash: d => ipcRenderer.send('phone:dash', d),                // gear, revs, speed → the phone's rev strip
     onStatus: fn => ipcRenderer.on('phone:status', (_e, s) => fn(s)),
+    // the phone designer: ask for the phone's profile (→ onConfig { cfg, scr }), send it a new layout
+    askLayout: () => ipcRenderer.send('phone:ask-layout'),
+    setLayout: l => ipcRenderer.send('phone:set-layout', l),
+    onConfig: fn => ipcRenderer.on('phone:config', (_e, c) => fn(c)),
   },
 });

@@ -142,6 +142,10 @@ export function setDash(d: Record<string, unknown>) {
   dash.d = typeof d.d === 'number' && Number.isFinite(d.d) ? Math.max(-999, Math.min(999, d.d)) : null;
 }
 
+// ---------- a layout made in the game's phone designer → App (puts it on the active profile)
+let layoutFromGame: ((l: Record<string, unknown>) => void) | null = null;
+export function onLayoutFromGame(fn: (l: Record<string, unknown>) => void) { layoutFromGame = fn; }
+
 // ---------- the screen's ECU taps → the game (map row: a map, or AUTO / MANUAL)
 const ECU_SEND = 1000;
 let ecuSeq = Math.floor(Math.random() * 1e6), ecuCmd = 0, ecuUntil = 0;   // (a reloaded page never repeats the last number)
@@ -280,6 +284,10 @@ function connect() {
     if (d && typeof (d as { pong?: unknown }).pong === 'number') onPong(d as { pong: number }, performance.now());
     else if (d && typeof (d as { fx?: unknown }).fx === 'object') feedback((d as { fx: Fx }).fx);
     else if (d && typeof (d as { dash?: unknown }).dash === 'object') setDash((d as { dash: Record<string, unknown> }).dash);
+    // the game's phone designer (Gridline GP: src/game/phone-designer.js): send our profile + screen, take a new layout
+    else if (d && (d as { getCfg?: unknown }).getCfg && cfg)
+      sock.send(JSON.stringify({ cfg, scr: { w: Math.max(innerWidth, innerHeight), h: Math.min(innerWidth, innerHeight) } }));
+    else if (d && typeof (d as { setLayout?: unknown }).setLayout === 'object') layoutFromGame?.((d as { setLayout: Record<string, unknown> }).setLayout);
   };
   sock.onclose = async () => {
     if (ws !== sock) return;                    // replaced by reconnect()

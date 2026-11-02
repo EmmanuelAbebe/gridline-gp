@@ -63,6 +63,9 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   GROUP / UNGROUP (`layout.groups` id → name; a group moves as one, dashed named frame; the first edit starts with the
   clusters as PIT / RACE), MIRROR (Drive.tsx `mirrorPairs`: pedals, shift keys, rounds, k-th PIT ↔ k-th RACE button),
   UNDO (30), ⇅ bar up / down, STD, ✕, DONE.
+- In the game (2026-10-31): `?designer` = ui/Designer.tsx (no engine, no connection; a sample dash): takes the profile by
+  postMessage from the game's phone designer, the same Drive + LayoutEditor, DONE / STD / ✕ post back. engine.ts answers
+  the PC's {getCfg} with {cfg, scr} and hands {setLayout} to App (`onLayoutFromGame`). vite base './'.
   Steering: straight ahead moves only with the Center buttons; the reference direction is
   decided from the first reading and kept (a 90° turn = portrait used to switch the steering round); GravitySensor
   preferred; full lock is felt from the phone's own steering.

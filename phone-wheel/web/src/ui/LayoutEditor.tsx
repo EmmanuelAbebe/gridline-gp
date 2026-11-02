@@ -8,12 +8,16 @@
 // engine). Done saves the boxes and groups as the profile's own layout (layout.free / layout.groups); Standard goes back
 // to the race wheel.
 import { useRef, useState } from 'react';
-import { clampRect, MIN_BOX, type FreeLayout, type Groups, type Rect } from '../settings/settings.ts';
+import { clampRect, MIN_BOX, type Config, type FreeLayout, type Groups, type Rect } from '../settings/settings.ts';
 import { boxStyle, fallbackRect, type Slot } from './Drive.tsx';
 import { buzz } from './screen.ts';
 import './LayoutEditor.css';
 
 export interface Draft { boxes: FreeLayout; groups: Groups }
+// the race wheel's clusters as the editor's first groups: PIT (its buttons + wheel / settings), RACE (+ reconnect / full screen)
+export const clusterGroups = (cfg: Config): Groups => Object.fromEntries([
+  ...cfg.buttons.map((b, i): [string, string] => [`btn${i}`, b.side === 'pit' ? 'PIT' : 'RACE']),
+  ['wheel', 'PIT'], ['settings', 'PIT'], ['reconnect', 'RACE'], ['full', 'RACE']]);
 const GRID = 8, NEAR = 6;   // px
 
 // where every element is now on the screen (the race wheel, or your own layout), as shares of the screen

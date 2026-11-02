@@ -232,6 +232,12 @@
   </div>
 </div>
 
+<!-- the phone wheel's layout, designed in the game (phone-designer.js): the phone page in a frame at the phone's size -->
+<div id="phoneDesignOv" class="overlay phone-design" hidden role="dialog" aria-modal="true" aria-labelledby="phoneDesignTitle">
+  <div class="pd-head"><h2 id="phoneDesignTitle">Phone wheel layout</h2><span class="note" id="phoneDesignNote"></span>
+    <button class="btn ghost small" id="phoneDesignClose" type="button" hidden>Close</button></div>
+  <div class="pd-stage" id="phoneDesignStage"></div>
+</div>
 <div id="anaOv" class="overlay" hidden>
   <div class="card xwide analysis" role="dialog" aria-labelledby="anaTitle">
     <div class="set-head"><p class="verdict" id="anaTitle">Lap analysis</p><button class="btn small" id="anaClose" type="button">Done</button></div>

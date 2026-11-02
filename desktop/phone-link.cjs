@@ -7,7 +7,11 @@
 // on the network out. Plain http on the port is redirected to https (phones often open a typed address as http).
 // Links (phone-net.cjs): wifi, bluetooth (tethering; the address is watched and the certificate follows it), usb.
 //
-//   const link = createPhoneLink({ dataDir, pagesDir, onInput, onStatus });
+// The game's phone designer (2026-10-31, src/game/phone-designer.js): askLayout() → each phone answers { cfg, scr } (its
+// active profile, its screen in landscape) → onConfig; setLayout(l) sends { setLayout: { free, groups, labels } } and
+// the phone puts it on its active profile.
+//
+//   const link = createPhoneLink({ dataDir, pagesDir, onInput, onStatus, onConfig });
 //   await link.start({ link: 'wifi' | 'bluetooth' | 'usb', port }); link.status(); link.feedback(fx); link.dash(d); await link.stop();
 const fs = require('node:fs');
 const path = require('node:path');
@@ -76,7 +80,17 @@ function ensureCert(dataDir, ip) {
   return { cert: certPem, key: keyPem };
 }
 
-function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () => {} }) {
+const CFG_MAX = 64 * 1024;          // bytes: a phone's profile is a few KB
+// a phone's answer to askLayout: { cfg: its profile, scr: { w, h } } (kept as plain data; the game checks it again)
+function parseConfig(text) {
+  if (text.length > CFG_MAX || !text.includes('"cfg"')) return null;
+  let d; try { d = JSON.parse(text); } catch { return null; }
+  if (!d || typeof d.cfg !== 'object' || Array.isArray(d.cfg) || !d.cfg) return null;
+  const w = +d.scr?.w, h = +d.scr?.h, ok = v => Number.isFinite(v) && v >= 200 && v <= 4000;
+  return { cfg: d.cfg, scr: ok(w) && ok(h) ? { w: Math.round(w), h: Math.round(h) } : null };
+}
+
+function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () => {}, onConfig = () => {} }) {
   let st = idle(), servers = null, token = null, btWatch = null, adb = null;
   const input = { s: 0, g: 0, b: 0, k: 0, t: 0 };
   function idle() { return { running: false, link: null, url: '', qr: '', port: 0, ip: '', phones: 0, rtt: null, hz: 0, gap: 0, note: '', error: '' }; }
@@ -116,7 +130,7 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
   }
 
   // ---- the WebSocket ----
-  const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: CFG_MAX });   // (a profile for the designer; input is ~60 bytes)
   function onUpgrade(req, socket, head) {
     const url = new URL(req.url, 'http://x');
     if (url.pathname !== '/ws' || !paired(url)) { socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n'); return; }
@@ -132,7 +146,9 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
       if (binary) return;
       const now = performance.now();
       arrivals.push(now); while (now - arrivals[0] > 5000) arrivals.shift();
-      const p = parseMessage(data.toString());
+      const text = data.toString(), c = parseConfig(text);
+      if (c) { onConfig(c); return; }                // (not input: a { cfg } message must not let go of the pedals)
+      const p = parseMessage(text);
       if (!p) return;
       Object.assign(input, p.input, { t: now });
       onInput(p.input);
@@ -256,7 +272,16 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
     for (const ws of wss.clients) if (ws.readyState === 1 && ws.bufferedAmount < 4096) ws.send(text);
   }
 
-  return { start, stop, status, feedback, dash, close: async () => { clearInterval(watchdog); await stop(); } };
+  // the game's phone designer: ask the phones for their layout / send them a new one
+  const toPhones = msg => { const text = JSON.stringify(msg); for (const ws of wss.clients) if (ws.readyState === 1) ws.send(text); };
+  const askLayout = () => toPhones({ getCfg: 1 });
+  function setLayout(l) {
+    if (!l || typeof l !== 'object') return;
+    const text = JSON.stringify({ setLayout: l });
+    if (text.length <= CFG_MAX) toPhones({ setLayout: l });
+  }
+
+  return { start, stop, status, feedback, dash, askLayout, setLayout, close: async () => { clearInterval(watchdog); await stop(); } };
 }
 
-module.exports = { createPhoneLink, parseMessage, pairingToken, ensureCert, BUTTONS };
+module.exports = { createPhoneLink, parseMessage, parseConfig, pairingToken, ensureCert, BUTTONS };

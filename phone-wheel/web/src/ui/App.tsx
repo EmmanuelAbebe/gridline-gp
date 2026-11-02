@@ -2,19 +2,15 @@
 import { useEffect, useState } from 'react';
 import * as engine from '../engine/engine.ts';
 import { isPreview, startPreview } from '../engine/preview.ts';
-import { clone, loadStore, saveStore, type Config, type Store } from '../settings/settings.ts';
+import { clone, loadStore, sanitize, saveStore, type Config, type Store } from '../settings/settings.ts';
 import { enterFullscreen, keepAwake, setHaptics } from './screen.ts';
 import { StartScreen } from './StartScreen.tsx';
 import { Drive, mirrorPairs, slotsOf } from './Drive.tsx';
-import { LayoutEditor, measureLayout, type Draft } from './LayoutEditor.tsx';
+import { clusterGroups, LayoutEditor, measureLayout, type Draft } from './LayoutEditor.tsx';
 import { RotateHint } from './RotateHint.tsx';
 import { AwayScreen } from './AwayScreen.tsx';
 import { Settings } from './settings/Settings.tsx';
 
-// the race wheel's clusters as the editor's first groups: PIT (its buttons + wheel / settings), RACE (+ reconnect / full screen)
-const clusterGroups = (cfg: Config) => Object.fromEntries([
-  ...cfg.buttons.map((b, i): [string, string] => [`btn${i}`, b.side === 'pit' ? 'PIT' : 'RACE']),
-  ['wheel', 'PIT'], ['settings', 'PIT'], ['reconnect', 'RACE'], ['full', 'RACE']]);
 // edits the active profile: update(c => { c.steer.smoothing = 30 })
 export type Update = (fn: (c: Config) => void) => void;
 const preview = isPreview();
@@ -34,6 +30,11 @@ export function App() {
   useEffect(() => { engine.state.paused = settingsOpen || editing; if (settingsOpen || editing) engine.stopFeedback(); }, [settingsOpen, editing]);
 
   const update: Update = (fn) => setStore((s) => { const next = clone(s); fn(next.profiles[next.active]); return next; });
+  // a layout made in the game's phone designer: on the active profile (checked like a saved one)
+  useEffect(() => engine.onLayoutFromGame((l) => update((c) => {
+    const L = sanitize({ ...c, layout: { ...c.layout, free: l.free, groups: l.groups, labels: l.labels ?? c.layout.labels } }).layout;
+    c.layout.free = L.free; c.layout.groups = L.groups; c.layout.labels = L.labels;
+  })), []);
 
   async function start() {
     if (!window.isSecureContext) {

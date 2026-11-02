@@ -9,7 +9,7 @@ import react from '@vitejs/plugin-react';
 const target = process.env.PHONE_WHEEL_SERVER;
 export default defineConfig({
   root: import.meta.dirname,
-  base: '/',
+  base: './',                       // (relative: the game's phone designer loads it from a file, the server at /)
   plugins: [react()],
   build: { outDir: 'dist', emptyOutDir: true, target: 'es2022' },
   server: {

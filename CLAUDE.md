@@ -310,6 +310,14 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   → PhoneWheel 'ecu' → main.js: a map = MANUAL + `pendingMap` steps the shorter way round, one per sim step; 'auto' /
   'manual' = setDriving('ecu')); `Hud.delta` = the time-trial delta for its screen; button-map.js `PHONE_MAP` (the
   phone's defaults: D-pad up = straight mode, down = pit limiter). Smoke: a fake phone taps ATTACK (check-smoke).
+- Designing the phone's layout in the game (2026-10-31, user: "use an interface in the game itself to design the
+  phone-wheel (edit mode only)"): Settings → Controller → Design its layout (connected phone) → `phone-designer.js`
+  `PhoneDesigner`: PhoneWheel.askLayout() (preload askLayout → phone-link.cjs `askLayout` = {getCfg} to the phones; the
+  phone answers {cfg, scr} = its active profile + landscape screen, `parseConfig`, never taken as input; maxPayload 64 KB)
+  → `#phoneDesignOv` with the phone page `../phone-wheel/web/dist/index.html?designer` (phone build base './') in an
+  iframe at the phone's own size, scaled to fit; postMessage 'gridline-design-ready' → {type 'gridline-design', cfg};
+  'gridline-design-done' {free, groups, labels} → PhoneWheel.setLayout → {setLayout} → the phone's App puts it on the
+  active profile (sanitized). Escape closes it. Smoke: the fake phone answers, out-phone-design.png, DONE reaches it.
 
 ## Your own straight-mode zones (2026-10-28; user: "override and adjust the automatic DRS system on the map")
 - SIM active-aero.js: `setAeroZones(track, [{ from, to }] metres | null)` replaces track.aeroZone / aeroZones (merging

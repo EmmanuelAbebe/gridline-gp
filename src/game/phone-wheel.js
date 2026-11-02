@@ -12,7 +12,7 @@ export const PhoneWheel = (() => {
   const api = globalThis.window?.gridlineApp?.phone ?? null, events = createEmitter();
   let status = { running: false, phones: 0, url: '', qr: '', link: null, note: '', error: '' };
   const input = { s: 0, g: 0, b: 0, k: 0, a: 0, t: 0 };
-  let lastEcu = 0;   // a: the phone says it was put down (1) or dropped (2)
+  let lastEcu = 0, waiting = null;   // waiting: askLayout's answer   // a: the phone says it was put down (1) or dropped (2)
   const buttons = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }));
   const snapshot = { kind: 'phone', key: 'phone', label: 'Phone wheel', id: 'Phone wheel', mapping: 'standard', connected: true,
     timestamp: 0, axes: [0, 0, 0, 0], buttons };
@@ -23,6 +23,7 @@ export const PhoneWheel = (() => {
       if (i.eq && i.eq !== lastEcu) { lastEcu = i.eq; events.emit('ecu', i.e === 4 ? 'auto' : i.e === 5 ? 'manual' : i.e); }
     });
     api.onStatus(s => { status = s; events.emit('status', s); });
+    api.onConfig?.(c => waiting?.(c));
     api.status().then(s => { status = s; events.emit('status', s); });
   }
   return {
@@ -36,6 +37,16 @@ export const PhoneWheel = (() => {
     feedback(fx) { if (api?.feedback && status.phones) api.feedback(fx); },
     // the dash (gear, revs, speed) → the phone's rev strip and gear
     dash(d) { if (api?.dash && status.phones) api.dash(d); },
+    // the phone designer (phone-designer.js): the phone's profile { cfg, scr }, or null after `wait` ms; a new layout
+    askLayout(wait = 3000) {
+      if (!api?.askLayout || !status.phones) return Promise.resolve(null);
+      return new Promise(done => {
+        const t = setTimeout(() => { waiting = null; done(null); }, wait);
+        waiting = c => { clearTimeout(t); waiting = null; done(c); };
+        api.askLayout();
+      });
+    },
+    setLayout(l) { if (api?.setLayout && status.phones) api.setLayout(l); },
     pad() {
       if (!status.phones) return null;
       snapshot.axes[0] = input.s; snapshot.timestamp = input.t;

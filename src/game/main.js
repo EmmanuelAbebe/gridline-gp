@@ -55,6 +55,7 @@ import { createZoneEditor } from './zone-editor.js';
 import { bindSettings } from './settings-binding.js';
 import { installDebug } from './debug.js';
 import { PhoneWheel } from './phone-wheel.js';
+import { PhoneDesigner } from './phone-designer.js';
 import { createHaptics } from './haptics.js';
 import { createPitCrews } from './pit-crew.js';
 import { createTyreMarks } from './tyre-marks.js';
@@ -419,7 +420,7 @@ function toggleLayout() {
 // ---- "are you there?" (away.js) ----
 const away = createAway({ game, racing: () => racing(), togglePause: () => togglePause() });
 
-const escape = () => away.open ? away.toPauseMenu() : AppShell.quitOpen ? AppShell.cancelQuit() : analysis.open ? analysis.close() : zoneEditor.open ? zoneEditor.close() : Garage.open ? Garage.close() : InputMonitor.open ? InputMonitor.toggle(false) : SoundStudio.open ? SoundStudio.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
+const escape = () => away.open ? away.toPauseMenu() : AppShell.quitOpen ? AppShell.cancelQuit() : PhoneDesigner.isOpen ? PhoneDesigner.close() : analysis.open ? analysis.close() : zoneEditor.open ? zoneEditor.close() : Garage.open ? Garage.close() : InputMonitor.open ? InputMonitor.toggle(false) : SoundStudio.open ? SoundStudio.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
   : LayoutEditor.active ? LayoutEditor.exit() : menuOpen() && menu.back() ? null : togglePause();
 // "Quit the game?" (Alt+F4 mid-race too): the race pauses behind it
 AppShell.onAskQuit(() => { if (isRunning() && !game.paused) togglePause(); });

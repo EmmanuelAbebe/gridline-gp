@@ -20,3 +20,4 @@ button svg { vertical-align: -0.15em; }
 button.small svg { margin-right: 3px; }
 .row { display: flex; gap: var(--gap); flex-wrap: wrap; justify-content: center; }
 input[type=range] { accent-color: var(--accent); }
+.designer-wait { position: fixed; inset: 0; display: grid; place-items: center; color: var(--muted); }

@@ -99,12 +99,14 @@ ipcMain.handle('app:is-fullscreen', e => BrowserWindow.fromWebContents(e.sender)
 const { createPhoneLink } = require('./phone-link.cjs');
 const toPage = (channel, data) => { for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send(channel, data); };
 const phone = createPhoneLink({ dataDir: path.join(app.getPath('userData'), 'phone-wheel'), pagesDir: path.join(ROOT, 'phone-wheel'),
-  onInput: input => toPage('phone:input', input), onStatus: s => toPage('phone:status', s) });
+  onInput: input => toPage('phone:input', input), onStatus: s => toPage('phone:status', s), onConfig: c => toPage('phone:config', c) });
 ipcMain.handle('phone:start', (_e, opts) => phone.start(opts));
 ipcMain.handle('phone:stop', () => phone.stop().then(() => phone.status()));
 ipcMain.handle('phone:status', () => phone.status());
 ipcMain.on('phone:feedback', (_e, fx) => phone.feedback(fx));
 ipcMain.on('phone:dash', (_e, d) => phone.dash(d));
+ipcMain.on('phone:ask-layout', () => phone.askLayout());           // the phone designer (src/game/phone-designer.js)
+ipcMain.on('phone:set-layout', (_e, l) => phone.setLayout(l));
 app.on('will-quit', () => { phone.close(); });
 
 async function smokeTest(win) {
@@ -302,7 +304,11 @@ async function smokeTest(win) {
       inUse: document.querySelector('.dev-row.active b')?.textContent })`);
     // back to the race for 3 s on full lock and full gas: the phone gets force feedback ({fx}: slides, kerbs, grass)
     const fx = [];
-    ws.on('message', m => { const d = JSON.parse(m); if (d.fx) fx.push(d.fx); });
+    // (+ the phone designer: answer the game's request for our profile, keep the layout it sends)
+    let sentLayout = null;
+    ws.on('message', m => { const d = JSON.parse(m); if (d.fx) fx.push(d.fx);
+      if (d.getCfg) ws.send(JSON.stringify({ cfg: { buttons: [{ label: 'BOX', bind: 'X', side: 'pit' }, { label: 'DRS', bind: 'UP', side: 'race' }] }, scr: { w: 844, h: 390 } }));
+      if (d.setLayout) sentLayout = d.setLayout; });
     await win.webContents.executeJavaScript(`document.getElementById('setClose').click(); document.getElementById('resumeBtn').click()`);
     clearInterval(feed);
     const steerHard = setInterval(() => ws.send(JSON.stringify({ s: 1, g: 1, b: 0, k: 0 })), 16);
@@ -343,12 +349,25 @@ async function smokeTest(win) {
     await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click(); document.getElementById('pauseSettingsBtn').click();
       [...document.querySelectorAll('#setTabs button')].find(b => b.textContent === 'Controller').click()`);
     await new Promise(r => setTimeout(r, 300));          // paused: the rumble's last message (all 0) arrives
+    // the phone designer: Design its layout → the phone page in a frame (screenshot) → DONE → the layout reaches the phone
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('#setBody button')].find(b => b.textContent === 'Design its layout')?.click()`);
+    let designFrame = null;
+    for (let k = 0; k < 40 && !designFrame; k++) {
+      await new Promise(r => setTimeout(r, 100));
+      designFrame = win.webContents.mainFrame.framesInSubtree.find(f => f.url.includes('designer'));
+    }
+    await new Promise(r => setTimeout(r, 800));
+    const designBoxes = designFrame ? await designFrame.executeJavaScript(`document.querySelectorAll('.ed-box').length`) : 0;
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-phone-design.png'), (await win.webContents.capturePage()).toPNG());
+    if (designFrame) await designFrame.executeJavaScript(`[...document.querySelectorAll('.ed-tools button')].find(b => b.textContent === 'DONE').click()`);
+    await new Promise(r => setTimeout(r, 500));
+    const design = { frame: !!designFrame, boxes: designBoxes, sent: !!sentLayout?.free, closed: await win.webContents.executeJavaScript(`document.getElementById('phoneDesignOv').hidden`) };
     ws.close();
     await new Promise(r => setTimeout(r, 400));
     const after = await win.webContents.executeJavaScript(`gridlineDebug.input()`);
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('#setBody button')].find(b => b.textContent === 'Stop').click()`);
     await new Promise(r => setTimeout(r, 400));
-    return { link: st.link, port: st.port, qr: st.qr.startsWith('<svg'), seen, releasedSteer: after.steer, stopped: !phone.status().running, away: { ...awayShown, back: awayBack }, buttons: { live: buttonsLive, bound: buttonsBound }, ecu: { mode: ecu?.ecuMode, map: ecu?.ecuMap },
+    return { link: st.link, port: st.port, qr: st.qr.startsWith('<svg'), seen, releasedSteer: after.steer, stopped: !phone.status().running, away: { ...awayShown, back: awayBack }, buttons: { live: buttonsLive, bound: buttonsBound }, ecu: { mode: ecu?.ecuMode, map: ecu?.ecuMap }, design,
       feedback: { messages: fx.length, felt: [...new Set(fx.flatMap(f => Object.keys(f).filter(k => k !== 'kh' && f[k] > 0)))], endsAtZero: !!fx.length && !fx.at(-1).k && !fx.at(-1).o && !fx.at(-1).s } };
   })();
   // the race so far (the phone's full lock and gas, pauses, settings opened) driven again from its replay: the same car

@@ -2,6 +2,7 @@
 // live link quality; desktop app only) and the list of every other controller the game sees (Xbox / PlayStation
 // pads, wheels, joysticks...), with which one drives (prefs.controller: AUTO or a device). Built by the settings
 // screen through its `panel` item; `bind` is the settings binding (get / set prefs), tick() runs every frame.
+import { PhoneDesigner } from './phone-designer.js';
 import { PhoneWheel } from './phone-wheel.js';
 import { Controllers, KINDS } from './controllers.js';
 
@@ -47,6 +48,7 @@ export function createControllerPanel(bind) {
     else {
       btns.append(button('Stop', async () => { busy = true; await PhoneWheel.stop(); busy = false; drawPhone(); }));
       btns.append(button('New pairing code', () => start(true)));
+      if (s.phones) btns.append(button('Design its layout', () => PhoneDesigner.open(), 'btn small'));   // (phone-designer.js)
     }
     const auto = el('div', 'row');
     auto.append(el('span', 'lbl dim', 'Start with the game'), seg([[true, 'ON'], [false, 'OFF']], bind.get('phoneAuto'), v => { bind.set('phoneAuto', v); drawPhone(); }));

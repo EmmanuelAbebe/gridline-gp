@@ -12,7 +12,7 @@ import https from 'node:https';
 import http from 'node:http';
 
 const require = createRequire(import.meta.url);
-const { createPhoneLink, parseMessage, pairingToken, ensureCert } = require('../desktop/phone-link.cjs');
+const { createPhoneLink, parseMessage, parseConfig, pairingToken, ensureCert } = require('../desktop/phone-link.cjs');
 const pn = require('../desktop/phone-net.cjs');
 const WebSocket = require('ws');
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
@@ -28,6 +28,13 @@ test('phone messages: clamped, masked, bad ones ignored', () => {
   assert.deepEqual(parseMessage(JSON.stringify({ e: 2, eq: 17 })).input, { s: 0, g: 0, b: 0, k: 0, a: 0, e: 2, eq: 17 });
   for (const e of [{ e: 6, eq: 1 }, { e: 1.5, eq: 1 }, { e: 1, eq: 0 }, { e: 1 }, { e: '2', eq: 'x' }]) assert.equal(parseMessage(JSON.stringify(e)).input.e, undefined, JSON.stringify(e));
   for (const bad of ['not json', '{"s": "left"}', '{"k": null}', '[1, 2]', '42', 'null']) assert.equal(parseMessage(bad), null, bad);
+});
+
+test('the phone designer: a phone\'s profile answer is taken as config, never as input', () => {
+  const c = parseConfig(JSON.stringify({ cfg: { buttons: [] }, scr: { w: 844, h: 390 } }));
+  assert.deepEqual(c, { cfg: { buttons: [] }, scr: { w: 844, h: 390 } });
+  assert.equal(parseConfig(JSON.stringify({ cfg: {}, scr: { w: 9e9, h: 1 } })).scr, null, 'a silly screen size is dropped');
+  for (const bad of ['{"s": 0.5}', '{"cfg": [1]}', '{"cfg": null}', 'not json', JSON.stringify({ cfg: { x: 'y'.repeat(70000) } })]) assert.equal(parseConfig(bad), null, bad.slice(0, 30));
 });
 
 test('pairing code is kept until renewed; certificate covers every address it was made for', () => {

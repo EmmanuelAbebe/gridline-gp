@@ -24,6 +24,8 @@ const checks = [
   ['log file written', r.logFile === true],
   ['no page errors', Array.isArray(r.errors) && r.errors.length === 0],
   // (where the phone server ran) the race wheel's map row: a tap on ATTACK → the ECU on MANUAL, map 2
+  // (the same) the phone designer: the phone page in a frame with the editor, DONE sends the layout to the phone
+  ['phone designer edits and sends the layout', !r.phone || r.phone.error || (r.phone.design?.frame && r.phone.design.boxes >= 8 && r.phone.design.sent && r.phone.design.closed)],
   ['phone map tap reaches the ECU', !r.phone || r.phone.error || (r.phone.ecu?.mode === 'manual' && r.phone.ecu?.map === 2)],
 ];
 for (const [name, ok] of checks) console.log(`${ok ? 'ok  ' : 'FAIL'}  ${name}`);
