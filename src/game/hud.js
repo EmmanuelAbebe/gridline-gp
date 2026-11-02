@@ -34,6 +34,10 @@ export const Hud = (() => {
     return gp.laps ? '+' + gp.laps + ' lap' + (gp.laps > 1 ? 's' : '') : '+' + gp.t.toFixed(3);
   };
   // "2/5" in a lap race; the current lap (or laps done, once finished) in timed and unlimited races
+  // the results screen's "Your race" box: [label, value html, purple?]
+  const stats = list => {
+    $('resStats').innerHTML = '<span class="mn-kick">YOUR RACE</span>' + list.map(([k, v, best]) => `<div><span>${k}</span><b${best ? ' class="best"' : ''}>${v}</b></div>`).join('');
+  };
   const lapOf = (race, c) => race.format.type === 'laps' ? Math.min(race.laps, Math.max(1, c.lap)) + '/' + race.laps
     : String(Math.max(1, c.finished ? c.finishLap - 1 : c.lap));
   function towerTitle(race, leader) {
@@ -152,9 +156,8 @@ export const Hud = (() => {
       setOnce('aeroOn', aero, v => { $('aeroTag').classList.toggle('on', !!v); $('aeroTag').classList.toggle('ready', v === 'ready'); });
       const boost = c.boostOn ? `OVERTAKE ${c.boostLeft.toFixed(1)} s` : c.boostLeft > 0 ? (c.boostAuto ? 'OVERTAKE READY' : 'OVERTAKE READY · X') : '';
       setOnce('boostTxt', boost, t => { if (t) $('boostTag').textContent = t; $('boostTag').classList.toggle('on', !!t); });
-      setOnce('boostLive', c.boostOn, v => { $('boostTag').classList.toggle('live', v); $('boostBtn').classList.toggle('on', v); });
-      setOnce('boostBtn', !!race.overtake && !c.boostAuto, v => { $('boostBtn').hidden = !v; });
-      setOnce('pitTxt', pit, t => { $('pitState').hidden = !t; $('pitState').textContent = t; $('pitState').classList.toggle('limiter', !!c.pit || c.pitLimiter); $('boxBtn').classList.toggle('on', !!c.pit || c.pitRequest); });
+      setOnce('boostLive', c.boostOn, v => { $('boostTag').classList.toggle('live', v); });
+      setOnce('pitTxt', pit, t => { $('pitState').hidden = !t; $('pitState').textContent = t; $('pitState').classList.toggle('limiter', !!c.pit || c.pitLimiter); });
     },
     updateTower(race, player, showGaps) {
       const ord = SIM.order(race), leader = ord[0];
@@ -179,9 +182,11 @@ export const Hud = (() => {
       setText('pos', 'P' + (rows.findIndex(r => r.driver.player) + 1));
       setText('lap', String(Math.max(1, race.cars.find(c => c.player).lap)));
     },
-    // the qualifying classification (results screen): your slot on the grid
-    renderQualiResults(rows) {
+    // the qualifying classification (results screen): your slot on the grid; laps = the laps you drove
+    renderQualiResults(rows, laps) {
       const pos = rows.findIndex(r => r.driver.player) + 1, me = rows[pos - 1];
+      stats([['Best lap', me.time === null ? 'no time' : fmtTime(me.time), pos === 1 && me.time !== null], ['Grid', 'P' + pos],
+        ['Gap to pole', me.time === null ? '–' : pos === 1 ? 'pole' : '+' + me.gap.toFixed(3)], ['Laps', String(laps)]]);
       $('verdict').innerHTML = me.time === null ? 'No time set: <em>back of the grid</em>' : pos === 1 ? '<em>Pole</em> position' : `Qualified <em>${ordinal(pos)}</em>`;
       $('verdict').title = '';
       $('resBody').innerHTML = rows.map((r, i) =>
@@ -191,6 +196,10 @@ export const Hud = (() => {
       const ord = SIM.order(race), leader = ord[0], pos = ord.indexOf(player) + 1, gained = (player.slot + 1) - pos;
       $('verdict').innerHTML = pos === 1 ? 'Race <em>winner</em>' : `Finished <em>${ordinal(pos)}</em>`;
       $('verdict').title = gained > 0 ? `Gained ${gained} places` : '';
+      const from = `<small>from P${player.slot + 1}</small>`;
+      stats([['Best lap', fmtTime(player.bestLap), race.fastestBy === player],
+        ['Places', gained > 0 ? `+${gained} ${from}` : gained < 0 ? `${gained} ${from}` : `held ${from}`],
+        ['Pit stops', String(player.pitStops || 0)], ['Penalties', player.penalty ? `+${player.penalty} s` : 'none']]);
       $('resBody').innerHTML = ord.map((c, i) =>
         `<tr class="${c.player ? 'me' : ''}"><td class="num">${i+1}</td><td><i style="background:${hexCss(c.color)}"></i>${c.name}${c.player && c.spec.modified ? '<span class="mod" title="Open mods in the garage">MODIFIED</span>' : ''}</td><td class="team">${c.team}</td><td class="r num">${resultTime(race, leader, c, i)}${c.penalty ? `<span class="pen">+${c.penalty} s pen</span>` : ''}${c.pitStops ? `<span class="stops">${c.pitStops} stop${c.pitStops > 1 ? 's' : ''}</span>` : ''}</td><td class="r num${race.fastestBy === c ? ' best' : ''}">${fmtTime(c.bestLap)}</td></tr>`).join('');
     },
@@ -199,9 +208,7 @@ export const Hud = (() => {
       const chip = $('fpsChip'); chip.classList.toggle('low', fps < CONFIG.fps.low); chip.title = title;
     },
     showFps(on) { $('fpsChip').hidden = !on; },
-    setMuted(m) { $('muteBtn').textContent = m ? 'SOUND OFF' : 'SOUND ON'; },
     setPad(on, allowed) {
-      $('padChip').hidden = !on; $('padChip').classList.toggle('on', on);
       const row = $('padStatus');
       row.classList.toggle('on', on); row.classList.toggle('warn', !on && !allowed);
       // (the start menu's Race weekend footer shows it too)

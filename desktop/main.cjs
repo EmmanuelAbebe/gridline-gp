@@ -120,7 +120,9 @@ async function smokeTest(win) {
   await new Promise(r => setTimeout(r, 6000));
   const info = await win.webContents.executeJavaScript(`({ booted: document.getElementById('loading').hidden, appApi: !!window.gridlineApp,
     setup: document.getElementById('setupSummary').textContent, startScreen: !document.getElementById('startOv').hidden,
-    quitButtons: [...document.querySelectorAll('[data-quit]')].filter(b => !b.hidden).length })`);
+    quitButtons: [...document.querySelectorAll('[data-quit]')].filter(b => !b.hidden).length,
+    quitElsewhere: [...document.querySelectorAll('[data-quit]')].filter(b => !b.closest('#mnHome')).length,
+    hudButtons: [...document.querySelectorAll('#hudBtns > *')].map(b => b.id) })`);
   fs.writeFileSync(smokeOut, (await win.webContents.capturePage()).toPNG());
   // the garage: open, drag the view round (a real mouse drag), paint it red, Setup tab with its numbers, an open mod
   // (MODIFIED), mods reset, Done back to the start menu
@@ -234,8 +236,8 @@ async function smokeTest(win) {
       fs.writeFileSync(smokeOut.replace(/(\.png)?$/, `-${name}.png`), (await win.webContents.capturePage()).toPNG());
     }
   }
-  // BOX: the request shows in the HUD and the team answers on the radio
-  await win.webContents.executeJavaScript(`document.getElementById('boxBtn').click()`);
+  // BOX (B): the request shows in the HUD and the team answers on the radio
+  await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyB', key: 'b' })); dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyB', key: 'b' }))`);
   await new Promise(r => setTimeout(r, 300));
   info.box = await win.webContents.executeJavaScript(`({ pit: document.getElementById('pitState').textContent, radio: document.getElementById('radioText').textContent,
        car: document.getElementById('fuel').textContent + ' / ' + document.getElementById('tyres').textContent })`);
@@ -250,7 +252,7 @@ async function smokeTest(win) {
   if (info.aero.opened) fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-aero.png'), (await win.webContents.capturePage()).toPNG());
   await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyW', key: 'w' }))`);
   // cockpit camera (C), steering held right for a moment: the driver's arms and the wheel screen
-  await win.webContents.executeJavaScript(`document.getElementById('camBtn').click();
+  await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyC', key: 'c' })); dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyC', key: 'c' }));
     addEventListener('keydown', () => {}); dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyD', key: 'd' }))`);
   await new Promise(r => setTimeout(r, 700));
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-cockpit.png'), (await win.webContents.capturePage()).toPNG());
@@ -403,7 +405,7 @@ async function smokeTest(win) {
   }
   await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click(); document.getElementById('endBtn').click()`);
   await new Promise(r => setTimeout(r, 500));
-  Object.assign(info.quali, await win.webContents.executeJavaScript(`({ verdict: document.getElementById('verdict').textContent, next: document.getElementById('againBtn').textContent,
+  Object.assign(info.quali, await win.webContents.executeJavaScript(`({ verdict: document.getElementById('verdict').textContent, next: document.getElementById('againTitle').textContent,
     requali: !document.getElementById('requaliBtn').hidden, table: document.querySelectorAll('#resBody tr').length, pole: document.querySelector('#resBody tr td.r').textContent })`));
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-quali-results.png'), (await win.webContents.capturePage()).toPNG());
   await win.webContents.executeJavaScript(`document.getElementById('againBtn').click()`);
@@ -455,7 +457,7 @@ async function smokeTest(win) {
   if (!process.env.GRIDLINE_SMOKE_GHOST) await win.webContents.executeJavaScript(`document.querySelector('#ghostList [data-ghost="alien"]').click()`);
   await win.webContents.executeJavaScript(`document.getElementById('startBtn').click()`);
   {                                             // high camera, just after the start: the ghost (ALIEN, or the file's) pulling away
-    await win.webContents.executeJavaScript(`document.getElementById('camBtn').click(); gridlineDebug.autopilot(0.9)`);
+    await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyC', key: 'c' })); dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyC', key: 'c' })); gridlineDebug.autopilot(0.9)`);
     // (the AI drives your car: beside the ghost's standing start)
     for (let i = 0; i < 40 && !(await win.webContents.executeJavaScript(`gridlineDebug.playerState().lap >= 1`)); i++) await new Promise(r => setTimeout(r, 250));
     await new Promise(r => setTimeout(r, 1200));
@@ -488,11 +490,16 @@ async function smokeTest(win) {
     await win.webContents.executeJavaScript(`document.getElementById('anaClose').click()`);
   }
   await win.webContents.executeJavaScript(`gridlineDebug.toMenu()`);
-  // exercise the bridge the way a player would: full-screen button, then the quit button (which must end the app)
-  await win.webContents.executeJavaScript(`document.getElementById('fullStartBtn').click()`);
+  // exercise the bridge the way a player would: Settings → Graphics → Display FULL SCREEN, then the paddock's quit
+  // button (which must end the app)
+  const displayBtn = text => `[...document.querySelectorAll('#setBody .seg button')].find(b => b.textContent === '${text}')`;
+  await win.webContents.executeJavaScript(`document.getElementById('settingsBtn').click();
+    [...document.querySelectorAll('#setTabs button')].find(b => b.textContent === 'Graphics').click(); ${displayBtn('FULL SCREEN')}.click()`);
   await new Promise(r => setTimeout(r, 1500));
   info.fullscreenAfterClick = win.isFullScreen();
-  info.fullLabel = await win.webContents.executeJavaScript(`document.getElementById('fullStartBtn').textContent`);
+  info.fullPressed = await win.webContents.executeJavaScript(`${displayBtn('FULL SCREEN')}.getAttribute('aria-pressed')`);
+  await shot('graphics');
+  await win.webContents.executeJavaScript(`document.getElementById('setClose').click()`);
   // quit asks first: "Keep playing" closes the question, "Quit" ends the app
   const q = id => win.webContents.executeJavaScript(`document.getElementById('${id}')${id === 'quitOv' ? '.hidden' : '.click()'}`);
   await win.webContents.executeJavaScript(`document.querySelector('#startOv [data-quit]').click()`);
@@ -503,7 +510,7 @@ async function smokeTest(win) {
   info.logFile = fs.existsSync(log.file) && fs.readFileSync(log.file, 'utf8').startsWith(new Date().getFullYear() + '');
   console.log(JSON.stringify({ ...info, gpu2d: app.getGPUFeatureStatus().gpu_compositing, webgl: app.getGPUFeatureStatus().webgl2, errors }));
   app.on('will-quit', () => console.log('quit via in-game button'));
-  await win.webContents.executeJavaScript(`document.querySelector('#pauseOv [data-quit]').click()`);
+  await win.webContents.executeJavaScript(`document.querySelector('#startOv [data-quit]').click()`);
   await new Promise(r => setTimeout(r, 200));
   await q('quitYesBtn');
   setTimeout(() => { console.log('quit button did NOT close the app'); app.exit(1); }, 4000);
@@ -520,7 +527,7 @@ async function raceShots(win, js, wait) {
     await js(`gridlineDebug.autopilot(1)`);
     for (let k = 0; k < 100 && (await js(`document.getElementById('tCur').textContent`)) === '0:00.000'; k++) await wait(300);
     for (let k = 0; k < 8; k++) {
-      if (k === 5) await js(`document.getElementById('camBtn').click()`);
+      if (k === 5) await js(`dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyC', key: 'c' })); dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyC', key: 'c' }))`);
       await wait(k ? 4500 : 2000);
       fs.writeFileSync(path.join(shotsDir, `${id}-race${k}.png`), (await win.webContents.capturePage()).toPNG());
     }

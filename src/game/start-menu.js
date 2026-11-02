@@ -142,23 +142,8 @@ export function createStartMenu(ctx) {
 
   // ---- moving the focus with the D-pad / arrow keys: the nearest visible button that way ----
   function nav(dir) {
-    const all = [...root.querySelectorAll('button, [tabindex="0"]')].filter(b => b.offsetParent && !b.disabled && !b.hidden);
-    const cur = root.contains(document.activeElement) ? document.activeElement : null;
-    if (!cur) { focusFirst(); return; }
-    // (edge to edge that way; across, 0 when the two line up at all, else the gap: a tall tile reaches both rows beside it,
-    // and between equals the first in the page wins)
-    const r = cur.getBoundingClientRect(), horiz = dir === 'left' || dir === 'right';
-    let best = null, score = Infinity;
-    for (const b of all) {
-      if (b === cur) continue;
-      const q = b.getBoundingClientRect();
-      const along = { right: q.left - r.right, left: r.left - q.right, down: q.top - r.bottom, up: r.top - q.bottom }[dir];
-      if (along < -2) continue;                                  // (not that way)
-      const side = horiz ? Math.max(0, q.top - r.bottom, r.top - q.bottom) : Math.max(0, q.left - r.right, r.left - q.right);
-      const sc = Math.max(0, along) + side * 2;
-      if (sc < score) { score = sc; best = b; }
-    }
-    if (best) { best.focus(); best.scrollIntoView({ block: 'nearest' }); }
+    if (!root.contains(document.activeElement)) { focusFirst(); return; }
+    moveFocus(root, dir);
   }
   addEventListener('keydown', e => {
     if (root.hidden || e.target.closest?.('input, textarea, select') || e.altKey || e.ctrlKey || e.metaKey) return;
@@ -169,7 +154,8 @@ export function createStartMenu(ctx) {
   // the menu keeps the mock-up's size and proportions: a fixed 1280 × 800, shrunk evenly only when the window is smaller
   // (user, 1440p: scaled up it was "too big"; styles: .mn)
   const MENU_SIZE = [1280, 800];
-  const fit = () => root.style.setProperty('--mn-scale', String(Math.min(1, innerWidth / MENU_SIZE[0], innerHeight / MENU_SIZE[1])));
+  // (on the page's root: the pause menu and the results are panels of the same size)
+  const fit = () => document.documentElement.style.setProperty('--mn-scale', String(Math.min(1, innerWidth / MENU_SIZE[0], innerHeight / MENU_SIZE[1])));
   addEventListener('resize', fit); fit();
 
   return {
@@ -178,4 +164,25 @@ export function createStartMenu(ctx) {
     // pad A: press the focused button (nothing focused yet: focus the first one)
     confirm() { const f = document.activeElement; if (root.contains(f) && f.tagName === 'BUTTON') f.click(); else focusFirst(); },
   };
+}
+
+// the D-pad / arrow keys in a menu panel: the focus moves to the nearest visible button that way (edge to edge that way;
+// across, 0 when the two line up at all, else the gap: a tall tile reaches both rows beside it, and between equals the
+// first in the page wins). Nothing in the panel focused yet: its first button.
+export function moveFocus(root, dir) {
+  const all = [...root.querySelectorAll('button, [tabindex="0"]')].filter(b => b.offsetParent && !b.disabled && !b.hidden);
+  const cur = root.contains(document.activeElement) ? document.activeElement : null;
+  if (!cur) { all[0]?.focus(); return; }
+  const r = cur.getBoundingClientRect(), horiz = dir === 'left' || dir === 'right';
+  let best = null, score = Infinity;
+  for (const b of all) {
+    if (b === cur) continue;
+    const q = b.getBoundingClientRect();
+    const along = { right: q.left - r.right, left: r.left - q.right, down: q.top - r.bottom, up: r.top - q.bottom }[dir];
+    if (along < -2) continue;                                  // (not that way)
+    const side = horiz ? Math.max(0, q.top - r.bottom, r.top - q.bottom) : Math.max(0, q.left - r.right, r.left - q.right);
+    const sc = Math.max(0, along) + side * 2;
+    if (sc < score) { score = sc; best = b; }
+  }
+  if (best) { best.focus(); best.scrollIntoView({ block: 'nearest' }); }
 }

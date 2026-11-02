@@ -2,19 +2,19 @@ import { Hud } from './hud.js';
 import { $ } from './util.js';
 import { VERSION, stageLabel } from './version.js';
 
-// Full screen and quit. In the desktop app (desktop/main.js exposes window.gridlineApp) full screen switches the
-// app window between full screen and a maximised frameless window, and the quit buttons close the app.
+// Full screen and quit (the quit button: only on the paddock, the start menu's home). In the desktop app (desktop/main.js
+// exposes window.gridlineApp) full screen switches the app window between full screen and a maximised frameless window,
+// and the quit button closes the app.
 // In a browser it uses the Fullscreen API and the quit buttons stay hidden.
 export const AppShell = (() => {
   const app = window.gridlineApp || null;
   const supported = !!app || !!document.fullscreenEnabled;
-  const label = on => {
-    $('fullBtn').textContent = on ? (app ? 'WINDOW' : 'EXIT FULL') : 'FULL SCREEN';
-    $('fullStartBtn').textContent = on ? (app ? 'Window mode' : 'Exit full screen') : 'Full screen';
-  };
+  // full screen is chosen in Settings → Graphics (Display) or with V; nothing else shows a button for it (2026-11-01)
+  let full = false;
+  const fullListeners = [];
+  const label = on => { full = !!on; fullListeners.forEach(fn => fn(full)); };
   if (app) { app.onFullscreen(label); app.isFullscreen().then(label); }
   else document.addEventListener('fullscreenchange', () => label(!!document.fullscreenElement));
-  if (!supported) $('fullBtn').hidden = $('fullStartBtn').hidden = true;
   // Quit asks first (the Quit buttons, and Alt+F4 / closing the window: the app asks the page, desktop/main.cjs)
   const ask = $('quitOv'), listeners = [];
   let lastFocus = null;
@@ -43,6 +43,9 @@ export const AppShell = (() => {
   }
   return {
     isApp: !!app,
+    fullSupported: supported,
+    get full() { return full; },
+    onFullscreen(fn) { fullListeners.push(fn); },   // fn(on) whenever the window goes in or out of full screen
     get quitOpen() { return !ask.hidden; },
     askQuit, cancelQuit, checkUpdate,
     onAskQuit(fn) { listeners.push(fn); },        // (main.js pauses a running race)

@@ -114,9 +114,9 @@ const TABS = [
   { id: 'buttons', label: 'Buttons', items: [panel(createButtonPanel)] },
   { id: 'keyboard', label: 'Keys', items: [{ type: 'html', html: KEYS }] },
   { id: 'graphics', label: 'Graphics', items: [
+    seg('display', 'Display', [['window', 'WINDOW'], ['full', 'FULL SCREEN']], () => 'Full screen fills the monitor. Key: V', b => b.get('displayOk')),
     seg('gfx', 'Graphics', [['quality', 'QUALITY'], ['perf', 'PERFORMANCE']]),
     seg('showFps', 'FPS counter', ON_OFF),
-    buttons(['Full screen', 'fullscreen']),
   ] },
   { id: 'sound', label: 'Sound', items: [
     seg('sound', 'Sound', ON_OFF),

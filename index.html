@@ -61,16 +61,7 @@
   </div>
   <div id="hudBtns">
     <span class="iconbtn chip num" id="fpsChip" title="Frames per second"><span id="fpsNum">–</span>&nbsp;FPS</span>
-    <span class="iconbtn chip" id="padChip" hidden><span class="dot"></span>WHEEL</span>
-    <button class="iconbtn" id="boxBtn" type="button" title="Pit this lap (B, pad X)">BOX</button>
-    <button class="iconbtn" id="boostBtn" type="button" title="Overtake mode (X, pad View)" hidden>BOOST</button>
-    <button class="iconbtn" id="camBtn" type="button">CAM</button>
-    <button class="iconbtn" id="muteBtn" type="button">SOUND ON</button>
-    <button class="iconbtn" id="setBtn" type="button" title="Settings (O)">SETTINGS</button>
-    <button class="iconbtn" id="designBtn" type="button" title="Design tools (T)">DESIGN</button>
-    <button class="iconbtn" id="fullBtn" type="button" title="Full screen (V)">FULL SCREEN</button>
-    <button class="iconbtn" id="quitBtn" type="button" title="Close the game" aria-label="Close the game" data-quit hidden>✕</button>
-    <button class="iconbtn" id="pauseBtn" type="button">PAUSE</button>
+    <button class="iconbtn" id="pauseBtn" type="button" title="Pause (P, Esc, pad Menu)">PAUSE</button>
   </div>
   <div id="lights" class="panel" hidden></div>
   <div id="touch">
@@ -98,7 +89,7 @@
       <header class="mn-top">
         <h1 class="mn-logo">Gridline <em>GP</em> <small class="build-tag" id="versionTag"></small></h1>
         <div class="stepper circuit" id="trackStep"><button type="button" data-d="-1" aria-label="Previous circuit">‹</button><output id="trackVal">Elkmoor Park</output><button type="button" data-d="1" aria-label="Next circuit">›</button></div>
-        <div class="mn-topbtns"><button class="iconbtn" id="fullStartBtn" type="button">FULL SCREEN</button><button class="iconbtn" type="button" data-quit hidden>QUIT</button></div>
+        <div class="mn-topbtns"><button class="iconbtn mn-quit" type="button" data-quit hidden>QUIT</button></div>
       </header>
       <div class="update-bar" id="updateBar" hidden><span id="updateText"></span><button class="iconbtn" id="updateBtn" type="button">DOWNLOAD</button><button class="iconbtn" id="updateHide" type="button" aria-label="Not now">✕</button></div>
       <div class="mn-tiles">
@@ -193,27 +184,43 @@
   </div>
 </div>
 
-<div id="pauseOv" class="overlay" hidden>
-  <div class="card">
-    <p class="verdict">Paused</p>
-    <div id="pitBox" class="pit-box" hidden></div>
-    <div class="btns"><button class="btn" id="resumeBtn" type="button">Resume</button><button class="btn ghost" id="restartBtn" type="button">Restart race</button><button class="btn ghost" id="endBtn" type="button">End race</button><button class="btn ghost" id="lbPauseBtn" type="button" hidden>Submit</button><button class="btn ghost" id="pauseAnaBtn" type="button">Lap analysis</button><button class="btn ghost" id="pauseSettingsBtn" type="button">Settings</button><button class="btn ghost" id="pauseInputsBtn" type="button">Input monitor</button><button class="btn ghost" type="button" data-quit hidden>Quit game</button></div>
+<!-- the pause menu and the results (2026-11-01, the user's edit of the mock-ups): the paddock's look, 1280 × 800 like it -->
+<div id="pauseOv" class="overlay sub" hidden>
+  <div class="mn sub-panel" role="dialog" aria-labelledby="pauseTitle">
+    <header class="sub-top"><h1 class="sub-title" id="pauseTitle">Paused</h1><span class="sub-ctx" id="pauseCtx"></span><span class="sub-chip num" id="pauseClock"></span></header>
+    <div class="pause-grid">
+      <button class="mn-tile mn-hot pause-resume" id="resumeBtn" type="button">
+        <svg class="mn-bigmap" viewBox="0 0 200 120" aria-hidden="true"><path class="under" id="pauseMapU" d=""></path><path class="over" id="pauseMap" d=""></path></svg>
+        <span class="mn-kick" id="pauseKick">YOU ARE</span><span class="pause-pos" id="pausePos"></span><span class="mn-sub" id="pauseGaps"></span>
+        <span class="mn-cta">RESUME</span>
+      </button>
+      <section id="pitBox" class="pit-box" hidden></section>
+      <button class="mn-tile" id="restartBtn" type="button"><span class="mn-kick">FROM THE GRID</span><span class="mn-title">Restart race</span><span class="mn-sub">Same circuit, same field</span></button>
+      <button class="mn-tile" id="endBtn" type="button"><span class="mn-kick">STOP HERE</span><span class="mn-title">End race</span><span class="mn-sub">Results as they stand</span></button>
+      <button class="mn-tile" id="pauseAnaBtn" type="button"><span class="mn-kick">YOUR LAPS</span><span class="mn-title">Lap analysis</span><span class="mn-sub">Sectors and corners</span></button>
+      <button class="mn-tile" id="pauseSettingsBtn" type="button"><span class="mn-kick">EVERYTHING ELSE</span><span class="mn-title">Settings</span><span class="mn-sub">Driving · controller · sound</span></button>
+    </div>
+    <div class="mn-tools"><button class="iconbtn" id="pauseInputsBtn" type="button">INPUT MONITOR</button><button class="iconbtn" id="lbPauseBtn" type="button" hidden>SUBMIT LAP</button></div>
+    <footer class="mn-foot"><span><b>A</b> open</span><span><b>B</b> resume</span><span><b>START</b> resume</span><span>✥ move</span><p class="gpu" id="pauseSetup"></p></footer>
   </div>
 </div>
 
 <div id="awayOv" class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="awayTitle">
-  <div class="card">
-    <p class="verdict" id="awayTitle">Are you there?</p>
+  <div class="card dialog">
+    <span class="mn-kick">RACE PAUSED</span>
+    <p class="verdict" id="awayTitle">Are you <em>there?</em></p>
     <p class="gpu" id="awayNote"></p>
     <div class="btns"><button class="btn" id="awayBtn" type="button">I'm here</button><button class="btn ghost" id="awayMenuBtn" type="button">Pause menu</button></div>
   </div>
 </div>
 
 <div id="quitOv" class="overlay quit-ask" hidden role="dialog" aria-modal="true" aria-labelledby="quitTitle">
-  <div class="card">
+  <div class="card dialog">
+    <span class="mn-kick">PADDOCK</span>
     <p class="verdict" id="quitTitle">Quit the game?</p>
     <p class="gpu">Your settings, records and ghosts are saved.</p>
     <div class="btns"><button class="btn" id="quitStayBtn" type="button">Keep playing</button><button class="btn ghost danger" id="quitYesBtn" type="button">Quit</button></div>
+    <p class="gpu dlg-keys"><b>A</b> keep playing · <b>B</b> keep playing</p>
   </div>
 </div>
 
@@ -275,12 +282,19 @@
   </div>
 </div>
 
-<div id="resOv" class="overlay" hidden>
-  <div class="card wide">
-    <div class="stripe"></div>
-    <p class="verdict" id="verdict"></p>
-    <div class="res-wrap"><table class="res"><thead><tr><th>Pos</th><th>Driver</th><th>Team</th><th class="r">Time</th><th class="r">Best lap</th></tr></thead><tbody id="resBody"></tbody></table></div>
-    <div class="btns"><button class="btn" id="againBtn" type="button">Race again</button><button class="btn ghost" id="requaliBtn" type="button" hidden>Qualify again</button><button class="btn ghost" id="lbResBtn" type="button" hidden>Submit</button><button class="btn ghost" id="resAnaBtn" type="button">Lap analysis</button><button class="btn ghost" id="menuBtn" type="button">Change distance</button><button class="btn ghost" type="button" data-quit hidden>Quit</button></div>
+<div id="resOv" class="overlay sub" hidden>
+  <div class="mn sub-panel" role="dialog" aria-labelledby="verdict">
+    <header class="sub-top"><h1 class="verdict" id="verdict"></h1><span class="sub-ctx" id="resCtx"></span><span class="sub-tag" id="resTag"></span></header>
+    <div class="res-grid">
+      <section class="res-box"><table class="res"><thead><tr><th>Pos</th><th>Driver</th><th>Team</th><th class="r">Time</th><th class="r">Best lap</th></tr></thead><tbody id="resBody"></tbody></table></section>
+      <div class="res-side">
+        <section class="res-stats" id="resStats" aria-label="Your race"></section>
+        <button class="mn-tile mn-hot" id="againBtn" type="button"><span class="mn-title" id="againTitle">Race again</span><span class="mn-sub" id="againSub"></span></button>
+        <button class="mn-tile" id="menuBtn" type="button"><span class="mn-kick">RACE WEEKEND</span><span class="mn-title">Change race</span><span class="mn-sub">Circuit · field · rules · grid</span></button>
+        <div class="res-small"><button class="iconbtn" id="resAnaBtn" type="button">LAP ANALYSIS</button><button class="iconbtn" id="requaliBtn" type="button" hidden>QUALIFY AGAIN</button><button class="iconbtn" id="lbResBtn" type="button" hidden>SUBMIT</button><button class="iconbtn" id="paddockBtn" type="button">PADDOCK</button></div>
+      </div>
+    </div>
+    <footer class="mn-foot"><span><b>A</b> open</span><span><b>B</b> paddock</span><span>✥ move</span></footer>
   </div>
 </div></body>
 </html>

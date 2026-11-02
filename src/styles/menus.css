@@ -366,24 +366,63 @@ table.ana-corners caption{caption-side:bottom;text-align:left;font-size:12px;col
 .set-item > .note{grid-column:1}
 .set-slider{min-width:300px}
 .dev-card{background:#10141a;border-color:var(--rule);padding:16px}
-/* pause: the choices as a column on the left (like the menu's rail), the pit box on the right */
-#pauseOv .card{width:min(420px,100%)}
-#pauseOv .btns{flex-direction:column}
-#pauseOv .btns .btn{flex:none;text-align:left;padding:0 20px}
-#pauseOv .card:has(#pitBox:not([hidden])){width:min(860px,100%);grid-template-columns:340px minmax(0,1fr);column-gap:28px;align-items:start}
-#pauseOv .card:has(#pitBox:not([hidden])) .verdict{grid-column:1/-1}
-#pauseOv .card:has(#pitBox:not([hidden])) #pitBox{grid-column:2;grid-row:2}
-#pauseOv .card:has(#pitBox:not([hidden])) .btns{grid-column:1;grid-row:2}
-/* results: rows like the timing tower */
-#resOv .card{width:min(900px,100%)}
+/* the pause menu and the results (2026-11-01, the user's edit of the mock-ups): panels the paddock's size and look */
+.overlay.sub{display:block;padding:0;overflow:hidden}
+.mn.sub-panel{box-sizing:border-box;flex-direction:column;gap:16px;padding:28px 28px 22px}
+.sub-top{display:flex;align-items:center;gap:18px}
+.sub-title{margin:0;font-family:var(--display);font-weight:800;font-size:34px;letter-spacing:.01em;text-transform:uppercase;line-height:1}
+.sub-top .verdict{margin:0}
+.sub-ctx{font-size:15px;color:var(--muted)}
+.sub-chip,.sub-tag{margin-left:auto;font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.14em;color:var(--muted)}
+.sub-chip{border:1px solid var(--rule-strong);border-radius:4px;padding:8px 12px}
+.sub-chip b{color:var(--text);font-weight:700}
+.sub-panel .mn-foot p.gpu{margin-left:auto;max-width:60%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* pause: RESUME (big, the circuit and your place) beside the pit box, four tiles under them */
+.pause-grid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:14px}
+.pause-resume{grid-column:span 2;grid-row:span 2;padding:26px}
+.pause-grid:not(:has(#pitBox:not([hidden]))) .pause-resume{grid-column:span 4}
+.pause-resume .mn-bigmap{width:330px;right:18px;top:14px}
+.pause-pos{position:relative;font-weight:800;font-size:64px;line-height:.95}
+.pause-pos small{font-size:30px;color:var(--muted)}
+.pause-resume .mn-cta{margin-top:14px}
+#pitBox{grid-column:span 2;grid-row:span 2;display:flex;flex-direction:column;gap:0;padding:22px 24px;background:#12161c;border:1px solid var(--rule);border-radius:4px}
+#pitBox .pit-kick{font-family:var(--display);font-size:12px;font-weight:600;letter-spacing:.18em;color:var(--muted)}
+#pitBox .pit-head{display:flex;align-items:center;gap:10px;margin:4px 0 8px;padding:0;font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:.02em;text-transform:uppercase;color:var(--text)}
+#pitBox .pit-head .cmp{width:26px;height:26px;font-size:14px}
+#pitBox .row{border-bottom:0;border-top:1px solid var(--rule);padding:12px 0}
+#pitBox .seg button{min-height:40px;font-size:14px}
+#pitBox .pit-call{margin-top:auto;min-height:48px;background:transparent;border:1px solid var(--amber);border-radius:3px;color:var(--amber);font-weight:800;font-size:17px;letter-spacing:.08em}
+#pitBox .pit-call.on{background:var(--amber);color:#111}
+.pause-grid > .mn-tile:not(.pause-resume) .mn-title{font-size:28px}
+/* results: the classification on the left, your race and what next on the right */
+.res-grid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px}
+.res-box{min-height:0;overflow-y:auto;padding:8px 18px;background:#171c24;border-radius:4px}
+.res-box table.res{min-width:0}
+.res-box table.res td{height:44px;padding:0 6px}
+.res-side{min-height:0;display:flex;flex-direction:column;gap:14px}
+.res-side > .mn-tile{flex:1}
+.res-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 10px;padding:18px 20px;background:#12161c;border:1px solid var(--rule);border-radius:4px}
+.res-stats > .mn-kick{grid-column:span 2}
+.res-stats div{display:flex;flex-direction:column}
+.res-stats span{font-size:13px;color:var(--muted)}
+.res-stats b{font-family:var(--display);font-size:24px;font-weight:700}
+.res-stats b small{font-size:15px;color:var(--muted);font-weight:600}
+.res-stats b.best{color:var(--purple)}
+.res-small{display:flex;flex-wrap:wrap;gap:10px}
+.res-small .iconbtn{flex:1 1 40%;min-height:48px;font-size:14px;font-weight:700}
+.mn .mn-quit{color:var(--amber)}
+/* table rows, as before */
 table.res{font-size:17px}
 table.res th{font-size:12px;letter-spacing:.16em;padding:8px 10px}
 table.res td{padding:9px 10px;border-bottom-color:var(--rule)}
 table.res tr.me td{background:#2a2412}
 table.res tr.me td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
-#resOv .btns .btn{flex:1 0 auto}
 /* small dialogs: are you there?, quit */
-#awayOv .card,#quitOv .card{width:min(520px,100%)}
+#awayOv .card,#quitOv .card{width:min(560px,100%)}
+.card.dialog{gap:18px;padding:30px}
+.card.dialog .btns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.card.dialog .dlg-keys{font-size:13px}
+.card.dialog .dlg-keys b{color:var(--text)}
 /* the pause menu's pit box: rows like the settings, full-size chips; the lap analysis pickers */
 .pit-box{gap:0;margin:0;padding:6px 18px 10px;background:#10141a;border-color:var(--rule)}
 .pit-box .row{padding:10px 0;border-bottom:1px solid var(--rule)}

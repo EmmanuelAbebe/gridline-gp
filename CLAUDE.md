@@ -268,6 +268,21 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   radio "Stop: softs, …", the box request names the tyres ready. Smoke test: out-garage-tyres.png, out-pause.png. Not done:
   the compound colour on the tyre model, the two-compound rule, lap records apart per compound.
 
+## Pause, results and the small windows (2026-11-01; user: "redesign the other sub menus … full screen button in the
+## settings graphics section … quit game only in the paddock"; built from their edit of the mock-ups on a claude.ai canvas)
+- Pause (`#pauseOv`) and results (`#resOv`) are `.mn.sub-panel` panels, 1280 × 800 like the paddock (the same
+  --mn-scale, now set on the page root by start-menu.js fit). Pause: RESUME tile (circuit outline, your place and the gaps;
+  qualifying / time trial / solo: your best) beside the pit box (main.js drawPause / drawPitBox: + BOX THIS LAP =
+  requestBox(true), works while paused), tiles Restart / End race / Lap analysis / Settings, Input monitor + Submit lap
+  small, the setup line. Results: the table, "Your race" (hud.js stats: best lap, places, stops, penalties; qualifying:
+  best, grid, gap to pole, laps), RACE AGAIN / START THE RACE, CHANGE RACE (`#menuBtn`: the race weekend's steps, a time
+  trial its page), Lap analysis / Qualify again / Submit / Paddock. Pad: the D-pad and arrows move the focus there too
+  (start-menu.js `moveFocus`), A presses the focused button, B = resume / paddock.
+- Full screen only in Settings → Graphics → Display WINDOW / FULL SCREEN (+ V); AppShell.full / onFullscreen. The quit
+  button only on the paddock's top bar (amber); Alt+F4 still asks. The HUD's button bar = FPS (green) + PAUSE only (the
+  user's edit): box B, camera C, sound M, settings O, design tools T, overtake X stay on keys / controller buttons.
+  Smoke checks: quit only on the paddock, HUD bar FPS + PAUSE, full screen from Settings (out-graphics.png).
+
 ## Driver buttons and button mapping (2026-10-28; user's phone wheel has DRS, PIT, M and OT buttons: "build both, pit
 ## limiter and straight mode buttons and a mechanism to configure buttons and their actions from a controller device")
 - Settings → Driving `straight` / `limiter` AUTO (default: as before, sim-trace identical) / BUTTON (game.setup; main.js

@@ -21,12 +21,15 @@ export function bindSettings(game, act) {
       if (key === 'buttonMaps') return game.buttonMaps;
       if (key === 'inMenu') return game.phase === PHASE.MENU;
       if (key === 'online') return act.online;
+      if (key === 'display') return AppShell.full ? 'full' : 'window';
+      if (key === 'displayOk') return AppShell.fullSupported;
       return isDriving(key) ? (key.startsWith('a.') ? game.setup.custom[key.slice(2)] : game.setup[key]) : key === 'gfx' ? game.gfx
         : key === 'sound' ? !game.prefs.muted : game.prefs[key];
     },
     set(key, value) {
       if (key === 'noiseColour') SoundStudio.set('noise.colour', value);
       else if (key === 'buttonMaps') act.setButtonMaps(value);
+      else if (key === 'display') { if ((value === 'full') !== AppShell.full) AppShell.toggleFullscreen(); }
       else if (isDriving(key)) act.setDriving(key, value);
       else if (key === 'gfx') act.setGfx(value, true);
       else if (key === 'sound') { Sound.init(); act.setPref('muted', !value); }
@@ -40,7 +43,6 @@ export function bindSettings(game, act) {
       } else if (name === 'inputs') InputMonitor.toggle(true);
       else if (name.startsWith('sound:')) Sound.test(name.slice(6));
       else if (name === 'studio') { SettingsScreen.close(); SoundStudio.toggle(true); }
-      else if (name === 'fullscreen') AppShell.toggleFullscreen();
       else if (name === 'tweak') { SettingsScreen.close(); TweakPanel.toggle(); }
       else if (name === 'layout') { SettingsScreen.close(); act.toggleLayout(); }
       else if (name === 'zones') act.openZones();
@@ -48,6 +50,7 @@ export function bindSettings(game, act) {
     },
   });
 
+  AppShell.onFullscreen(() => { if (SettingsScreen.open) SettingsScreen.redraw(); });   // (V, or the window manager)
   let back = null;                             // the menu it was opened from
   SettingsScreen.on('close', () => { if (back) Screens.show(back); back = null; });
   return {

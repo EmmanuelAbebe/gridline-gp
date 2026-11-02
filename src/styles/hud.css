@@ -63,7 +63,7 @@
 .padrow.on{color:var(--text);border-color:rgba(54,210,127,.45)}
 .padrow.warn{color:var(--text);border-color:rgba(255,194,26,.5)}
 .chip{display:inline-flex;align-items:center;gap:6px;cursor:default}
-#fpsChip{min-width:62px;justify-content:center}
+#fpsChip{min-width:62px;justify-content:center;color:#b0ff1a;border-color:var(--muted)}
 #fpsChip.low{color:var(--amber);border-color:rgba(255,194,26,.5)}
 
 #lights{position:fixed;top:calc(18% + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;gap:10px;padding:12px 14px}
