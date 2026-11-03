@@ -20,7 +20,8 @@ test('the stock spec is the shared car, exactly', () => {
 
 test('setup and mods are clamped and snapped; any mod flags the car', () => {
   assert.deepEqual(S.validSetup({ wing: 99, balance: 44.2, brakes: 'x', gearing: null, mech: -2.4 }),
-    { wing: 11, balance: 44, brakes: 57, gearing: 340, mech: -2, migration: 5, engineBrake: 6, diffEntry: 6, diffMid: 6, diffExit: 6, pressF: 23, pressR: 21 });
+    { wing: 11, balance: 44, brakes: 57, gearing: 340, migration: 5, engineBrake: 6, diffEntry: 6, diffMid: 6, diffExit: 6, pressF: 23, pressR: 21,
+      springF: 6, springR: 6, arbF: 8, arbR: 4, rideF: 30, rideR: 70, camberF: -3, camberR: -1.8, toeF: -0.05, toeR: 0.2 });
   assert.equal(S.validMods({ power: 1000 }).power, S.MODS.power.max);
   assert.equal(S.isModified({}), false);
   assert.equal(S.isModified({ mass: 790 }), true);
@@ -38,7 +39,7 @@ test('every setup item is a trade-off', () => {
   assert.ok(hi.brake.dist < base.brake.dist, 'more wing: shorter braking');
   const fwd = st({ balance: 50 }), back = st({ balance: 40 });
   assert.ok(fwd.balance.fast > base.balance.fast && back.balance.fast < base.balance.fast, 'aero balance moves the fast-corner balance');
-  const mf = st({ mech: 5 }), mr = st({ mech: -5 });
+  const mf = st({ arbF: 1, arbR: 11 }), mr = st({ arbF: 11, arbR: 1 });
   // (the anti-roll bars: a softer front takes less of the sideways load transfer, so the front grips more and the rear
   // less, in slow and fast corners alike; straight-line traction is the same)
   assert.ok(mf.balance.slow > base.balance.slow && mf.balance.fast > base.balance.fast, 'softer front: turns in, the rear lets go sooner');
@@ -52,7 +53,7 @@ test('every setup item is a trade-off', () => {
 
 test('a car on a garage spec drives and races normally', () => seeded(() => {
   const race = S.createRace(2, { drivers: S.DRIVERS.slice(0, 4) });
-  race.cars[0].spec = S.carSpec({ wing: 9, balance: 47, brakes: 55, gearing: 330, mech: 2 });
+  race.cars[0].spec = S.carSpec({ wing: 9, balance: 47, brakes: 55, gearing: 330, arbF: 4, arbR: 8 });
   race.cars[1].spec = S.carSpec({}, { power: 150, grip: 120 });
   run(S, race, 300, aiDriver(S));
   assert.ok(race.cars.every(c => c.finished), race.cars.map(c => `${c.code} lap ${c.lap}`).join(', '));

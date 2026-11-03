@@ -2,7 +2,7 @@
 // shared car (CAR, CHASSIS) that every AI car races; the player's comes from the garage: carSpec(setup, mods), with
 // SETUP (race setup, trade-offs) and MODS (open mods) in tuning.js. With the defaults every value is computed exactly
 // as the stock one (same operations, × 1 / + 0), so the physics stays bit-identical (sim-trace).
-import { TUNING, CAR, CHASSIS, SETUP, MODS, PRESSURE as PR } from './tuning.js';
+import { TUNING, CAR, CHASSIS, SETUP, MODS, PRESSURE as PR, SUSPENSION as SU } from './tuning.js';
 
 const TAU = 2 * Math.PI, R_WHEEL = TUNING.WHEEL_RADIUS, { aero, engine, gearbox } = CAR;
 const ITEMS = { setup: SETUP, mods: MODS };
@@ -18,7 +18,10 @@ function valid(table, values = {}) {
   }
   return out;
 }
-export const validSetup = v => valid(SETUP, v);
+// (old saves: one `mech` −5 … +5, + = a softer front anti-roll bar, for the two anti-roll bars)
+const fromMech = v => v && Number.isFinite(+v.mech) && v.mech !== null && v.arbF === undefined && v.arbR === undefined
+  ? { ...v, arbF: SETUP.arbF.def - Math.round(+v.mech), arbR: SETUP.arbR.def + Math.round(+v.mech) } : v;
+export const validSetup = v => valid(SETUP, fromMech(v));
 export const validMods = v => valid(MODS, v);
 export const defaults = group => valid(ITEMS[group]);
 // true when any open mod is off its default
@@ -29,10 +32,28 @@ function pressure(dp) {
   const under = Math.max(0, -dp - PR.best);
   return { grip: 1 - PR.grip * dp - PR.fold * under * under, slip: 1 - PR.slip * dp, flex: 1 - PR.flex * dp };
 }
+// the suspension off stock (SUSPENSION; chassis.js): null when it is all stock (nothing to do then)
+const SUSP_KEYS = ['springF', 'springR', 'rideF', 'rideR', 'camberF', 'camberR', 'toeF', 'toeR'];
+function suspension(s, step) {
+  if (SUSP_KEYS.every(k => step(k) === 0)) return null;
+  const C = SU.camber, camber = k => {                     // x = ° more negative than stock
+    const x = -step(k), past = Math.max(0, x - C.best);
+    return { lat: 1 + C.lat * x - C.over * past * past, long: 1 - C.long * x };
+  };
+  const cf = camber('camberF'), cr = camber('camberR');
+  return Object.freeze({
+    kF: SU.kF * (1 + SU.springPerStep * step('springF')), kR: SU.kR * (1 + SU.springPerStep * step('springR')),
+    rideF: s.rideF, rideR: s.rideR,
+    stiff: (step('springF') + step('springR')) / 2 / (SETUP.springF.max - SETUP.springF.def),
+    latF: cf.lat, latR: cr.lat, longF: cf.long / cf.lat, longR: cr.long / cr.lat,     // (long: of what the lat-scaled grip gives)
+    toeOut: -step('toeF'), toeIn: step('toeR'),
+  });
+}
 export function carSpec(setupIn, modsIn) {
   const s = validSetup(setupIn), m = validMods(modsIn);
   const pf = pressure(s.pressF - SETUP.pressF.def), pr = pressure(s.pressR - SETUP.pressR.def);
-  const wing = s.wing - SETUP.wing.def, mech = s.mech - SETUP.mech.def;
+  const wing = s.wing - SETUP.wing.def, step = k => s[k] - SETUP[k].def;
+  const toeOff = Math.abs(s.toeF) + Math.abs(s.toeR) - (Math.abs(SETUP.toeF.def) + Math.abs(SETUP.toeR.def));
   const mass = m.mass;                                   // stock = CAR.mass
   const lift = (1 + SETUP.liftPerStep * wing) * (m.downforce / 100), drag = (1 + SETUP.dragPerStep * wing) * (m.drag / 100);
   const gearK = s.gearing / gearbox.top[gearbox.top.length - 1];
@@ -41,13 +62,14 @@ export function carSpec(setupIn, modsIn) {
     mass,
     grip: CAR.grip * (m.grip / 100),
     dfK: 0.5 * aero.rho * (aero.liftArea * lift) / mass,  // downforce / mass = dfK·v² (stock: vehicle.js DOWNFORCE_K)
-    dragK: 0.5 * aero.rho * (aero.dragArea * drag) / mass,
+    dragK: 0.5 * aero.rho * (aero.dragArea * drag) / mass * (1 + SU.toe.drag * toeOff),
     aeroFront: CHASSIS.aeroFront + (s.balance - SETUP.balance.def) / 100,
     frontGrip: 1 * pf.grip, rearGrip: CHASSIS.rearGrip * pr.grip,                  // (× the tyre pressures)
     peakF: CHASSIS.peakSlip * pf.slip, peakR: CHASSIS.rearPeakSlip * pr.slip,         // slip angle at the tyres' peak
     flex: Object.freeze([pf.flex, pr.flex]),                                           // × the tyres' flexing heat
-    // mechanical balance = the anti-roll bars: + = a softer front (less of the sideways load transfer on it) = more front grip
-    rollFront: CHASSIS.rollFront - SETUP.rollPerStep * mech,
+    // the share of the sideways load transfer on the front: a stiffer front anti-roll bar / spring takes more (less front grip)
+    rollFront: CHASSIS.rollFront + SETUP.rollPerStep * (step('arbF') - step('arbR')) / 2 + SU.rollSpring * (step('springF') - step('springR')) / 2,
+    susp: suspension(s, step),
     brakeBias: s.brakes / 100,                           // front share of the braking
     brakeMigration: s.migration / 100,                   // how much further forward the balance moves as the pedal comes off
     engineBrake: 1 + SETUP.engineBrakePerStep * (s.engineBrake - SETUP.engineBrake.def),   // × the engine braking and lift-off harvest

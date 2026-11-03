@@ -22,7 +22,8 @@ test('garage: saved values kept, bad ones fall back', () => {
     setup: { wing: 9, mech: 99 }, mods: { power: 150 } }));
   assert.deepEqual(g.livery, { color: 0xff0000, accent: 0x00ff00, rims: LIVERY_DEFAULTS.rims, number: 42, finish: 'matte', model: 'classic' });
   assert.equal(validLivery({ model: '2026' }).model, '2026'); assert.equal(validLivery({ model: 'f1' }).model, 'classic', 'the car model: classic unless 2026');
-  assert.equal(g.setup.wing, 9); assert.equal(g.setup.mech, S.SETUP.mech.max);
+  // (an old save's one anti-roll bar setting `mech` becomes the front / rear pair: + = a softer front)
+  assert.equal(g.setup.wing, 9); assert.equal(g.setup.arbF, S.SETUP.arbF.min); assert.equal(g.setup.arbR, S.SETUP.arbR.max); assert.equal(g.setup.mech, undefined);
   assert.equal(playerSpec(g).modified, true);
   assert.deepEqual(validLivery({ number: 100, finish: 'chrome' }).number, LIVERY_DEFAULTS.number);
   assert.equal(validLivery({ finish: 'chrome' }).finish, 'gloss');

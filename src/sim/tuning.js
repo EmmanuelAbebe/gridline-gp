@@ -194,7 +194,6 @@ export const SETUP = Object.freeze({
   balance: { min: 40, max: 50, step: 0.5, def: 45 },    // % of the downforce on the front axle: more = sharper turn-in, looser rear
   brakes:  { min: 51, max: 63, step: 0.5, def: 57 },    // brake balance, % of the braking on the front axle
   gearing: { min: 310, max: 380, step: 5, def: 340 },   // km/h in top gear at the redline: long enough for the top speed (low wing, slipstream), or the car hits the limiter
-  mech:    { min: -5, max: 5, step: 1, def: 0 },        // mechanical balance (anti-roll bars): + = front grip up, rear down
   migration: { min: 0, max: 10, step: 1, def: 5 },     // brake migration, %: the balance moves this much further forward as the pedal comes off
   engineBrake: { min: 1, max: 11, step: 1, def: 6 },    // engine braking: how hard the engine + MGU-K hold the rear wheels back on a lift
   diffEntry: { min: 1, max: 11, step: 1, def: 6 },      // differential lock on the brakes (entry), coasting (mid-corner), on the throttle (exit)
@@ -202,8 +201,16 @@ export const SETUP = Object.freeze({
   diffExit:  { min: 1, max: 11, step: 1, def: 6 },
   pressF: { min: 20, max: 26, step: 0.5, def: 23 },      // tyre pressures, psi (cold): front, rear
   pressR: { min: 18, max: 24, step: 0.5, def: 21 },
+  // suspension (SUSPENSION below): springs and anti-roll bars 1 (soft) … 11 (stiff); ride height mm; camber, toe °
+  // (toe: + = toe-in; the front stock is a little toe-out). Before 2026-11-02 the anti-roll bars were one `mech` −5 … +5
+  // (+ = a softer front): old saves become arbF 6 − mech, arbR 6 + mech (spec.js validSetup)
+  springF: { min: 1, max: 11, step: 1, def: 6 }, springR: { min: 1, max: 11, step: 1, def: 6 },
+  arbF:    { min: 1, max: 11, step: 1, def: 6 }, arbR:    { min: 1, max: 11, step: 1, def: 6 },
+  rideF:   { min: 20, max: 40, step: 1, def: 30 }, rideR: { min: 50, max: 90, step: 1, def: 70 },
+  camberF: { min: -4, max: -2, step: 0.1, def: -3 }, camberR: { min: -2.5, max: -1, step: 0.1, def: -1.8 },
+  toeF:    { min: -0.2, max: 0.1, step: 0.01, def: -0.05 }, toeR: { min: 0, max: 0.4, step: 0.01, def: 0.2 },
   liftPerStep: 0.07, dragPerStep: 0.045,                // wing: liftArea × (1 + 0.07·steps), dragArea × (1 + 0.045·steps)
-  rollPerStep: 0.03,                                    // mech: the front's share of the sideways load transfer − 0.03·steps
+  rollPerStep: 0.03,                                    // anti-roll bars: the front's share of the sideways load transfer + 0.03 × (front − rear steps) / 2
   engineBrakePerStep: 0.15,                             // engine braking × (1 + 0.15·steps): 0.25 … 1.75 of stock (the lift-off harvest too)
 });
 // The differential (2026-11-02, garage Setup → Differential; chassis.js). The stock car's handling already has the
@@ -220,6 +227,27 @@ export const DIFF = Object.freeze({ yaw: 0.12, open: 0.35, slip: 0.6, traction: 
 // (−`fold` × psi² past it); a softer tyre reaches its peak at a bigger slip angle (`slip` per psi: lazier response); the
 // sidewall flexes more (`flex` per psi more flexing heat into the core: tyre-temp.js). Higher: the other way round.
 export const PRESSURE = Object.freeze({ grip: 0.006, best: 2, fold: 0.01, slip: 0.04, flex: 0.12 });
+// Suspension (2026-11-02, garage Setup → Suspension; spec.js `susp`, chassis.js). The stock car = the stock setup, so
+// everything is the change from it and a stock suspension skips it all (spec.susp null: sim-trace identical, the AI).
+// - Springs: axle rates `kF` / `kR` N/mm × (1 + `springPerStep`·steps); with the anti-roll bars they share the sideways
+//   load transfer (rollFront + `rollSpring` × (front − rear steps) / 2: the stiffer end takes more of it and grips less);
+//   they set how far the car sinks under its downforce, braking (dive) and dips (the stock car: ~22 mm front, ~50 rear at
+//   full speed); softer springs ride kerbs better: their grip loss × (1 + `kerb` × stiffness steps / 5).
+// - Ride height (static) − that sinking = the floor's height at speed: downforce + `ground` per mm lower than the stock
+//   car's in the same spot (mean of front and rear); under `stallAt` mm an end's floor stalls (−`stall` per mm, at most
+//   `stallMax`); the front's share of the downforce + `rake` per mm of rake (rear − front) over stock. Below 0 the floor
+//   is on the road: its plank carries load the tyres lose (that end's grip − `plank` per mm, down to `plankMin`); on
+//   kerbs a lower car loses more grip (× 1 + `kerbRide` per mm lower than stock, mean of the two ends).
+// - Camber (° more negative than stock = x): cornering grip × (1 + `lat`·x − `over`·(x − `best`)² past best), lengthways
+//   (braking, traction) × (1 − `long`·x).
+// - Toe (°): front toe-out over stock sharpens turn-in (small steering angles × 1 + `turn`·°), rear toe-in over stock damps
+//   the rear's rotation (`damp`·° × yaw rate, full from `dampV` m/s); any toe off stock + `drag` per ° of drag.
+export const SUSPENSION = Object.freeze({
+  kF: 495, kR: 266, springPerStep: 0.12, rollSpring: 0.015, kerb: 0.6, kerbRide: 0.04,
+  ground: 0.005, stallAt: 4, stall: 0.04, stallMax: 0.4, rake: 0.0012, plank: 0.02, plankMin: 0.6,
+  camber: Object.freeze({ lat: 0.02, best: 0.7, over: 0.05, long: 0.025 }),
+  toe: Object.freeze({ turn: 1.0, small: 0.05, damp: 2.0, dampV: 50, drag: 0.03 }),
+});
 export const MODS = Object.freeze({
   power:     { min: 50, max: 250, step: 5, def: 100 },   // % engine power
   mass:      { min: 500, max: 1200, step: 10, def: 770 }, // kg with driver

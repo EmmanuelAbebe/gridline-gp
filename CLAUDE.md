@@ -918,7 +918,7 @@ showed MODIFIED only because of it).
 ## agreed: all of them, one group at a time, measured; the garage's Setup tab = their pick B of three canvas mock-ups)
 - Garage Setup in groups (garage.js `SETUP_UI` [id, label, items]: a chip per group, one group shown; each item: name (+ NEW),
   value, − slider +, what the change does (`lo` / `hi`, "Stock" at the default), double-click = stock; "n changed from
-  stock" + ALL STOCK; LOW / HIGH DOWNFORCE on Aero). Groups now: Aero, Brakes, Differential, Tyres, Suspension (anti-roll bars = `mech`), Gearbox.
+  stock" + ALL STOCK; LOW / HIGH DOWNFORCE on Aero). Groups now: Aero, Brakes, Differential, Tyres, Suspension, Gearbox.
 - Brakes (done 2026-11-02): `SETUP.migration` 0–10 % (default 5 = the old fixed CHASSIS.brakeMigration; spec.brakeMigration)
   and `SETUP.engineBrake` 1–11 (spec.engineBrake = 1 + 0.15·steps: × the engine braking and the lift-off MGU-K harvest).
   Engine braking now goes through the rear tyres for every car (vehicle.js drivetrain `rear` = engine braking + coast
@@ -943,7 +943,19 @@ showed MODIFIED only because of it).
   150 km/h grip 2.71 / 2.68 / 2.64 g at 20/18, 23/21, 26/24 psi; VOS at Harrow (tyre temperatures on) cores at lap 4
   117 / 105 / 93 °C, laps after the first equal low vs stock (faster warm-up, then too hot), high +0.25 s.
   tests/tyre-temp.test.js.
-- Next: suspension (springs, ride height, camber, toe; front / rear anti-roll bars replace `mech`). Dampers left out.
+- Suspension (done 2026-11-02): `SETUP` springF / springR, arbF / arbR (1–11; the old one `mech` → arbF 6 − mech, arbR
+  6 + mech in spec.js validSetup), rideF 20–40 / rideR 50–90 mm, camberF / camberR °, toeF / toeR ° (+ = in). `SUSPENSION`
+  in tuning.js; spec.susp = null when all stock (chassis.js skips it: sim-trace identical, the AI). rollFront = 0.5 + 0.03 ×
+  (arbF − arbR) / 2 + 0.015 × (springF − springR) / 2. chassis.js `suspAero`: each end sinks by its load beyond rest
+  (downforce, dive, dips) / spring rate (stock kF 495, kR 266 N/mm: floor ~12 / 29 mm at 300 km/h), compared with the stock
+  car in the same spot: downforce + 0.5 % per mm lower (mean), a floor under 4 mm stalls (−4 %/mm, ≤ 40 %), below 0 the
+  plank takes that end's grip (−2 %/mm, ≥ 60 %); front share + 0.12 % per mm of rake over stock; kerb grip loss × (1 + 0.6 ×
+  spring stiffness + 0.04 per mm lower). Camber: cornering × (1 + 0.02·x − 0.05·(x − 0.7)²), lengthways × (1 − 0.025·x)
+  (axle `longK`). Toe: front toe-out × small steering angles, rear toe-in damps the yaw, toe off stock + 3 % drag per °.
+  Measured: camber −3.8 / −2.5: grip 2.68 → 2.72 g at 150 km/h, braking 250 → 80 +1.3 m; front toe −0.2°: +12 % yaw rate
+  at a small steer; VOS laps 22 / 58 mm on stock springs −0.1 s (Harrow, Hautvale), 20 / 50 on the softest springs +14 s
+  at Harrow (floor on the road). The garage's stats card shows the springs / bars' balance only. tests/chassis.test.js.
+- Not done: dampers (no transient load transfer in the model).
 
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)

@@ -266,3 +266,27 @@ test('differential: stock changes nothing; mid-corner open rotates, locked holds
   const [eo, es, el] = [1, 6, 11].map(exit);
   assert.ok(eo < es - 10 && el >= es, `out of a slow corner with traction control: open ${eo.toFixed(0)}, stock ${es.toFixed(0)}, locked ${el.toFixed(0)} km/h`);
 });
+test('suspension: stock is the stock car; camber trades cornering for braking grip; front toe-out sharpens turn-in; a car too low on soft springs grounds', () => {
+  assert.equal(S.carSpec({ springF: 6, rideR: 70, camberF: -3, toeR: 0.2, arbF: 6 }).susp, null, 'a stock suspension: nothing to do');
+  // the most sideways g at a steady speed, the steering wound on slowly (assists off)
+  const grip = (setup, kmh) => {
+    const { race, c } = setupCar(setup, kmh, 5); let mx = 0;
+    for (let i = 0; i < 600; i++) {
+      const thr = Math.max(0, Math.min(1, 0.4 + (kmh / 3.6 - c.v) * 0.3));
+      race.t += DT; S.drivePlayer(race, c, { thr, brk: 0, steer: 0.05 + 0.6 * i / 600, analog: true }, DT);
+      if (Math.abs(S.driftAngle(c)) < 0.1) mx = Math.max(mx, Math.abs(c.ay));
+    }
+    return mx / 9.81;
+  };
+  const brake = setup => {
+    const { race, c } = setupCar(setup, 250, 7); c.assists = S.ASSISTS.medium; let d = 0;    // (250 → 80 km/h, ABS)
+    while (c.v > 80 / 3.6) { race.t += DT; S.drivePlayer(race, c, { thr: 0, brk: 1, steer: 0, analog: true }, DT); c.yawRate = 0; c.vy = 0; d += c.v * DT; }
+    return d;
+  };
+  const neg = { camberF: -3.8, camberR: -2.5 }, base = grip({}, 150), more = grip(neg, 150);
+  assert.ok(more > base * 1.008 && brake(neg) > brake({}) + 0.8, `camber: ${base.toFixed(3)} → ${more.toFixed(3)} g, braking ${brake({}).toFixed(1)} → ${brake(neg).toFixed(1)} m`);
+  const turn = setup => { const { race, c } = setupCar(setup, 200, 6); c.assists = S.ASSISTS.medium; for (let i = 0; i < 18; i++) { race.t += DT; S.drivePlayer(race, c, { thr: 0.5, brk: 0, steer: 0.08, analog: true }, DT); } return c.yawRate; };
+  assert.ok(turn({ toeF: -0.2 }) > turn({}) * 1.05 && turn({ toeF: 0.1 }) < turn({}) * 0.95, 'front toe-out turns in sharper, toe-in lazier');
+  const low = grip({ rideF: 22, rideR: 58 }, 150), grounded = grip({ rideF: 20, rideR: 50, springF: 1, springR: 1 }, 280);
+  assert.ok(low > base && grounded < grip({}, 280) * 0.9, `lower: ${low.toFixed(3)} g at 150; soft and low at 280: ${grounded.toFixed(3)} g`);
+});
