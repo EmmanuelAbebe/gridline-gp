@@ -249,3 +249,20 @@ test('brake migration: on a rear-biased balance none spins the car trail braking
   const none = trail(0), stock = trail(5), most = trail(10);
   assert.ok(none > 8 && stock < 3 && most <= stock, `max drift: 0 % ${none.toFixed(1)}°, 5 % ${stock.toFixed(1)}°, 10 % ${most.toFixed(1)}°`);
 });
+test('differential: stock changes nothing; mid-corner open rotates, locked holds; on the throttle open loses traction, locked gains it', () => {
+  const run = (setup, kmh, gear, secs, inp, assists = 'off') => {
+    const { race, c } = setupCar(setup, kmh, gear); c.assists = S.ASSISTS[assists]; const h0 = c.h; let mx = 0;
+    for (let i = 0; i < secs * 120; i++) { race.t += DT; S.drivePlayer(race, c, inp, DT); mx = Math.max(mx, driftDeg(c)); }
+    return { turned: Math.abs(c.h - h0) * 180 / Math.PI, drift: mx, kmh: c.v * 3.6 };
+  };
+  const same = [run({}, 130, 4, 1, { thr: 0, brk: 0, steer: 0.35, analog: true }), run({ diffEntry: 6, diffMid: 6, diffExit: 6 }, 130, 4, 1, { thr: 0, brk: 0, steer: 0.35, analog: true })];
+  assert.deepEqual(same[0], same[1], 'the stock diff is the stock car');
+  const mid = v => run({ diffMid: v }, 130, 4, 1.5, { thr: 0, brk: 0, steer: 0.35, analog: true });
+  const [open, stock, locked] = [1, 6, 11].map(mid);
+  assert.ok(open.turned > stock.turned + 5 && locked.turned < stock.turned - 3 && open.drift > stock.drift && locked.drift < stock.drift,
+    `mid-corner turned / drift: open ${open.turned.toFixed(0)}° ${open.drift.toFixed(1)}°, stock ${stock.turned.toFixed(0)}° ${stock.drift.toFixed(1)}°, locked ${locked.turned.toFixed(0)}° ${locked.drift.toFixed(1)}°`);
+  assert.ok(open.drift < 30, `open mid-corner frees the car, it doesn't spin it (${open.drift.toFixed(1)}°)`);
+  const exit = v => run({ diffExit: v }, 80, 2, 2, { thr: 1, brk: 0, steer: 0.4, analog: true }, 'medium').kmh;
+  const [eo, es, el] = [1, 6, 11].map(exit);
+  assert.ok(eo < es - 10 && el >= es, `out of a slow corner with traction control: open ${eo.toFixed(0)}, stock ${es.toFixed(0)}, locked ${el.toFixed(0)} km/h`);
+});

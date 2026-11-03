@@ -6,7 +6,7 @@
 //
 // State on the car: v (forward speed), vy (sideways speed, + = right), yawRate (rad/s, + = turning right), ax.
 // Everything is per unit mass, so forces read as accelerations (m/s²).
-import { TUNING, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT, ACTIVE_AERO, HANDBRAKE, ERS, ECU, TYRE_TEMP as TTC } from './tuning.js';
+import { TUNING, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT, ACTIVE_AERO, HANDBRAKE, ERS, ECU, TYRE_TEMP as TTC, DIFF } from './tuning.js';
 import { updateEcu, brakeAhead } from './ecu.js';
 import { axleTempGrip, stepTyreTemps, tyreEvents } from './tyre-temp.js';
 import { clamp, speedOf } from './math.js';
@@ -48,12 +48,15 @@ export function steerLock(v, assist, spec = STOCK) {
 
 // One axle's forces. D = grip (per mass), alpha = slip angle, long = braking (−) or drive (+) asked of it.
 // Returns lateral force, longitudinal force actually delivered, and how far past the grip limit it is (0..1+).
-function axle(D, alpha, peak, long, limit, spin = null) {
+function axle(D, alpha, peak, long, limit, spin = null, driveK = 1, inner = 0) {
   let fy = -D * tyreCurve(alpha, peak);
   const longMax = D * CH.longGrip;
   // what is left for braking / drive after cornering (friction circle)
   const avail = Math.sqrt(Math.max(longMax * longMax * 0.1, longMax * longMax - fy * fy * CH.longGrip * CH.longGrip));
+  // (a more open diff: the inside wheel spins up and the drive goes nowhere past what it holds; the outside tyre keeps its
+  // grip, the spinning inside one loses its share `inner` of the cornering)
   let fx = long;
+  if (driveK !== 1 && long > avail * driveK) { fx = avail * driveK; fy *= 1 - inner * (1 - CH.lockLateral); }
   if (limit !== null) fx = clamp(fx, -avail * limit, avail * limit);        // ABS / traction control
   let over = Math.abs(fx) / avail;
   // driving rear wheels without traction control: the spin builds up and dies away (CH.spin, spinStep)
@@ -194,8 +197,12 @@ export function stepChassis(race, c, inp, dt) {
     // handbrake: the rears locked (no drive, no ABS); written as its own branch so nothing changes without it
     // (without traction control the rear wheels' spin builds up: c.rearSpin, CH.spin)
     const spin = !braking && tcLimit === null && rearLong > 0 ? (spinState.v = sp, spinState) : null;
+    // the differential vs stock in this phase (DIFF; 0 at the stock setup: nothing below changes)
+    const lock = inp.hb ? 0 : S.diff[inp.brk > DIFF.pedal ? 0 : inp.thr > DIFF.pedal ? 2 : 1];
+    // (on the throttle a more open diff lets the inside rear, unloaded by the cornering, spin up first)
+    const unload = clamp(lr / (loadR / 2), 0, 1), driveK = lock < 0 && inp.thr > DIFF.pedal ? 1 - DIFF.traction * -lock * unload : 1;
     const rear = inp.hb ? axle(Dr, alphaR, CH.rearPeakSlip, -Dr * CH.longGrip * HANDBRAKE.lock * inp.hb * back, null)
-      : axle(Dr, alphaR, CH.rearPeakSlip, rearLong, braking ? rearBrakeLimit : tcLimit, spin);
+      : axle(Dr, alphaR, CH.rearPeakSlip, rearLong, braking ? rearBrakeLimit : tcLimit, spin, driveK, (1 - unload) / 2);
     if (!spin) spinState.s = 0;
     // how far past the grip limit each axle is: 0 = gripping, 1 = fully sliding (locked, spinning or past peak slip)
     slideF = Math.max(slideF, front.over - 1, Math.abs(alphaF) / CH.peakSlip - 1);
@@ -225,6 +232,8 @@ export function stepChassis(race, c, inp, dt) {
     // plane, the rest (1 − cos) comes for free with the tilt
     if (E) { ax -= G * gx; ay += -G * gy + (1 - Math.sqrt(1 - eSN * eSN)) * v * w; }
     let dw = (A_FRONT * (front.fy * cosD + front.fx * sinD) - B_REAR * rear.fy) / K2;
+    // a more locked diff holds the rear wheels to one speed: a moment against the rotation (less lock: with it)
+    if (lock) dw -= lock * (lock < 0 ? DIFF.open : 1) * DIFF.yaw * Dr * CH.longGrip * (CH.track / 2) * clamp(w * CH.track / DIFF.slip, -1, 1) / K2;
     // stability assist: when the rear slides, pull the yaw rate back toward what the steering asks for
     // damping assist: always, gently, toward that same yaw rate
     if ((A.stability > 0 || A.damping > 0) && !inp.hb) {               // (the handbrake asks for the rotation)

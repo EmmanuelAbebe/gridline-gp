@@ -21,6 +21,7 @@ const checks = [
   ['lap analysis opens and closes', r.analysis?.shown && r.analysis.corners >= 4 && r.analysis.refs >= 2 && r.analysis.backToPause],
   ['quit asks first', r.quitAsks === true && r.quitStay === true],
   ['garage setup: Brakes group with migration + engine braking', r.garage?.brakes?.items === 'Brake balance, Brake migration, Engine braking' && r.garage.brakes.fresh === 2 && r.garage.brakes.migration === '6 %' && r.garage.brakes.dot && r.garage.allStock === 'Stock setup'],
+  ['garage setup: Differential group', r.garage?.diff === 'Entry (on the brakes) 6, Mid-corner (coasting) 6, Exit (on the throttle) 5'],
   ['qualifying starts on the lights', r.quali?.lights > 0],
   ['quit only on the paddock', r.quitElsewhere === 0],
   ['HUD bar: FPS + PAUSE only', Array.isArray(r.hudButtons) && r.hudButtons.join() === 'fpsChip,pauseBtn'],

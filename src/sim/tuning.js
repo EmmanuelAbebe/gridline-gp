@@ -197,10 +197,22 @@ export const SETUP = Object.freeze({
   mech:    { min: -5, max: 5, step: 1, def: 0 },        // mechanical balance (anti-roll bars): + = front grip up, rear down
   migration: { min: 0, max: 10, step: 1, def: 5 },     // brake migration, %: the balance moves this much further forward as the pedal comes off
   engineBrake: { min: 1, max: 11, step: 1, def: 6 },    // engine braking: how hard the engine + MGU-K hold the rear wheels back on a lift
+  diffEntry: { min: 1, max: 11, step: 1, def: 6 },      // differential lock on the brakes (entry), coasting (mid-corner), on the throttle (exit)
+  diffMid:   { min: 1, max: 11, step: 1, def: 6 },
+  diffExit:  { min: 1, max: 11, step: 1, def: 6 },
   liftPerStep: 0.07, dragPerStep: 0.045,                // wing: liftArea × (1 + 0.07·steps), dragArea × (1 + 0.045·steps)
   rollPerStep: 0.03,                                    // mech: the front's share of the sideways load transfer − 0.03·steps
   engineBrakePerStep: 0.15,                             // engine braking × (1 + 0.15·steps): 0.25 … 1.75 of stock (the lift-off harvest too)
 });
+// The differential (2026-11-02, garage Setup → Differential; chassis.js). The stock car's handling already has the
+// stock diff in it, so the model is the change from it: at 6 / 6 / 6 nothing changes (every AI car: sim-trace identical).
+// More lock than stock: the rear wheels are held to the same speed, so the faster outer one is held back and the inner
+// pushed: a yaw moment against the rotation (stable, pushes wide), up to `yaw` × the rear tyres' lengthways grip moved
+// between the wheels (full once they turn `slip` m/s apart: yaw rate × track). Less lock: that moment the other way (it
+// rotates), and on the throttle the inside rear, unloaded in the corner, spins up first: the drive the rears take ×
+// (1 − `traction` × how open × the inner wheel's unloading). Phase: brake on = entry, throttle on = exit, else mid.
+// (`open`: the moment with the rotation is only that share of the locked side's: an open diff frees the car, it doesn't spin it)
+export const DIFF = Object.freeze({ yaw: 0.12, open: 0.35, slip: 0.6, traction: 0.5, pedal: 0.05 });
 export const MODS = Object.freeze({
   power:     { min: 50, max: 250, step: 5, def: 100 },   // % engine power
   mass:      { min: 500, max: 1200, step: 10, def: 770 }, // kg with driver

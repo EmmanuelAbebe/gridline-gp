@@ -161,9 +161,12 @@ async function smokeTest(win) {
     const brakes = { items: rows().map(r => r.querySelector('.lbl').textContent).join(', '), fresh: document.querySelectorAll('#garBody .gar-new').length,
       migration: mig.querySelector('output').textContent, note: mig.querySelector('.note').textContent, count: document.getElementById('garSetCount').textContent,
       dot: document.querySelector('#garSetChips [data-g=brakes]').classList.contains('changed') };
-    return { brakes };
+    [...document.querySelectorAll('#garSetChips button')].find(b => b.dataset.g === 'diff').click(); await wait(200);
+    rows().find(r => r.querySelector('.lbl').textContent.startsWith('Exit')).querySelector('[aria-label=Less]').click(); await wait(100);
+    const diff = rows().map(r => r.querySelector('.lbl').textContent + ' ' + r.querySelector('output').textContent).join(', ');
+    return { brakes, diff };
   })()`));
-  await shot('garage-brakes');
+  await shot('garage-diff');
   await win.webContents.executeJavaScript(`[...document.querySelectorAll('#garBody button')].find(b => b.textContent === 'ALL STOCK').click()`);
   info.garage.allStock = await win.webContents.executeJavaScript(`document.getElementById('garSetCount').textContent`);
   // Tyres & pit: start on softs, next stop hards (screenshot), then back to the defaults

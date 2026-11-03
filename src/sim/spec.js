@@ -43,6 +43,8 @@ export function carSpec(setupIn, modsIn) {
     brakeBias: s.brakes / 100,                           // front share of the braking
     brakeMigration: s.migration / 100,                   // how much further forward the balance moves as the pedal comes off
     engineBrake: 1 + SETUP.engineBrakePerStep * (s.engineBrake - SETUP.engineBrake.def),   // × the engine braking and lift-off harvest
+    // the differential's lock vs stock per phase (entry, mid, exit): −1 = fully open … +1 = fully locked (chassis.js, DIFF)
+    diff: Object.freeze(['diffEntry', 'diffMid', 'diffExit'].map(k => (s[k] - SETUP[k].def) / (SETUP[k].max - SETUP[k].def))),
     brakeSystem: CHASSIS.brakeSystem * (m.brakes / 100),
     power: m.power / 100,
     top,                                                 // km/h at the redline per gear

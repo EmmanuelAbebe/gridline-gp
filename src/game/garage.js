@@ -24,6 +24,11 @@ const SETUP_UI = [
     migration: { label: 'Brake migration', fmt: v => v + ' %', isNew: true, lo: 'The balance stays put as you come off the pedal: the rear stays busy while trail braking (less than 5 % can spin a rear-biased car).', hi: 'The balance moves forward as you ease off the pedal: a calmer rear when trail braking, more understeer and front locking toward the apex.' },
     engineBrake: { label: 'Engine braking', fmt: v => String(v), isNew: true, lo: 'Less drag on the rear wheels when you lift: a calm rear into corners, but the car slows less and harvests less energy.', hi: 'More drag on the rear wheels when you lift: slows harder and charges the battery more, but the rear can step out lifting mid-corner.' },
   }],
+  ['diff', 'Differential', {
+    diffEntry: { label: 'Entry (on the brakes)', fmt: v => String(v), isNew: true, lo: 'More open on the brakes: the car turns in more eagerly; the rear can move around under braking.', hi: 'More locked on the brakes: a steady rear under braking, but it is reluctant to turn in.' },
+    diffMid: { label: 'Mid-corner (coasting)', fmt: v => String(v), isNew: true, lo: 'More open mid-corner: the car rotates toward the apex; the rear is livelier.', hi: 'More locked mid-corner: steady, but it pushes wide through the slowest part.' },
+    diffExit: { label: 'Exit (on the throttle)', fmt: v => String(v), isNew: true, lo: 'More open on the throttle: easy to rotate, but the inside rear spins up out of slow corners: less traction, and the rear slides sooner.', hi: 'More locked on the throttle: better traction and a steadier rear, but it pushes wide on the way out.' },
+  }],
   ['suspension', 'Suspension', {
     mech: { label: 'Anti-roll bars', fmt: v => v ? (v > 0 ? '+' : '') + v + (v > 0 ? ' front' : ' rear') : 'NEUTRAL', lo: 'Stiffer front: a planted rear and better traction, but understeer.', hi: 'Stiffer rear: more front grip (turns in, more oversteer), less traction out of slow corners.' },
   }],

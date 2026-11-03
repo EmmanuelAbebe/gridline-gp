@@ -918,7 +918,7 @@ showed MODIFIED only because of it).
 ## agreed: all of them, one group at a time, measured; the garage's Setup tab = their pick B of three canvas mock-ups)
 - Garage Setup in groups (garage.js `SETUP_UI` [id, label, items]: a chip per group, one group shown; each item: name (+ NEW),
   value, − slider +, what the change does (`lo` / `hi`, "Stock" at the default), double-click = stock; "n changed from
-  stock" + ALL STOCK; LOW / HIGH DOWNFORCE on Aero). Groups now: Aero, Brakes, Suspension (anti-roll bars = `mech`), Gearbox.
+  stock" + ALL STOCK; LOW / HIGH DOWNFORCE on Aero). Groups now: Aero, Brakes, Differential, Suspension (anti-roll bars = `mech`), Gearbox.
 - Brakes (done 2026-11-02): `SETUP.migration` 0–10 % (default 5 = the old fixed CHASSIS.brakeMigration; spec.brakeMigration)
   and `SETUP.engineBrake` 1–11 (spec.engineBrake = 1 + 0.15·steps: × the engine braking and the lift-off MGU-K harvest).
   Engine braking now goes through the rear tyres for every car (vehicle.js drivetrain `rear` = engine braking + coast
@@ -926,8 +926,18 @@ showed MODIFIED only because of it).
   −0.03 s, the battery a little fuller; on a 160 km/h skidpad lifting at the limit stock 1.3°, engine braking 11 → 11.5°;
   1.5 s lift from 300: 32 / 40 / 48 km/h lost at 1 / 6 / 11; trail braking on a 53 % balance: migration 0 spins (19.5°),
   5 % 0.8°, 10 % 0.5° (more front locking). tests/chassis.test.js. Physics version not bumped.
-- Next, in order: differential (entry / mid / exit), tyre pressures, suspension (springs, ride height, camber, toe;
-  front / rear anti-roll bars replace `mech`). Dampers left out.
+- Differential (done 2026-11-02): `SETUP.diffEntry / diffMid / diffExit` 1–11 (spec.diff = lock vs stock per phase, −1 … +1;
+  phase: brake > 0.05 entry, throttle > 0.05 exit, else mid). `DIFF` in tuning.js; a change from the stock car (whose
+  handling already has a diff in it): 6 / 6 / 6 = nothing changes (sim-trace identical, the AI unchanged). chassis.js: a
+  yaw moment against the rotation ∝ lock × `yaw` 0.12 × the rear's lengthways grip × half the track, full once the rear
+  wheels turn `slip` 0.6 m/s apart (open side × `open` 0.35: an open diff frees the car, it doesn't spin it); on the
+  throttle a more open diff caps the drive at what the unloaded inside wheel holds (axle `driveK`) and that wheel's share of
+  the cornering goes (`inner`). Measured (assists off): coasting at 130 km/h, steer 0.35: open 17° drift / 76° turned,
+  stock 4.7° / 65°, locked 0.7° / 59°; out of an 80 km/h corner at 40 % throttle: open slides 45°, stock and locked hold;
+  with traction control 2 s at full throttle: open 120, stock 148, locked 151 km/h. Entry: small (only the engine braking
+  goes through the diff). tests/chassis.test.js.
+- Next, in order: tyre pressures, suspension (springs, ride height, camber, toe; front / rear anti-roll bars replace
+  `mech`). Dampers left out.
 
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)
