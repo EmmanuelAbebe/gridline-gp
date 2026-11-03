@@ -78,3 +78,19 @@ test('the AI laps clean from cold tyres without assists, every circuit (ALIEN an
     }
   }
 });
+
+test('tyre pressures (garage Setup → Tyres): lower = more grip and hotter tyres, higher = less grip and cooler; stock changes nothing', () => {
+  const S = SIM, DT = 1 / 120, T = S.buildTrack(S.CIRCUITS.elkmoor);
+  const run = setup => {
+    const race = S.createRace(2, { track: T, drivers: [S.DRIVERS[0]], seed: 7, tyreTemp: true }), c = race.cars[0];
+    c.spec = S.carSpec(setup);
+    for (let s = 0; s < 120 * 200 && !c.finished; s++) { race.t += DT; S.driveAI(race, c, DT); c.events.length = 0; }
+    return { core: c.tyreT.k.reduce((a, b) => a + b) / 4, x: c.x };
+  };
+  const low = run({ pressF: 20, pressR: 18 }), stock = run({}), same = run({ pressF: 23, pressR: 21 }), high = run({ pressF: 26, pressR: 24 });
+  assert.equal(same.x, stock.x, 'the stock pressures are the stock car');
+  assert.ok(low.core > stock.core + 3 && high.core < stock.core - 3, `core °C: low ${low.core.toFixed(1)}, stock ${stock.core.toFixed(1)}, high ${high.core.toFixed(1)}`);
+  const sp = (p, q) => S.carSpec({ pressF: p, pressR: q });
+  assert.ok(sp(21, 19).frontGrip > 1 && sp(25, 23).frontGrip < 1 && sp(20, 18).frontGrip < sp(21, 19).frontGrip, 'grip: more lower, until the sidewall folds');
+  assert.ok(sp(20, 18).peakF > S.STOCK.peakF && sp(26, 24).peakR < S.STOCK.peakR, 'a softer tyre peaks at a bigger slip angle');
+});

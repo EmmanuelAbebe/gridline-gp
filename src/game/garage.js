@@ -29,6 +29,10 @@ const SETUP_UI = [
     diffMid: { label: 'Mid-corner (coasting)', fmt: v => String(v), isNew: true, lo: 'More open mid-corner: the car rotates toward the apex; the rear is livelier.', hi: 'More locked mid-corner: steady, but it pushes wide through the slowest part.' },
     diffExit: { label: 'Exit (on the throttle)', fmt: v => String(v), isNew: true, lo: 'More open on the throttle: easy to rotate, but the inside rear spins up out of slow corners: less traction, and the rear slides sooner.', hi: 'More locked on the throttle: better traction and a steadier rear, but it pushes wide on the way out.' },
   }],
+  ['tyres', 'Tyres', {
+    pressF: { label: 'Front pressure', fmt: v => v.toFixed(1) + ' psi', isNew: true, lo: 'Lower: a little more front grip, a softer tyre that slides more gently and warms up sooner, but runs hotter on long runs. Below about 21 psi the sidewall folds and the grip drops again.', hi: 'Higher: less front grip, a sharper tyre that lets go with less warning; slower to warm up, runs cooler.' },
+    pressR: { label: 'Rear pressure', fmt: v => v.toFixed(1) + ' psi', isNew: true, lo: 'Lower: a little more rear grip and traction, warms up sooner, but runs hotter on long runs. Below about 19 psi the sidewall folds and the grip drops again.', hi: 'Higher: less rear grip and traction, the rear lets go with less warning; slower to warm up, runs cooler.' },
+  }],
   ['suspension', 'Suspension', {
     mech: { label: 'Anti-roll bars', fmt: v => v ? (v > 0 ? '+' : '') + v + (v > 0 ? ' front' : ' rear') : 'NEUTRAL', lo: 'Stiffer front: a planted rear and better traction, but understeer.', hi: 'Stiffer rear: more front grip (turns in, more oversteer), less traction out of slow corners.' },
   }],

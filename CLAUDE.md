@@ -918,7 +918,7 @@ showed MODIFIED only because of it).
 ## agreed: all of them, one group at a time, measured; the garage's Setup tab = their pick B of three canvas mock-ups)
 - Garage Setup in groups (garage.js `SETUP_UI` [id, label, items]: a chip per group, one group shown; each item: name (+ NEW),
   value, − slider +, what the change does (`lo` / `hi`, "Stock" at the default), double-click = stock; "n changed from
-  stock" + ALL STOCK; LOW / HIGH DOWNFORCE on Aero). Groups now: Aero, Brakes, Differential, Suspension (anti-roll bars = `mech`), Gearbox.
+  stock" + ALL STOCK; LOW / HIGH DOWNFORCE on Aero). Groups now: Aero, Brakes, Differential, Tyres, Suspension (anti-roll bars = `mech`), Gearbox.
 - Brakes (done 2026-11-02): `SETUP.migration` 0–10 % (default 5 = the old fixed CHASSIS.brakeMigration; spec.brakeMigration)
   and `SETUP.engineBrake` 1–11 (spec.engineBrake = 1 + 0.15·steps: × the engine braking and the lift-off MGU-K harvest).
   Engine braking now goes through the rear tyres for every car (vehicle.js drivetrain `rear` = engine braking + coast
@@ -936,8 +936,14 @@ showed MODIFIED only because of it).
   stock 4.7° / 65°, locked 0.7° / 59°; out of an 80 km/h corner at 40 % throttle: open slides 45°, stock and locked hold;
   with traction control 2 s at full throttle: open 120, stock 148, locked 151 km/h. Entry: small (only the engine braking
   goes through the diff). tests/chassis.test.js.
-- Next, in order: tyre pressures, suspension (springs, ride height, camber, toe; front / rear anti-roll bars replace
-  `mech`). Dampers left out.
+- Tyre pressures (done 2026-11-02): `SETUP.pressF` 20–26 / `pressR` 18–24 psi (stock 23 / 21 = nothing changes, sim-trace
+  identical); `PRESSURE` in tuning.js, spec.js `pressure(dp)`: grip × (1 − 0.006·dp − 0.01·(under 2 psi below stock)²)
+  (frontGrip / rearGrip; the most at ~2.3 psi under), peak slip angle × (1 − 0.04·dp) (spec.peakF / peakR, chassis.js
+  in place of CH.peakSlip / rearPeakSlip), flexing heat × (1 − 0.12·dp) (spec.flex → stepTyreTemps). Measured: steady
+  150 km/h grip 2.71 / 2.68 / 2.64 g at 20/18, 23/21, 26/24 psi; VOS at Harrow (tyre temperatures on) cores at lap 4
+  117 / 105 / 93 °C, laps after the first equal low vs stock (faster warm-up, then too hot), high +0.25 s.
+  tests/tyre-temp.test.js.
+- Next: suspension (springs, ride height, camber, toe; front / rear anti-roll bars replace `mech`). Dampers left out.
 
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)

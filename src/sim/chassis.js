@@ -186,7 +186,7 @@ export function stepChassis(race, c, inp, dt) {
     // ABS / traction control hold the tyres at `limit` × what they can give: medium / high 0.97, low 0.985 (2026-10-24: low
     // used to allow 1.045 / 1.095, past the grip, so its wheels locked and spun as with none)
     const absLimit = A.abs > 0 ? 0.97 + 0.03 * (1 - A.abs) : null, tcLimit = A.tc > 0 ? 0.97 + 0.03 * (1 - A.tc) : null;
-    const front = axle(Df, alphaF, CH.peakSlip, -brake * bias * back, absLimit);
+    const front = axle(Df, alphaF, S.peakF, -brake * bias * back, absLimit);
     // (engine braking on a lift, d.rear: through the rear tyres; the handbrake's own branch keeps it in the car's drag)
     const eng = inp.hb ? 0 : d.rear;
     const rearLong = d.drive - eng - brake * (1 - bias) * back;
@@ -201,12 +201,12 @@ export function stepChassis(race, c, inp, dt) {
     const lock = inp.hb ? 0 : S.diff[inp.brk > DIFF.pedal ? 0 : inp.thr > DIFF.pedal ? 2 : 1];
     // (on the throttle a more open diff lets the inside rear, unloaded by the cornering, spin up first)
     const unload = clamp(lr / (loadR / 2), 0, 1), driveK = lock < 0 && inp.thr > DIFF.pedal ? 1 - DIFF.traction * -lock * unload : 1;
-    const rear = inp.hb ? axle(Dr, alphaR, CH.rearPeakSlip, -Dr * CH.longGrip * HANDBRAKE.lock * inp.hb * back, null)
-      : axle(Dr, alphaR, CH.rearPeakSlip, rearLong, braking ? rearBrakeLimit : tcLimit, spin, driveK, (1 - unload) / 2);
+    const rear = inp.hb ? axle(Dr, alphaR, S.peakR, -Dr * CH.longGrip * HANDBRAKE.lock * inp.hb * back, null)
+      : axle(Dr, alphaR, S.peakR, rearLong, braking ? rearBrakeLimit : tcLimit, spin, driveK, (1 - unload) / 2);
     if (!spin) spinState.s = 0;
     // how far past the grip limit each axle is: 0 = gripping, 1 = fully sliding (locked, spinning or past peak slip)
-    slideF = Math.max(slideF, front.over - 1, Math.abs(alphaF) / CH.peakSlip - 1);
-    slideR = Math.max(slideR, rear.over - 1, Math.abs(alphaR) / CH.rearPeakSlip - 1);
+    slideF = Math.max(slideF, front.over - 1, Math.abs(alphaF) / S.peakF - 1);
+    slideR = Math.max(slideR, rear.over - 1, Math.abs(alphaR) / S.peakR - 1);
     if (front.over > 1 && brake > 0) lockF = true;
     if (rear.over > 1 && braking && !inp.hb) lockR = true;
     if (rear.over > 1 && !braking && d.drive > 0 && !inp.hb) spinR = true;
@@ -238,7 +238,7 @@ export function stepChassis(race, c, inp, dt) {
     // damping assist: always, gently, toward that same yaw rate
     if ((A.stability > 0 || A.damping > 0) && !inp.hb) {               // (the handbrake asks for the rotation)
       const wGrip = lateralGrip(sp, S) / sp, wRef = clamp(v * FM.tan(delta) / L, -wGrip, wGrip);
-      const rearSliding = clamp((Math.abs(alphaR) - 0.4 * CH.rearPeakSlip) / (0.6 * CH.rearPeakSlip), 0, 1);
+      const rearSliding = clamp((Math.abs(alphaR) - 0.4 * S.peakR) / (0.6 * S.peakR), 0, 1);
       dw -= (A.stability * CH.stabilityGain * rearSliding + (A.damping || 0) * CH.dampingGain) * (w - wRef);
     }
     // aero yaw stability: the car's side area behind the centre of mass (sidepods, engine cover fin, endplates) turns
@@ -263,7 +263,7 @@ export function stepChassis(race, c, inp, dt) {
   c.roll += c.v * dt / TUNING.WHEEL_RADIUS;
   if (TT) {
     const st = S.mass * G / 2;    // (crawling: the static loads)
-    stepTyreTemps(TT, heatF / dt, heatR / dt, wheelN || [st * CH.frontWeight, st * CH.frontWeight, st * (1 - CH.frontWeight), st * (1 - CH.frontWeight)], speedOf(c), dt);
+    stepTyreTemps(TT, heatF / dt, heatR / dt, wheelN || [st * CH.frontWeight, st * CH.frontWeight, st * (1 - CH.frontWeight), st * (1 - CH.frontWeight)], speedOf(c), dt, S.flex);
     if (wheelN) TT.out = [outF, outR];
     tyreEvents(c, dt);
   }

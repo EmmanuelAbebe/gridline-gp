@@ -32,12 +32,13 @@ export function axleTempGrip(T) {
 }
 
 /** one step of the heat flows. heatF / heatR = friction power (W) into the front / rear axle's tyres over the step,
- *  loads = [FL, FR, RL, RR] in N, speed m/s */
-export function stepTyreTemps(T, heatF, heatR, loads, speed, dt) {
+ *  loads = [FL, FR, RL, RR] in N, speed m/s; flex = × the flexing heat per axle (the tyre pressures, spec.flex)
+ *  @param {readonly number[]} [flexK] */
+export function stepTyreTemps(T, heatF, heatR, loads, speed, dt, flexK = [1, 1]) {
   const S = TT.surface, K = TT.core, axleLoad = [loads[0] + loads[1], loads[2] + loads[3]];
   for (let i = 0; i < 4; i++) {
     const a = i < 2 ? 0 : 1, share = axleLoad[a] > 0 ? loads[i] / axleLoad[a] : 0.5, size = a ? 1 : TT.front;
-    const friction = (a ? heatR : heatF) * TT.share * share, flex = TT.roll * loads[i] * speed;
+    const friction = (a ? heatR : heatF) * TT.share * share, flex = TT.roll * loads[i] * speed * flexK[a];
     const s = T.s[i], k = T.k[i];
     const grow = d => d * FM.pow(Math.abs(d) / TT.ref, TT.grow);
     const toCore = S.core * size * (s - k), toAir = (S.air + S.airV * speed) * size * grow(s - TT.air), toRoad = S.road * size * grow(s - TT.track);

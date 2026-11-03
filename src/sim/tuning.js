@@ -200,6 +200,8 @@ export const SETUP = Object.freeze({
   diffEntry: { min: 1, max: 11, step: 1, def: 6 },      // differential lock on the brakes (entry), coasting (mid-corner), on the throttle (exit)
   diffMid:   { min: 1, max: 11, step: 1, def: 6 },
   diffExit:  { min: 1, max: 11, step: 1, def: 6 },
+  pressF: { min: 20, max: 26, step: 0.5, def: 23 },      // tyre pressures, psi (cold): front, rear
+  pressR: { min: 18, max: 24, step: 0.5, def: 21 },
   liftPerStep: 0.07, dragPerStep: 0.045,                // wing: liftArea × (1 + 0.07·steps), dragArea × (1 + 0.045·steps)
   rollPerStep: 0.03,                                    // mech: the front's share of the sideways load transfer − 0.03·steps
   engineBrakePerStep: 0.15,                             // engine braking × (1 + 0.15·steps): 0.25 … 1.75 of stock (the lift-off harvest too)
@@ -213,6 +215,11 @@ export const SETUP = Object.freeze({
 // (1 − `traction` × how open × the inner wheel's unloading). Phase: brake on = entry, throttle on = exit, else mid.
 // (`open`: the moment with the rotation is only that share of the locked side's: an open diff frees the car, it doesn't spin it)
 export const DIFF = Object.freeze({ yaw: 0.12, open: 0.35, slip: 0.6, traction: 0.5, pedal: 0.05 });
+// Tyre pressures (2026-11-02, garage Setup → Tyres; spec.js): psi off the stock 23 / 21 (the stock car = those: nothing
+// changes). Lower: a bigger contact patch, `grip` more per psi down to `best` psi under stock, then the sidewall folds
+// (−`fold` × psi² past it); a softer tyre reaches its peak at a bigger slip angle (`slip` per psi: lazier response); the
+// sidewall flexes more (`flex` per psi more flexing heat into the core: tyre-temp.js). Higher: the other way round.
+export const PRESSURE = Object.freeze({ grip: 0.006, best: 2, fold: 0.01, slip: 0.04, flex: 0.12 });
 export const MODS = Object.freeze({
   power:     { min: 50, max: 250, step: 5, def: 100 },   // % engine power
   mass:      { min: 500, max: 1200, step: 10, def: 770 }, // kg with driver
