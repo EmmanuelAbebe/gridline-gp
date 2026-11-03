@@ -12,22 +12,30 @@ import { $, createEmitter } from './util.js';
 import { orbitState, orbitPosition, attachOrbit, clampOrbit, ORBIT } from './orbit-camera.js';
 import { FINISHES, CAR_MODELS, SWATCHES, LIVERY_DEFAULTS, STRATEGY_DEFAULTS, COMPOUND_NAMES, hexOf, playerDriver, playerSpec } from './garage-store.js';
 
-const SETUP_UI = {
-  wing: { label: 'Wing level', fmt: v => String(v), note: () => 'More wing: more grip in corners and under braking, more drag on the straights (lower top speed).' },
-  balance: { label: 'Aero balance', fmt: v => v.toFixed(1) + ' % front', note: v => v > 45 ? 'More front downforce: sharper turn-in in fast corners, the rear gets looser.'
-    : v < 45 ? 'Less front downforce: a stable rear in fast corners, but understeer.' : 'Stock balance.' },
-  brakes: { label: 'Brake balance', fmt: v => v.toFixed(1) + ' % front', note: v => v > 57 ? 'Toward the front: the fronts lock first (straight on, safe), longer stops.'
-    : v < 57 ? 'Toward the rear: rotates the car into corners; without ABS the rears can lock and spin it.' : 'Stock balance.' },
-  gearing: { label: 'Gearing', fmt: v => `${v} km/h top gear`, note: () => 'The speed top gear reaches at the redline. Match it to the wing: on low wing or in a slipstream short gears run into the limiter.' },
-  mech: { label: 'Mechanical balance', fmt: v => v ? (v > 0 ? '+' : '') + v + (v > 0 ? ' front' : ' rear') : 'NEUTRAL', note: v => v > 0
-    ? 'Stiffer rear: more front grip (turns in, more oversteer), less traction out of slow corners.'
-    : v < 0 ? 'Stiffer front: a planted rear and better traction, but understeer.' : 'Anti-roll bars at the stock setting.' },
-};
+// Setup (2026-11-02, the user's pick B of the canvas mock-ups): a chip per group, one group at a time; each item says what
+// moving it off stock does (lo = below stock, hi = above); `isNew` = a setting the garage didn't have before (a NEW tag)
+const SETUP_UI = [
+  ['aero', 'Aero', {
+    wing: { label: 'Wing level', fmt: v => String(v), lo: 'Less drag: faster on the straights, less grip in corners and under braking.', hi: 'More grip in corners and under braking, more drag: slower on the straights.' },
+    balance: { label: 'Aero balance', fmt: v => v.toFixed(1) + ' % front', lo: 'Rear-heavy: a stable rear in fast corners, but it pushes wide.', hi: 'Front-heavy: sharper turn-in in fast corners, the rear goes light.' },
+  }],
+  ['brakes', 'Brakes', {
+    brakes: { label: 'Brake balance', fmt: v => v.toFixed(1) + ' % front', lo: 'Toward the rear: rotates the car into corners; without ABS the rears can lock and spin it.', hi: 'Toward the front: the fronts lock first (straight on, safe), longer stops.' },
+    migration: { label: 'Brake migration', fmt: v => v + ' %', isNew: true, lo: 'The balance stays put as you come off the pedal: the rear stays busy while trail braking (less than 5 % can spin a rear-biased car).', hi: 'The balance moves forward as you ease off the pedal: a calmer rear when trail braking, more understeer and front locking toward the apex.' },
+    engineBrake: { label: 'Engine braking', fmt: v => String(v), isNew: true, lo: 'Less drag on the rear wheels when you lift: a calm rear into corners, but the car slows less and harvests less energy.', hi: 'More drag on the rear wheels when you lift: slows harder and charges the battery more, but the rear can step out lifting mid-corner.' },
+  }],
+  ['suspension', 'Suspension', {
+    mech: { label: 'Anti-roll bars', fmt: v => v ? (v > 0 ? '+' : '') + v + (v > 0 ? ' front' : ' rear') : 'NEUTRAL', lo: 'Stiffer front: a planted rear and better traction, but understeer.', hi: 'Stiffer rear: more front grip (turns in, more oversteer), less traction out of slow corners.' },
+  }],
+  ['gearbox', 'Gearbox', {
+    gearing: { label: 'Gearing', fmt: v => `${v} km/h top gear`, lo: 'Short: quicker through the gears, but the limiter on long straights and in a tow.', hi: 'Long: the top speed you need on a low wing or in a slipstream.' },
+  }],
+];
 const MODS_UI = {
   power: { label: 'Engine power', fmt: v => v + ' %' }, mass: { label: 'Weight', fmt: v => v + ' kg' }, grip: { label: 'Tyre grip', fmt: v => v + ' %' },
   downforce: { label: 'Downforce', fmt: v => v + ' %' }, drag: { label: 'Drag', fmt: v => v + ' %' }, brakes: { label: 'Brake force', fmt: v => v + ' %' },
 };
-const PRESETS = [['STOCK', {}], ['LOW DOWNFORCE', { wing: 2, gearing: 370 }], ['HIGH DOWNFORCE', { wing: 10, gearing: 320 }]];
+const PRESETS = [['LOW DOWNFORCE', { wing: 2, gearing: 370 }], ['HIGH DOWNFORCE', { wing: 10, gearing: 320 }]];   // (on the Aero group)
 const TABS = [['look', 'Look'], ['setup', 'Setup'], ['tyres', 'Tyres & pit'], ['mods', 'Open mods']];
 // the compounds (SIM COMPOUNDS) in words
 const COMPOUND_UI = {
@@ -48,7 +56,7 @@ function seg(options, current, onpick) {
 
 export const Garage = (() => {
   const root = $('garageOv'), stage = $('garStage'), tabsEl = $('garTabs'), body = $('garBody'), events = createEmitter();
-  let isOpen = false, garage = null, tab = 'look', scene = null, cam = null, model = null, autoTurn = false, idle = 0, statsQueued = false;
+  let isOpen = false, garage = null, tab = 'look', group = 'aero', scene = null, cam = null, model = null, autoTurn = false, idle = 0, statsQueued = false;
   const orbit = orbitState();
   const STOCK_STATS = SIM.specStats(SIM.STOCK);
 
@@ -112,6 +120,34 @@ export const Garage = (() => {
     draw(value); wrap.append(input, out); head.append(el('span', 'lbl', label), wrap); row.append(head, p);
     return row;
   }
+  // a setup item (layout B): name (+ NEW) and value; − slider +; what the change does (or "Stock"); double-click = stock
+  function setupRow(k, ui) {
+    const r = SIM.SETUP[k], row = el('div', 'set-item gar-set'), head = el('div', 'gar-sethead'), out = el('output'), p = el('p', 'note');
+    const input = el('input'), line = el('div', 'gar-setline');
+    Object.assign(input, { type: 'range', min: r.min, max: r.max, step: r.step, value: garage.setup[k] });
+    head.append(el('span', 'lbl', ui.label));
+    if (ui.isNew) head.append(el('span', 'gar-new', 'NEW'));
+    head.append(out);
+    const draw = () => {
+      const v = garage.setup[k], off = v !== r.def;
+      input.value = v; out.textContent = ui.fmt(v); out.classList.toggle('off', off);
+      p.textContent = !off ? 'Stock' : v < r.def ? ui.lo : ui.hi; p.classList.toggle('stock', !off);
+    };
+    const set = v => { garage.setup[k] = SIM.validSetup({ ...garage.setup, [k]: v })[k]; draw(); changed('setup'); drawCount(); };
+    input.oninput = () => set(+input.value);
+    input.ondblclick = () => set(r.def);
+    line.append(button('−', () => set(garage.setup[k] - r.step), 'gar-step'), input, button('+', () => set(garage.setup[k] + r.step), 'gar-step'));
+    line.firstChild.setAttribute('aria-label', 'Less'); line.lastChild.setAttribute('aria-label', 'More'); input.setAttribute('aria-label', ui.label);
+    draw(); row.append(head, line, p);
+    return row;
+  }
+  // how many items are off stock, overall and per group (the chips' green dot)
+  const offStock = keys => keys.filter(k => garage.setup[k] !== SIM.SETUP[k].def).length;
+  function drawCount() {
+    const n = offStock(SETUP_UI.flatMap(([, , items]) => Object.keys(items))), c = $('garSetCount');
+    if (c) c.textContent = n ? `${n} changed from stock` : 'Stock setup';
+    for (const b of document.querySelectorAll('#garSetChips button')) b.classList.toggle('changed', offStock(Object.keys(SETUP_UI.find(g => g[0] === b.dataset.g)[2])) > 0);
+  }
   function colourRow(label, key) {
     const row = el('div', 'set-item'), head = el('div', 'row'), sw = el('div', 'gar-swatches'), pick = el('input');
     Object.assign(pick, { type: 'color', value: hexOf(garage.livery[key]), title: 'Any colour' });
@@ -174,11 +210,24 @@ export const Garage = (() => {
         button('Edit the car\'s shape (design tools)', () => events.emit('designTools')));
       body.append(btns, el('p', 'note', 'The design tools change the shape of every car in the field (wings, bodywork, wheels, cockpit); the colours and number here are yours alone.'));
     } else if (tab === 'setup') {
-      body.append(statsCard(), el('p', 'note', 'Race setup: every change buys something and costs something. The rivals race the stock setup. Applies from the next race. Double-click a slider for stock.'));
-      const pre = el('div', 'set-item btns');
-      for (const [label, values] of PRESETS) pre.append(button(label, () => { garage.setup = SIM.validSetup(values); changed('setup'); render(); }));
-      body.append(pre);
-      for (const [k, ui] of Object.entries(SETUP_UI)) body.append(slider(ui.label, SIM.SETUP[k], garage.setup[k], ui.fmt, ui.note, v => { garage.setup[k] = v; changed('setup'); }));
+      body.append(statsCard());
+      const top = el('div', 'gar-settop'), count = el('span', 'gar-count'); count.id = 'garSetCount';
+      top.append(count, button('ALL STOCK', () => { garage.setup = SIM.validSetup({}); changed('setup'); render(); }));
+      const chips = el('div', 'gar-chips'); chips.id = 'garSetChips';
+      for (const [id, label] of SETUP_UI) {
+        const b = button(label, () => { group = id; render(); }, ''); b.dataset.g = id; b.setAttribute('aria-pressed', String(id === group));
+        chips.append(b);
+      }
+      body.append(top, chips);
+      const [, , items] = SETUP_UI.find(g => g[0] === group);
+      for (const [k, ui] of Object.entries(items)) body.append(setupRow(k, ui));
+      if (group === 'aero') {
+        const pre = el('div', 'set-item btns');
+        for (const [label, values] of PRESETS) pre.append(button(label, () => { garage.setup = SIM.validSetup({ ...garage.setup, ...values }); changed('setup'); render(); }));
+        body.append(pre);
+      }
+      body.append(el('p', 'note', 'Every change buys something and costs something. The rivals race the stock setup. Applies from the next race. Double-click a slider for stock.'));
+      drawCount();
       queueStats();
     } else if (tab === 'tyres') {
       const T = garage.tyres, W = SIM.WEAR.tyres, set = (k, v) => { T[k] = v; changed('tyres'); render(); };

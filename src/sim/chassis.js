@@ -100,7 +100,7 @@ export function stepChassis(race, c, inp, dt) {
   const d = drivetrain(c, inp, dt);
   // the car's condition (pit.js): worn tyres, damage, empty tank (limp)
   const cond = carCondition(c);
-  d.drive *= cond.power; d.resist *= cond.drag;
+  d.drive *= cond.power; d.resist *= cond.drag; d.rear *= cond.drag;
   const n = CH.substeps, h = dt / n;
   // dirty tyres after an off: picked up on grass / gravel / turf, worn off on a hard surface
   if (c.surface in ROUGH) c.dirt = Math.max(c.dirt || 0, ROUGH[c.surface]);
@@ -179,16 +179,18 @@ export function stepChassis(race, c, inp, dt) {
     // brakes split by axle load (+ a front bias), drive on the rear
     const brake = brakeMax(sp, S) * inp.brk;
     // (brake-by-wire keeps the rear share with the MGU-K harvesting; it moves forward as the pedal comes off: migration)
-    const bias = Math.min(1, S.brakeBias + CH.brakeMigration * (1 - inp.brk));
+    const bias = Math.min(1, S.brakeBias + S.brakeMigration * (1 - inp.brk));
     // ABS / traction control hold the tyres at `limit` × what they can give: medium / high 0.97, low 0.985 (2026-10-24: low
     // used to allow 1.045 / 1.095, past the grip, so its wheels locked and spun as with none)
     const absLimit = A.abs > 0 ? 0.97 + 0.03 * (1 - A.abs) : null, tcLimit = A.tc > 0 ? 0.97 + 0.03 * (1 - A.tc) : null;
     const front = axle(Df, alphaF, CH.peakSlip, -brake * bias * back, absLimit);
-    const rearLong = d.drive - brake * (1 - bias) * back;
+    // (engine braking on a lift, d.rear: through the rear tyres; the handbrake's own branch keeps it in the car's drag)
+    const eng = inp.hb ? 0 : d.rear;
+    const rearLong = d.drive - eng - brake * (1 - bias) * back;
     // rear braking: ABS, and (stability assist) a margin kept for cornering, like brake-force distribution
     // any ABS keeps the rears from locking (a locked rear turning in spins the car); partial ABS only lets the fronts lock a little
     const rearBrakeLimit = absLimit === null ? null : Math.min(0.97, absLimit) * (1 - CH.rearBrakeMargin * A.stability);
-    const braking = brake * (1 - bias) > d.drive;   // which limit applies: ABS while braking, traction control on the throttle
+    const braking = brake * (1 - bias) + eng > d.drive;   // which limit applies: ABS while braking, traction control on the throttle
     // handbrake: the rears locked (no drive, no ABS); written as its own branch so nothing changes without it
     // (without traction control the rear wheels' spin builds up: c.rearSpin, CH.spin)
     const spin = !braking && tcLimit === null && rearLong > 0 ? (spinState.v = sp, spinState) : null;
@@ -217,7 +219,7 @@ export function stepChassis(race, c, inp, dt) {
     const cosD = FM.cos(delta), sinD = FM.sin(delta);
     // the surface drags against the car's whole motion (a car sliding sideways through gravel is slowed too)
     const sd = surfaceDrag(surf, speed) / speed;
-    let ax = rear.fx + front.fx * cosD - front.fy * sinD - d.resist - sd * v;
+    let ax = rear.fx + front.fx * cosD - front.fy * sinD - (d.resist - eng) - sd * v;
     let ay = front.fy * cosD + front.fx * sinD + rear.fy - sd * vy;
     // gravity on the slope; on a bank the plan view only sees cos(bank) of the cornering the tyres give in the road's
     // plane, the rest (1 − cos) comes for free with the tilt

@@ -152,6 +152,20 @@ async function smokeTest(win) {
     return { shown, stats, sliders: document.querySelectorAll('#garBody input[type=range]').length };
   })()`);
   await shot('garage-setup');
+  // Setup in groups: the Brakes chip (brake balance, migration, engine braking), + on migration, then ALL STOCK
+  Object.assign(info.garage, await win.webContents.executeJavaScript(`(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms)), rows = () => [...document.querySelectorAll('#garBody .gar-set')];
+    [...document.querySelectorAll('#garSetChips button')].find(b => b.dataset.g === 'brakes').click(); await wait(200);
+    const mig = rows().find(r => r.querySelector('.lbl').textContent === 'Brake migration');
+    mig.querySelector('[aria-label=More]').click(); await wait(100);
+    const brakes = { items: rows().map(r => r.querySelector('.lbl').textContent).join(', '), fresh: document.querySelectorAll('#garBody .gar-new').length,
+      migration: mig.querySelector('output').textContent, note: mig.querySelector('.note').textContent, count: document.getElementById('garSetCount').textContent,
+      dot: document.querySelector('#garSetChips [data-g=brakes]').classList.contains('changed') };
+    return { brakes };
+  })()`));
+  await shot('garage-brakes');
+  await win.webContents.executeJavaScript(`[...document.querySelectorAll('#garBody button')].find(b => b.textContent === 'ALL STOCK').click()`);
+  info.garage.allStock = await win.webContents.executeJavaScript(`document.getElementById('garSetCount').textContent`);
   // Tyres & pit: start on softs, next stop hards (screenshot), then back to the defaults
   Object.assign(info.garage, await win.webContents.executeJavaScript(`(async () => {
     const wait = ms => new Promise(r => setTimeout(r, ms)), pick = (label, text) => [...document.querySelectorAll('#garBody .set-item')]

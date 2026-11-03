@@ -41,6 +41,8 @@ export function carSpec(setupIn, modsIn) {
     // mechanical balance = the anti-roll bars: + = a softer front (less of the sideways load transfer on it) = more front grip
     rollFront: CHASSIS.rollFront - SETUP.rollPerStep * mech,
     brakeBias: s.brakes / 100,                           // front share of the braking
+    brakeMigration: s.migration / 100,                   // how much further forward the balance moves as the pedal comes off
+    engineBrake: 1 + SETUP.engineBrakePerStep * (s.engineBrake - SETUP.engineBrake.def),   // × the engine braking and lift-off harvest
     brakeSystem: CHASSIS.brakeSystem * (m.brakes / 100),
     power: m.power / 100,
     top,                                                 // km/h at the redline per gear

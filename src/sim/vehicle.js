@@ -176,11 +176,11 @@ export function slipstream(race, c, progressOf) {
 /** @param {Car} c */
 function ers(c, thr, brk, v, dt, room = 1, iceKw = 0, pedal = thr) {
   const s = c.spec, m = s.mass, sp = Math.max(v, 0);
-  if (!(dt > 0)) return { drive: 0, resist: 0 };            // (a step of no time: nothing flows; it would divide by 0)
+  if (!(dt > 0)) return { drive: 0, resist: 0, coast: 0 };            // (a step of no time: nothing flows; it would divide by 0)
   if (c.ersLap !== c.lap) { c.ersLap = c.lap; c.harvested = 0; }
   const charge = j => { const room = Math.min(ERS.store - c.soc, ERS.perLap - c.harvested), got = Math.max(0, Math.min(j, room)); c.soc += got; c.harvested += got; return got; };
   const from = c.boostOn ? ERS.taperFromBoost : ERS.taperFrom, taper = clamp((ERS.taperTo - sp) / (ERS.taperTo - from), 0, 1);
-  let drive = 0, resist = 0, kw = 0;
+  let drive = 0, resist = 0, kw = 0, coast = 0;
   const map = c.ecuMode ? ECU.maps[c.ecuMap] : null;       // (ecu.js: the car's ECU map; none = ERS's own numbers)
   const low = map ? map.low : ERS.low, clipBelow = map ? map.clipBelow : ERS.clipBelow, partKw = map ? ERS.partKw * map.part : ERS.partKw;
   if (pedal >= 0.05 && sp > 0.5) {
@@ -197,12 +197,12 @@ function ers(c, thr, brk, v, dt, room = 1, iceKw = 0, pedal = thr) {
   } else if (sp > 0.5) {
     // braking: as much as the rear brakes ask (their share ~43 %), up to harvestKw; lifting: coastKw of engine braking
     const brakeP = brk > 0 ? brakeMax(sp, s) * brk * m * sp * 0.43 : 0;
-    const want = brk > 0 ? Math.min(ERS.harvestKw * 1000, brakeP) : Math.min(ERS.coastKw * 1000, ERS.coastMax * m * sp);
+    const want = brk > 0 ? Math.min(ERS.harvestKw * 1000, brakeP) : Math.min(ERS.coastKw * 1000, ERS.coastMax * m * sp) * s.engineBrake;
     const got = charge(want * dt) / dt; kw = -got / 1000;
-    if (!brk) resist += got / (m * sp);
+    if (!brk) { resist += got / (m * sp); coast = got / (m * sp); }
   }
   c.ersKw = kw;
-  return { drive, resist };
+  return { drive, resist, coast };
 }
 
 // ---------- one step of the drivetrain ----------
@@ -215,7 +215,7 @@ export function drivetrain(c, { thr, brk, shift = 0 }, dt) {
   // drag: less in a slipstream and with the wings open (active-aero.js; aeroOpen 0 multiplies by exactly 1)
   const v = c.v, dragK = c.spec.dragK * (1 - SLIP.drag * (c.slip || 0)) * (1 - ACTIVE_AERO.dragCut * c.aeroOpen);
   let resist = dragK * v * Math.abs(v) + Math.sign(v) * aero.rolling;
-  if (c.gear === -1) { c.rpm = engine.idle + thr * 3000; c.drive = 0; return { drive: 0, resist, reverse: true }; }
+  if (c.gear === -1) { c.rpm = engine.idle + thr * 3000; c.drive = 0; return { drive: 0, resist, rear: 0, reverse: true }; }
   const rpm = engineRpm(v, c.gear, thr, c.spec);
   c.rpm = rpm;
   const tq = FM.pow(thr, engine.pedalMap);                // the torque the pedal asks for (torque map)
@@ -225,10 +225,13 @@ export function drivetrain(c, { thr, brk, shift = 0 }, dt) {
   const e = ers(c, tq, brk, v, dt, clamp((engine.limiter - 50 - rpm) / 250, 0, 1) * Math.min(1, rpm / ERS.fullRpm), powerKw(rpm) * c.spec.power * engine.efficiency, thr);
   drive += e.drive;
   if (c.shiftT > 0) drive *= gearbox.shiftCut;
-  if (thr < 0.05 && v > 0.5) resist += engine.engineBrake * Math.min(1, rpm / engine.redline);
+  // engine braking (the engine + the MGU-K harvesting on a lift) holds the rear wheels back: `rear` = the part of
+  // `resist` that goes through the rear tyres (chassis.js), so a lift uses up rear grip (lift-off oversteer)
+  const eb = thr < 0.05 && v > 0.5 ? engine.engineBrake * Math.min(1, rpm / engine.redline) * c.spec.engineBrake : 0;
+  resist += eb;
   resist += e.resist;
   c.drive = drive;
-  return { drive, resist, reverse: false };
+  return { drive, resist, rear: eb + e.coast, reverse: false };
 }
 
 export const VEHICLE_INFO = Object.freeze({ redline: engine.redline, limiter: engine.limiter, idle: engine.idle,

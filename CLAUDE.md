@@ -914,6 +914,21 @@ showed MODIFIED only because of it).
   a new valid-lap record toasts. The design tools (button in Look) still edit every car's shape. Smoke test: garage
   screenshots `out-garage*.png` (mouse drag, paint, Setup stats, a mod → MODIFIED → reset).
 
+## More car setup (2026-11-02; user: "tyre pressure, wing size, suspension, brake bias and migration, differential …";
+## agreed: all of them, one group at a time, measured; the garage's Setup tab = their pick B of three canvas mock-ups)
+- Garage Setup in groups (garage.js `SETUP_UI` [id, label, items]: a chip per group, one group shown; each item: name (+ NEW),
+  value, − slider +, what the change does (`lo` / `hi`, "Stock" at the default), double-click = stock; "n changed from
+  stock" + ALL STOCK; LOW / HIGH DOWNFORCE on Aero). Groups now: Aero, Brakes, Suspension (anti-roll bars = `mech`), Gearbox.
+- Brakes (done 2026-11-02): `SETUP.migration` 0–10 % (default 5 = the old fixed CHASSIS.brakeMigration; spec.brakeMigration)
+  and `SETUP.engineBrake` 1–11 (spec.engineBrake = 1 + 0.15·steps: × the engine braking and the lift-off MGU-K harvest).
+  Engine braking now goes through the rear tyres for every car (vehicle.js drivetrain `rear` = engine braking + coast
+  harvest, chassis.js rearLong; was a drag on the whole car): a lift at the limit uses rear grip. Measured: AI laps
+  −0.03 s, the battery a little fuller; on a 160 km/h skidpad lifting at the limit stock 1.3°, engine braking 11 → 11.5°;
+  1.5 s lift from 300: 32 / 40 / 48 km/h lost at 1 / 6 / 11; trail braking on a 53 % balance: migration 0 spins (19.5°),
+  5 % 0.8°, 10 % 0.5° (more front locking). tests/chassis.test.js. Physics version not bumped.
+- Next, in order: differential (entry / mid / exit), tyre pressures, suspension (springs, ride height, camber, toe;
+  front / rear anti-roll bars replace `mech`). Dampers left out.
+
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)
 - Electron main runs the phone server itself: `desktop/phone-link.cjs` (`createPhoneLink({ dataDir, pagesDir, onInput,

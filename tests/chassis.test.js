@@ -219,3 +219,33 @@ test('low assists: full brake never locks the fronts, full throttle from a stand
   straight(s.race, s.c, { thr: 1, brk: 0, steer: 0, analog: true }, 3, car => { spin ||= car.spinR; });
   assert.ok(!spin, 'no wheel spin pulling away at full throttle');
 });
+
+// the brake setup (2026-11-02, garage Setup → Brakes): engine braking goes through the rear tyres; migration moves the
+// balance forward as the pedal comes off
+function setupCar(setup, kmh, gear) {
+  const race = S.createRace(1, { track: OPEN, drivers: S.DRIVERS.filter(d => d.player) }), c = race.cars[0];
+  c.assists = S.ASSISTS.off; c.spec = S.carSpec(setup); c.v = kmh / 3.6; c.gear = gear; c.movedOff = true;
+  return { race, c };
+}
+const driftDeg = c => Math.abs(S.driftAngle(c)) * 180 / Math.PI;
+test('engine braking: more slows the car harder on a lift and, at the limit, makes the rear step out', () => {
+  const coast = eb => { const { race, c } = setupCar({ engineBrake: eb }, 300, 7); straight(race, c, { thr: 0, brk: 0, steer: 0, analog: true }, 1.5); return 300 - c.v * 3.6; };
+  const [lo, mid, hi] = [1, 6, 11].map(coast);
+  assert.ok(lo < mid - 4 && mid < hi - 4, `km/h lost in 1.5 s: ${lo.toFixed(1)} / ${mid.toFixed(1)} / ${hi.toFixed(1)}`);
+  const lift = eb => {
+    const { race, c } = setupCar({ engineBrake: eb }, 160, 4); let mx = 0;
+    for (let i = 0; i < 420; i++) { race.t += DT; S.drivePlayer(race, c, { thr: i < 240 ? 0.5 : 0, brk: 0, steer: 0.2, analog: true }, DT); if (i >= 240) mx = Math.max(mx, driftDeg(c)); }
+    return mx;
+  };
+  const calm = lift(6), loose = lift(11);
+  assert.ok(calm < 3 && loose > 6, `lift at the limit: stock ${calm.toFixed(1)}°, most engine braking ${loose.toFixed(1)}°`);
+});
+test('brake migration: on a rear-biased balance none spins the car trail braking, the stock 5 % holds it', () => {
+  const trail = migration => {
+    const { race, c } = setupCar({ migration, brakes: 53 }, 260, 7); let mx = 0;
+    for (let i = 0; i < 240; i++) { const k = i / 240; race.t += DT; S.drivePlayer(race, c, { thr: 0, brk: 0.6 - 0.5 * k, steer: 0.3 * k, analog: true }, DT); mx = Math.max(mx, driftDeg(c)); }
+    return mx;
+  };
+  const none = trail(0), stock = trail(5), most = trail(10);
+  assert.ok(none > 8 && stock < 3 && most <= stock, `max drift: 0 % ${none.toFixed(1)}°, 5 % ${stock.toFixed(1)}°, 10 % ${most.toFixed(1)}°`);
+});

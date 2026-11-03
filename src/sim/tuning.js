@@ -195,8 +195,11 @@ export const SETUP = Object.freeze({
   brakes:  { min: 51, max: 63, step: 0.5, def: 57 },    // brake balance, % of the braking on the front axle
   gearing: { min: 310, max: 380, step: 5, def: 340 },   // km/h in top gear at the redline: long enough for the top speed (low wing, slipstream), or the car hits the limiter
   mech:    { min: -5, max: 5, step: 1, def: 0 },        // mechanical balance (anti-roll bars): + = front grip up, rear down
+  migration: { min: 0, max: 10, step: 1, def: 5 },     // brake migration, %: the balance moves this much further forward as the pedal comes off
+  engineBrake: { min: 1, max: 11, step: 1, def: 6 },    // engine braking: how hard the engine + MGU-K hold the rear wheels back on a lift
   liftPerStep: 0.07, dragPerStep: 0.045,                // wing: liftArea × (1 + 0.07·steps), dragArea × (1 + 0.045·steps)
   rollPerStep: 0.03,                                    // mech: the front's share of the sideways load transfer − 0.03·steps
+  engineBrakePerStep: 0.15,                             // engine braking × (1 + 0.15·steps): 0.25 … 1.75 of stock (the lift-off harvest too)
 });
 export const MODS = Object.freeze({
   power:     { min: 50, max: 250, step: 5, def: 100 },   // % engine power
@@ -235,9 +238,8 @@ export const CHASSIS = Object.freeze({
   aeroYaw: 0.0025,
   aeroArm: 1.5,         // m behind the centre of mass where that side force acts
   aeroFront: 0.45,      // share of the downforce on the front axle (more = more oversteer)
-  // brake migration (2026-10-25), as the real cars' setting: the balance moves `brakeMigration` further forward at a
-  // light pedal than at full (linear): trail-braking into a corner locked the rears first (a spin) at 57 %
-  brakeMigration: 0.05,
+  // (brake migration, 2026-10-25: now a setup item, SETUP.migration, default 5 %: the balance moves that much further
+  // forward at a light pedal than at full (linear); without it trail-braking locked the rears first (a spin) at 57 %)
   cgHeight: 0.25,       // m: longitudinal load transfer = accel × cgHeight / wheelbase
   gyration: 1.2,        // m: yaw inertia = mass × gyration²
   peakSlip: 0.1,        // rad (~5.7°): front slip angle of peak grip
