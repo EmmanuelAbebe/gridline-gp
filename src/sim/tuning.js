@@ -209,6 +209,9 @@ export const SETUP = Object.freeze({
   rideF:   { min: 20, max: 40, step: 1, def: 30 }, rideR: { min: 50, max: 90, step: 1, def: 70 },
   camberF: { min: -4, max: -2, step: 0.1, def: -3 }, camberR: { min: -2.5, max: -1, step: 0.1, def: -1.8 },
   toeF:    { min: -0.2, max: 0.1, step: 0.01, def: -0.05 }, toeR: { min: 0, max: 0.4, step: 0.01, def: 0.2 },
+  // dampers 1 (soft) … 11 (stiff), DAMPER below: bump (compressing) and rebound (extending), front and rear
+  bumpF:   { min: 1, max: 11, step: 1, def: 6 }, bumpR:   { min: 1, max: 11, step: 1, def: 6 },
+  reboundF: { min: 1, max: 11, step: 1, def: 6 }, reboundR: { min: 1, max: 11, step: 1, def: 6 },
   liftPerStep: 0.07, dragPerStep: 0.045,                // wing: liftArea × (1 + 0.07·steps), dragArea × (1 + 0.045·steps)
   rollPerStep: 0.03,                                    // anti-roll bars: the front's share of the sideways load transfer + 0.03 × (front − rear steps) / 2
   engineBrakePerStep: 0.15,                             // engine braking × (1 + 0.15·steps): 0.25 … 1.75 of stock (the lift-off harvest too)
@@ -247,6 +250,26 @@ export const SUSPENSION = Object.freeze({
   ground: 0.005, stallAt: 4, stall: 0.04, stallMax: 0.4, rake: 0.0012, plank: 0.02, plankMin: 0.6,
   camber: Object.freeze({ lat: 0.02, best: 0.7, over: 0.05, long: 0.025 }),
   toe: Object.freeze({ turn: 1.0, small: 0.05, damp: 2.0, dampV: 50, drag: 0.03 }),
+});
+// Dampers (2026-11-06; chassis.js, spec.damp: null when stock = nothing changes, the AI's car). The body rolls on its
+// springs as a mass on a spring and damper (natural frequency `hz`, stock damping ratio `zeta`). While it rolls, the
+// dampers carry part of the sideways load transfer, split between the axles by their damping (bump + rebound: in roll
+// the outer wheel compresses while the inner one extends); in a steady corner the springs and bars carry it all, as
+// before. The stock car's handling already has its dampers in it, so the roll is run twice, on these dampers and on
+// the stock ones, and only the difference is added: a stiffer front takes more of the load while the car rolls (less
+// front grip on turn-in and in quick changes of direction), softer dampers let the body overshoot (the load swings past
+// the steady amount). Kerbs: stiffer bump = a harsher strike (more of the kerb's grip lost), stiffer rebound = the wheel
+// comes back down slower after it (the loss lingers `linger` s per step over stock). Pitch: the same for the body's
+// dive and squat on its springs (`pitchHz`; the end compressing uses its bump, the one extending its rebound: braking =
+// front bump + rear rebound), which sets the floor's height (SUSPENSION, chassis.js suspAero): soft dampers let the nose
+// overshoot under braking (a low car's floor stalls or touches the road), stiff ones hold it up a moment longer.
+export const DAMPER = Object.freeze({
+  perStep: 0.15,     // damping × (1 + 0.15·steps): 0.25 … 1.75 of stock
+  hz: 3.5,           // the body's roll frequency on its springs
+  pitchHz: 4,        // and its pitch frequency
+  zeta: 0.7,         // stock damping ratio
+  kerb: 0.5,         // kerb grip loss × (1 + 0.5 × bump steps / 5)
+  linger: 0.04,      // s the kerb's grip loss lingers per rebound step over stock
 });
 export const MODS = Object.freeze({
   power:     { min: 50, max: 250, step: 5, def: 100 },   // % engine power

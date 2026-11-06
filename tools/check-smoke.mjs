@@ -24,6 +24,7 @@ const checks = [
   ['garage setup: Differential group', r.garage?.diff === 'Entry (on the brakes) 6, Mid-corner (coasting) 6, Exit (on the throttle) 5'],
   ['garage setup: Tyres group', r.garage?.pressures === 'Front pressure 23.0 psi, Rear pressure 21.0 psi'],
   ['garage setup: Suspension group', r.garage?.suspension === '10 items, 10 new'],
+  ['garage setup: Dampers group', r.garage?.dampers === 'Front bump, Rear bump, Front rebound, Rear rebound'],
   ['qualifying starts on the lights', r.quali?.lights > 0],
   ['quit only on the paddock', r.quitElsewhere === 0],
   ['HUD bar: FPS + PAUSE only', Array.isArray(r.hudButtons) && r.hudButtons.join() === 'fpsChip,pauseBtn'],

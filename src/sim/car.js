@@ -45,6 +45,10 @@ export function createCar(track, driver, slot, rng) {
     // drivetrain (vehicle.js): gear 1..8, -1 = reverse; autoShift = automatic gearbox; downQueue = manual downshifts waiting for the revs; slip = slipstream 0..1
     // movedOff: has driven off once (reverse can be selected from then on); revT: s brake + gas held at a standstill
     rearSpin: 0,   // chassis.js: the rear wheels' wheelspin 0..1 (CHASSIS.spin)
+    // chassis.js, dampers off stock (spec.damp): the body's roll on these dampers and on the stock ones (load transfer
+    // m/s² taken by the springs, its rate), its pitch (p, pv, p0, pv0: the same for the lengthways transfer), a kerb's
+    // lingering grip loss
+    damp: /** @type {{ x: number, v: number, x0: number, v0: number, p: number, pv: number, p0: number, pv0: number, kerb: number }} */ (null),
     gear: 1, rpm: 0, shiftT: 0, autoShift: true, autoDown: false, downQueue: 0, drive: 0, slip: 0, slipBy: null, movedOff: false, revT: 0,
     // active aero (active-aero.js): wings open 0..1 (straight mode); overtake mode: seconds left this lap, on, lap detected
     // boostAuto: a player car using overtake mode the way the AI does (the game's AUTO setting)

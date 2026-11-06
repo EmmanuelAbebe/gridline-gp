@@ -290,3 +290,30 @@ test('suspension: stock is the stock car; camber trades cornering for braking gr
   const low = grip({ rideF: 22, rideR: 58 }, 150), grounded = grip({ rideF: 20, rideR: 50, springF: 1, springR: 1 }, 280);
   assert.ok(low > base && grounded < grip({}, 280) * 0.9, `lower: ${low.toFixed(3)} g at 150; soft and low at 280: ${grounded.toFixed(3)} g`);
 });
+
+test('dampers: stock is the stock car; a stiffer rear livens a quick change of direction, a stiffer front calms it; stiff bump loses more grip on a kerb, stiff rebound after it; a low car dives less on stiff front bump', () => {
+  assert.equal(S.carSpec({ bumpF: 6, reboundR: 6 }).damp, null, 'stock dampers: nothing to do');
+  const front = { bumpF: 11, reboundF: 11, bumpR: 1, reboundR: 1 }, rear = { bumpF: 1, reboundF: 1, bumpR: 11, reboundR: 11 };
+  // a flick at 150 km/h (left, then right): the most drift once it changes direction
+  const flick = setup => { const { race, c } = setupCar(setup, 150, 5); let mx = 0;
+    for (let i = 0; i < 240; i++) { race.t += DT; S.drivePlayer(race, c, { thr: 0.5, brk: 0, steer: i < 50 ? 0.5 : i < 100 ? -0.5 : 0, analog: true }, DT); if (i >= 50) mx = Math.max(mx, Math.abs(S.driftAngle(c))); }
+    return mx * 57.3; };
+  const fs = flick({}), ff = flick(front), fr = flick(rear);
+  assert.ok(fr > fs * 1.5 && ff < fs, `flick drift: stock ${fs.toFixed(2)}°, stiff front ${ff.toFixed(2)}°, stiff rear ${fr.toFixed(2)}°`);
+  // at the limit on a skidpad, 0.25 s on a kerb: the grip on it and 0.1 s after
+  const kerb = setup => { const { race, c } = setupCar(setup, 150, 5), ay = [];
+    for (let i = 0; i < 300; i++) { if (i >= 240 && i < 270) c.surface = 'kerb';
+      race.t += DT; S.drivePlayer(race, c, { thr: Math.max(0, Math.min(1, 0.4 + (150 / 3.6 - c.v) * 0.3)), brk: 0, steer: 0.35, analog: true }, DT); ay.push(Math.abs(c.ay)); }
+    const mean = (a, b) => ay.slice(a, b).reduce((x, y) => x + y, 0) / (b - a);
+    return { on: mean(245, 270), after: mean(270, 282) }; };
+  const ks = kerb({}), kb = kerb({ bumpF: 11, bumpR: 11 }), ks1 = kerb({ bumpF: 1, bumpR: 1 }), kr = kerb({ reboundF: 11, reboundR: 11 });
+  assert.ok(kb.on < ks.on * 0.98 && ks1.on > ks.on * 1.02, `on a kerb: bump 1 ${ks1.on.toFixed(2)}, stock ${ks.on.toFixed(2)}, bump 11 ${kb.on.toFixed(2)} m/s²`);
+  assert.ok(kr.after < ks.after * 0.97 && Math.abs(kr.on - ks.on) < 0.01, `after it: stock ${ks.after.toFixed(2)}, rebound 11 ${kr.after.toFixed(2)} m/s²`);
+  // 300 → 80 km/h (ABS) on a low car: the nose overshoots on soft front bump / rear rebound (the floor stalls)
+  const stop = setup => { const { race, c } = setupCar({ rideF: 22, rideR: 58, ...setup }, 300, 8); c.assists = S.ASSISTS.medium; let d = 0;
+    for (let i = 0; i < 60; i++) { race.t += DT; S.drivePlayer(race, c, { thr: 1, brk: 0, steer: 0, analog: true }, DT); c.yawRate = 0; c.vy = 0; }
+    while (c.v > 80 / 3.6) { race.t += DT; S.drivePlayer(race, c, { thr: 0, brk: 1, steer: 0, analog: true }, DT); c.yawRate = 0; c.vy = 0; d += c.v * DT; }
+    return d; };
+  const soft = stop({ bumpF: 1, reboundR: 1 }), stiff = stop({ bumpF: 11, reboundR: 11 });
+  assert.ok(stiff < soft - 0.3, `low car, 300 → 80 km/h: soft dive ${soft.toFixed(1)} m, stiff ${stiff.toFixed(1)} m`);
+});

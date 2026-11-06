@@ -2,7 +2,7 @@
 // shared car (CAR, CHASSIS) that every AI car races; the player's comes from the garage: carSpec(setup, mods), with
 // SETUP (race setup, trade-offs) and MODS (open mods) in tuning.js. With the defaults every value is computed exactly
 // as the stock one (same operations, × 1 / + 0), so the physics stays bit-identical (sim-trace).
-import { TUNING, CAR, CHASSIS, SETUP, MODS, PRESSURE as PR, SUSPENSION as SU } from './tuning.js';
+import { TUNING, CAR, CHASSIS, SETUP, MODS, PRESSURE as PR, SUSPENSION as SU, DAMPER as DA } from './tuning.js';
 
 const TAU = 2 * Math.PI, R_WHEEL = TUNING.WHEEL_RADIUS, { aero, engine, gearbox } = CAR;
 const ITEMS = { setup: SETUP, mods: MODS };
@@ -49,6 +49,19 @@ function suspension(s, step) {
     toeOut: -step('toeF'), toeIn: step('toeR'),
   });
 }
+// the dampers off stock (DAMPER; chassis.js): null when stock. cF / cR = each axle's roll damping vs stock (bump and
+// rebound together), dive / rise = the pitch damping as the nose goes down (front bump, rear rebound) / up, bump = the bump steps over stock / 5 (kerb strikes), linger = s a kerb's grip loss stays
+function dampers(step) {
+  const keys = ['bumpF', 'bumpR', 'reboundF', 'reboundR'];
+  if (keys.every(k => step(k) === 0)) return null;
+  const c = k => 1 + DA.perStep * step(k), span = SETUP.bumpF.max - SETUP.bumpF.def;
+  return Object.freeze({
+    cF: (c('bumpF') + c('reboundF')) / 2, cR: (c('bumpR') + c('reboundR')) / 2,
+    dive: (c('bumpF') + c('reboundR')) / 2, rise: (c('reboundF') + c('bumpR')) / 2,
+    bump: (step('bumpF') + step('bumpR')) / 2 / span,
+    linger: DA.linger * Math.max(0, (step('reboundF') + step('reboundR')) / 2),
+  });
+}
 export function carSpec(setupIn, modsIn) {
   const s = validSetup(setupIn), m = validMods(modsIn);
   const pf = pressure(s.pressF - SETUP.pressF.def), pr = pressure(s.pressR - SETUP.pressR.def);
@@ -70,6 +83,7 @@ export function carSpec(setupIn, modsIn) {
     // the share of the sideways load transfer on the front: a stiffer front anti-roll bar / spring takes more (less front grip)
     rollFront: CHASSIS.rollFront + SETUP.rollPerStep * (step('arbF') - step('arbR')) / 2 + SU.rollSpring * (step('springF') - step('springR')) / 2,
     susp: suspension(s, step),
+    damp: dampers(step),
     brakeBias: s.brakes / 100,                           // front share of the braking
     brakeMigration: s.migration / 100,                   // how much further forward the balance moves as the pedal comes off
     engineBrake: 1 + SETUP.engineBrakePerStep * (s.engineBrake - SETUP.engineBrake.def),   // × the engine braking and lift-off harvest

@@ -918,7 +918,7 @@ showed MODIFIED only because of it).
 ## agreed: all of them, one group at a time, measured; the garage's Setup tab = their pick B of three canvas mock-ups)
 - Garage Setup in groups (garage.js `SETUP_UI` [id, label, items]: a chip per group, one group shown; each item: name (+ NEW),
   value, − slider +, what the change does (`lo` / `hi`, "Stock" at the default), double-click = stock; "n changed from
-  stock" + ALL STOCK; LOW / HIGH DOWNFORCE on Aero). Groups now: Aero, Brakes, Differential, Tyres, Suspension, Gearbox.
+  stock" + ALL STOCK; LOW / HIGH DOWNFORCE on Aero). Groups now: Aero, Brakes, Differential, Tyres, Suspension, Dampers, Gearbox.
 - Brakes (done 2026-11-02): `SETUP.migration` 0–10 % (default 5 = the old fixed CHASSIS.brakeMigration; spec.brakeMigration)
   and `SETUP.engineBrake` 1–11 (spec.engineBrake = 1 + 0.15·steps: × the engine braking and the lift-off MGU-K harvest).
   Engine braking now goes through the rear tyres for every car (vehicle.js drivetrain `rear` = engine braking + coast
@@ -955,7 +955,18 @@ showed MODIFIED only because of it).
   Measured: camber −3.8 / −2.5: grip 2.68 → 2.72 g at 150 km/h, braking 250 → 80 +1.3 m; front toe −0.2°: +12 % yaw rate
   at a small steer; VOS laps 22 / 58 mm on stock springs −0.1 s (Harrow, Hautvale), 20 / 50 on the softest springs +14 s
   at Harrow (floor on the road). The garage's stats card shows the springs / bars' balance only. tests/chassis.test.js.
-- Not done: dampers (no transient load transfer in the model).
+- Dampers (done 2026-11-06): `SETUP` bumpF / bumpR / reboundF / reboundR 1–11 (stock 6 = spec.damp null: sim-trace identical,
+  the AI). `DAMPER` in tuning.js: chassis.js `dampRoll` = the body's roll as a spring + damper (3.5 Hz, stock ζ 0.7; ζ × the
+  mean damping), run on these dampers and on the stock ones, only the difference added to each axle's sideways transfer
+  (the springs' part by rollFront, the dampers' part (2ζ/ω × rate) split by each axle's bump + rebound); `dampPitch` the
+  same for the lengthways transfer (4 Hz; nose down = front bump + rear rebound, up = front rebound + rear bump) → the
+  floor's height in suspAero (against the stock car's: dFs / dRs; STOCK_SUSP when the springs are stock), plank grip;
+  kerbs: the grip loss × (1 + 0.5 × bump steps / 5), lingering `linger` 0.04 s per rebound step over stock (car `damp`).
+  Measured: a flick at 150 km/h (steer ±0.5) drifts 1.20° stock, 1.06° front stiff / rear soft, 2.65° rear stiff; steady
+  grip and AI laps unchanged (±0.01 s); at the limit on a kerb 2.50 g stock, 2.59 bump 1, 2.41 bump 11; 0.1 s after it
+  2.66 stock, 2.52 rebound 11; 300 → 80 km/h at 22 / 58 mm: 102.7 m soft front bump + rear rebound, 102.1 stiff (stock
+  ride: no difference). Not modelled: heave (downforce over seconds), fast / slow damping, wheel hop and bumpy roads (the
+  roads are smooth: soft dampers lose no grip there). tests/chassis.test.js.
 
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)

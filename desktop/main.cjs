@@ -168,9 +168,11 @@ async function smokeTest(win) {
     const pressures = rows().map(r => r.querySelector('.lbl').textContent + ' ' + r.querySelector('output').textContent).join(', ');
     [...document.querySelectorAll('#garSetChips button')].find(b => b.dataset.g === 'suspension').click(); await wait(200);
     const suspension = rows().length + ' items, ' + rows().filter(r => r.querySelector('.gar-new')).length + ' new';
-    return { brakes, diff, pressures, suspension };
+    [...document.querySelectorAll('#garSetChips button')].find(b => b.dataset.g === 'dampers').click(); await wait(200);
+    const dampers = rows().map(r => r.querySelector('.lbl').textContent).join(', ');
+    return { brakes, diff, pressures, suspension, dampers };
   })()`));
-  await shot('garage-suspension');
+  await shot('garage-dampers');
   await win.webContents.executeJavaScript(`[...document.querySelectorAll('#garBody button')].find(b => b.textContent === 'ALL STOCK').click()`);
   info.garage.allStock = await win.webContents.executeJavaScript(`document.getElementById('garSetCount').textContent`);
   // Tyres & pit: start on softs, next stop hards (screenshot), then back to the defaults

@@ -6,7 +6,7 @@
 //
 // State on the car: v (forward speed), vy (sideways speed, + = right), yawRate (rad/s, + = turning right), ax.
 // Everything is per unit mass, so forces read as accelerations (m/s²).
-import { TUNING, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT, ACTIVE_AERO, HANDBRAKE, ERS, ECU, TYRE_TEMP as TTC, DIFF, SUSPENSION as SU, SETUP } from './tuning.js';
+import { TUNING, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT, ACTIVE_AERO, HANDBRAKE, ERS, ECU, TYRE_TEMP as TTC, DIFF, SUSPENSION as SU, SETUP, DAMPER as DA } from './tuning.js';
 import { updateEcu, brakeAhead } from './ecu.js';
 import { axleTempGrip, stepTyreTemps, tyreEvents } from './tyre-temp.js';
 import { clamp, speedOf } from './math.js';
@@ -28,9 +28,32 @@ const STOCK_RIDE = [SETUP.rideF.def, SETUP.rideR.def];
 const stallK = h => h < SU.stallAt ? 1 - Math.min(SU.stallMax, SU.stall * (SU.stallAt - h)) : 1;
 const plankK = h => h < 0 ? Math.max(SU.plankMin, 1 + SU.plank * h) : 1;        // (the floor on the road: the plank takes load)
 const KERB_RIDE = (SETUP.rideF.def + SETUP.rideR.def) / 2;
-function suspAero(P, dF, dR, mass, aF) {
+// the dampers off stock (DAMPER): the body's roll as a spring and damper, one sub-step (x = the load transfer the springs
+// carry, per mass; v its rate), on these dampers (damping ratio zeta) and on the stock ones; returns the change to each
+// axle's sideways transfer against the stock car's (signed like T)
+const ROLL_W = 2 * Math.PI * DA.hz;
+function dampRoll(D, Dm, T, rollFront, h) {
+  const z = DA.zeta * (Dm.cF + Dm.cR) / 2;
+  D.v += (ROLL_W * ROLL_W * (T - D.x) - 2 * z * ROLL_W * D.v) * h; D.x += D.v * h;
+  D.v0 += (ROLL_W * ROLL_W * (T - D.x0) - 2 * DA.zeta * ROLL_W * D.v0) * h; D.x0 += D.v0 * h;
+  // (what the dampers carry: 2ζ/ω × the rate, shared by the axles' damping; the springs' part by the roll stiffness)
+  const shareF = Dm.cF / (Dm.cF + Dm.cR), cd = 2 * z / ROLL_W * D.v, cd0 = 2 * DA.zeta / ROLL_W * D.v0;
+  return { f: rollFront * (D.x - D.x0) + shareF * cd - 0.5 * cd0, r: (1 - rollFront) * (D.x - D.x0) + (1 - shareF) * cd - 0.5 * cd0 };
+}
+// and its pitch (T = the lengthways transfer, − = braking: the nose going down): returns how much more of it the springs
+// carry than the stock car's do (the floor's height follows that)
+const PITCH_W = 2 * Math.PI * DA.pitchHz;
+function dampPitch(D, Dm, T, h) {
+  const z = DA.zeta * (D.pv < 0 ? Dm.dive : Dm.rise);
+  D.pv += (PITCH_W * PITCH_W * (T - D.p) - 2 * z * PITCH_W * D.pv) * h; D.p += D.pv * h;
+  D.pv0 += (PITCH_W * PITCH_W * (T - D.p0) - 2 * DA.zeta * PITCH_W * D.pv0) * h; D.p0 += D.pv0 * h;
+  return D.p - D.p0;
+}
+// (dFs / dRs: the stock car's in the same spot, when it differs: the dampers' pitch)
+const STOCK_SUSP = { kF: SU.kF, kR: SU.kR, rideF: STOCK_RIDE[0], rideR: STOCK_RIDE[1] };
+function suspAero(P, dF, dR, mass, aF, dFs = dF, dRs = dR) {
   const hF = P.rideF - dF * mass / P.kF, hR = P.rideR - dR * mass / P.kR;
-  const sF = STOCK_RIDE[0] - dF * mass / SU.kF, sR = STOCK_RIDE[1] - dR * mass / SU.kR;
+  const sF = STOCK_RIDE[0] - dFs * mass / SU.kF, sR = STOCK_RIDE[1] - dRs * mass / SU.kR;
   const ground = 1 + SU.ground * ((sF + sR) / 2 - (hF + hR) / 2);
   const floor = aF * stallK(hF) / stallK(sF) + (1 - aF) * stallK(hR) / stallK(sR);
   return { k: ground * floor, front: SU.rake * ((hR - hF) - (sR - sF)), gripF: plankK(hF) / plankK(sF), gripR: plankK(hR) / plankK(sR) };
@@ -181,25 +204,39 @@ export function stepChassis(race, c, inp, dt) {
     // (open wings: straight mode, active-aero.js; aeroOpen 0 multiplies by exactly 1)
     let df = S.dfK * v * v * (1 - CH.dirtyAir * (c.slip || 0)) * yawAero * cond.aero * (1 - ACTIVE_AERO.downforceCut * c.aeroOpen);
     const transfer = c.ax * CH.cgHeight / L;
-    let surfMu = surf.grip * dirt, aF = S.aeroFront, plankF = 1, plankR = 1;
-    const P = S.susp;
-    if (P) {                                       // (the suspension off stock: the floor's height at speed, kerbs)
-      const r = suspAero(P, gN * CH.frontWeight + df * aF - transfer - G * CH.frontWeight, gN * (1 - CH.frontWeight) + df * (1 - aF) + transfer - G * (1 - CH.frontWeight), S.mass, aF);
+    let surfMu = surf.grip * dirt, aF = S.aeroFront, plankF = 1, plankR = 1, kerbK = 1;
+    const P = S.susp, Dm = S.damp, onKerb = c.surface === 'kerb' || c.surface === 'sausage';
+    const D = Dm ? c.damp || (c.damp = { x: 0, v: 0, x0: 0, v0: 0, p: 0, pv: 0, p0: 0, pv0: 0, kerb: 0 }) : null;
+    if (P || D) {                                  // (the suspension off stock: the floor's height at speed, kerbs)
+      const dF = t => gN * CH.frontWeight + df * aF - t - G * CH.frontWeight, dR = t => gN * (1 - CH.frontWeight) + df * (1 - aF) + t - G * (1 - CH.frontWeight);
+      const r = D ? (tp => suspAero(P || STOCK_SUSP, dF(tp), dR(tp), S.mass, aF, dF(transfer), dR(transfer)))(transfer + dampPitch(D, Dm, transfer, h))
+        : suspAero(P, dF(transfer), dR(transfer), S.mass, aF);
       df *= r.k; aF += r.front; plankF = r.gripF; plankR = r.gripR;
-      if (c.surface === 'kerb' || c.surface === 'sausage') {
+      if (P && onKerb) {
         const lower = KERB_RIDE - (P.rideF + P.rideR) / 2;
-        surfMu = (1 - (1 - surf.grip) * Math.max(0, 1 + SU.kerb * P.stiff + SU.kerbRide * lower)) * dirt;
+        kerbK = Math.max(0, 1 + SU.kerb * P.stiff + SU.kerbRide * lower);
+        surfMu = (1 - (1 - surf.grip) * kerbK) * dirt;
       }
+    }
+    if (D) {                                       // (the dampers off stock: a kerb strike, and how long it lingers)
+      const strike = onKerb ? Math.min(1, (1 - surf.grip) * kerbK * Math.max(0, 1 + DA.kerb * Dm.bump)) : 0;
+      D.kerb = Math.max(strike, Dm.linger > 0 ? D.kerb * FM.exp(-h / Dm.linger) : 0);
+      surfMu = (onKerb ? 1 : surf.grip) * (1 - D.kerb) * dirt;
     }
     // per wheel (2026-10-24): the sideways load transfer of the last step moves load to the outer wheel of each axle;
     // load sensitivity (tyreGrip) makes the axle give less than with the load shared evenly
-    const lat = Math.abs(c.ay) * CH.cgHeight / CH.track, lf = lat * S.rollFront, lr = lat * (1 - S.rollFront);
+    // (dampers off stock: + the change their roll damping makes while the body rolls, dampRoll)
+    let lf, lr;
+    if (Dm) {
+      const T = c.ay * CH.cgHeight / CH.track, d = dampRoll(c.damp, Dm, T, S.rollFront, h);
+      lf = Math.abs(T * S.rollFront + d.f); lr = Math.abs(T * (1 - S.rollFront) + d.r);
+    } else { const lat = Math.abs(c.ay) * CH.cgHeight / CH.track; lf = lat * S.rollFront; lr = lat * (1 - S.rollFront); }
     const loadF = Math.max(0.5, gN * CH.frontWeight + df * aF * cond.front - transfer);
     const loadR = Math.max(0.5, gN * (1 - CH.frontWeight) + df * (1 - aF) + transfer);
     const Df0 = surfMu * S.frontGrip * axleGrip(loadF, lf, G * CH.frontWeight, S);
     const Dr0 = surfMu * S.rearGrip * axleGrip(loadR, lr, G * (1 - CH.frontWeight), S);
     const DfT = tg ? Df0 * tg.f : Df0, DrT = tg ? Dr0 * tg.r : Dr0;
-    const Df = P ? DfT * P.latF * plankF : DfT, Dr = P ? DrT * P.latR * plankR : DrT;      // (camber: cornering grip; its cost lengthways in axle(); the plank)
+    const Df = P ? DfT * P.latF * plankF : D ? DfT * plankF : DfT, Dr = P ? DrT * P.latR * plankR : D ? DrT * plankR : DrT;      // (camber: cornering grip; its cost lengthways in axle(); the plank)
     // slip angles (velocity at each axle vs where its wheels point)
     // (rolling backwards the steering acts the other way round)
     const back = v / Math.max(sp, 0.5);   // +1 forwards, −1 backwards, smooth through 0 (brakes then damp v to rest)

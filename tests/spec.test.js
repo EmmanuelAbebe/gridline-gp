@@ -21,7 +21,8 @@ test('the stock spec is the shared car, exactly', () => {
 test('setup and mods are clamped and snapped; any mod flags the car', () => {
   assert.deepEqual(S.validSetup({ wing: 99, balance: 44.2, brakes: 'x', gearing: null, mech: -2.4 }),
     { wing: 11, balance: 44, brakes: 57, gearing: 340, migration: 5, engineBrake: 6, diffEntry: 6, diffMid: 6, diffExit: 6, pressF: 23, pressR: 21,
-      springF: 6, springR: 6, arbF: 8, arbR: 4, rideF: 30, rideR: 70, camberF: -3, camberR: -1.8, toeF: -0.05, toeR: 0.2 });
+      springF: 6, springR: 6, arbF: 8, arbR: 4, rideF: 30, rideR: 70, camberF: -3, camberR: -1.8, toeF: -0.05, toeR: 0.2,
+      bumpF: 6, bumpR: 6, reboundF: 6, reboundR: 6 });
   assert.equal(S.validMods({ power: 1000 }).power, S.MODS.power.max);
   assert.equal(S.isModified({}), false);
   assert.equal(S.isModified({ mass: 790 }), true);

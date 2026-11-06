@@ -45,6 +45,12 @@ const SETUP_UI = [
     toeF: { label: 'Front toe', fmt: v => (v > 0 ? '+' : '') + v.toFixed(2) + '°' + (v < 0 ? ' out' : v > 0 ? ' in' : ''), isNew: true, lo: 'More toe-out: a sharper turn-in; more toe either way adds a little drag.', hi: 'Less toe-out (or toe-in): a lazier, steadier turn-in.' },
     toeR: { label: 'Rear toe', fmt: v => (v > 0 ? '+' : '') + v.toFixed(2) + '°' + (v > 0 ? ' in' : ''), isNew: true, lo: 'Less toe-in: a livelier rear that rotates more, a little less drag.', hi: 'More toe-in: a steadier rear, a little more drag.' },
   }],
+  ['dampers', 'Dampers', {
+    bumpF: { label: 'Front bump', fmt: v => String(v), isNew: true, lo: 'Softer: the front rides kerbs better; the nose dives further under braking (on a low car the floor can stall); while the car rolls the front keeps more grip (a sharper turn-in, a livelier rear in quick direction changes).', hi: 'Stiffer: holds the nose up under braking (a steady floor), calmer in quick direction changes, but the front loses more grip over kerbs.' },
+    bumpR: { label: 'Rear bump', fmt: v => String(v), isNew: true, lo: 'Softer: the rear rides kerbs better and squats more on the throttle; while the car rolls the rear keeps more grip (steadier).', hi: 'Stiffer: the rear takes more of the load while the car rolls (it rotates more in quick direction changes), harsher over kerbs.' },
+    reboundF: { label: 'Front rebound', fmt: v => String(v), isNew: true, lo: 'Softer: the front comes back down quickly after a kerb; the nose rises sooner off the brakes; while the car rolls the front keeps more grip.', hi: 'Stiffer: calmer in quick direction changes, but after a kerb the front is slower to come back down (grip lost for a moment longer).' },
+    reboundR: { label: 'Rear rebound', fmt: v => String(v), isNew: true, lo: 'Softer: the rear comes back down quickly after a kerb; the tail rises more under braking (on a low car the floor can stall).', hi: 'Stiffer: holds the tail down under braking (a steady floor), but the rear takes more load while the car rolls (more rotation) and is slower back down after a kerb.' },
+  }],
   ['gearbox', 'Gearbox', {
     gearing: { label: 'Gearing', fmt: v => `${v} km/h top gear`, lo: 'Short: quicker through the gears, but the limiter on long straights and in a tow.', hi: 'Long: the top speed you need on a low wing or in a slipstream.' },
   }],
