@@ -1135,6 +1135,10 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   per sector / mini = purple), `colourOf` (purple / green = your best / yellow), `sessionPace` (best, average and spread of
   valid flying laps within 107 % of the best, laps within 0.5 s, theoretical, gap to each AI level in %), storage
   `gridline.sectors.2` {v, physics, circuits: {id: {stock|modified: {key, sec, mini, best (compact trace)}}}}.
+  Fixed 2026-11-05 (user: numbers "in excess of 10 digits" in the analysis): every save compacted the saved best traces of
+  circuits not driven since the start once more (storeSectorsJson now only compacts a trace in use: Float32Array), so they
+  decoded to 10^13+ s and km/h; expandTrace drops a trace outside a lap's range (the sector / mini times were fine) and
+  bestsFor rebuilds it from your saved ghost.
 - Game: `sector-timing.js` (newRace → start, lightsOut, every sim step, EV.LAP): candidates = your best (seeded from your
   saved ghost laps the first time), the ALIEN's lap (race aero + AI assists), a loaded ghost file (= another player; the
   online leaderboard's laps would join here); HUD `#sectorBox` (layout panel "Sectors", default bottom right): S1–S3 with the

@@ -24,11 +24,10 @@ export function createSectorTiming({ game, aiLapOf }) {
   function bestsFor(track, L, modified, zones = '') {
     const cls = lapClass(modified, zones);
     let b = bestsOf(store, track.id, cls, L);
-    if (!b) {
-      b = emptyBests(L);
+    if (!b || !b.best) {                        // (no best lap's trace: none yet, or a damaged save, lap-analysis.js expandTrace)
+      if (!b) { b = emptyBests(L); putBests(store, track.id, cls, b); }
       const g = ghostOf(game.ghosts, track.id, modified, false, zones), gs = ghostOf(game.ghosts, track.id, modified, true, zones);
       for (const x of [g, gs]) { const tr = x && traceFromGhost(x, track.N); if (tr) keepBests(b, L, tr); }
-      putBests(store, track.id, cls, b);
     }
     return b;
   }

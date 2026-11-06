@@ -157,13 +157,18 @@ export const STORE_VERSION = 1;
 const enc = (arr, k) => { let last = 0; return Array.from(arr, v => { if (!Number.isFinite(v)) return null; const q = Math.round(v * k), d = q - last; last = q; return d; }); };
 const dec = (arr, k, N) => { const out = nanArray(N); let q = 0; arr.forEach((d, i) => { if (d === null) return; q += d; out[i] = q / k; }); return out; };
 export const compactTrace = tr => tr && { time: tr.time, start: !!tr.start, t: enc(tr.t, 1000), kmh: enc(tr.kmh, 1), thr: tr.thr && enc(tr.thr, 20), brk: tr.brk && enc(tr.brk, 20) };
+// (null when it doesn't decode to a lap: every time within the lap, every speed a car's. Until 2026-11-05 each save
+// compacted the saved bests of circuits not driven since the start once more, so those decode to huge numbers)
 export function expandTrace(c, N) {
   if (!c || !(c.time > 0) || !Array.isArray(c.t) || c.t.length !== N || !Array.isArray(c.kmh) || c.kmh.length !== N) return null;
   const pedal = a => Array.isArray(a) && a.length === N ? dec(a, 20, N) : null;
-  return { time: c.time, start: !!c.start, t: dec(c.t, 1000, N), kmh: dec(c.kmh, 1, N), thr: pedal(c.thr), brk: pedal(c.brk) };
+  const tr = { time: c.time, start: !!c.start, t: dec(c.t, 1000, N), kmh: dec(c.kmh, 1, N), thr: pedal(c.thr), brk: pedal(c.brk) };
+  const within = (a, lo, hi) => a.every(v => !(v < lo || v > hi));          // (NaN = a sample not reached: fine)
+  return within(tr.t, 0, tr.time + 1) && within(tr.kmh, 0, 600) && (!tr.thr || within(tr.thr, 0, 1.05)) && (!tr.brk || within(tr.brk, 0, 1.05)) ? tr : null;
 }
+// (only a trace in use is compacted: one still as loaded (a circuit not driven this time) is already compact)
 export const storeSectorsJson = store => JSON.stringify({ v: STORE_VERSION, physics: SIM.TUNING.PHYSICS, circuits: store },
-  (k, v) => v && v.t && v.kmh && typeof v.time === 'number' ? compactTrace(v) : v === Infinity ? null : v);
+  (k, v) => v && ArrayBuffer.isView(v.t) && v.kmh && typeof v.time === 'number' ? compactTrace(v) : v === Infinity ? null : v);
 // the saved store: { [circuit]: { [class]: bests } } as saved (bestsOf checks and expands an entry when it is used)
 export function loadSectorStore(json) {
   let s; try { s = JSON.parse(json); } catch (e) { return {}; }

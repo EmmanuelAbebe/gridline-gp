@@ -109,3 +109,18 @@ test('saved: the bests survive a save and load; another layout or physics starts
   assert.equal(A.bestsOf(A.loadSectorStore(json), T.id, 'stock', { ...L, key: 'other' }), null);
   assert.deepEqual(A.loadSectorStore(json.replace(`"physics":${SIM.TUNING.PHYSICS}`, '"physics":1')), {});
 });
+
+test('saved: a circuit not driven since loading is saved as it was (it used to be compacted again at every save)', () => {
+  const b = A.emptyBests(L); for (const tr of run.traces) A.keepBests(b, L, tr);
+  const store = {}; A.putBests(store, T.id, 'stock', b);
+  let json = A.storeSectorsJson(store);
+  for (let k = 0; k < 3; k++) json = A.storeSectorsJson(A.loadSectorStore(json));       // (saves while racing elsewhere)
+  const back = A.bestsOf(A.loadSectorStore(json), T.id, 'stock', L);
+  for (let i = 0; i < T.N; i += 53) assert.ok(Math.abs(back.best.t[i] - b.best.t[i]) < 0.001 && Math.abs(back.best.kmh[i] - b.best.kmh[i]) <= 0.5);
+  // a save damaged that way: the trace is dropped (no lap of 10^13 s), the sector times kept
+  const bad = JSON.parse(A.storeSectorsJson(store)), c = bad.circuits[T.id].stock.best;
+  bad.circuits[T.id].stock.best = { ...c, t: A.compactTrace({ ...c, t: c.t, kmh: c.kmh, thr: c.thr, brk: c.brk }).t };
+  const hurt = A.bestsOf(A.loadSectorStore(JSON.stringify(bad)), T.id, 'stock', L);
+  assert.equal(hurt.best, null);
+  assert.deepEqual(hurt.sec.map(t => t.toFixed(3)), b.sec.map(t => t.toFixed(3)));
+});
