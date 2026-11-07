@@ -3,9 +3,13 @@
 // corners = the slow points of the profile, a corner's mini-sector = its braking point to the next corner's (the
 // fastest point of the lap between them: the end of a straight), and the sectors split at the braking points nearest
 // equal shares of the lap. The lap starts at sample 0 (the line), so the piece from the line to the first braking point
-// is a mini-sector of its own ('start').
-import { SECTORS, CAR, ERS } from './tuning.js';
+// is a mini-sector of its own ('start'). A circuit's sectors are the same for every car class: found with the F1 (its
+// line on the track, its power unit and stock car), so laps in any car split at the same places.
+import { SECTORS } from './tuning.js';
+import { F1_2026 } from './classes/f1-2026.js';
 import { STOCK } from './spec.js';
+
+const { car: CAR, ers: ERS } = F1_2026;
 import { wrapIdx } from './math.js';
 /** @typedef {import('./types.js').Track} Track */
 

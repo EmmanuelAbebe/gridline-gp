@@ -8,6 +8,7 @@
 import { EV } from './tuning.js';
 import { gapAhead } from './active-aero.js';
 import { emit } from './events.js';
+import { aiOf } from './ai-profile.js';
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
 /** @typedef {import('./types.js').Track} Track */
@@ -40,8 +41,8 @@ export function brakeMap(T, starts) {
 // metres to this car's next lift / braking point: its own (learnt), else the track's
 /** @param {Race} race @param {Car} c */
 export function brakeAhead(race, c) {
-  const T = race.track;
-  const own = T.BRK ? T.BRK[c.idx] * T.ds : Infinity;
+  const T = race.track, BRK = aiOf(T, c.spec.cls).BRK;
+  const own = BRK ? BRK[c.idx] * T.ds : Infinity;
   return c.ecuBrk ? Math.min(own, c.ecuBrk[c.idx]) : own;
 }
 

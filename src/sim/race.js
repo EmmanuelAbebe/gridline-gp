@@ -1,6 +1,6 @@
 // Race formats, lap counting, the chequered flag, timing checkpoints and classification.
 import { tyreSet } from './tyre-temp.js';
-import { EV, CP, LAP_ZONE, LIMITS, AI } from './tuning.js';
+import { EV, CP, LAP_ZONE, LIMITS } from './tuning.js';
 import { F1_2026 } from './classes/f1-2026.js';
 import { stockOf } from './spec.js';
 import { DRIVERS } from './drivers.js';
@@ -29,8 +29,9 @@ export function createRace(format, { carClass = F1_2026, track = DEFAULT_TRACK, 
   const fmt = normalizeFormat(format), rng = mulberry32(seed), stock = stockOf(carClass);
   // aiFollow: how tightly the AI follows its line (× lineSlope / lineSpeed, driving.js): ALIEN drives it closer
   // aiAlien: the ALIEN level (driving.js): its own line, pedals and attack, at its own pace per circuit
-  // (without ABS or traction control a few circuits need it gentler: AI.alien.paceOff)
-  if (aiAlien) aiPace = (aiAssists && (!aiAssists.abs || !aiAssists.tc) ? AI.alien.paceOff[track.id] ?? AI.alien.paceOff.default : undefined) ?? AI.alien.pace[track.id] ?? AI.alien.pace.default;
+  // (without ABS or traction control a few circuits need it gentler: the class's ai.alien.paceOff)
+  const AL = carClass.ai.alien;
+  if (aiAlien) aiPace = (aiAssists && (!aiAssists.abs || !aiAssists.tc) ? AL.paceOff[track.id] ?? AL.paceOff.default : undefined) ?? AL.pace[track.id] ?? AL.pace.default;
   const aiTop = Math.max(0, ...drivers.filter(d => !d.player).map(d => d.skill));   // the fastest AI driver (ALIEN spread)
   const race = { carClass, track, format: fmt, aiPace, aiFollow, aiAlien, aiTop, seed, rng, activeAero, overtake, tyreTemp, compounds: compound, hitbox,   // active-aero.js; tyre-temp.js; pit.js; collide.js (the cars' shape)
     laps: fmt.type === 'laps' ? fmt.laps : Infinity,               // distance; Infinity for timed / unlimited

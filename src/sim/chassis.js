@@ -15,6 +15,7 @@ import { lateralGrip, brakeMax, drivetrain, tyreGrip } from './vehicle.js';
 import { STOCK } from './spec.js';
 import { carCondition } from './pit.js';
 import { stepAir } from './airborne.js';
+import { aiOf } from './ai-profile.js';
 import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
@@ -159,7 +160,7 @@ export function stepChassis(race, c, inp, dt) {
     updateEcu(race, c, inp);
     const M = ECU.maps[c.ecuMap], cut = M.near + M.far * (1 - c.soc / ERS.store);
     c.deploy = clamp((brakeAhead(race, c) - cut) / M.fade, 0, 1) * M.deploy;
-  } else { const M = ERS.map, T = race.track, to = T.BRK ? T.BRK[c.idx] * T.ds : Infinity, cut = M.near + M.far * (1 - c.soc / ERS.store);
+  } else { const M = ERS.map, T = race.track, BRK = aiOf(T, S.cls).BRK, to = BRK ? BRK[c.idx] * T.ds : Infinity, cut = M.near + M.far * (1 - c.soc / ERS.store);
     c.deploy = clamp((to - cut) / M.fade, 0, 1); }
   const d = drivetrain(c, inp, dt);
   // the car's condition (pit.js): worn tyres, damage, empty tank (limp)

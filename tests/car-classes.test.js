@@ -81,3 +81,29 @@ test('car classes: the physics reads the car\'s own class', () => {
   assert.ok(st.kmh > f1.kmh + 3, `its engine: ${st.kmh.toFixed(1)} vs ${f1.kmh.toFixed(1)} km/h after 3 s`);
   assert.ok(S.steerLock(80, 1, S.stockOf(strong)) < S.steerLock(80, 1, S.STOCK), 'its wheelbase: less lock for the same turn');
 });
+
+// (stage 4) the AI's line and speed profile on a circuit are per car class: the F1's is the track's own, another class
+// gets its own (made once), and its AI cars drive by it
+test('car classes: the AI plans with its own class', () => {
+  const T = S.buildTrack(S.CIRCUITS.marrow);
+  assert.equal(S.aiOf(T, F1), T, 'the F1\'s profile is the track\'s');
+  const careful = Object.freeze({ ...F1, id: 'test-careful', ai: Object.freeze({ ...F1.ai, grip: 0.8, brake: 0.6 }) });
+  const P = S.aiOf(T, careful);
+  assert.notEqual(P, T); assert.equal(S.aiOf(T, careful), P, 'made once');
+  const slowest = vp => Math.min(...vp);
+  assert.ok(slowest(P.VP) < slowest(T.VP) - 1, `slower corners: ${slowest(P.VP).toFixed(1)} vs ${slowest(T.VP).toFixed(1)} m/s`);
+  assert.ok(S.aiAeroPlan(T, false, careful) !== S.aiAeroPlan(T, false, F1), 'its own wing plan');
+  // a race in that class: the AI drives its profile (slower than the F1's, clean)
+  const lap = cls => {
+    const race = S.createRace(1, { carClass: cls, track: T, drivers: [S.DRIVERS.find(d => d.code === 'VOS')], seed: 2 }), c = race.cars[0];
+    let walls = 0;
+    for (let k = 0; k < 120 * 120 && !c.finished; k++) {
+      race.t += 1 / 120; S.driveAI(race, c, 1 / 120);
+      walls += c.events.filter(e => e.type === S.EV.WALL).length; c.events.length = 0;
+    }
+    assert.ok(c.finished, `${cls.id}: finished the lap`); assert.equal(walls, 0, `${cls.id}: no walls`);
+    return c.finishTime;
+  };
+  const f1 = lap(F1), slow = lap(careful);
+  assert.ok(slow > f1 + 1, `the careful class's AI is slower: ${slow.toFixed(2)} vs ${f1.toFixed(2)} s`);
+});

@@ -984,7 +984,14 @@ showed MODIFIED only because of it).
   cls)), pit.js (wear, compounds), ecu.js, active-aero.js's updateActiveAero, car.js (battery, ECU), vehicle.js (tyres,
   brakes, engine, gearbox, ERS), spec-stats.js, elevation.js, driving.js (calm steering, dirty air, pedal map, compounds),
   chassis.js (`chassisOf(cls)`: the class's tables + derived constants, made once per class, passed to the helpers).
-  ~2–3 % slower in sim-trace. Left for stage 4: track.js / sectors.js / the aero zones / the AI (planned with the F1).
+  ~2–3 % slower in sim-trace.
+- Stage 4 done: the AI's car side moved from tuning.js AI to the class (`AI_CAR` = F1_2026.ai: grip / brake margins, feel,
+  ALIEN pace / paceOff, `lines` {racing, alien} = racing-lines.js); racecraft, mistakes, traits and the line-shaping
+  numbers (lineMargin, lineEdge, alien.lineEdge …) stay in AI. `ai-profile.js` (moved out of track.js): buildAiProfile(shape,
+  cls), `aiOf(track, cls)` = the track itself for the F1, else the class's RO / LK / VP / APEX / BRK / alien made once per
+  track × class; driveAI, the deployment map (chassis.js), ecu.js brakeAhead, aiAeroPlan(track, alien, cls) use it. The
+  aero zones and the sectors stay the circuit's, made with the F1 for every class (explicit F1_2026 in active-aero.js /
+  sectors.js).
 
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)

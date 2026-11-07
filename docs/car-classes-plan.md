@@ -84,7 +84,8 @@ the same numbers, `npm run sim-version` and the smoke test. One commit per stage
    whole sim-trace run ~2–3 % slower), a file at a time, smallest first: collide.js, tyre-temp.js, pit.js,
    active-aero.js, ecu.js, vehicle.js, spec-stats.js, driving.js, then chassis.js. Keep every float expression in
    the same order (a reordering changes the last bit and the hashes; sim-trace finds it at once).
-4. **Per circuit × class.** track.js, active-aero.js, sectors.js and racing-lines.js through `aiOf(track, cls)`.
+4. **Per circuit × class.** (Done 2026-11-07: `ai-profile.js` aiOf; the AI's car side = the class's `ai`; the
+   line-shaping margins stay in AI for now; zones and sectors made with the F1 for every class.) track.js, active-aero.js, sectors.js and racing-lines.js through `aiOf(track, cls)`.
    The AI plans with its own class's spec, not `STOCK`.
 5. **A guard.** A test fails if a sim module other than `classes/` and spec.js imports a per-car table from
    tuning.js; then drop the re-exports. A second test races a throwaway class (the F1 with +100 kg, a narrower

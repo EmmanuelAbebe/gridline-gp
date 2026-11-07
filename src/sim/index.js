@@ -5,6 +5,7 @@ import { TUNING, AI, CONTACT, HITBOX, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, EV, S
 import { buildSectors } from './sectors.js';
 import { carSpec, STOCK, stockOf, validSetup, validMods, isModified } from './spec.js';
 import { CLASSES, DEFAULT_CLASS, classOf } from './classes/index.js';
+import { aiOf } from './ai-profile.js';
 import { specStats, balanceAt } from './spec-stats.js';
 import { surfaceAt } from './runoff.js';
 import { fuelLaps, lapsToGo, fitTyres, bestCompound, carCondition, laneCentre, laneOuter, alongLane, serviceSteps } from './pit.js';
@@ -30,7 +31,7 @@ import { ecuMapOf, gapBehind } from './ecu.js';
 export const SIM = Object.freeze({ SIM_VERSION, ECU, ecuMapOf, gapBehind, REPLAY, quantizeInput, createReplayRecorder, replayRun, TYRE_TEMP, COMPOUNDS, STRATEGY, AIR, hitboxFrom, HITBOX_FIT, fitTyres, bestCompound, tyreSet, tempGrip, axleTempGrip, gripTemp, TUNING, AI, CONTACT, HITBOX, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, HANDBRAKE, SPEED_STEER, CIRCUITS,
   SURFACES, OFFTRACK, WALLS, RUNOFF, BARRIER, BARRIERS, ZONE, surfaceAt, PIT, WEAR, fuelLaps, lapsToGo, carCondition, laneCentre, laneOuter, alongLane, serviceSteps,
   steerLock, tyreCurve, driftAngle, DRIVERS, EV, track: DEFAULT_TRACK,
-  SETUP, MODS, ACTIVE_AERO, OVERTAKE, ERS, gapAhead, setAeroZones, aeroZonesInMetres, zoneRisk, aeroSafeOf, aiAeroPlan, carSpec, STOCK, stockOf, CLASSES, DEFAULT_CLASS, classOf, validSetup, validMods, isModified, specStats, balanceAt,
+  SETUP, MODS, ACTIVE_AERO, OVERTAKE, ERS, gapAhead, setAeroZones, aeroZonesInMetres, zoneRisk, aeroSafeOf, aiAeroPlan, carSpec, STOCK, stockOf, CLASSES, DEFAULT_CLASS, classOf, aiOf, validSetup, validMods, isModified, specStats, balanceAt,
   rpmAt, cornerSpeed, lateralGrip, brakeLimit, brakeMax, tyreGrip, wakeHalfWidth, VEHICLE: VEHICLE_INFO,
   ELEVATION, SECTORS, buildSectors, surfaceY, samplePos, cornerSpeedAt, brakeLimitAt,
   buildTrack, gridSlot, headingAt, createRace, drivePlayer, driveAI, calmSteer, speedSteer, collide, carGap, order, gapTo, progress, raceTime, clamp, wrapA, wrapIdx, smoothstep, speedOf });

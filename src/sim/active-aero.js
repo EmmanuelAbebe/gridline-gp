@@ -1,8 +1,12 @@
-// Active aero and overtake mode (ACTIVE_AERO, OVERTAKE in tuning.js). Every car, player and AI, the same rules.
+// Active aero and overtake mode (the car class's activeAero, overtake). Every car, player and AI, the same rules.
 // Off unless the race has `activeAero` (createRace option), so cars without it keep aeroOpen = 0: the physics then
 // multiplies by exactly 1 (sim-trace unchanged).
-import { ACTIVE_AERO as AA, AI, TUNING, EV } from './tuning.js';   // (AA: the zones, built per circuit with the F1: car classes stage 4)
-import { STOCK } from './spec.js';
+import { TUNING, EV } from './tuning.js';
+import { F1_2026 } from './classes/f1-2026.js';
+import { STOCK, stockOf } from './spec.js';
+import { aiOf } from './ai-profile.js';
+// the zones belong to the circuit: made with the F1 (its active aero, its AI's grip margin) for every car class
+const AA = F1_2026.activeAero, ZONE_GRIP = F1_2026.ai.grip;
 import { cornerSpeed } from './vehicle.js';
 import { wrapIdx } from './math.js';
 import { emit } from './events.js';
@@ -20,7 +24,7 @@ export function buildAeroZones(t) {
 /** @param {{ N: number, ds: number, K: Float32Array, LK: Float32Array, VP: Float32Array }} t */
 export function aeroSafe(t) {
   const { N, ds, K, LK, VP } = t, Z = AA.zone, open = { ...STOCK, dfK: STOCK.dfK * (1 - AA.downforceCut) };
-  const flatOut = k => cornerSpeed(k, AI.grip, open) >= TUNING.V_CAP;
+  const flatOut = k => cornerSpeed(k, ZONE_GRIP, open) >= TUNING.V_CAP;
   const look = Math.round(Z.look / ds), ahead = Math.round(Z.closeAhead / ds), ok = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
     let good = true;
@@ -91,14 +95,15 @@ export function zoneRisk(track, z) {
 // steering, when every bend of its line in the next `look` m can be taken at the speed it is doing now (+ `spare`) even
 // with the wings open, and no braking zone within closeAhead; a bend it needs the grip for keeps them shut. This gives,
 // per sample of a line (the ALIEN's own or the others'), the slowest open-wing corner speed in the next `look` m.
-/** @param {import('./types.js').Track} track @param {boolean} alien */
-export function aiAeroPlan(track, alien = false) {
-  const key = alien && track.alien ? 'alien' : 'ai', plans = (track.aeroPlans ??= {});
+// (per car class: its line, its stock car with the wings open, its AI's grip margin)
+/** @param {import('./types.js').Track} track @param {boolean} alien @param {import('./types.js').CarClass} [cls] */
+export function aiAeroPlan(track, alien = false, cls = F1_2026) {
+  const P = aiOf(track, cls), key = `${cls.id}:${alien && P.alien ? 'alien' : 'ai'}`, plans = (track.aeroPlans ??= {});
   if (plans[key]) return plans[key];
-  const { N, ds } = track, { LK } = alien && track.alien ? track.alien : track;
-  const open = { ...STOCK, dfK: STOCK.dfK * (1 - AA.downforceCut) }, v = new Float32Array(N), bend = new Float32Array(N);
-  for (let i = 0; i < N; i++) v[i] = Math.min(1e3, cornerSpeed(Math.abs(LK[i]), AI.grip, open));
-  const look = Math.round(AA.zone.look / ds);
+  const { N, ds } = track, { LK } = alien && P.alien ? P.alien : P, A = cls.activeAero, st = stockOf(cls);
+  const open = { ...st, dfK: st.dfK * (1 - A.downforceCut) }, v = new Float32Array(N), bend = new Float32Array(N);
+  for (let i = 0; i < N; i++) v[i] = Math.min(1e3, cornerSpeed(Math.abs(LK[i]), cls.ai.grip, open));
+  const look = Math.round(A.zone.look / ds);
   for (let i = 0; i < N; i++) { let m = Infinity; for (let o = 0; o <= look; o++) m = Math.min(m, v[wrapIdx(i + o, N)]); bend[i] = m; }
   return (plans[key] = bend);
 }
@@ -146,9 +151,9 @@ export function updateActiveAero(race, c, inp, dt) {
   let open;
   if (!c.player) {
     // the AI: its own call (aiAeroPlan), on the throttle
-    const thrOk = inp.thr >= (c.aeroOpen > 0 ? AA.holdThr : AA.thr), line = race.aiAlien && T.alien ? T.alien : T;
+    const P = aiOf(T, c.spec.cls), thrOk = inp.thr >= (c.aeroOpen > 0 ? AA.holdThr : AA.thr), line = race.aiAlien && P.alien ? P.alien : P;
     open = zoneHere && thrOk && inp.brk < 0.05 && c.v > AA.minSpeed && c.slideR < 0.5 && !c.beached
-      && aiAeroPlan(T, line !== T)[c.idx] >= c.v + AA.plan.spare && line.BRK[c.idx] * T.ds > AA.zone.closeAhead;
+      && aiAeroPlan(T, line !== P, c.spec.cls)[c.idx] >= c.v + AA.plan.spare && line.BRK[c.idx] * T.ds > AA.zone.closeAhead;
   } else if (c.aeroAuto) {
     const thrOk = inp.thr >= (c.aeroOpen > 0 ? AA.holdThr : AA.thr);
     open = zoneHere && thrOk && inp.brk < 0.05 && Math.abs(c.steer) < AA.steer && c.v > AA.minSpeed

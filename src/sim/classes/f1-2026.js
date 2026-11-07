@@ -1,9 +1,10 @@
 // The 2026 Formula 1 car: the first car class (docs/car-classes-plan.md, 2026-11-06). Everything here belongs to the
 // car, not the world (surfaces, run-off, hills, limits, pit lane, contact solver and assists stay in tuning.js). Moved
 // from tuning.js unchanged; the tables keep their names and shapes, and F1_2026 at the end gathers them as one class.
-// Tuned only on this car (check them when making another class): AI.feel's learnt brake share (0.8 … 1.05),
+// Tuned only on this car (check them when making another class): AI_CAR.feel's learnt brake share (0.8 … 1.05),
 // CHASSIS.spin.mass (car mass / ~100 kg), calmLateral, steerMargin, ERS / ECU (the 2026 power unit), the ALIEN paces
-// and racing lines (tuning.js AI, racing-lines.js).
+// and racing lines (AI_CAR), and tuning.js AI's line margins (lineMargin, lineEdge, alien.lineEdge: the car's width).
+import { RACING_LINES, ALIEN_LINES } from '../racing-lines.js';
 
 // Car contact (collide.js, 2026-10-28; user: "real physics collision … a hit box relatively close to the body of the
 // car"). HITBOX = the car seen from above as convex parts, [along, right] m from the car's origin (under the middle of
@@ -357,6 +358,39 @@ export const COMPOUNDS = Object.freeze({
   medium: Object.freeze({ grip: 1, life: 1, window: TYRE_TEMP.window }),
   hard:   Object.freeze({ grip: 0.97, life: 1.6, window: Object.freeze([98, 118]) }),
 });
+// The AI drivers' side of this car (driving.js, track.js; moved from tuning.js AI, car classes stage 4): the margins its
+// speed profile plans with, how it drives without ABS / traction control (feel), the ALIEN's pace per circuit and the
+// racing lines made for this car (racing-lines.js: npm run lap-optimum). The racecraft stays in tuning.js AI.
+export const AI_CAR = Object.freeze({
+  grip: 0.98,          // share of the cornering grip the speed profile plans with, on the racing line
+  brake: 0.85,          // share of the braking limit the profile plans with
+  // Driving without ABS / traction control (2026-10-24; the player drives with none and the AI's all-or-nothing pedals
+  // only worked because of them): driving.js feelPedals. Brake: the pedal it has learnt the fronts take in a straight
+  // line (`brake`, starting value), raised by `learn` per second while nothing locks, cut by at most 1 − `cut` per
+  // lock-up on tarmac above 25 m/s (never below `brakeMin`; a lock on the grass says nothing); while turning or after a lock it holds back further (`now`, recovering at `recover` per second). Throttle:
+  // the same per gear, from wheel spin and the rear sliding (`slide`).
+  feel: Object.freeze({ brake: 0.95, brakeMin: 0.8, brakeMax: 1.05, learn: 0.02, cut: 0.97, nowCut: 0.88, recover: 1.5, thr: 1, thrLearn: 0.05, thrCut: 0.9, slide: 0.7, floor: 0.25,
+    counter: 1.0,      // opposite lock: × the drift angle, once the rear slides (driving.js steering)
+    coldThr: 4,        // cold / overheated rears (tyre-temp.js): the throttle cap × their grip factor^coldThr
+    trail: 0.6,        // brake × (1 − trail × |steering|): trail braking
+    slideDrift: 0.14,      // rad of drift above which it only touches the throttle (none by twice that)
+    react: 0.12,           // s: it feels the rears starting to spin (feelAt × CHASSIS.spin.peak) and sliding this late
+    feelAt: 0.7,
+    ease: 3,               // /s: easing off the throttle while it still feels them spinning
+    rise: 3 }),            // /s: the throttle goes on at most this fast
+  alien: Object.freeze({
+    // pace (createRace aiPace for an ALIEN race): × the drivers' skill on its profile; the most each circuit's line
+    // takes without spins or cuts (2026-10-20, solo laps of the fastest driver: Elkmoor 29.0, Harrow 49.3, Cobalt
+    // 50.4, Marrow 38.0, Northfold 59.1 s; the user's best there 59.975; 2026-10-22 hills: Hautvale 58.8, Saltcross 64.8,
+    // Cantera 44.5 s; 2026-10-23 Ironvale Park 42.8 s, clean at the default)
+    // (2026-10-24, the real-physics car: rescanned on the new lines, the most that stays clean with active aero on and off)
+    pace: Object.freeze({ default: 1.13, harrow: 1.07, hautvale: 1.07, northfold: 1.07, saltcross: 1.07, cantera: 1.09, marrow: 1.16 }),
+    // with no ABS / traction control (the player's assists, createRace aiAssists; 2026-10-24): where it differs, the most
+    // that stays clean with active aero on and off (Saltcross cut corners at 1.14)
+    paceOff: Object.freeze({ default: 1.10, hautvale: 1.01, cantera: 1.04, saltcross: 1.02, marrow: 1.14, northfold: 1.07 }),
+  }),
+  lines: Object.freeze({ racing: RACING_LINES, alien: ALIEN_LINES }),
+});
 
 export const F1_2026 = Object.freeze({
   id: 'f1', name: 'Formula 1 (2026)',
@@ -377,4 +411,5 @@ export const F1_2026 = Object.freeze({
   wear: WEAR,
   tyreTemp: TYRE_TEMP,
   compounds: COMPOUNDS,
+  ai: AI_CAR,
 });

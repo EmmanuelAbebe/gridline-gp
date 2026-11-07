@@ -2,7 +2,8 @@
 // the player and the AI only decide steering, throttle, brake and shifts.
 import { axleTempGrip } from './tyre-temp.js';
 import { AI, ASSISTS, TUNING, SPEED_STEER } from './tuning.js';
-import { STOCK } from './spec.js';
+import { STOCK, stockOf } from './spec.js';
+import { aiOf } from './ai-profile.js';
 import { clamp, wrapA, wrapIdx } from './math.js';
 import { progress } from './race.js';
 import { afterMove } from './motion.js';
@@ -76,21 +77,21 @@ export function calmSteer(s, v, calm, spec = STOCK) {
 // clean-air lines when following, the car behind yielding in a squeeze: more contacts or fewer passes.)
 // ALIEN (race.aiAlien, AI.alien; 2026-10-20, user: "a car that overtakes me even if I drive well"): its own line
 // (track.alien: racing-lines.js ALIEN_LINES, closer to the edges) and profile (braking on the friction circle), on it
-// exactly and with the lap-optimum bot's pedals in clean air at its own pace per circuit (AI.alien.pace: ~1 s a lap
+// exactly and with the lap-optimum bot's pedals in clean air at its own pace per circuit (the class's ai.alien.pace: ~1 s a lap
 // faster than the user's best on Northfold), no mistakes; in traffic it eases to `chase` / `traffic` × that pace and
 // the regular pedals (full pace in dirty air ran it wide); attack: on a straight it sits in the tow of the car ahead
 // and pulls out late, to the inside of the next corner.
 const TRAITS = Object.freeze({ defend: 0.5, nerves: 0.5 });
 const traitOf = (c, k) => c.traits?.[k] ?? TRAITS[k];
 
-// An AI driver in a car without ABS / traction control drives by feel (AI.feel), as a racing driver does: it never
+// An AI driver in a car without ABS / traction control drives by feel (its class's ai.feel), as a racing driver does: it never
 // asks for more brake than it has learnt the front tyres take in a straight line, and holds back further for a moment
 // after a lock-up (front or rear: turning in on the brakes locks sooner); the same with the throttle, per gear, from
 // wheel spin and the rear sliding. It reacts to what the tyres did on the last step, so it still locks or spins now
 // and then. The pedals it would have used with the assists come in; what its feet can do goes out.
 /** @param {Car} c */
 function feelPedals(c, thr, brk, dt) {
-  const F = AI.feel;
+  const F = c.spec.cls.ai.feel;
   if (!c.assists.abs) {
     // (feelBrake: the share of the tyres' straight-line limit it dares; the pedal for that falls with the speed)
     const straight = Math.abs(c.steer) < 0.1, learning = c.surface === 'track' && c.v > 25;   // (a lock on the grass says nothing)
@@ -123,7 +124,7 @@ function feelPedals(c, thr, brk, dt) {
       if (thr > 0 && c.thr >= T[g] * c.feelThrNow * 0.98) T[g] = Math.min(1, T[g] + F.thrLearn * dt);
       c.feelThrNow = Math.min(1, c.feelThrNow + F.recover * dt);
     }
-    // (cold or overheated rears: it feeds the power in far more carefully than the grip they lost, AI.feel.coldThr,
+    // (cold or overheated rears: it feeds the power in far more carefully than the grip they lost, its class's ai.feel.coldThr,
     // as a driver on cold tyres without traction control)
     const rk = c.tyreT ? axleTempGrip(c.tyreT).r : 1;
     thr = Math.min(thr, rk < 1 ? T[g] * c.feelThrNow * FM.pow(rk, F.coldThr) : T[g] * c.feelThrNow);
@@ -140,8 +141,10 @@ function feelPedals(c, thr, brk, dt) {
 /** @param {Race} race @param {Car} c */
 export function driveAI(race, c, dt, skillOverride = 0) {
   const T = race.track, { N, HW, ds, PX, PZ, NX, NZ } = T, C = AI.craft;
-  const alien = !!(race.aiAlien && T.alien);
-  const { VP, RO, LK, BRK, APEX } = alien ? T.alien : T;      // ALIEN: its own line and profile
+  // the car's side of the AI (its class: margins, feel) and its line and profile on this circuit (ai-profile.js)
+  const CA = c.spec.cls.ai, stock = stockOf(c.spec.cls), P = aiOf(T, c.spec.cls);
+  const alien = !!(race.aiAlien && P.alien);
+  const { VP, RO, LK, BRK, APEX } = alien ? P.alien : P;      // ALIEN: its own line and profile
   c.assists = c.assists || ASSISTS[AI.assists];
   c.aiT = race.t;
   // pit stops: decided once a lap before the entry road (fuel, tyres, damage: pit.js), then the lane drives the car
@@ -240,9 +243,9 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   const kappa = 2 * (lost ? Math.sign(alpha) : FM.sin(alpha)) / dist, v5 = Math.max(sp, 5);
   let delta = CHASSIS.wheelbase * kappa + AI.yawGain * (sp * kappa - c.yawRate) * CHASSIS.wheelbase / v5;
   // without the stability assist the driver catches a sliding rear itself: opposite lock, the front wheels turned
-  // toward where the car is going (AI.feel.counter), for as much of the assist as it lacks
+  // toward where the car is going (its class's ai.feel.counter), for as much of the assist as it lacks
   const stab = ASSISTS[AI.assists].stability;                 // (its usual assists: then nothing changes)
-  if (c.assists.stability < stab && c.slideR > 0.15 && !lost) delta += AI.feel.counter * (1 - c.assists.stability / stab) * clamp((c.slideR - 0.15) / 0.3, 0, 1) * driftAngle(c);
+  if (c.assists.stability < stab && c.slideR > 0.15 && !lost) delta += c.spec.cls.ai.feel.counter * (1 - c.assists.stability / stab) * clamp((c.slideR - 0.15) / 0.3, 0, 1) * driftAngle(c);
   const want = clamp(delta / steerLock(c.v, c.assists.steer, c.spec), -1, 1);
   const rate = alien ? AI.alien.steerRate : AI.steerRate;
   c.steer += clamp(want - c.steer, -dt * rate, dt * rate);
@@ -252,12 +255,12 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   const offLine = j => {
     const d = c.offset - RO[j] - bias, k = LK[j];
     if (Math.abs(d) < 1 || Math.abs(k) < 1e-4) return 1;
-    return Math.min(1, cornerSpeed(Math.abs(k / Math.max(0.2, 1 - k * d)), AI.grip) / cornerSpeed(Math.abs(k), AI.grip));
+    return Math.min(1, cornerSpeed(Math.abs(k / Math.max(0.2, 1 - k * d)), CA.grip, stock) / cornerSpeed(Math.abs(k), CA.grip, stock));
   };
   // Far ahead, brake only once the deceleration needed reaches what the profile plans with (brake late, not long).
   let need = 0, vmin = sp;
   // (on a hill: the braking it has there, gravity included; elevation.js)
-  const E = T.elev, late = E ? AI.brake * brakeLimitAt(E, c.idx, sp, c.spec) * 0.9 : AI.brake * brakeLimit(sp, c.spec) * 0.9;
+  const E = T.elev, late = E ? CA.brake * brakeLimitAt(E, c.idx, sp, c.spec) * 0.9 : CA.brake * brakeLimit(sp, c.spec) * 0.9;
   for (let k = 2; k <= AI.brakeLook; k += k < 12 ? 2 : 6) {
     const j = (c.idx+k)%N, vt = Math.min(vp(j) * skill * offLine(j), targetV + k * 0.5);
     if (k <= 6) targetV = Math.min(targetV, vt);

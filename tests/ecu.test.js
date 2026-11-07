@@ -40,7 +40,7 @@ test('the ECU learns where the driver lifts, and only ever stops deploying earli
   assert.ok(c.ecuBrk instanceof Float32Array && c.ecuBrk.length === T.N, 'a learnt map after a lap');
   const zeros = [...c.ecuBrk].filter(d => d === 0).length;
   assert.ok(zeros >= 4 && zeros < 60, `lift points: ${zeros}`);
-  const race = /** @type {any} */ ({ track: T }), probe = /** @type {any} */ ({ ecuBrk: c.ecuBrk, idx: 0 });
+  const race = /** @type {any} */ ({ track: T }), probe = /** @type {any} */ ({ ecuBrk: c.ecuBrk, idx: 0, spec: c.spec });
   let earlier = 0;
   for (let i = 0; i < T.N; i++) {
     probe.idx = i; const d = brakeAhead(race, probe);

@@ -1,7 +1,7 @@
 // Driving and race-rule constants. Units are SI throughout: metres, seconds, m/s, m/s².
 // The car's own numbers (the 2026 F1's) live in its class file (classes/f1-2026.js, car classes step 1, 2026-11-06);
 // re-exported here under their old names until every module reads the car's class.
-export { HITBOX, CAR, SETUP, DIFF, PRESSURE, SUSPENSION, DAMPER, MODS, HANDBRAKE, CHASSIS, ACTIVE_AERO, OVERTAKE, ERS, ECU, WEAR, TYRE_TEMP, COMPOUNDS } from './classes/f1-2026.js';
+export { AI_CAR, HITBOX, CAR, SETUP, DIFF, PRESSURE, SUSPENSION, DAMPER, MODS, HANDBRAKE, CHASSIS, ACTIVE_AERO, OVERTAKE, ERS, ECU, WEAR, TYRE_TEMP, COMPOUNDS } from './classes/f1-2026.js';
 export const TUNING = Object.freeze({
   // the physics' version: 2 = real-F1 physics (2026-10-24). Lap records and ghosts are kept per version (game
   // config storageKeys, ghost.js validGhost): laps on different physics don't compare
@@ -35,9 +35,9 @@ export const AIR = Object.freeze({ min: 1.0, climb: 0.35, pitchK: 1.3, rollK: 0.
 export const CONTACT = Object.freeze({ iterations: 4, pushes: 3, slop: 0.001, damageHard: 0.8, wheelFrom: 4 });
 
 // The AI drivers (driving.js): they drive the same car as the player, through steering, throttle and brake.
+// (the car's side of the AI: its grip and braking margins, its feel without ABS / traction control, the ALIEN's paces
+// and the racing lines: the car class's ai, AI_CAR for the F1: classes/f1-2026.js)
 export const AI = Object.freeze({
-  grip: 0.98,          // share of the cornering grip the speed profile plans with, on the racing line
-  brake: 0.85,          // share of the braking limit the profile plans with
   dirtyTime: 0.8,      // s: how fast the AI adapts its corner speeds to the dirty air it is in
   lineMargin: 2.2,      // m: the fallback (minimum-curvature) line keeps the car's centre this far inside the road edge
   lineBlend: 0.5,       // the AI's line: this share of the time-optimal line, the rest minimum curvature (track.js)
@@ -64,20 +64,6 @@ export const AI = Object.freeze({
   mistakes: Object.freeze({ chance: 0.12, over: [0.03, 0.07], length: 140, minDrop: 8 }),
   // the way out of a corner: lift when the car will be past the kerb's end (+ room m) in look s (driving.js)
   edge: Object.freeze({ look: 0.8, room: 0.2, fade: 1.5, min: 0.2, off: 0.5 }),   // off: m wide of its line for the full lift
-  // Driving without ABS / traction control (2026-10-24; the player drives with none and the AI's all-or-nothing pedals
-  // only worked because of them): driving.js feelPedals. Brake: the pedal it has learnt the fronts take in a straight
-  // line (`brake`, starting value), raised by `learn` per second while nothing locks, cut by at most 1 − `cut` per
-  // lock-up on tarmac above 25 m/s (never below `brakeMin`; a lock on the grass says nothing); while turning or after a lock it holds back further (`now`, recovering at `recover` per second). Throttle:
-  // the same per gear, from wheel spin and the rear sliding (`slide`).
-  feel: Object.freeze({ brake: 0.95, brakeMin: 0.8, brakeMax: 1.05, learn: 0.02, cut: 0.97, nowCut: 0.88, recover: 1.5, thr: 1, thrLearn: 0.05, thrCut: 0.9, slide: 0.7, floor: 0.25,
-    counter: 1.0,      // opposite lock: × the drift angle, once the rear slides (driving.js steering)
-    coldThr: 4,        // cold / overheated rears (tyre-temp.js): the throttle cap × their grip factor^coldThr
-    trail: 0.6,        // brake × (1 − trail × |steering|): trail braking
-    slideDrift: 0.14,      // rad of drift above which it only touches the throttle (none by twice that)
-    react: 0.12,           // s: it feels the rears starting to spin (feelAt × CHASSIS.spin.peak) and sliding this late
-    feelAt: 0.7,
-    ease: 3,               // /s: easing off the throttle while it still feels them spinning
-    rise: 3 }),            // /s: the throttle goes on at most this fast
   // racecraft (driving.js; m unless noted). Drivers' traits 0..1 (drivers.js `traits`, 0.5 when missing) scale them.
   // racecraft (driving.js; m unless noted). Drivers' traits 0..1 (drivers.js `traits`, 0.5 when missing) scale them.
   craft: Object.freeze({ squeeze: 0.96,
@@ -102,15 +88,6 @@ export const AI = Object.freeze({
     snap: 1,          // m: in clean air, once this close to its line it drives exactly on it (no mistakes either)
     steerRate: 40,      // turns the wheel this fast (the others AI.steerRate)
     thrGain: 0.8, brakeAt: 0.92, overBrake: 0.8, brakeScale: 1.15, brakeGain: 0.3,   // (× 0.97 of the limit)
-    // pace (createRace aiPace for an ALIEN race): × the drivers' skill on its profile; the most each circuit's line
-    // takes without spins or cuts (2026-10-20, solo laps of the fastest driver: Elkmoor 29.0, Harrow 49.3, Cobalt
-    // 50.4, Marrow 38.0, Northfold 59.1 s; the user's best there 59.975; 2026-10-22 hills: Hautvale 58.8, Saltcross 64.8,
-    // Cantera 44.5 s; 2026-10-23 Ironvale Park 42.8 s, clean at the default)
-    // (2026-10-24, the real-physics car: rescanned on the new lines, the most that stays clean with active aero on and off)
-    pace: Object.freeze({ default: 1.13, harrow: 1.07, hautvale: 1.07, northfold: 1.07, saltcross: 1.07, cantera: 1.09, marrow: 1.16 }),
-    // with no ABS / traction control (the player's assists, createRace aiAssists; 2026-10-24): where it differs, the most
-    // that stays clean with active aero on and off (Saltcross cut corners at 1.14)
-    paceOff: Object.freeze({ default: 1.10, hautvale: 1.01, cantera: 1.04, saltcross: 1.02, marrow: 1.14, northfold: 1.07 }),
     // in traffic (a car ahead in its lane, alongside, or in a wake) its pace eases to `traffic` × that
     // over trafficTime s: the full push only works on the line in clean air (it put cars into walls in traffic)
     // clean air (no car in its lane or alongside, slip < cleanSlip) = 1; deep in a wake (slip > wakeSlip) or alongside
