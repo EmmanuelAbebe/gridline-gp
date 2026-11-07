@@ -37,7 +37,7 @@ export function createStartingGrid({ game, track, onReady }) {
   }
   // your best valid lap on this circuit in this car class on these zones (the lap record), or null
   function yourBest(T = track()) {
-    const r = game.records[T.id], k = lapClass(SIM.isModified(game.garage.mods), zoneTag(T, raceAero(game.setup).activeAero));
+    const r = game.records[T.id], k = lapClass(SIM.isModified(game.garage.mods, playerClass()), zoneTag(T, raceAero(game.setup).activeAero), playerClass().id);
     return r?.[k] ?? null;
   }
 

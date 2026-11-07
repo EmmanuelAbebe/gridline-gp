@@ -1005,6 +1005,13 @@ showed MODIFIED only because of it).
   map steps, the phone dash, `SIM.vehicleInfo(cls)` for the dash's rev lights and race-audio.js. main.js gives the race
   carClass. leaderboard verify.js checks the replay's class (missing = the F1; unknown refused; mods and compounds of it).
   index.js still exports SIM.CHASSIS … (tests, tools); a test keeps src/game and leaderboard/lib off them.
+- Stage 7 done (step 1 complete): saved data names the car class, the F1's keys unchanged (nothing to convert). aero-zones.js
+  `lapClass(modified, zones, car = 'f1')` (another class: 'kart/stock@…'; LAP_CLASS accepts the prefix) → records
+  (recordLap … car), ghosts (a ghost's `car`, missing = the F1, unknown refused; ghostOf / dropGhost car = playerClass().id),
+  sector bests (bestsFor … car); boards `physics:[car:]circuit:aero` (online.js boardOf, verify.js boardKey; API board /
+  ghost take &car=, default f1); the garage saves `carClass` (unknown = the F1). car-class.js holds the player's class
+  (setPlayerClass from the garage at start). src/sim unchanged in this stage (SIM_VERSION the same); the leaderboard's
+  server code changed (verify, API).
 
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)

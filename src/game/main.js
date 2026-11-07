@@ -62,6 +62,7 @@ import { createPitCrews } from './pit-crew.js';
 import { createTyreMarks } from './tyre-marks.js';
 import { Garage } from './garage.js';
 import { loadGarage, loadRecords, recordLap, playerSpec, playerDriver, pitPlanOf, garageClass } from './garage-store.js';
+import { playerClass, setPlayerClass } from './car-class.js';
 import { loadModels } from './models.js';
 
 const { EV } = SIM;
@@ -89,7 +90,7 @@ const game = {
   phase: PHASE.MENU, paused: false, frozen: false, race: null, player: null, gfx: null,
   setup: loadSetup(Settings.get(CONFIG.storageKeys.race)),   // start-screen choices: cars, race type, laps / minutes (+ gearbox, assists from Settings)
   prefs: loadPrefs(Settings.get(CONFIG.storageKeys.prefs)),  // Settings screen: controller, sound, FPS counter
-  garage: loadGarage(Settings.get(CONFIG.storageKeys.garage)),    // your car: livery, setup, open mods (garage.js)
+  garage: loadGarage(Settings.get(CONFIG.storageKeys.garage)),    // your car: its class, livery, setup, open mods (garage.js)
   buttonMaps: loadButtonMaps(Settings.get(CONFIG.storageKeys.buttons)),
   aeroZones: loadAeroZones(Settings.get(CONFIG.storageKeys.aeroZones), SIM.CIRCUITS),   // your straight-mode zones per circuit   // what each controller button does (Settings → Buttons)
   records: loadRecords(Settings.get(CONFIG.storageKeys.records)), // best valid lap per circuit, stock and modified apart
@@ -100,6 +101,7 @@ const game = {
   towerT: 0, mapT: 0, slowWindows: 0, acc: 0, carsDirty: false,
   pendingShift: 0, pendingAero: false, pendingLimiter: false, pendingMap: 0, autoShiftHinted: false, queueHinted: false, steerRate: Infinity,   // paddle press waiting for the next sim step
 };
+setPlayerClass(garageClass(game.garage));             // the car class you race (car-class.js): the garage's
 Input.setButtonMaps(game.buttonMaps);
 const isRunning = () => !!game.race && game.phase !== PHASE.MENU && !game.paused && !game.frozen;
 
@@ -122,7 +124,7 @@ const saveRuns = () => Settings.set(CONFIG.storageKeys.runs, runsJson(game.runs)
 // a clean flying lap in a time trial on the stock car and the automatic zones: kept when it is your best on that board
 async function keepLap(race, c, e) {
   if (!game.trial || e.invalid || c.lap - 1 < 2 || c.spec.modified || zoneTag(race.track, race.activeAero) || !game.replayRec) return;
-  const board = boardOf(race.track.id, race.activeAero);
+  const board = boardOf(race.track.id, race.activeAero, race.carClass.id);
   if (game.runs[board] && game.runs[board].time <= e.time) return;
   const replay = game.replayRec.finish();                // (from lights out to the end of this lap)
   if (replay.tainted) return;
@@ -145,7 +147,7 @@ async function sendRun(run) {
 // (asks the board only once you have joined: the game doesn't go online by itself)
 async function drawSubmit() {
   const btns = [$('lbPauseBtn'), $('lbResBtn')], race = game.race;
-  const run = race && game.trial ? game.runs[boardOf(race.track.id, race.activeAero)] : null;
+  const run = race && game.trial ? game.runs[boardOf(race.track.id, race.activeAero, race.carClass.id)] : null;
   let show = !!run && sendable(run) && online.signedIn;
   if (show) { const cut = await online.cutoff(run.circuit, run.aero); show = cut !== undefined && run.time < cut; }
   for (const b of btns) { b.hidden = !show; if (show) { b.textContent = `Submit ${fmtTime(run.time)}`; b.title = 'Send this lap to the online leaderboard'; } }
@@ -261,7 +263,7 @@ function onPlayerEvent(c, e) {
       sectors.onLap(race, c, e);              // sector times, bests, the session's laps
       if (qualifying()) grid.qualiLap(e);     // your best in qualifying sets your grid slot
       const zones = zoneTag(race.track, race.activeAero);   // (laps on your own straight-mode zones are kept apart)
-      if (!e.invalid && recordLap(game.records, race.track.id, c.spec.modified, e.time, zones)) {
+      if (!e.invalid && recordLap(game.records, race.track.id, c.spec.modified, e.time, zones, race.carClass.id)) {
         Settings.set(CONFIG.storageKeys.records, JSON.stringify(game.records)); describeRecord();
         const of = [c.spec.modified && 'modified car', zones && 'your zones'].filter(Boolean).join(', ');
         showMessage({ toast: `New lap record${of ? ` (${of})` : ''}  ${fmtTime(e.time)}`, kind: 'purple' });
@@ -521,8 +523,9 @@ const describeEvent = () => {
 function describeRecord() {
   // (on the zones the next race would use: yours there, else the automatic ones)
   const r = game.records[track.id] || {}, parts = [], zones = zoneTag(track, raceAero(game.setup).activeAero), mine = zones ? ' on your zones' : '';
-  if (r[lapClass(false, zones)]) parts.push('record' + mine + ' ' + fmtTime(r[lapClass(false, zones)]));
-  if (r[lapClass(true, zones)]) parts.push('modified' + mine + ' ' + fmtTime(r[lapClass(true, zones)]));
+  const car = playerClass().id;
+  if (r[lapClass(false, zones, car)]) parts.push('record' + mine + ' ' + fmtTime(r[lapClass(false, zones, car)]));
+  if (r[lapClass(true, zones, car)]) parts.push('modified' + mine + ' ' + fmtTime(r[lapClass(true, zones, car)]));
   Screens.trackInfo(track, SIM.CIRCUITS[track.id].blurb, parts.join(' · '));
   trial.renderRow();
 }
@@ -642,7 +645,7 @@ menu = createStartMenu({ game, online, leaderboard: leaderboardScreen, track: ()
 const menuOpen = () => game.phase === PHASE.MENU && Screens.current() === 'start' && !SettingsScreen.open && !InputMonitor.open && !analysis.open && !zoneEditor.open && !Garage.open && !AppShell.quitOpen;
 $('lbBtn').onclick = () => { if (game.phase === PHASE.MENU) menu.show('board'); };
 for (const id of ['lbPauseBtn', 'lbResBtn']) $(id).onclick = () => {
-  const run = game.race && game.runs[boardOf(game.race.track.id, game.race.activeAero)];
+  const run = game.race && game.runs[boardOf(game.race.track.id, game.race.activeAero, game.race.carClass.id)];
   if (run && sendable(run)) { $('lbPauseBtn').hidden = $('lbResBtn').hidden = true; sendRun(run); }
 };
 if (import.meta.env.DEV || window.gridlineApp?.debug) window.__zoneEditor = zoneEditor;   // (the smoke test drags a zone)

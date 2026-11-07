@@ -5,6 +5,7 @@
 // (a friend's).
 import { SIM } from '../sim/index.js';
 import { lapClass, LAP_CLASS } from './aero-zones.js';
+import { playerClass } from './car-class.js';
 
 export const GHOST = Object.freeze({ hz: 20, split: 20, version: 1, maxFrames: 20 * 600 });
 
@@ -85,12 +86,13 @@ export function validGhost(g, circuits) {
   if (!g || typeof g !== 'object' || g.v !== GHOST.version || !(g.time > 0) || !Object.hasOwn(circuits, g.circuit)) return false;
   if ((g.physics ?? 1) !== SIM.TUNING.PHYSICS) return false;         // (driven on other physics: it doesn't compare)
   if (g.zones !== undefined && !(typeof g.zones === 'string' && LAP_CLASS.test(lapClass(false, g.zones)))) return false;
+  if (g.car !== undefined && !SIM.classOf(g.car)) return false;     // (`car`: its car class's id; none = the F1)
   if (!Array.isArray(g.frames) || g.frames.length % 3 || g.frames.length < 9 || !g.frames.every(Number.isFinite)) return false;
   return Array.isArray(g.splits) && g.hz > 0 && g.split > 0;
 }
 // a lap from the grid: the car still in its first two frames (saves from before the `start` flag)
 const fromStill = g => Math.hypot(g.frames[3] - g.frames[0], g.frames[4] - g.frames[1]) < 0.1;   // (from still: ~1 cm; flying: > 0.7 m)
-const slot = (modified, start, zones = '') => lapClass(modified, zones) + (start ? ':start' : '');
+const slot = (modified, start, zones = '', car = 'f1') => lapClass(modified, zones, car) + (start ? ':start' : '');
 const isSlot = k => LAP_CLASS.test(k.replace(/:start$/, ''));
 export function loadGhosts(json, circuits) {
   let s; try { s = JSON.parse(json); } catch (e) { return {}; }
@@ -104,17 +106,17 @@ export function loadGhosts(json, circuits) {
   return out;
 }
 export const storeJson = store => JSON.stringify(store, (k, v) => v && v.frames && v.splits ? compactGhost(v) : v);
-// start: the standing-start best (lap 1), else the flying one; zones: the layout (zoneTag)
-export const ghostOf = (store, circuit, modified, start = false, zones = '') => store[circuit]?.[slot(modified, start, zones)] ?? null;
+// start: the standing-start best (lap 1), else the flying one; zones: the layout (zoneTag); car: the car class's id
+export const ghostOf = (store, circuit, modified, start = false, zones = '', car = playerClass().id) => store[circuit]?.[slot(modified, start, zones, car)] ?? null;
 // keeps `g` when it is the first or faster in its slot; true when it was kept
 export function keepGhost(store, g) {
-  const k = slot(g.modified, g.start, g.zones), old = store[g.circuit]?.[k];
+  const k = slot(g.modified, g.start, g.zones, g.car), old = store[g.circuit]?.[k];
   if (old && old.time <= g.time) return false;
   (store[g.circuit] ||= {})[k] = g;
   return true;
 }
 // both laps of a class on a zone layout
-export function dropGhost(store, circuit, modified, zones = '') { if (store[circuit]) for (const k of [slot(modified, false, zones), slot(modified, true, zones)]) delete store[circuit][k]; }
+export function dropGhost(store, circuit, modified, zones = '', car = playerClass().id) { if (store[circuit]) for (const k of [slot(modified, false, zones, car), slot(modified, true, zones, car)]) delete store[circuit][k]; }
 
 // ---- files (export / import a ghost: send your lap to a friend; the same bytes would go to a server) ----
 // ghostFile = compact JSON text: a lap, and with it your standing-start lap there (`standing`) when you have one;
@@ -131,7 +133,7 @@ export function readGhostFile(text, circuits) {
   const out = expandGhost(lap), st = standing && expandGhost(standing);
   if (!validGhost(out, circuits)) return null;
   out.start = typeof out.start === 'boolean' ? out.start : fromStill(out);
-  if (validGhost(st, circuits) && st.circuit === out.circuit && !out.start) out.standing = { ...st, start: true, modified: out.modified, zones: out.zones };
+  if (validGhost(st, circuits) && st.circuit === out.circuit && !out.start) out.standing = { ...st, start: true, modified: out.modified, zones: out.zones, car: out.car };
   return out;
 }
 const pipe = async (bytes, stream) => new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());

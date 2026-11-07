@@ -21,7 +21,8 @@ export const withZones = (store, id, list) => {
 // The layout a lap was driven on: '' = the automatic zones (or active aero off: the zones do nothing then), else the
 // track's aeroKey ('none' or the zones' metres, e.g. '120-610,1830-2240').
 export const zoneTag = (track, activeAero) => activeAero && track.aeroKey && track.aeroKey !== 'auto' ? track.aeroKey : '';
-// a lap's class for records, ghosts and sector bests: the car (stock / modified) and the zone layout ('stock',
-// 'modified@120-610,...'); the automatic zones keep the old names, so laps saved before this stay where they were
-export const lapClass = (modified, zones = '') => (modified ? 'modified' : 'stock') + (zones ? '@' + zones : '');
-export const LAP_CLASS = /^(stock|modified)(@[0-9,-]+|@none)?$/;
+// a lap's class for records, ghosts and sector bests: the car class (car-class.js; the F1 adds nothing, another one
+// its id: 'kart/stock'), the car (stock / modified) and the zone layout ('stock', 'modified@120-610,...'); the F1 on the
+// automatic zones keeps the old names, so laps saved before these stay where they were
+export const lapClass = (modified, zones = '', car = 'f1') => (car && car !== 'f1' ? car + '/' : '') + (modified ? 'modified' : 'stock') + (zones ? '@' + zones : '');
+export const LAP_CLASS = /^([a-z0-9-]+\/)?(stock|modified)(@[0-9,-]+|@none)?$/;

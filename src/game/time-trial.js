@@ -19,6 +19,7 @@ import { playerDriver } from './garage-store.js';
 import { aiLap, aiLapReady, ghostDriver, createRival, rivalGap } from './ai-ghosts.js';
 import { createGhostInputs } from './ghost-inputs.js';
 import { zoneTag } from './aero-zones.js';
+import { playerClass } from './car-class.js';
 import { boardOf } from './online.js';
 import { createRecorder, ghostPose, ghostDelta, keepGhost, ghostOf, dropGhost, readGhostFile, storeJson, packGhost, unpackGhost } from './ghost.js';
 
@@ -31,7 +32,7 @@ export function createTimeTrial({ game, track, saveSetup, switchTrack, online })
   const inputs = createGhostInputs();             // the AI ghost's steering / gas / brake charts (pref ghostInputs)
   const saveGhosts = () => Settings.set(CONFIG.storageKeys.ghosts, storeJson(game.ghosts));
   const saveLoadedGhosts = () => Settings.set(CONFIG.storageKeys.ghostsLoaded, storeJson(game.loadedGhosts));
-  const carModified = () => SIM.isModified(game.garage.mods);
+  const carModified = () => SIM.isModified(game.garage.mods, playerClass());
   // the zone layout the menu's circuit would be raced on (laps on other zones are kept apart: aero-zones.js zoneTag)
   const zones = () => zoneTag(track(), raceAero(game.setup).activeAero);
   // AI laps (ai-ghosts.js): the fastest AI driver alone at each level, made once per circuit and active-aero setting
@@ -121,7 +122,7 @@ export function createTimeTrial({ game, track, saveSetup, switchTrack, online })
   function load(g) {
     if (!g) { Hud.toast('That file is not a Gridline ghost lap'); return; }
     const { standing, ...lap } = g;
-    dropGhost(game.loadedGhosts, g.circuit, g.modified, g.zones ?? '');   // one friend's laps at a time per class and layout
+    dropGhost(game.loadedGhosts, g.circuit, g.modified, g.zones ?? '', g.car ?? 'f1');   // one friend's laps at a time per class and layout
     for (const x of [lap, standing]) if (x) keepGhost(game.loadedGhosts, x);
     saveLoadedGhosts();
     if (g.circuit !== track().id) switchTrack(g.circuit);
@@ -163,7 +164,8 @@ export function createTimeTrial({ game, track, saveSetup, switchTrack, online })
     // done: from the grid at lights out, a standing start); in a time trial a new best is raced from then on
     onLap(race, c, e) {
       const z = zoneTag(race.track, race.activeAero);
-      const g = recorder.lap(e.time, { circuit: race.track.id, modified: c.spec.modified, ...(z ? { zones: z } : {}), driver: 'You', date: Date.now(), start: c.lap === 2,
+      const car = race.carClass.id;              // (the car class: none = the F1, as laps saved before car classes)
+      const g = recorder.lap(e.time, { circuit: race.track.id, modified: c.spec.modified, ...(z ? { zones: z } : {}), ...(car !== 'f1' ? { car } : {}), driver: 'You', date: Date.now(), start: c.lap === 2,
         livery: { color: game.garage.livery.color, accent: game.garage.livery.accent } });
       recorder.start(c.lapStart);
       if (!e.invalid && g && keepGhost(game.ghosts, g)) {

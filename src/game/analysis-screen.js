@@ -11,6 +11,7 @@ import { Screens } from './screens.js';
 import { raceAero } from './setup-store.js';
 import { ghostDriver } from './ai-ghosts.js';
 import { ANALYSIS, traceFromAi, miniTimes, sectorTimes, cornerMetrics, sessionPace, theoretical } from './lap-analysis.js';
+import { playerClass } from './car-class.js';
 
 const gapText = d => !Number.isFinite(d) ? '–' : (d > 0 ? '+' : d < 0 ? '−' : '±') + Math.abs(d).toFixed(3);
 const gapCls = d => !Number.isFinite(d) ? '' : d < -0.0005 ? 'faster' : d > 0.0005 ? 'slower' : '';
@@ -119,8 +120,9 @@ export function createAnalysis({ game, sectors, aiLapOf, track }) {
   }
 
   function show(where) {
-    if (where === 'start') D = sectors.menuData(track(), SIM.isModified(game.garage.mods), raceAero(game.setup).activeAero);
-    else D = sectors.data || sectors.menuData(track(), SIM.isModified(game.garage.mods), raceAero(game.setup).activeAero);
+    const modified = SIM.isModified(game.garage.mods, playerClass());
+    if (where === 'start') D = sectors.menuData(track(), modified, raceAero(game.setup).activeAero);
+    else D = sectors.data || sectors.menuData(track(), modified, raceAero(game.setup).activeAero);
     if (!D) return;
     from = Screens.current(); Screens.show(null);
     const lc = lapChoices(); laps = lc.list; refs = refChoices();

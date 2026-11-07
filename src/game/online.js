@@ -6,6 +6,7 @@
 // as this game (SIM_VERSION, GET /api/info); otherwise nothing is sent.
 import { SIM } from '../sim/index.js';
 import { expandGhost } from './ghost.js';
+import { playerClass } from './car-class.js';
 
 export const ONLINE = Object.freeze({
   api: 'https://gridline-leaderboard.vercel.app',
@@ -21,7 +22,9 @@ export function loadAccount(json) {
   return { id: ok ? a.id : null, token: ok ? a.token : null, name: ok ? a.name : null, auto: a.auto !== false,
     sent: a.sent && typeof a.sent === 'object' ? Object.fromEntries(Object.entries(a.sent).filter(([, t]) => Number.isFinite(t))) : {} };
 }
-export const boardOf = (circuit, aero) => `${SIM.TUNING.PHYSICS}:${circuit}:${aero ? 'on' : 'off'}`;
+// (car: the car class's id; the F1's boards keep their names from before car classes)
+export const boardOf = (circuit, aero, car = playerClass().id) => `${SIM.TUNING.PHYSICS}:${car !== 'f1' ? car + ':' : ''}${circuit}:${aero ? 'on' : 'off'}`;
+const carQuery = () => playerClass().id !== 'f1' ? `&car=${playerClass().id}` : '';
 
 // gzip (the browser's own CompressionStream) → base64
 export async function gzipBase64(text) {
@@ -82,7 +85,7 @@ export function createOnline({ account, save, fetchImpl = (...a) => fetch(...a) 
       const b = boardOf(circuit, aero), c = boards.get(b);
       if (c && performance.now() - c.at < ONLINE.boardCache * 1000) return c.rows;
       try {
-        const r = await call(`/api/board?circuit=${circuit}&aero=${aero ? 'on' : 'off'}`);
+        const r = await call(`/api/board?circuit=${circuit}&aero=${aero ? 'on' : 'off'}${carQuery()}`);
         boards.set(b, { at: performance.now(), rows: r.rows }); return r.rows;
       } catch (e) { return undefined; }
     },
@@ -92,7 +95,7 @@ export function createOnline({ account, save, fetchImpl = (...a) => fetch(...a) 
     async cutoff(circuit, aero) { const r = await this.rows(circuit, aero); return r && (r.length < ONLINE.boardSize ? Infinity : r[ONLINE.boardSize - 1].time); },
     // a lap's ghost from the board, as a ghost.js ghost (a flying lap on the stock car, the automatic zones)
     async ghost(circuit, aero, row) {
-      const g = expandGhost(await call(`/api/ghost?circuit=${circuit}&aero=${aero ? 'on' : 'off'}&id=${row.id}`));
+      const g = expandGhost(await call(`/api/ghost?circuit=${circuit}&aero=${aero ? 'on' : 'off'}${carQuery()}&id=${row.id}`));
       return g && { ...g, circuit, modified: false, start: false, driver: row.name, online: { board: boardOf(circuit, aero), id: row.id } };
     },
   };

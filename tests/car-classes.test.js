@@ -168,3 +168,38 @@ test('car classes: the game reads the car class, not the F1\'s tables', async ()
   assert.equal(playerSpec(g).cls, F1);
   assert.deepEqual(S.vehicleInfo(F1), S.VEHICLE, 'the dash\'s numbers');
 });
+
+// (stage 7) saved data names the car class: the F1's keys are the ones from before car classes (nothing to convert),
+// another class's carry its id
+test('car classes: saved data keeps the F1\'s keys and keeps other classes apart', async () => {
+  const { lapClass, LAP_CLASS } = await import('../src/game/aero-zones.js');
+  const { recordLap, loadRecords, loadGarage } = await import('../src/game/garage-store.js');
+  const { keepGhost, ghostOf, validGhost } = await import('../src/game/ghost.js');
+  const { boardOf } = await import('../src/game/online.js');
+  const { boardKey } = await import('../leaderboard/lib/verify.js');
+  assert.equal(lapClass(false, ''), 'stock'); assert.equal(lapClass(true, '120-610', 'f1'), 'modified@120-610');
+  assert.equal(lapClass(false, '', 'kart'), 'kart/stock');
+  for (const k of ['stock', 'modified@none', 'kart/stock@120-610']) assert.ok(LAP_CLASS.test(k), k);
+  // records: an F1 lap where it always was, another class's beside it
+  const rec = {};
+  assert.ok(recordLap(rec, 'elkmoor', false, 40, '', 'f1')); assert.ok(recordLap(rec, 'elkmoor', false, 50, '', 'kart'));
+  assert.deepEqual(rec, { elkmoor: { stock: 40, 'kart/stock': 50 } });
+  assert.deepEqual(loadRecords(JSON.stringify(rec)), rec, 'both load');
+  // ghosts: `car` missing = the F1; an unknown class's lap is not kept
+  const lap = { v: 1, time: 40, circuit: 'elkmoor', physics: S.TUNING.PHYSICS, modified: false, start: false, hz: 20, split: 20,
+    frames: [0, 0, 0, 1, 0, 0, 2, 0, 0], splits: [1] };
+  const store = {};
+  assert.ok(validGhost(lap, S.CIRCUITS), 'a valid lap');
+  keepGhost(store, lap);
+  assert.equal(ghostOf(store, 'elkmoor', false, false, '', 'f1'), lap);
+  assert.deepEqual(Object.keys(store.elkmoor), ['stock'], 'the old slot');
+  assert.equal(validGhost({ ...lap, car: 'hovercraft' }, S.CIRCUITS), false);
+  // boards: the F1's names unchanged
+  assert.equal(boardOf('elkmoor', true, 'f1'), `${S.TUNING.PHYSICS}:elkmoor:on`);
+  assert.equal(boardKey('elkmoor', true), boardOf('elkmoor', true, 'f1'));
+  assert.equal(boardKey('elkmoor', false, 'kart'), `${S.TUNING.PHYSICS}:kart:elkmoor:off`);
+  // the garage saves its class; an old save or an unknown class = the F1
+  assert.equal(loadGarage(null).carClass, 'f1');
+  assert.equal(loadGarage(JSON.stringify({ carClass: 'hovercraft', setup: { wing: 9 } })).carClass, 'f1');
+  assert.equal(loadGarage(JSON.stringify({ setup: { wing: 9 } })).setup.wing, 9, 'an old save keeps its setup');
+});

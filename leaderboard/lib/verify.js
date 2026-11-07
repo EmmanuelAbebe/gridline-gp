@@ -16,7 +16,8 @@ const PLAYER = SIM.DRIVERS.find(d => d.player).code;
 const fail = reason => ({ ok: false, reason });
 
 // the board a lap goes on: per physics version, circuit and active aero on / off
-export const boardKey = (circuit, aero) => `${SIM.TUNING.PHYSICS}:${circuit}:${aero ? 'on' : 'off'}`;
+// (car: the car class's id; the F1's boards keep their names from before car classes)
+export const boardKey = (circuit, aero, car = 'f1') => `${SIM.TUNING.PHYSICS}:${car !== 'f1' ? car + ':' : ''}${circuit}:${aero ? 'on' : 'off'}`;
 
 // the assists' name for the strongest help used during the lap (a preset, else 'custom')
 function assistName(a) {
@@ -57,7 +58,7 @@ export function verifyRun(rp, claim = {}) {
         ghostRec.sample(c, race.t); traceRec.sample(c, race.t - c.lapStart);
         help = strongest(help, c);
         for (const e of c.events) if (e.type === SIM.EV.LAP) {
-          const lap = c.lap - 1, g = ghostRec.lap(e.time, { circuit: rp.circuit, modified: false, driver: '', start: lap === 1 });
+          const lap = c.lap - 1, g = ghostRec.lap(e.time, { circuit: rp.circuit, modified: false, driver: '', start: lap === 1, ...(cls.id !== 'f1' ? { car: cls.id } : {}) });
           const tr = traceRec.finish(e.time, { invalid: !!e.invalid, lap });
           if (lap >= 2 && !e.invalid && g && tr && (!best || e.time < best.time)) best = { time: e.time, lap, ghost: g, trace: tr, help };
           ghostRec.start(c.lapStart); traceRec.start(c.lap, c, race.t - c.lapStart); help = null;
@@ -71,7 +72,7 @@ export function verifyRun(rp, claim = {}) {
 
   const h = best.help, R = rp.race;
   return {
-    ok: true, circuit: rp.circuit, aero: !!R.activeAero, board: boardKey(rp.circuit, R.activeAero), time: best.time, lap: best.lap,
+    ok: true, circuit: rp.circuit, aero: !!R.activeAero, board: boardKey(rp.circuit, R.activeAero, cls.id), time: best.time, lap: best.lap,
     laps: run.laps.length,
     sectors: sectorTimes(best.trace, L).map(t => Math.round(t * 1000) / 1000),
     settings: {

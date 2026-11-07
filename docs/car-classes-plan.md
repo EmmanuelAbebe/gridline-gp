@@ -93,7 +93,8 @@ the same numbers, `npm run sim-version` and the smoke test. One commit per stage
 6. **The game.** (Done 2026-11-07: `src/game/car-class.js`; the 3D model stays the F1's car.glb / classic car until a
    second class brings its own.) The game asks the race's class for its setup ranges, ECU maps, compounds, wear and hitbox instead
    of `SIM.SETUP` etc.; car-models.js maps a class to its model (`car.glb` for the F1).
-7. **Saved data gets the class.** A missing class reads as `'f1'`, so no save needs converting: records, ghosts,
+7. **Saved data gets the class.** (Done 2026-11-07: the F1's keys stay as they were, another class's carry its id
+   (`kart/stock`, `2:kart:elkmoor:on`), so nothing converts and the old boards are the F1's.) A missing class reads as `'f1'`, so no save needs converting: records, ghosts,
    sectors, lap runs, the garage (setup + mods per class), the ai-ghosts cache key, the replay header, and the
    leaderboard (`physics:class:circuit:aero`; the server reads the old boards as F1, `verify.js` checks the
    replay's class). SIM_VERSION changes with the sim, so the leaderboard needs a redeploy after this stage.

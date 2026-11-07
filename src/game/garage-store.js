@@ -55,16 +55,17 @@ export function loadGarage(json) {
   const s = parse(json), old = OLD_STOCK[s.physics ?? 1], mods = s.mods && typeof s.mods === 'object' ? { ...s.mods } : s.mods;
   if (old && mods) for (const [k, v] of Object.entries(old)) if (mods[k] === v) delete mods[k];
   const cls = garageClass(s);
-  return { physics: SIM.TUNING.PHYSICS, livery: validLivery(s.livery), setup: SIM.validSetup(s.setup, cls), mods: SIM.validMods(mods, cls), tyres: validStrategy(s.tyres) };
+  return { physics: SIM.TUNING.PHYSICS, carClass: cls.id, livery: validLivery(s.livery), setup: SIM.validSetup(s.setup, cls), mods: SIM.validMods(mods, cls), tyres: validStrategy(s.tyres) };
 }
 // the player's car for the race: their driver entry with the livery on it, and the spec from setup + mods
 export const playerDriver = g => ({ ...PLAYER, color: g.livery.color, accent: g.livery.accent, number: g.livery.number });
 export const playerSpec = g => SIM.carSpec(g.setup, g.mods, garageClass(g));
-// the garage's car class (car-class.js; one for now: saved with the garage from car classes stage 7)
+// the garage's car class (saved as `carClass`, its id; a save from before car classes, or of a class this game doesn't
+// have: the F1). Its setup and mods are that class's (a class picker will keep each class's own)
 export const garageClass = g => classById(g?.carClass);
 
-// ---- lap records: { [circuit id]: { [class]: seconds } }, class = stock / modified + the zone layout (aero-zones.js
-// lapClass: 'stock', 'modified', 'stock@120-610,...') ----
+// ---- lap records: { [circuit id]: { [class]: seconds } }, class = the car class + stock / modified + the zone layout
+// (aero-zones.js lapClass: 'stock', 'modified', 'stock@120-610,...', 'kart/stock') ----
 export function loadRecords(json) {
   const s = parse(json), out = {};
   for (const [id, r] of Object.entries(s)) {
@@ -76,9 +77,9 @@ export function loadRecords(json) {
   return out;
 }
 // a valid lap: returns true when it beats the record for this circuit, class and zone layout (and stores it)
-export function recordLap(records, circuit, modified, time, zones = '') {
+export function recordLap(records, circuit, modified, time, zones = '', car = 'f1') {
   if (!(time > 0) || !Number.isFinite(time)) return false;
-  const k = lapClass(modified, zones), r = (records[circuit] ||= {});
+  const k = lapClass(modified, zones, car), r = (records[circuit] ||= {});
   if (r[k] !== undefined && r[k] <= time) return false;
   r[k] = time;
   return true;
