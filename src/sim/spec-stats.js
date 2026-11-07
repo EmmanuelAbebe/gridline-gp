@@ -1,7 +1,7 @@
 // What a spec does, in numbers the garage shows next to the setup (and the tests check): straight-line speed and
 // acceleration (full throttle from standstill, automatic gearbox, traction-limited), steady cornering speed at a few
 // radii, braking distance, and the balance in slow and fast corners. Quick (a 60 s straight at 120 Hz, no track).
-import { TUNING, CAR, CHASSIS as CH, ASSISTS, ERS } from './tuning.js';
+import { TUNING, ASSISTS } from './tuning.js';
 import { drivetrain, cornerSpeed, brakeLimit, tyreGrip, lateralGrip } from './vehicle.js';
 /** @typedef {import('./spec.js').Spec} Spec */
 
@@ -12,7 +12,7 @@ const G = 9.81, DT = 1 / 120, KMH = 3.6;
 /** @param {Spec} s */
 export function balanceAt(s, v) {
   // (at the cornering limit, with the sideways load transfer split by the anti-roll bars: rollFront, chassis.js)
-  const fw = CH.frontWeight, df = s.dfK * v * v, a = lateralGrip(v, s), d = a * CH.cgHeight / CH.track;
+  const CH = s.cls.chassis, fw = CH.frontWeight, df = s.dfK * v * v, a = lateralGrip(v, s), d = a * CH.cgHeight / CH.track;
   const axle = (load, dd, ns) => tyreGrip(load / 2 + dd, s, ns / 2) + tyreGrip(Math.max(0, load / 2 - dd), s, ns / 2);
   const front = s.frontGrip * axle(G * fw + df * s.aeroFront, d * s.rollFront, G * fw) / fw;
   const rear = s.rearGrip * axle(G * (1 - fw) + df * (1 - s.aeroFront), d * (1 - s.rollFront), G * (1 - fw)) / (1 - fw);
@@ -21,6 +21,7 @@ export function balanceAt(s, v) {
 
 /** @param {Spec} s */
 export function specStats(s) {
+  const { car: CAR, chassis: CH, ers: ERS } = s.cls;
   const c = { spec: s, v: 0, gear: 1, rpm: 0, shiftT: 0, autoShift: true, autoDown: false, downQueue: 0, slip: 0, drive: 0, aeroOpen: 0, boostOn: false,
     assists: ASSISTS.medium, events: [], soc: ERS.store, harvested: 0, ersLap: 0, ersKw: 0, lap: 0 };
   let v = 0, t = 0, t100 = null, t200 = null, top = 0, steady = 0;

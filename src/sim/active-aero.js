@@ -1,7 +1,7 @@
 // Active aero and overtake mode (ACTIVE_AERO, OVERTAKE in tuning.js). Every car, player and AI, the same rules.
 // Off unless the race has `activeAero` (createRace option), so cars without it keep aeroOpen = 0: the physics then
 // multiplies by exactly 1 (sim-trace unchanged).
-import { ACTIVE_AERO as AA, OVERTAKE, AI, TUNING, EV, ERS } from './tuning.js';
+import { ACTIVE_AERO as AA, AI, TUNING, EV } from './tuning.js';   // (AA: the zones, built per circuit with the F1: car classes stage 4)
 import { STOCK } from './spec.js';
 import { cornerSpeed } from './vehicle.js';
 import { wrapIdx } from './math.js';
@@ -122,7 +122,7 @@ export function gapAhead(race, c, within = 5) {
 /** @param {Race} race @param {Car} c */
 export function updateActiveAero(race, c, inp, dt) {
   if (!race.activeAero) return;
-  const T = race.track;
+  const T = race.track, { activeAero: AA, overtake: OVERTAKE, ers: ERS } = c.spec.cls;
   // overtake mode: detection each time the car starts a lap
   if (race.overtake && c.lap !== c.boostLap) {
     c.boostLap = c.lap; c.boostOn = false;

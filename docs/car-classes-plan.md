@@ -80,7 +80,8 @@ the same numbers, `npm run sim-version` and the smoke test. One commit per stage
    (`export const CHASSIS = F1_2026…`), so no other file changes. A pure move. Also add `CarClass` to types.js.
 2. **The spec carries the class.** (Done 2026-11-06: also `classOf(id)`, and replays record the class.) `carSpec(…, cls)`, `stockOf(cls)`, `c.spec.cls`; `createRace({ carClass })`
    (default F1) gives every car its class's stock spec. Mixed fields are not allowed yet: one class per race.
-3. **Physics reads the car's class**, a file at a time, smallest first: collide.js, tyre-temp.js, pit.js,
+3. **Physics reads the car's class** (done 2026-11-07; chassis.js derives its constants per class: `chassisOf`; the
+   whole sim-trace run ~2–3 % slower), a file at a time, smallest first: collide.js, tyre-temp.js, pit.js,
    active-aero.js, ecu.js, vehicle.js, spec-stats.js, driving.js, then chassis.js. Keep every float expression in
    the same order (a reordering changes the last bit and the hashes; sim-trace finds it at once).
 4. **Per circuit × class.** track.js, active-aero.js, sectors.js and racing-lines.js through `aiOf(track, cls)`.

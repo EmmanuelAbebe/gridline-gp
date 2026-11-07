@@ -1,7 +1,7 @@
 // The player's and the AI's driving. Every car is the same car (vehicle.js engine/gearbox/aero, chassis.js tyres);
 // the player and the AI only decide steering, throttle, brake and shifts.
 import { axleTempGrip } from './tyre-temp.js';
-import { AI, ASSISTS, CHASSIS, TUNING, SPEED_STEER, CAR, COMPOUNDS } from './tuning.js';
+import { AI, ASSISTS, TUNING, SPEED_STEER } from './tuning.js';
 import { STOCK } from './spec.js';
 import { clamp, wrapA, wrapIdx } from './math.js';
 import { progress } from './race.js';
@@ -53,7 +53,7 @@ export function speedSteer(s, v, k, assist, spec = STOCK) {
 // s' = k·s + (1 − k)·s³: slope k at the centre, 1 at full tilt
 /** @param {number} s @param {number} v @param {number} calm @param {import('./spec.js').Spec} [spec] */
 export function calmSteer(s, v, calm, spec = STOCK) {
-  const slope = clamp(CHASSIS.calmLateral / lateralGrip(Math.abs(v), spec), CHASSIS.calmMinSlope, 1), k = 1 - (1 - slope) * calm;
+  const CHASSIS = spec.cls.chassis, slope = clamp(CHASSIS.calmLateral / lateralGrip(Math.abs(v), spec), CHASSIS.calmMinSlope, 1), k = 1 - (1 - slope) * calm;
   return k * s + (1 - k) * s * s * s;
 }
 
@@ -110,7 +110,7 @@ function feelPedals(c, thr, brk, dt) {
     // the wheelspin `react` s ago: a driver feels it that late (2026-10-28: reacting within the step, the AI held the
     // rears at the edge of grip like traction control, out-accelerating anyone without it)
     const lag = (c.feelLag ||= []), n = Math.max(1, Math.round(F.react / dt));
-    lag.push(c.rearSpin > F.feelAt * CHASSIS.spin.peak ? 1 : 0); while (lag.length > n) lag.shift();   // (the rears starting to spin: before the spin is full)
+    lag.push(c.rearSpin > F.feelAt * c.spec.cls.chassis.spin.peak ? 1 : 0); while (lag.length > n) lag.shift();   // (the rears starting to spin: before the spin is full)
     const spun = lag.length >= n && (lag[0] & 1) === 1, slid = c.slideR > F.slide;   // (the slide it feels in the seat at once)
     // (once per spin it learns and eases off; for as long as it still feels it spinning it keeps easing off)
     const feel = spun || (slid && c.thr > F.floor), first = feel && !c.feelSpun;
@@ -163,11 +163,11 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   let off = RO[ti] + bias;
   // in another car's dirty air the downforce drops (chassis.js): take the corners that much slower (not the straights)
   // (smoothed over AI.dirtyTime s: the wake comes and goes, the speed shouldn't)
-  const wantDirty = Math.sqrt(1 - CHASSIS.dirtyAir * (c.slip || 0) * (1 - c.spec.grip * 9.81 / lateralGrip(Math.max(sp, 1), c.spec)));
+  const CHASSIS = c.spec.cls.chassis, wantDirty = Math.sqrt(1 - CHASSIS.dirtyAir * (c.slip || 0) * (1 - c.spec.grip * 9.81 / lateralGrip(Math.max(sp, 1), c.spec)));
   c.dirtyK += (wantDirty - c.dirtyK) * Math.min(1, dt / AI.dirtyTime);
   // tyre temperatures (tyre-temp.js) and the compound (COMPOUNDS): it feels its tyres like a driver, cornering on the
   // grip they have now
-  const tempK = race.tyreTemp && c.tyreT ? Math.min(...Object.values(axleTempGrip(c.tyreT))) : 1, compK = COMPOUNDS[c.compound].grip, tyreK = tempK * compK;
+  const tempK = race.tyreTemp && c.tyreT ? Math.min(...Object.values(axleTempGrip(c.tyreT))) : 1, compK = c.spec.cls.compounds[c.compound].grip, tyreK = tempK * compK;
   const dirty = tyreK !== 1 ? c.dirtyK * Math.sqrt(tyreK) : c.dirtyK;
   const vp = j => VP[j] < TUNING.V_CAP * 0.97 ? VP[j] * dirty : VP[j];
   let targetV = Math.min(vp((c.idx+2)%N), vp((c.idx+6)%N)) * skill;
@@ -307,7 +307,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   }
   if (!c.assists.abs || !c.assists.tc) [thr, brk] = feelPedals(c, thr, brk, dt);
   // (everything above asks for a share of the torque; the pedal that gives it, through the torque map: vehicle.js)
-  if (thr > 0) thr = FM.pow(thr, 1 / CAR.engine.pedalMap);
+  if (thr > 0) thr = FM.pow(thr, 1 / c.spec.cls.car.engine.pedalMap);
   c.brake = brk; c.thr = thr;
   updateActiveAero(race, c, { thr, brk }, dt);
   updateWear(race, c, thr, dt);

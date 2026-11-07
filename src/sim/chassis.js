@@ -6,7 +6,8 @@
 //
 // State on the car: v (forward speed), vy (sideways speed, + = right), yawRate (rad/s, + = turning right), ax.
 // Everything is per unit mass, so forces read as accelerations (m/s²).
-import { TUNING, CHASSIS as CH, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT, ACTIVE_AERO, HANDBRAKE, ERS, ECU, TYRE_TEMP as TTC, DIFF, SUSPENSION as SU, SETUP, DAMPER as DA } from './tuning.js';
+import { TUNING, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT } from './tuning.js';
+import { F1_2026 } from './classes/f1-2026.js';
 import { updateEcu, brakeAhead } from './ecu.js';
 import { axleTempGrip, stepTyreTemps, tyreEvents } from './tyre-temp.js';
 import { clamp, speedOf } from './math.js';
@@ -18,21 +19,38 @@ import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
 
-const G = 9.81, L = CH.wheelbase;
-const A_FRONT = L * (1 - CH.frontWeight), B_REAR = L * CH.frontWeight;   // CG to front / rear axle
-const K2 = CH.gyration * CH.gyration;
+const G = 9.81;
+// A car class's tables and the numbers derived from them, made once per class (Q; car classes, docs/car-classes-plan.md):
+// L wheelbase, A_FRONT / B_REAR the centre of mass to the front / rear axle, K2 the yaw inertia per mass, STOCK_RIDE the
+// stock ride heights (and their mean KERB_RIDE, STOCK_SUSP the stock springs), ROLL_W / PITCH_W the body's roll / pitch
+// frequencies (rad/s), C_SHAPE / B_UNIT the tyre curve's shape
+const bundles = new WeakMap();
+/** @param {import('./types.js').CarClass} cls */
+function chassisOf(cls) {
+  let Q = bundles.get(cls);
+  if (Q) return Q;
+  const CH = cls.chassis, SU = cls.suspension, DA = cls.damper, SETUP = cls.setup, L = CH.wheelbase;
+  const STOCK_RIDE = [SETUP.rideF.def, SETUP.rideR.def], C_SHAPE = CH.falloff;
+  Q = Object.freeze({ CH, SU, DA, DIFF: cls.diff, ACTIVE_AERO: cls.activeAero, HANDBRAKE: cls.handbrake, ERS: cls.ers, ECU: cls.ecu, TTC: cls.tyreTemp,
+    L, A_FRONT: L * (1 - CH.frontWeight), B_REAR: L * CH.frontWeight, K2: CH.gyration * CH.gyration,
+    STOCK_RIDE, KERB_RIDE: (SETUP.rideF.def + SETUP.rideR.def) / 2, STOCK_SUSP: { kF: SU.kF, kR: SU.kR, rideF: STOCK_RIDE[0], rideR: STOCK_RIDE[1] },
+    ROLL_W: 2 * Math.PI * DA.hz, PITCH_W: 2 * Math.PI * DA.pitchHz, C_SHAPE, B_UNIT: FM.tan(Math.PI / (2 * C_SHAPE)) });
+  bundles.set(cls, Q);
+  return Q;
+}
+/** @typedef {ReturnType<typeof chassisOf>} ChassisQ */
+const F1_Q = chassisOf(F1_2026);
 // the suspension off stock (spec.susp, SUSPENSION): how far each end sinks under the load beyond its weight at rest (axle
 // load per mass dF / dR: downforce, dive, dips) on these springs and on the stock ones, so the floor's height at speed
 // against the stock car's in the same spot: the downforce factor (ground effect, a stalling floor) and the front's share
-const STOCK_RIDE = [SETUP.rideF.def, SETUP.rideR.def];
-const stallK = h => h < SU.stallAt ? 1 - Math.min(SU.stallMax, SU.stall * (SU.stallAt - h)) : 1;
-const plankK = h => h < 0 ? Math.max(SU.plankMin, 1 + SU.plank * h) : 1;        // (the floor on the road: the plank takes load)
-const KERB_RIDE = (SETUP.rideF.def + SETUP.rideR.def) / 2;
+const stallK = (SU, h) => h < SU.stallAt ? 1 - Math.min(SU.stallMax, SU.stall * (SU.stallAt - h)) : 1;
+const plankK = (SU, h) => h < 0 ? Math.max(SU.plankMin, 1 + SU.plank * h) : 1;        // (the floor on the road: the plank takes load)
 // the dampers off stock (DAMPER): the body's roll as a spring and damper, one sub-step (x = the load transfer the springs
 // carry, per mass; v its rate), on these dampers (damping ratio zeta) and on the stock ones; returns the change to each
 // axle's sideways transfer against the stock car's (signed like T)
-const ROLL_W = 2 * Math.PI * DA.hz;
-function dampRoll(D, Dm, T, rollFront, h) {
+/** @param {ChassisQ} Q */
+function dampRoll(Q, D, Dm, T, rollFront, h) {
+  const { DA, ROLL_W } = Q;
   const z = DA.zeta * (Dm.cF + Dm.cR) / 2;
   D.v += (ROLL_W * ROLL_W * (T - D.x) - 2 * z * ROLL_W * D.v) * h; D.x += D.v * h;
   D.v0 += (ROLL_W * ROLL_W * (T - D.x0) - 2 * DA.zeta * ROLL_W * D.v0) * h; D.x0 += D.v0 * h;
@@ -42,21 +60,23 @@ function dampRoll(D, Dm, T, rollFront, h) {
 }
 // and its pitch (T = the lengthways transfer, − = braking: the nose going down): returns how much more of it the springs
 // carry than the stock car's do (the floor's height follows that)
-const PITCH_W = 2 * Math.PI * DA.pitchHz;
-function dampPitch(D, Dm, T, h) {
+/** @param {ChassisQ} Q */
+function dampPitch(Q, D, Dm, T, h) {
+  const { DA, PITCH_W } = Q;
   const z = DA.zeta * (D.pv < 0 ? Dm.dive : Dm.rise);
   D.pv += (PITCH_W * PITCH_W * (T - D.p) - 2 * z * PITCH_W * D.pv) * h; D.p += D.pv * h;
   D.pv0 += (PITCH_W * PITCH_W * (T - D.p0) - 2 * DA.zeta * PITCH_W * D.pv0) * h; D.p0 += D.pv0 * h;
   return D.p - D.p0;
 }
 // (dFs / dRs: the stock car's in the same spot, when it differs: the dampers' pitch)
-const STOCK_SUSP = { kF: SU.kF, kR: SU.kR, rideF: STOCK_RIDE[0], rideR: STOCK_RIDE[1] };
-function suspAero(P, dF, dR, mass, aF, dFs = dF, dRs = dR) {
+/** @param {ChassisQ} Q */
+function suspAero(Q, P, dF, dR, mass, aF, dFs = dF, dRs = dR) {
+  const { SU, STOCK_RIDE } = Q;
   const hF = P.rideF - dF * mass / P.kF, hR = P.rideR - dR * mass / P.kR;
   const sF = STOCK_RIDE[0] - dFs * mass / SU.kF, sR = STOCK_RIDE[1] - dRs * mass / SU.kR;
   const ground = 1 + SU.ground * ((sF + sR) / 2 - (hF + hR) / 2);
-  const floor = aF * stallK(hF) / stallK(sF) + (1 - aF) * stallK(hR) / stallK(sR);
-  return { k: ground * floor, front: SU.rake * ((hR - hF) - (sR - sF)), gripF: plankK(hF) / plankK(sF), gripR: plankK(hR) / plankK(sR) };
+  const floor = aF * stallK(SU, hF) / stallK(SU, sF) + (1 - aF) * stallK(SU, hR) / stallK(SU, sR);
+  return { k: ground * floor, front: SU.rake * ((hR - hF) - (sR - sF)), gripF: plankK(SU, hF) / plankK(SU, sF), gripR: plankK(SU, hR) / plankK(SU, sR) };
 }
 // extra deceleration from the surface (signed to oppose the motion): rolling + the gravel's bite (full from biteFrom,
 // fading above biteTo to `skim` of it: a fast car skims over gravel, a slow one digs in)
@@ -69,8 +89,8 @@ export function surfaceDrag(surf, v) {
 const axleGrip = (load, d, ns, S) => { const half = load / 2, dd = Math.min(d, half);
   return tyreGrip(half + dd, S, ns / 2) + tyreGrip(half - dd, S, ns / 2); };
 // tyre curve: sin(C·atan(B·α)), peaking at the axle's peak slip angle
-const C_SHAPE = CH.falloff, B_UNIT = FM.tan(Math.PI / (2 * C_SHAPE));
-export const tyreCurve = (alpha, peak = CH.peakSlip) => FM.sin(C_SHAPE * FM.atan(B_UNIT / peak * alpha));
+/** @param {ChassisQ} [Q] the car class's (the F1's by default) */
+export const tyreCurve = (alpha, peak = F1_2026.chassis.peakSlip, Q = F1_Q) => FM.sin(Q.C_SHAPE * FM.atan(Q.B_UNIT / peak * alpha));
 
 // Road-wheel angle at full lock. With the steering assist the lock shrinks with speed toward the angle of the
 // tightest steady turn the tyres can hold (wheelbase / radius, plus the tyres' slip, measured: limitTurn, steerMargin),
@@ -78,15 +98,17 @@ export const tyreCurve = (alpha, peak = CH.peakSlip) => FM.sin(C_SHAPE * FM.atan
 // cornering. Less assist mixes back the raw lock (squared, so medium stays close to the grip limit).
 /** @param {number} v @param {number} assist @param {import('./spec.js').Spec} [spec] */
 export function steerLock(v, assist, spec = STOCK) {
-  const sp = Math.max(Math.abs(v), 1);
+  const sp = Math.max(Math.abs(v), 1), { CH, L } = chassisOf(spec.cls);
   const useful = Math.min(CH.maxSteer, L * lateralGrip(sp, spec) / (sp * sp) * CH.limitTurn + CH.steerMargin);
   return useful + (CH.maxSteer - useful) * FM.pow(1 - assist, 2);
 }
 
 // One axle's forces. D = grip (per mass), alpha = slip angle, long = braking (−) or drive (+) asked of it.
 // Returns lateral force, longitudinal force actually delivered, and how far past the grip limit it is (0..1+).
-function axle(D, alpha, peak, long, limit, spin = null, driveK = 1, inner = 0, longK = 1) {
-  let fy = -D * tyreCurve(alpha, peak);
+/** @param {ChassisQ} Q */
+function axle(Q, D, alpha, peak, long, limit, spin = null, driveK = 1, inner = 0, longK = 1) {
+  const CH = Q.CH;
+  let fy = -D * tyreCurve(alpha, peak, Q);
   const lg = longK === 1 ? CH.longGrip : CH.longGrip * longK, longMax = D * lg;   // (longK: camber's cost lengthways)
   // what is left for braking / drive after cornering (friction circle)
   const avail = Math.sqrt(Math.max(longMax * longMax * 0.1, longMax * longMax - fy * fy * lg * lg));
@@ -98,7 +120,7 @@ function axle(D, alpha, peak, long, limit, spin = null, driveK = 1, inner = 0, l
   let over = Math.abs(fx) / avail;
   // driving rear wheels without traction control: the spin builds up and dies away (CH.spin, spinStep)
   if (spin && fx > 0 && (over > 1 || spin.s > 0)) {
-    const P = CH.spin.peak, s = spinStep(spin, over, avail);
+    const P = CH.spin.peak, s = spinStep(CH, spin, over, avail);
     const k = s < P ? 1 : 1 - (1 - CH.slideLong) * (s - P) / (1 - P);
     fx = Math.min(fx, avail * k);
     fy *= 1 - (1 - CH.lockLateral) * Math.max(0, s - P) / (1 - P);
@@ -118,7 +140,7 @@ function axle(D, alpha, peak, long, limit, spin = null, driveK = 1, inner = 0, l
 // One sub-step of the rear wheels' spin (spin = { s, v, h }: the state 0..1, the car's speed, the sub-step): the drive
 // beyond what the tyres give (over − 1, × avail per mass) spins the wheels up through the drivetrain's inertia (the car's
 // mass / CH.spin.mass, reflected at the tyre), as slip ratio per s at this speed; under the limit they slow back to grip
-function spinStep(spin, over, avail) {
+function spinStep(CH, spin, over, avail) {
   const S = CH.spin, rate = (over - 1) * avail * S.mass / (Math.max(spin.v, S.minSpeed) * S.full);
   spin.s = clamp(spin.s + rate * spin.h, 0, 1);
   return spin.s;
@@ -128,6 +150,8 @@ function spinStep(spin, over, avail) {
 /** @param {Race} race @param {Car} c */
 export function stepChassis(race, c, inp, dt) {
   const A = c.assists || ASSISTS.medium, surf = SURFACES[c.surface] || SURFACES.track, S = c.spec;   // S: the car's own numbers (spec.js)
+  // its class's tables and the numbers derived from them (chassisOf)
+  const Q = chassisOf(S.cls), { CH, SU, DA, DIFF, ACTIVE_AERO, HANDBRAKE, ERS, ECU, TTC, L, A_FRONT, B_REAR, K2, KERB_RIDE, STOCK_SUSP } = Q;
   // the deployment map (as the real cars' ECU, by where the car is): no electrical power in the last metres before a
   // braking zone (the energy would only go into the brakes), stopping earlier the emptier the battery (ERS.map)
   if (c.ecuMode) {
@@ -209,8 +233,8 @@ export function stepChassis(race, c, inp, dt) {
     const D = Dm ? c.damp || (c.damp = { x: 0, v: 0, x0: 0, v0: 0, p: 0, pv: 0, p0: 0, pv0: 0, kerb: 0 }) : null;
     if (P || D) {                                  // (the suspension off stock: the floor's height at speed, kerbs)
       const dF = t => gN * CH.frontWeight + df * aF - t - G * CH.frontWeight, dR = t => gN * (1 - CH.frontWeight) + df * (1 - aF) + t - G * (1 - CH.frontWeight);
-      const r = D ? (tp => suspAero(P || STOCK_SUSP, dF(tp), dR(tp), S.mass, aF, dF(transfer), dR(transfer)))(transfer + dampPitch(D, Dm, transfer, h))
-        : suspAero(P, dF(transfer), dR(transfer), S.mass, aF);
+      const r = D ? (tp => suspAero(Q, P || STOCK_SUSP, dF(tp), dR(tp), S.mass, aF, dF(transfer), dR(transfer)))(transfer + dampPitch(Q, D, Dm, transfer, h))
+        : suspAero(Q, P, dF(transfer), dR(transfer), S.mass, aF);
       df *= r.k; aF += r.front; plankF = r.gripF; plankR = r.gripR;
       if (P && onKerb) {
         const lower = KERB_RIDE - (P.rideF + P.rideR) / 2;
@@ -228,7 +252,7 @@ export function stepChassis(race, c, inp, dt) {
     // (dampers off stock: + the change their roll damping makes while the body rolls, dampRoll)
     let lf, lr;
     if (Dm) {
-      const T = c.ay * CH.cgHeight / CH.track, d = dampRoll(c.damp, Dm, T, S.rollFront, h);
+      const T = c.ay * CH.cgHeight / CH.track, d = dampRoll(Q, c.damp, Dm, T, S.rollFront, h);
       lf = Math.abs(T * S.rollFront + d.f); lr = Math.abs(T * (1 - S.rollFront) + d.r);
     } else { const lat = Math.abs(c.ay) * CH.cgHeight / CH.track; lf = lat * S.rollFront; lr = lat * (1 - S.rollFront); }
     const loadF = Math.max(0.5, gN * CH.frontWeight + df * aF * cond.front - transfer);
@@ -249,7 +273,7 @@ export function stepChassis(race, c, inp, dt) {
     // ABS / traction control hold the tyres at `limit` × what they can give: medium / high 0.97, low 0.985 (2026-10-24: low
     // used to allow 1.045 / 1.095, past the grip, so its wheels locked and spun as with none)
     const absLimit = A.abs > 0 ? 0.97 + 0.03 * (1 - A.abs) : null, tcLimit = A.tc > 0 ? 0.97 + 0.03 * (1 - A.tc) : null;
-    const front = axle(Df, alphaF, S.peakF, -brake * bias * back, absLimit, null, 1, 0, P ? P.longF : 1);
+    const front = axle(Q, Df, alphaF, S.peakF, -brake * bias * back, absLimit, null, 1, 0, P ? P.longF : 1);
     // (engine braking on a lift, d.rear: through the rear tyres; the handbrake's own branch keeps it in the car's drag)
     const eng = inp.hb ? 0 : d.rear;
     const rearLong = d.drive - eng - brake * (1 - bias) * back;
@@ -264,8 +288,8 @@ export function stepChassis(race, c, inp, dt) {
     const lock = inp.hb ? 0 : S.diff[inp.brk > DIFF.pedal ? 0 : inp.thr > DIFF.pedal ? 2 : 1];
     // (on the throttle a more open diff lets the inside rear, unloaded by the cornering, spin up first)
     const unload = clamp(lr / (loadR / 2), 0, 1), driveK = lock < 0 && inp.thr > DIFF.pedal ? 1 - DIFF.traction * -lock * unload : 1;
-    const rear = inp.hb ? axle(Dr, alphaR, S.peakR, -Dr * CH.longGrip * HANDBRAKE.lock * inp.hb * back, null)
-      : axle(Dr, alphaR, S.peakR, rearLong, braking ? rearBrakeLimit : tcLimit, spin, driveK, (1 - unload) / 2, P ? P.longR : 1);
+    const rear = inp.hb ? axle(Q, Dr, alphaR, S.peakR, -Dr * CH.longGrip * HANDBRAKE.lock * inp.hb * back, null)
+      : axle(Q, Dr, alphaR, S.peakR, rearLong, braking ? rearBrakeLimit : tcLimit, spin, driveK, (1 - unload) / 2, P ? P.longR : 1);
     if (!spin) spinState.s = 0;
     // how far past the grip limit each axle is: 0 = gripping, 1 = fully sliding (locked, spinning or past peak slip)
     slideF = Math.max(slideF, front.over - 1, Math.abs(alphaF) / S.peakF - 1);

@@ -41,7 +41,7 @@ export function createRace(format, { carClass = F1_2026, track = DEFAULT_TRACK, 
   if (aiAssists) for (const c of race.cars) if (!c.player) c.assists = aiAssists;
   setupWear(race, wear);
   // tyre temperatures (tyre-temp.js): every car on a fresh set off the blankets (after setupWear: it resets the pit state)
-  if (tyreTemp) for (const c of race.cars) c.tyreT = tyreSet();
+  if (tyreTemp) for (const c of race.cars) c.tyreT = tyreSet(undefined, 'medium', c.spec.cls);
   // tyre compounds (pit.js): every car on medium unless the race says otherwise: one compound for every car, or 'auto' =
   // each team picks its own (bestCompound) and again at every stop (the player's car: the game fits its own choice)
   if (compound !== 'medium') for (const c of race.cars) {

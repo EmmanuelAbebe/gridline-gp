@@ -7,7 +7,8 @@
 // how much it is shoved, turned or dragged along. Overlaps are pushed apart. EV.CONTACT fires once per touch with
 // `impact` = closing speed (m/s); damage goes to the part that hit (front wing; a tyre hit bends the suspension).
 // (Before: one capsule per car, then a rounded box; the capsules' round ends shoved a car hit on a rear corner sideways.)
-import { HITBOX, CONTACT, EV, CHASSIS, ELEVATION, AIR } from './tuning.js';
+import { CONTACT, EV, ELEVATION, AIR } from './tuning.js';
+import { F1_2026 } from './classes/f1-2026.js';
 import { afterMove } from './motion.js';
 import { addDamage } from './pit.js';
 import { lift } from './airborne.js';
@@ -16,13 +17,15 @@ import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
 
-const K2 = CHASSIS.gyration * CHASSIS.gyration;
+// a car's yaw inertia per unit mass (m²: its class's gyration²; one class per race)
+/** @param {Car} c */
+const K2 = c => { const g = c.spec.cls.chassis.gyration; return g * g; };
 // A hitbox ready for the solver (cached per parts list: createRace `hitbox`, HITBOX.parts by default): mirrored twins
 // added; each part with its side (−1 left, +1 right, 0 across the middle), a bounding circle for a quick reject, and
 // `front` / `rear` for the front and rear tyres (a front tyre climbing a rear one: airborne.js); reach = the whole car's
 // bounding circle about its origin
 const prepared = new WeakMap();
-export function prepareHitbox(parts = HITBOX.parts) {
+export function prepareHitbox(parts = F1_2026.hitbox.parts) {
   let H = prepared.get(parts);
   if (H) return H;
   const list = parts.flatMap(p => p.mirror ? [p, { ...p, name: p.name + ' L', pts: p.pts.map(([a, b]) => [a, -b]).reverse() }] : [p]).map(p => {
@@ -120,18 +123,18 @@ function kick(c, jx, jz, px, pz) {
   const fx = FM.cos(c.h), fz = FM.sin(c.h);
   c.v += jx * fx + jz * fz;
   c.vy += -jx * fz + jz * fx;
-  c.yawRate += cross(px - c.x, pz - c.z, jx, jz) / K2;
+  c.yawRate += cross(px - c.x, pz - c.z, jx, jz) / K2(c);
 }
 // impulse per unit closing speed along (ux, uz) at a point: 1 / (both cars' inverse mass + their inverse inertia there)
 /** @param {Car} a @param {Car} b */
 function effMass(a, b, mx, mz, ux, uz) {
   const ra = cross(mx - a.x, mz - a.z, ux, uz), rb = cross(mx - b.x, mz - b.z, ux, uz);
-  return 1 / (2 + (ra * ra + rb * rb) / K2);
+  return 1 / (2 + (ra * ra + rb * rb) / K2(a));
 }
 
 /** @param {Race} race */
 export function collide(race) {
-  const cars = race.cars, elev = race.track.elev, C = CONTACT, H = HITBOX, HB = prepareHitbox(race.hitbox);
+  const cars = race.cars, elev = race.track.elev, C = CONTACT, H = race.carClass.hitbox, HB = prepareHitbox(race.hitbox);
   for (const c of cars) { c.wasTouching = c.touching; if (!c.wasTouching) { c.wingLoad = [0, 0]; c.climbed = 0; } c.touching = false; }
   for (let i = 0; i < cars.length; i++) for (let j = i+1; j < cars.length; j++) {
     const a = cars[i], b = cars[j];

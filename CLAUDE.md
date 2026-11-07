@@ -979,6 +979,12 @@ showed MODIFIED only because of it).
   STOCK = stockOf(F1_2026)); `createRace({ carClass })` (default F1; race.carClass, every car on its class's stock spec,
   hitbox default = the class's); replays record `race.carClass` (id; missing = 'f1', unknown = refused).
   tests/car-classes.test.js.
+- Stage 3 done: the per-car physics reads the car's class (c.spec.cls / s.cls; race.carClass for race-wide wear):
+  collide.js (yaw inertia, hitbox), tyre-temp.js (the tyre set carries its class's table: `T.tt`; tyreSet(t, compound,
+  cls)), pit.js (wear, compounds), ecu.js, active-aero.js's updateActiveAero, car.js (battery, ECU), vehicle.js (tyres,
+  brakes, engine, gearbox, ERS), spec-stats.js, elevation.js, driving.js (calm steering, dirty air, pedal map, compounds),
+  chassis.js (`chassisOf(cls)`: the class's tables + derived constants, made once per class, passed to the helpers).
+  ~2–3 % slower in sim-trace. Left for stage 4: track.js / sectors.js / the aero zones / the AI (planned with the F1).
 
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)

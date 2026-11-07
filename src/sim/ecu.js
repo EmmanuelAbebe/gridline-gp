@@ -5,14 +5,15 @@
 // lift off full throttle, per track sample). MANUAL: the driver steps through the maps (inp.map = −1 / +1 the step a
 // button was pressed); AUTO: the ECU picks one from the battery and the cars around. Called from chassis.js before the
 // drivetrain, so a test bot driving the car gets it too.
-import { ECU, ERS, EV } from './tuning.js';
+import { EV } from './tuning.js';
 import { gapAhead } from './active-aero.js';
 import { emit } from './events.js';
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
 /** @typedef {import('./types.js').Track} Track */
 
-export const ecuMapOf = c => (c.ecuMode ? ECU.maps[c.ecuMap] : null);
+/** @param {Car} c */
+export const ecuMapOf = c => (c.ecuMode ? c.spec.cls.ecu.maps[c.ecuMap] : null);
 
 // Time to the car right behind on the road (any car): how long ago this car passed the spot it is at now.
 /** @param {Race} race @param {Car} c */
@@ -47,7 +48,7 @@ export function brakeAhead(race, c) {
 // AUTO: the map for now (hysteresis: the map it is on decides which thresholds apply)
 /** @param {Race} race @param {Car} c */
 function autoMap(race, c) {
-  const A = ECU.auto, s = c.soc / ERS.store, now = ECU.maps[c.ecuMap].id;
+  const { ecu: ECU, ers: ERS } = c.spec.cls, A = ECU.auto, s = c.soc / ERS.store, now = ECU.maps[c.ecuMap].id;
   // the last lap of a race: everything that's left (energy is worth nothing after the flag)
   if (race.laps < Infinity && c.lap === race.laps) return s > A.lastFrom ? 'quali' : 'balanced';
   if (s < A.harvest || (now === 'harvest' && s < A.refill)) return 'harvest';
@@ -59,7 +60,7 @@ function autoMap(race, c) {
 /** @param {Race} race @param {Car} c */
 export function updateEcu(race, c, inp) {
   if (!c.ecuMode) return;
-  const L = ECU.learn;
+  const ECU = c.spec.cls.ecu, L = ECU.learn;
   // a new lap: the last one's lift points become the map (a lap with too few keeps the old one)
   if (c.ecuLap !== c.lap) {
     if (c.ecuStarts.length >= L.min) c.ecuBrk = brakeMap(race.track, c.ecuStarts);

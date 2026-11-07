@@ -58,3 +58,26 @@ test('car classes: a replay names its class; one from before classes is the F1, 
   const odd = structuredClone(rp); odd.race.carClass = 'hovercraft';
   assert.throws(() => S.replayRun(odd, { track: T }), /car class hovercraft/);
 });
+
+// (stage 3) the physics reads the car's class, not the F1's tables: a throwaway class with more power, a bigger battery,
+// warmer blankets and a shorter wheelbase drives differently, and the F1 beside it is unchanged
+test('car classes: the physics reads the car\'s own class', () => {
+  const engine = { ...F1.car.engine, power: F1.car.engine.power.map(([rpm, kw]) => [rpm, kw * 1.3]) };
+  const strong = Object.freeze({ ...F1, id: 'test-strong', car: Object.freeze({ ...F1.car, engine: Object.freeze(engine) }),
+    ers: Object.freeze({ ...F1.ers, store: 6e6 }), tyreTemp: Object.freeze({ ...F1.tyreTemp, blanket: 95 }),
+    chassis: Object.freeze({ ...F1.chassis, wheelbase: 2.8 }) });
+  const T = S.buildTrack(S.CIRCUITS.harrow), you = [S.DRIVERS.find(d => d.player)];
+  const run = cls => {
+    const race = S.createRace(1, { carClass: cls, track: T, drivers: you, seed: 1, tyreTemp: true }), c = race.cars[0];
+    c.assists = S.ASSISTS.medium; c.autoShift = true;
+    const soc = c.soc, temp = c.tyreT.s[0];
+    for (let k = 0; k < 360; k++) { race.t += 1 / 120; S.drivePlayer(race, c, { steer: 0, thr: 1, brk: 0, analog: true, steerRate: Infinity }, 1 / 120); }
+    return { soc, temp, kmh: c.v * 3.6 };
+  };
+  const f1 = run(F1), st = run(strong);
+  assert.equal(st.soc, 6e6 * F1.ers.start, 'its battery');
+  assert.equal(st.temp, 95, 'its blankets');
+  assert.equal(f1.temp, F1.tyreTemp.blanket);
+  assert.ok(st.kmh > f1.kmh + 3, `its engine: ${st.kmh.toFixed(1)} vs ${f1.kmh.toFixed(1)} km/h after 3 s`);
+  assert.ok(S.steerLock(80, 1, S.stockOf(strong)) < S.steerLock(80, 1, S.STOCK), 'its wheelbase: less lock for the same turn');
+});
