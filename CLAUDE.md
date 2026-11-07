@@ -992,6 +992,11 @@ showed MODIFIED only because of it).
   track × class; driveAI, the deployment map (chassis.js), ecu.js brakeAhead, aiAeroPlan(track, alien, cls) use it. The
   aero zones and the sectors stay the circuit's, made with the F1 for every class (explicit F1_2026 in active-aero.js /
   sectors.js).
+- Stage 5 done: tuning.js no longer exports any car table (only the world's and the AI's racecraft); index.js passes the
+  F1's tables on to the game under their old names (SIM.CHASSIS …, from classes/f1-2026.js) until stage 6; tools /
+  tests import them from the class file. MODS.mass.def = CAR.mass (was a literal 770). tests/car-classes.test.js: a guard
+  (no src/sim module but index.js imports a car table; tuning.js has none) and a throwaway F1 +100 kg / 1.4 m track
+  class (its AI laps slower; the F1 raced before and after it identical to the bit).
 
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)

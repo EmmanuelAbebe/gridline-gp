@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SIM as S } from '../src/sim/index.js';
-import { ACTIVE_AERO, OVERTAKE } from '../src/sim/tuning.js';
+import { ACTIVE_AERO, OVERTAKE } from '../src/sim/classes/f1-2026.js';
 import { gapAhead, updateActiveAero } from '../src/sim/active-aero.js';
 import { DT, run, seeded, aiDriver, centreProfile } from './helpers.js';
 

@@ -1,7 +1,6 @@
 // Driving and race-rule constants. Units are SI throughout: metres, seconds, m/s, m/s².
-// The car's own numbers (the 2026 F1's) live in its class file (classes/f1-2026.js, car classes step 1, 2026-11-06);
-// re-exported here under their old names until every module reads the car's class.
-export { AI_CAR, HITBOX, CAR, SETUP, DIFF, PRESSURE, SUSPENSION, DAMPER, MODS, HANDBRAKE, CHASSIS, ACTIVE_AERO, OVERTAKE, ERS, ECU, WEAR, TYRE_TEMP, COMPOUNDS } from './classes/f1-2026.js';
+// A car's own numbers live in its class (classes/: the 2026 F1's in classes/f1-2026.js; docs/car-classes-plan.md):
+// this file holds the world's (surfaces, run-off, hills, limits, the pit lane, contact, assists) and the AI's racecraft.
 export const TUNING = Object.freeze({
   // the physics' version: 2 = real-F1 physics (2026-10-24). Lap records and ghosts are kept per version (game
   // config storageKeys, ghost.js validGhost): laps on different physics don't compare

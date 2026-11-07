@@ -159,7 +159,7 @@ export const DAMPER = Object.freeze({
 
 export const MODS = Object.freeze({
   power:     { min: 50, max: 250, step: 5, def: 100 },   // % engine power
-  mass:      { min: 500, max: 1200, step: 10, def: 770 }, // kg with driver
+  mass:      { min: 500, max: 1200, step: 10, def: CAR.mass }, // kg with driver (stock = the car's)
   grip:      { min: 50, max: 250, step: 5, def: 100 },   // % tyre grip
   downforce: { min: 0, max: 300, step: 5, def: 100 },    // % downforce (on top of the wing setting)
   drag:      { min: 20, max: 200, step: 5, def: 100 },   // % aerodynamic drag

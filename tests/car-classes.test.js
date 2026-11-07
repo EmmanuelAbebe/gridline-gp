@@ -107,3 +107,43 @@ test('car classes: the AI plans with its own class', () => {
   const f1 = lap(F1), slow = lap(careful);
   assert.ok(slow > f1 + 1, `the careful class's AI is slower: ${slow.toFixed(2)} vs ${f1.toFixed(2)} s`);
 });
+
+// (stage 5) the guard: no sim module reads the F1's tables behind a car's back. Only the class files (classes/) hold them,
+// and index.js passes them on to the game under their old names; the rest import the class (F1_2026) at most, as the
+// default for a call without a car or for what belongs to the circuit (the aero zones, the sectors)
+test('car classes: no sim module imports a car table', async () => {
+  const fs = await import('node:fs'), path = await import('node:path');
+  const dir = path.join(import.meta.dirname, '../src/sim');
+  const TABLES = ['AI_CAR', 'HITBOX', 'CAR', 'SETUP', 'DIFF', 'PRESSURE', 'SUSPENSION', 'DAMPER', 'MODS', 'HANDBRAKE', 'CHASSIS',
+    'ACTIVE_AERO', 'OVERTAKE', 'ERS', 'ECU', 'WEAR', 'TYRE_TEMP', 'COMPOUNDS'];
+  const bad = [];
+  for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.js') && f !== 'index.js')) {
+    for (const m of fs.readFileSync(path.join(dir, f), 'utf8').matchAll(/^import\s*\{([^}]*)\}\s*from\s*'([^']+)'/gm)) {
+      const names = m[1].split(',').map(n => n.trim().split(/\s+as\s+/)[0]).filter(Boolean);
+      for (const n of names) if (TABLES.includes(n)) bad.push(`${f}: ${n} from ${m[2]}`);
+    }
+  }
+  assert.deepEqual(bad, [], 'read the car\'s class (c.spec.cls, race.carClass) instead');
+  const tuning = await import('../src/sim/tuning.js');
+  assert.deepEqual(TABLES.filter(n => n in tuning), [], 'tuning.js holds no car tables');
+});
+
+// (stage 5) a throwaway class: the F1 100 kg heavier on a narrower track. Its AI laps slower; the F1 raced before and
+// after it is the same to the last bit (nothing of the other class leaks into the F1's caches)
+test('car classes: a heavier, narrower F1 is slower and the F1 is untouched', () => {
+  const heavy = Object.freeze({ ...F1, id: 'test-heavy',
+    car: Object.freeze({ ...F1.car, mass: F1.car.mass + 100 }),
+    mods: Object.freeze({ ...F1.mods, mass: { ...F1.mods.mass, def: F1.car.mass + 100 } }),
+    chassis: Object.freeze({ ...F1.chassis, track: 1.4 }) });
+  assert.equal(S.stockOf(heavy).mass, 870);
+  const T = S.buildTrack(S.CIRCUITS.harrow);
+  const lap = cls => {
+    const race = S.createRace(1, { carClass: cls, track: T, drivers: [S.DRIVERS.find(d => d.code === 'VOS')], seed: 4 }), c = race.cars[0];
+    for (let k = 0; k < 120 * 150 && !c.finished; k++) { race.t += 1 / 120; S.driveAI(race, c, 1 / 120); c.events.length = 0; }
+    assert.ok(c.finished, `${cls.id}: finished`);
+    return [c.finishTime, c.x, c.z, c.v].join(',');
+  };
+  const before = lap(F1), slow = lap(heavy), after = lap(F1);
+  assert.equal(after, before, 'the F1 unchanged');
+  assert.ok(+slow.split(',')[0] > +before.split(',')[0] + 0.5, `heavier is slower: ${slow.split(',')[0]} vs ${before.split(',')[0]}`);
+});

@@ -8,7 +8,8 @@
 //   --write-line: store the optimised line (control offsets) in src/sim/racing-lines.js for the AI (track.js uses it;
 //   run it with --margin=<AI.lineMargin> for every circuit after changing a circuit or the car), then stop.
 import { SIM } from '../src/sim/index.js';
-import { CAR, CHASSIS, ACTIVE_AERO as AA, TUNING, ASSISTS } from '../src/sim/tuning.js';
+import { TUNING, ASSISTS } from '../src/sim/tuning.js';
+import { CAR, CHASSIS, ACTIVE_AERO as AA } from '../src/sim/classes/f1-2026.js';   // (the F1's lines; another class: car classes)
 import { RACING_LINES, ALIEN_LINES } from '../src/sim/racing-lines.js';
 import fs from 'node:fs';
 

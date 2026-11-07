@@ -87,7 +87,7 @@ the same numbers, `npm run sim-version` and the smoke test. One commit per stage
 4. **Per circuit × class.** (Done 2026-11-07: `ai-profile.js` aiOf; the AI's car side = the class's `ai`; the
    line-shaping margins stay in AI for now; zones and sectors made with the F1 for every class.) track.js, active-aero.js, sectors.js and racing-lines.js through `aiOf(track, cls)`.
    The AI plans with its own class's spec, not `STOCK`.
-5. **A guard.** A test fails if a sim module other than `classes/` and spec.js imports a per-car table from
+5. **A guard.** (Done 2026-11-07; index.js still passes the F1's tables to the game until stage 6.) A test fails if a sim module other than `classes/` and spec.js imports a per-car table from
    tuning.js; then drop the re-exports. A second test races a throwaway class (the F1 with +100 kg, a narrower
    track) to prove nothing still reads the F1 behind its back: the lap must be slower, and the stock F1 unchanged.
 6. **The game.** The game asks the race's class for its setup ranges, ECU maps, compounds, wear and hitbox instead
