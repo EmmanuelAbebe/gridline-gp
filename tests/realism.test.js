@@ -57,3 +57,23 @@ test('Formula E\'s electric drivetrain: one gear, the battery pays for every met
   for (let t = 0; t < 2; t += DT) { race.t += DT; S.drivePlayer(race, c, { thr: 1, brk: 0, steer: 0, analog: true }, DT); }
   assert.ok(c.v < v - 2 && c.drive === 0, `empty: no drive, the car coasts (${(v * 3.6).toFixed(0)} → ${(c.v * 3.6).toFixed(0)} km/h in 2 s)`);
 });
+
+test('Formula E brakes with its motors: no rear hydraulics, the rear\'s regen weak at speed, the battery charged back', () => {
+  const DT = 1 / 120, T = S.buildTrack(S.CIRCUITS.harrow), FE = S.classOf('fe'), R = FE.car.motor.regen;
+  const race = S.createRace(3, { carClass: FE, track: T, drivers: [S.DRIVERS.find(d => d.player)], seed: 1 }), c = race.cars[0];
+  c.assists = S.ASSISTS.medium; const i = 60;
+  Object.assign(c, { idx: i, lat: 0, x: T.PX[i], z: T.PZ[i], h: S.headingAt(T, i), v: 280 / 3.6, gear: 1, lap: 1 });
+  const st = S.stockOf(FE), soc0 = c.soc; let most = 0;
+  // the rear's share: its regen (force = P / v) is far below the rear's tyres at speed, close to them slow
+  assert.ok(S.regenRear(250 / 3.6, st) < 0.4 * S.brakeLimit(250 / 3.6, st), 'at 250 km/h the rear motor brakes little');
+  assert.ok(S.regenRear(80 / 3.6, st) > S.regenRear(250 / 3.6, st) * 2.5, 'slower, it brakes much harder');
+  assert.ok(S.brakeLimit(250 / 3.6, st) < st.cls.chassis.longGrip * S.tyreGrip(9.81 + st.dfK * (250 / 3.6) ** 2, st), 'so the car stops shorter than its tyres would');
+  while (c.v * 3.6 > 80) { race.t += DT; S.drivePlayer(race, c, { thr: 0, brk: 1, steer: 0, analog: true }, DT);
+    c.h = S.headingAt(T, c.idx); c.yawRate = 0; c.vy = 0; c.lat = 0; most = Math.max(most, -c.ersKw); }
+  assert.ok(most <= (R.front + R.rear) * R.efficiency + 1e-6 && most > 400, `regeneration ${most.toFixed(0)} kW (at most ${(R.front + R.rear) * R.efficiency})`);
+  assert.ok(c.soc - soc0 > 0.3 * 3.6e6, `a stop from 280 km/h puts ${((c.soc - soc0) / 3.6e3).toFixed(0)} Wh back`);
+  // lifting off charges a little (and slows the car through the rears), braking doesn't stack lift-off regen on top
+  const v = c.v, s1 = c.soc;
+  for (let t = 0; t < 1; t += DT) { race.t += DT; S.drivePlayer(race, c, { thr: 0, brk: 0, steer: 0, analog: true }, DT); c.h = S.headingAt(T, c.idx); c.yawRate = 0; c.vy = 0; c.lat = 0; }
+  assert.ok(c.soc > s1 && c.v < v, 'lift and coast: charged, slower');
+});

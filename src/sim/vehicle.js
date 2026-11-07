@@ -40,7 +40,16 @@ export const lateralGrip = (v, s = STOCK) => { const g = tyreGrip(G + s.dfK * v 
 // Straight-line braking limit of the tyres (ABS at the peak): longitudinal grip under weight + downforce, up to what the
 // brake system can ask for. The AI's speed profile brakes at a share of this.
 /** @param {number} v @param {Spec} [s] */
-export const brakeLimit = (v, s = STOCK) => Math.min(s.brakeSystem, s.cls.chassis.longGrip * tyreGrip(G + s.dfK * v * v, s));
+export const brakeLimit = (v, s = STOCK) => regenBrake(Math.min(s.brakeSystem, s.cls.chassis.longGrip * tyreGrip(G + s.dfK * v * v, s)), v, s);
+// An electric car without rear hydraulic brakes (Formula E): its rear brakes are the rear motor's regeneration, up to
+// its power (force = P / v: weak at speed) and torque. regenRear = that deceleration (per mass) at speed v; regenBrake
+// = a braking limit with the rear's share (1 − the brake balance) no more than it. A car with brakes on every wheel:
+// the limit as it is.
+/** @param {Spec} s */
+export const regenRear = (v, s) => { const M = s.cls.car.motor;
+  return Math.min(M.regen.rear * 1000 / (s.mass * Math.max(Math.abs(v), M.regen.minSpeed)), M.torque * s.ratio[1] / R_WHEEL / s.mass); };
+/** @param {Spec} s */
+export const regenBrake = (limit, v, s) => s.cls.car.motor ? Math.min(limit, s.brakeBias * limit + regenRear(v, s)) : limit;
 // The speed² u where the cornering asked, a·u − b, reaches what the tyres give under the load c + d·u with `share` of
 // their grip (load sensitivity makes it a quadratic: f(u) = A2·u² + B·u + C, its first positive root); Infinity when
 // the grip always outgrows the corner (flat out). Flat ground: a = |k|, b = 0, c = G, d = dfK; elevation.js for hills.
@@ -216,7 +225,7 @@ function ers(c, thr, brk, v, dt, room = 1, iceKw = 0, pedal = thr) {
 // its torque through the gear below the speed where that power takes over; the wheels get `efficiency` of what leaves
 // the battery, and an empty battery gives nothing. c.soc = the battery (J), c.ersKw = its flow (+ out, − in: the HUD).
 /** @param {Car} c */
-function electricDrive(c, thr, v, resist, dt, M) {
+function electricDrive(c, thr, brk, v, resist, dt, M) {
   const s = c.spec, sp = Math.max(v, 0), rpm = rpmAt(sp, 1, s);
   c.rpm = rpm;
   const tq = FM.pow(thr, s.cls.car.engine.pedalMap);     // the torque the pedal asks for (torque map)
@@ -226,7 +235,11 @@ function electricDrive(c, thr, v, resist, dt, M) {
   if (out * dt > c.soc) { out = Math.max(0, c.soc) / dt; F = sp > 0.1 ? out * M.efficiency / sp : 0; }
   c.soc -= out * dt; c.ersKw = out / 1000;
   c.drive = F / s.mass;
-  return { drive: c.drive, resist, rear: 0, reverse: false };
+  // off both pedals the rear motor regenerates (motor.regen.coast: lift and coast): it slows the car through the rear
+  // tyres (as an engine's braking; chassis.js charges the battery with all the rear's braking). On the brakes the rear
+  // motor is the rear brake already (chassis.js), so no more on top
+  const R = M.regen, coast = thr < 0.05 && !(brk > 0.05) && sp > 0.5 ? Math.min(R.coast * 1000 / (s.mass * sp), R.coastMax) * s.engineBrake : 0;
+  return { drive: c.drive, resist: resist + coast, rear: coast, reverse: false };
 }
 
 // ---------- one step of the drivetrain ----------
@@ -241,7 +254,7 @@ export function drivetrain(c, { thr, brk, shift = 0 }, dt) {
   const v = c.v, dragK = c.spec.dragK * (1 - SLIP.drag * (c.slip || 0)) * (1 - ACTIVE_AERO.dragCut * c.aeroOpen);
   let resist = dragK * v * Math.abs(v) + Math.sign(v) * aero.rolling;
   if (c.gear === -1) { c.rpm = engine.idle + thr * 3000; c.drive = 0; return { drive: 0, resist, rear: 0, reverse: true }; }
-  if (motor) return electricDrive(c, thr, v, resist, dt, motor);   // (an electric car: Formula E)
+  if (motor) return electricDrive(c, thr, brk, v, resist, dt, motor);   // (an electric car: Formula E)
   const rpm = engineRpm(v, c.gear, thr, c.spec);
   c.rpm = rpm;
   const tq = FM.pow(thr, engine.pedalMap);                // the torque the pedal asks for (torque map)

@@ -5,7 +5,7 @@
 import { AI, TUNING } from './tuning.js';
 import { F1_2026 } from './classes/f1-2026.js';
 import { stockOf } from './spec.js';
-import { G, cornerSpeed, brakeLimit, tyreGrip } from './vehicle.js';
+import { G, cornerSpeed, brakeLimit, tyreGrip, regenBrake } from './vehicle.js';
 import { cornerSpeedAt, brakeLimitAt } from './elevation.js';
 import { clamp, wrapA, wrapIdx } from './math.js';
 import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
@@ -80,7 +80,7 @@ function lineProfile({ N, ds, PX, PZ, NX, NZ, elev }, RO, cls, brake = cls.ai.br
     for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) {
       const j = (i+1)%N, u = VP[j], df = S.dfK * u * u, n = Math.max(-df, elev.CA[j] * (G + u * u * elev.VK[j]));
       const latMax = Math.max(1, tyreGrip(n + df, S)), lat = u * u * Math.abs(LK[j]), f = Math.sqrt(Math.max(0, 1 - FM.pow(lat / latMax, 2)));
-      const dec = Math.min(CHASSIS.brakeSystem, CHASSIS.longGrip * tyreGrip(n + df, S)) * f + S.dragK * u * u + CAR.aero.rolling
+      const dec = regenBrake(Math.min(CHASSIS.brakeSystem, CHASSIS.longGrip * tyreGrip(n + df, S)), u, S) * f + S.dragK * u * u + CAR.aero.rolling
         + CAR.engine.engineBrake * 0.8 + G * elev.SX[j];
       VP[i] = Math.min(VP[i], Math.sqrt(u * u + 2 * Math.max(3, dec) * LS[i]));
     }
@@ -91,7 +91,7 @@ function lineProfile({ N, ds, PX, PZ, NX, NZ, elev }, RO, cls, brake = cls.ai.br
     for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) {
       const j = (i+1)%N, u = VP[j], df = S.dfK * u * u, latMax = tyreGrip(G + df, S), lat = u * u * Math.abs(LK[j]);
       const f = Math.sqrt(Math.max(0, 1 - FM.pow(lat / latMax, 2)));
-      const dec = Math.min(CHASSIS.brakeSystem, CHASSIS.longGrip * tyreGrip(G + df, S)) * f + S.dragK * u * u + CAR.aero.rolling + CAR.engine.engineBrake * 0.8;
+      const dec = regenBrake(Math.min(CHASSIS.brakeSystem, CHASSIS.longGrip * tyreGrip(G + df, S)), u, S) * f + S.dragK * u * u + CAR.aero.rolling + CAR.engine.engineBrake * 0.8;
       VP[i] = Math.min(VP[i], Math.sqrt(u * u + 2 * dec * LS[i]));
     }
   } else if (elev) for (let p = 0; p < 3; p++) for (let i = N-1; i >= 0; i--) {

@@ -30,7 +30,8 @@ design) and a Formula E-shaped 3D model come after it. The F1 stays bit-identica
    drivetrain → an electric branch: one gear, motor rpm for the dash and sound, the drive drawn from the battery
    (J, efficiency), no engine braking or shift cut; the hybrid branch untouched. `npm run car-bench -- --class=fe` with
    the real ranges (0–60 mph, top speed).
-2. **Brakes = regeneration.** Per axle: the motors' regen (rear 350 / front 250 kW: force = P / v) first, the front
+2. **Brakes = regeneration.** (Done 2026-11-07: 280 → 80 km/h 158 m, peak 2.03 g; regen ≤ 540 kW at the battery;
+   31–49 % of a lap's energy back; the AI plans with the weaker rear.) Per axle: the motors' regen (rear 350 / front 250 kW: force = P / v) first, the front
    hydraulics for the rest, no rear hydraulics; lifting harvests a little. The battery gains what is regenerated. Locking
    without ABS as now. Measured: 300 → 80 km/h distance, the rear's share falling at speed.
 3. **Whole-race energy.** createRace sizes the battery to the race (energy per lap × laps, from a real allowance:

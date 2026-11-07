@@ -38,7 +38,8 @@ export const CAR = Object.freeze({
   // load, losing loadSens per g of extra load (load sensitivity, vehicle.js tyreGrip; never below muMin of it)
   mass: 770,          // kg, with driver
   // an electric car's motor (vehicle.js electricDrive; Formula E's class): none, the F1 is a hybrid (engine + ERS)
-  motor: /** @type {{ race: number, attack: number, torque: number, maxRpm: number, efficiency: number }} */ (null),
+  motor: /** @type {{ race: number, attack: number, torque: number, maxRpm: number, efficiency: number,
+    regen: { front: number, rear: number, efficiency: number, minSpeed: number, coast: number, coastMax: number } }} */ (null),
   grip: 1.8,          // tyre friction at the static load (real slicks ~1.6–1.8). Until 2026-10-24: 3.0, no load sensitivity
   loadSens: 0.08, muMin: 0.6,
   aero: Object.freeze({
@@ -262,6 +263,7 @@ export const OVERTAKE = Object.freeze({ gap: 1.0, seconds: 5, fromLap: 2, energy
 export const ERS = Object.freeze({
   kw: 350, taperFrom: 290 / 3.6, taperFromBoost: 337 / 3.6, taperTo: 355 / 3.6,
   store: 4e6, start: 0.9, perLap: 8.5e6, harvestKw: 350, coastKw: 120,
+  capacity: 4e6,   // (an electric car's whole pack: regeneration may fill it past `store`; the F1 doesn't use it)
   // (coastMax: the lifting harvest's deceleration cap, m/s²; 2026-10-26 2.0 → 1.0: with the engine braking a lift at
   // 100 km/h slowed the car at 0.39 g, now 0.26)
   low: 0.25, clipBelow: 0.3, clipKw: 200, minSpeed: 15, coastMax: 1.0, fullRpm: 10000,

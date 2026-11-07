@@ -1026,6 +1026,15 @@ showed MODIFIED only because of it).
   at 334 km/h); tests/realism.test.js. AI solo (VOS): clean on every circuit tried, 20–28 % slower than the F1 (Elkmoor
   50.0, Harrow 77.4, Cobalt 80.5, Marrow 62.0, Hautvale 89.8 s), ~1.1 kWh/km with no regen yet. Still the F1's: brakes,
   hitbox, AI lines / paces, engine sound (a V6 at 20 000 rpm).
+- Stage 2 done: brakes = regeneration. `motor.regen` {front 250, rear 350 kW, efficiency 0.9, minSpeed 5, coast 120 kW /
+  coastMax 1.0}: vehicle.js `regenRear(v, s)` = the rear's only brake (P / v, the motor's torque at low speed; no rear
+  hydraulics), `regenBrake(limit, v, s)` = a braking limit with the rear's share capped by it (brakeLimit, elevation.js
+  brakeLimitAt, ai-profile.js ALIEN profile: the AI plans the weaker rear); chassis.js rearBrake = min(brake × (1 − bias),
+  regenRear) (the F1: brake × (1 − bias), the same floats), the battery charged with the front's braking up to 250 kW and
+  all the rear's, × 0.9, up to `ers.capacity` (47 kWh pack); lift-off regen only off both pedals (electricDrive `rear`).
+  brakeFull 23 / brakeSystem 35. Measured: 280 → 80 km/h 158 m with ABS, peak 2.03 g (the rear 0.61 of 1.96 g at
+  250 km/h, its whole share at 100), regen ≤ 540 kW, ~0.4 kWh back per stop from 280; AI laps clean with and without
+  assists, net energy per lap 31–49 % lower (the real cars: ~40 % of race energy from regen).
 
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)

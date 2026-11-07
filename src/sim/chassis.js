@@ -11,7 +11,7 @@ import { F1_2026 } from './classes/f1-2026.js';
 import { updateEcu, brakeAhead } from './ecu.js';
 import { axleTempGrip, stepTyreTemps, tyreEvents } from './tyre-temp.js';
 import { clamp, speedOf } from './math.js';
-import { lateralGrip, brakeMax, drivetrain, tyreGrip } from './vehicle.js';
+import { lateralGrip, brakeMax, drivetrain, tyreGrip, regenRear } from './vehicle.js';
 import { STOCK } from './spec.js';
 import { carCondition } from './pit.js';
 import { stepAir } from './airborne.js';
@@ -32,7 +32,7 @@ function chassisOf(cls) {
   if (Q) return Q;
   const CH = cls.chassis, SU = cls.suspension, DA = cls.damper, SETUP = cls.setup, L = CH.wheelbase;
   const STOCK_RIDE = [SETUP.rideF.def, SETUP.rideR.def], C_SHAPE = CH.falloff;
-  Q = Object.freeze({ CH, SU, DA, DIFF: cls.diff, ACTIVE_AERO: cls.activeAero, HANDBRAKE: cls.handbrake, ERS: cls.ers, ECU: cls.ecu, TTC: cls.tyreTemp,
+  Q = Object.freeze({ CH, SU, DA, DIFF: cls.diff, ACTIVE_AERO: cls.activeAero, HANDBRAKE: cls.handbrake, ERS: cls.ers, ECU: cls.ecu, TTC: cls.tyreTemp, M: cls.car.motor,
     L, A_FRONT: L * (1 - CH.frontWeight), B_REAR: L * CH.frontWeight, K2: CH.gyration * CH.gyration,
     STOCK_RIDE, KERB_RIDE: (SETUP.rideF.def + SETUP.rideR.def) / 2, STOCK_SUSP: { kF: SU.kF, kR: SU.kR, rideF: STOCK_RIDE[0], rideR: STOCK_RIDE[1] },
     ROLL_W: 2 * Math.PI * DA.hz, PITCH_W: 2 * Math.PI * DA.pitchHz, C_SHAPE, B_UNIT: FM.tan(Math.PI / (2 * C_SHAPE)) });
@@ -152,7 +152,8 @@ function spinStep(CH, spin, over, avail) {
 export function stepChassis(race, c, inp, dt) {
   const A = c.assists || ASSISTS.medium, surf = SURFACES[c.surface] || SURFACES.track, S = c.spec;   // S: the car's own numbers (spec.js)
   // its class's tables and the numbers derived from them (chassisOf)
-  const Q = chassisOf(S.cls), { CH, SU, DA, DIFF, ACTIVE_AERO, HANDBRAKE, ERS, ECU, TTC, L, A_FRONT, B_REAR, K2, KERB_RIDE, STOCK_SUSP } = Q;
+  const Q = chassisOf(S.cls), { CH, SU, DA, DIFF, ACTIVE_AERO, HANDBRAKE, ERS, ECU, TTC, M, L, A_FRONT, B_REAR, K2, KERB_RIDE, STOCK_SUSP } = Q;
+  let regenJ = 0;                       // an electric car (M: its motor): J the motors regenerated over the step
   // the deployment map (as the real cars' ECU, by where the car is): no electrical power in the last metres before a
   // braking zone (the energy would only go into the brakes), stopping earlier the emptier the battery (ERS.map)
   if (c.ecuMode) {
@@ -277,11 +278,14 @@ export function stepChassis(race, c, inp, dt) {
     const front = axle(Q, Df, alphaF, S.peakF, -brake * bias * back, absLimit, null, 1, 0, P ? P.longF : 1);
     // (engine braking on a lift, d.rear: through the rear tyres; the handbrake's own branch keeps it in the car's drag)
     const eng = inp.hb ? 0 : d.rear;
-    const rearLong = d.drive - eng - brake * (1 - bias) * back;
+    // the rear's share of the brakes; an electric car without rear hydraulics (Formula E): no more than its rear motor
+    // regenerates (vehicle.js regenRear: weak at speed, so the balance moves forward)
+    const rearBrake = M ? Math.min(brake * (1 - bias), regenRear(sp, S)) : brake * (1 - bias);
+    const rearLong = d.drive - eng - rearBrake * back;
     // rear braking: ABS, and (stability assist) a margin kept for cornering, like brake-force distribution
     // any ABS keeps the rears from locking (a locked rear turning in spins the car); partial ABS only lets the fronts lock a little
     const rearBrakeLimit = absLimit === null ? null : Math.min(0.97, absLimit) * (1 - CH.rearBrakeMargin * A.stability);
-    const braking = brake * (1 - bias) + eng > d.drive;   // which limit applies: ABS while braking, traction control on the throttle
+    const braking = rearBrake + eng > d.drive;   // which limit applies: ABS while braking, traction control on the throttle
     // handbrake: the rears locked (no drive, no ABS); written as its own branch so nothing changes without it
     // (without traction control the rear wheels' spin builds up: c.rearSpin, CH.spin)
     const spin = !braking && tcLimit === null && rearLong > 0 ? (spinState.v = sp, spinState) : null;
@@ -298,6 +302,12 @@ export function stepChassis(race, c, inp, dt) {
     if (front.over > 1 && brake > 0) lockF = true;
     if (rear.over > 1 && braking && !inp.hb) lockR = true;
     if (rear.over > 1 && !braking && d.drive > 0 && !inp.hb) spinR = true;
+    // the motors' regeneration into the battery: every bit of the rear's braking (lift-off included), the front's up to
+    // the front motor's power (the hydraulics take the rest), `efficiency` of it
+    if (M && v > 0.5) {
+      const R = M.regen, front0 = Math.min(Math.max(0, -front.fx), R.front * 1000 / (S.mass * Math.max(sp, R.minSpeed)));
+      regenJ += (front0 + Math.max(0, -rear.fx)) * S.mass * sp * R.efficiency * h;
+    }
     if (TT) {
       // friction power = force × slip speed: sideways (slip angle) + lengthways (a gripping tyre's small slip; all of
       // the speed once locked or spinning)
@@ -349,6 +359,7 @@ export function stepChassis(race, c, inp, dt) {
     c.x += (FM.cos(c.h) * c.v - FM.sin(c.h) * c.vy) * h;
     c.z += (FM.sin(c.h) * c.v + FM.cos(c.h) * c.vy) * h;
   }
+  if (regenJ > 0) { c.soc = Math.min(ERS.capacity, c.soc + regenJ); c.ersKw -= regenJ / dt / 1000; }
   c.slideF = clamp(slideF, 0, 1); c.slideR = clamp(slideR, 0, 1); c.lockF = lockF; c.lockR = lockR; c.spinR = spinR; c.rearSpin = spinState.s;
   c.roll += c.v * dt / TUNING.WHEEL_RADIUS;
   if (TT) {

@@ -14,7 +14,12 @@ const TOP = 322;                      // km/h at the motor's max speed: the theo
 // (qualifying, attack mode: stage 4), its torque up to the speed where that power takes over (constant power above),
 // `maxRpm` at the top speed through its single gear (~: FE motors spin to ~20 000 rpm), `efficiency` battery → wheels.
 // torque: ~ enough that the rear tyres, not the motor, limit a launch (Gen3: 0–60 mph ~2.8 s rear-wheel drive)
-const MOTOR = Object.freeze({ race: 300, attack: 350, torque: 540, maxRpm: 20000, efficiency: 0.93 });
+// regen (stage 2, chassis.js): the motors brake the car and charge the battery: `rear` 350 kW = the rear's only brake (no
+// rear hydraulics), `front` 250 kW before the front hydraulics take the rest; force = P / v, so at speed the rear does
+// little and the balance moves forward; below `minSpeed` m/s as at it (the motor's torque caps it); `efficiency` of the
+// braking power reaches the battery ~; lifting off the throttle: `coast` kW, at most `coastMax` m/s² ~ (the F1's)
+const MOTOR = Object.freeze({ race: 300, attack: 350, torque: 540, maxRpm: 20000, efficiency: 0.93,
+  regen: Object.freeze({ front: 250, rear: 350, efficiency: 0.9, minSpeed: 5, coast: 120, coastMax: 1.0 }) });
 
 const CAR = Object.freeze({
   ...F1.car,
@@ -41,8 +46,9 @@ const CHASSIS = Object.freeze({
   wheelbase: 2.97, track: 1.5,        // ~: 5.0 m long, 1.7 m wide
   frontWeight: 0.43,                  // ~: the battery and the rear motor behind the driver
   cgHeight: 0.28, gyration: 1.15,     // ~: a little taller, a shorter car
-  // the brakes (stage 2 replaces them: regeneration, front hydraulics only): the F1's scaled to these tyres for now
-  brakeFull: 30, brakeSystem: 45,
+  // the brakes: full pedal asks about what the tyres hold near the top speed (as the F1's: ~23 m/s² at 290 km/h; the F1
+  // 46 at 300), brakeSystem = the most the plans count on; the rear's part is the rear motor's regen (motor.regen)
+  brakeFull: 23, brakeSystem: 35,
 });
 
 // the garage: the gearing around its own top speed (stock = 322 km/h, so the stock car is the class's), the mass mod
@@ -52,7 +58,8 @@ const MODS = Object.freeze({ ...F1.mods, mass: Object.freeze({ ...F1.mods.mass, 
 
 // the battery (the hybrid's `ers` table: what the HUD, the car and the rest read): 38.5 kWh usable in a race (stage 3
 // sizes it to the race's distance), full at the start; the MGU-K's own numbers don't apply (no hybrid deployment)
-const ERS = Object.freeze({ ...F1.ers, store: 38.5 * 3.6e6, start: 1 });
+// (capacity: the whole pack, 47 kWh: regeneration can put energy back above the race's usable 38.5)
+const ERS = Object.freeze({ ...F1.ers, store: 38.5 * 3.6e6, start: 1, capacity: 47 * 3.6e6 });
 
 // no fuel (the battery is its only energy): every fuel-use level is none
 const WEAR = Object.freeze({ ...F1.wear, fuel: Object.freeze(Object.fromEntries(Object.keys(F1.wear.fuel).map(k => [k, 0]))) });

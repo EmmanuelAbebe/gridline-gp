@@ -22,6 +22,8 @@ export const REAL_FE = Object.freeze({
   t60: [2.5, 3.2],         // s 0–60 mph (96.6 km/h), rear-wheel drive (Gen3: ~2.8 s)
   corner80: [1.2, 1.6], corner150: [1.4, 1.9], corner250: [1.8, 2.5],   // g ~ steady (all-weather tyres, low downforce)
   dfWeight: [300, 360],    // km/h ~ (a fraction of the F1's downforce)
+  // stage 2: braking from 280 km/h (its top speed's region) to 80 with ABS: the rear only regenerates (no hydraulics) ~
+  brakeDist: [130, 180], brakePeak: [1.7, 2.4],
 });
 export const REAL_OF = { f1: REAL, fe: REAL_FE };
 
@@ -49,7 +51,7 @@ export function bench(S, cls = S.DEFAULT_CLASS) {
     out.flat = c.v * 3.6;                  // after 40 s flat out: the battery empty, clipping (information)
   }
   // braking 300 → 80 km/h with ABS: distance, peak deceleration
-  { const { race, c } = solo('medium'); place(c, 300, 8); let d = 0, x = c.x, z = c.z, v0 = c.v, peak = 0;
+  { const { race, c } = solo('medium'); place(c, cls.car.motor ? 280 : 300, 8); let d = 0, x = c.x, z = c.z, v0 = c.v, peak = 0;
     while (c.v * 3.6 > 80) { race.t += DT; S.drivePlayer(race, c, { thr: 0, brk: 1, steer: 0, analog: true }, DT); pin(c);
       peak = Math.max(peak, (v0 - c.v) / DT / 9.81); v0 = c.v; d += Math.hypot(c.x - x, c.z - z); x = c.x; z = c.z; }
     out.brakeDist = d; out.brakePeak = peak; }
@@ -69,7 +71,7 @@ export function bench(S, cls = S.DEFAULT_CLASS) {
 }
 
 const LABELS = { topClosed: 'top speed, cornering mode', topOpen: 'top speed, straight mode', t60: '0–60 mph', t100: '0–100 km/h', t200: '0–200 km/h',
-  brakePeak: 'braking at 300 km/h', brakeDist: 'braking 300 → 80 km/h', corner80: 'cornering at 80 km/h', corner150: 'cornering at 150 km/h',
+  brakePeak: 'braking, peak', brakeDist: 'braking to 80 km/h', corner80: 'cornering at 80 km/h', corner150: 'cornering at 150 km/h',
   corner250: 'cornering at 250 km/h', corner300: 'cornering at 300 km/h', dfWeight: 'downforce = weight at', spins: 'turn-in spins (of 64)' };
 const UNITS = { topClosed: 'km/h', topOpen: 'km/h', t60: 's', t100: 's', t200: 's', brakePeak: 'g', brakeDist: 'm', corner80: 'g', corner150: 'g', corner250: 'g', corner300: 'g', dfWeight: 'km/h', spins: '' };
 

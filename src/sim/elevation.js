@@ -10,7 +10,7 @@
 //    (compression, VK > 0) presses it down, a road banked into the corner carries part of the cornering itself;
 //  - on a banked road the plan view sees only cos(bank) of the cornering the tyres have to give (see chassis.js).
 import { ELEVATION, TUNING } from './tuning.js';
-import { G, brakeLimit, cornerSpeed, cornerU, tyreGrip } from './vehicle.js';
+import { G, brakeLimit, cornerSpeed, cornerU, tyreGrip, regenBrake } from './vehicle.js';
 import { STOCK } from './spec.js';
 import { clamp, wrapIdx } from './math.js';
 import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
@@ -114,5 +114,5 @@ export function cornerSpeedAt(E, i, k, share = 1, s = STOCK) {
 export function brakeLimitAt(E, i, v, s = STOCK) {
   if (!E) return brakeLimit(v, s);
   const n = Math.max(0, E.CA[i] * (G + v * v * E.VK[i]) + s.dfK * v * v);      // weight (less over a crest) + downforce
-  return Math.max(ELEVATION.minBrake, Math.min(s.brakeSystem, s.cls.chassis.longGrip * tyreGrip(n, s)) + G * E.SX[i]);
+  return Math.max(ELEVATION.minBrake, regenBrake(Math.min(s.brakeSystem, s.cls.chassis.longGrip * tyreGrip(n, s)), v, s) + G * E.SX[i]);
 }

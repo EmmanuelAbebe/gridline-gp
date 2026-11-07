@@ -21,7 +21,7 @@ import { drivePlayer, driveAI, calmSteer, speedSteer } from './driving.js';
 import { collide, carGap } from './collide.js';
 import { gapAhead, setAeroZones, aeroZonesInMetres, zoneRisk, aeroSafeOf, aiAeroPlan } from './active-aero.js';
 import { surfaceY, samplePos, cornerSpeedAt, brakeLimitAt } from './elevation.js';
-import { rpmAt, cornerSpeed, lateralGrip, brakeLimit, brakeMax, tyreGrip, wakeHalfWidth, VEHICLE_INFO, vehicleInfo } from './vehicle.js';
+import { rpmAt, cornerSpeed, lateralGrip, brakeLimit, brakeMax, tyreGrip, wakeHalfWidth, VEHICLE_INFO, vehicleInfo, regenRear } from './vehicle.js';
 
 import { tyreSet, tempGrip, axleTempGrip, gripTemp } from './tyre-temp.js';
 import { STRATEGY, AIR } from './tuning.js';
@@ -33,6 +33,6 @@ export const SIM = Object.freeze({ SIM_VERSION, ECU, ecuMapOf, gapBehind, REPLAY
   SURFACES, OFFTRACK, WALLS, RUNOFF, BARRIER, BARRIERS, ZONE, surfaceAt, PIT, WEAR, fuelLaps, lapsToGo, carCondition, laneCentre, laneOuter, alongLane, serviceSteps,
   steerLock, tyreCurve, driftAngle, DRIVERS, EV, track: DEFAULT_TRACK,
   SETUP, MODS, ACTIVE_AERO, OVERTAKE, ERS, gapAhead, setAeroZones, aeroZonesInMetres, zoneRisk, aeroSafeOf, aiAeroPlan, carSpec, STOCK, stockOf, CLASSES, DEFAULT_CLASS, classOf, aiOf, validSetup, validMods, isModified, specStats, balanceAt,
-  rpmAt, cornerSpeed, lateralGrip, brakeLimit, brakeMax, tyreGrip, wakeHalfWidth, VEHICLE: VEHICLE_INFO, vehicleInfo,
+  rpmAt, cornerSpeed, lateralGrip, brakeLimit, brakeMax, tyreGrip, wakeHalfWidth, VEHICLE: VEHICLE_INFO, vehicleInfo, regenRear,
   ELEVATION, SECTORS, buildSectors, surfaceY, samplePos, cornerSpeedAt, brakeLimitAt,
   buildTrack, gridSlot, headingAt, createRace, drivePlayer, driveAI, calmSteer, speedSteer, collide, carGap, order, gapTo, progress, raceTime, clamp, wrapA, wrapIdx, smoothstep, speedOf });
