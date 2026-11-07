@@ -1,0 +1,60 @@
+// Car classes (docs/car-classes-plan.md): the car is data. Step 1 keeps the 2026 F1 exactly as it was; these check the
+// plumbing that later classes ride on: a spec knows its class, a race hands every car its class's stock spec, a replay
+// names the class it was driven in.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { SIM as S } from '../src/sim/index.js';
+
+const F1 = S.DEFAULT_CLASS;
+// a throwaway class: the F1 with stronger brakes (a stock value the spec copies) and its own id
+const other = Object.freeze({ ...F1, id: 'test-brakes', chassis: Object.freeze({ ...F1.chassis, brakeSystem: 90 }) });
+
+test('car classes: the F1 is the default class and its stock car is STOCK', () => {
+  assert.equal(F1.id, 'f1');
+  assert.equal(S.classOf('f1'), F1);
+  assert.equal(S.classOf('nope'), null, 'an unknown id');
+  assert.equal(S.classOf('toString'), null, 'not a property of every object');
+  assert.equal(S.stockOf(F1), S.STOCK, 'made once per class');
+  assert.equal(S.STOCK.cls, F1);
+  assert.equal(S.carSpec({ wing: 8 }).cls, F1, 'a garage spec is the F1 unless told otherwise');
+  assert.equal(F1.chassis, S.CHASSIS, 'the old table names are the class\'s tables');
+});
+
+test('car classes: a spec is made from its own class', () => {
+  const st = S.stockOf(other);
+  assert.equal(st.cls, other);
+  assert.equal(st.brakeSystem, 90);
+  assert.equal(S.STOCK.brakeSystem, S.CHASSIS.brakeSystem, 'the F1 untouched');
+  assert.equal(S.stockOf(other), st, 'cached');
+  assert.equal(S.carSpec({}, { brakes: 110 }, other).brakeSystem, 90 * 1.1);
+});
+
+test('car classes: a race gives every car its class\'s stock spec', () => {
+  const f1 = S.createRace(1);
+  assert.equal(f1.carClass, F1, 'the F1 by default');
+  assert.ok(f1.cars.every(c => c.spec === S.STOCK));
+  assert.equal(f1.hitbox, F1.hitbox.parts, 'the class\'s shape');
+  const r = S.createRace(1, { carClass: other });
+  assert.equal(r.carClass, other);
+  assert.ok(r.cars.every(c => c.spec === S.stockOf(other)));
+});
+
+test('car classes: a replay names its class; one from before classes is the F1, an unknown class is refused', () => {
+  const T = S.buildTrack(S.CIRCUITS.elkmoor), opts = { format: 1 };
+  const race = S.createRace(opts.format, { track: T, drivers: [S.DRIVERS.find(d => d.player)], seed: 5 });
+  const car = race.cars[0], rec = S.createReplayRecorder(race, opts, { setup: {}, mods: {}, compound: 'medium' });
+  for (let k = 0; k < 240; k++) {
+    const inp = S.quantizeInput({ steer: 0, thr: 1, brk: 0, analog: true, hb: 0, shift: 0, steerRate: Infinity, calm: 1, speedSteer: 0 });
+    race.t += 1 / 120; rec.step(car, inp); S.drivePlayer(race, car, inp, 1 / 120);
+  }
+  const rp = JSON.parse(JSON.stringify(rec.finish()));
+  assert.equal(rp.race.carClass, 'f1');
+  const end = c => [c.x, c.z, c.v].join(',');
+  assert.equal(end(S.replayRun(rp, { track: T }).car), end(car), 'replays the same');
+  const old = structuredClone(rp); delete old.race.carClass;
+  const again = S.replayRun(old, { track: T });
+  assert.equal(again.race.carClass, F1, 'a replay from before car classes');
+  assert.equal(end(again.car), end(car));
+  const odd = structuredClone(rp); odd.race.carClass = 'hovercraft';
+  assert.throws(() => S.replayRun(odd, { track: T }), /car class hovercraft/);
+});

@@ -10,6 +10,7 @@ import { buildTrack } from './track.js';
 import { CIRCUITS } from './circuits.js';
 import { DRIVERS } from './drivers.js';
 import { carSpec } from './spec.js';
+import { classOf } from './classes/index.js';
 import { fitTyres } from './pit.js';
 import { setAeroZones, aeroZonesInMetres } from './active-aero.js';
 import { drivePlayer, driveAI } from './driving.js';
@@ -95,7 +96,7 @@ export function createReplayRecorder(race, opts, car) {
   const T = race.track, frames = CH.map(() => []), changes = [];
   const header = {
     v: REPLAY.version, physics: TUNING.PHYSICS, sim: SIM_VERSION, circuit: T.id, zones: T.aeroKey === 'auto' ? null : aeroZonesInMetres(T),
-    race: { format: opts.format, seed: race.seed, aiPace: race.aiPace, aiFollow: race.aiFollow, aiAlien: race.aiAlien, activeAero: race.activeAero,
+    race: { carClass: race.carClass.id, format: opts.format, seed: race.seed, aiPace: race.aiPace, aiFollow: race.aiFollow, aiAlien: race.aiAlien, activeAero: race.activeAero,
       overtake: race.overtake, tyreTemp: !!race.tyreTemp, compound: opts.compound ?? 'medium', wear: opts.wear ?? {}, aiAssists: opts.aiAssists ?? null,
       hitbox: opts.hitbox ?? null },
     drivers: race.cars.map(c => c.code), player: { setup: car.setup, mods: car.mods, compound: car.compound },
@@ -132,13 +133,14 @@ export function replayRun(rp, { track = null, onStep = null } = {}) {
   if (rp.tainted) throw new Error(`not replayable: ${rp.tainted}`);
   const T = track || tracks.get(rp.circuit) || tracks.set(rp.circuit, buildTrack(CIRCUITS[rp.circuit])).get(rp.circuit);
   if (!track) setAeroZones(T, rp.zones);
-  const R = rp.race, drivers = rp.drivers.map(code => DRIVERS.find(d => d.code === code));
+  const R = rp.race, drivers = rp.drivers.map(code => DRIVERS.find(d => d.code === code)), carClass = classOf(R.carClass ?? 'f1');   // (replays before car classes: the F1)
   if (drivers.some(d => !d)) throw new Error('unknown driver');
-  const race = createRace(R.format, { track: T, drivers, aiPace: R.aiPace, aiFollow: R.aiFollow, aiAlien: R.aiAlien, seed: R.seed,
+  if (!carClass) throw new Error(`car class ${R.carClass}`);
+  const race = createRace(R.format, { carClass, track: T, drivers, aiPace: R.aiPace, aiFollow: R.aiFollow, aiAlien: R.aiAlien, seed: R.seed,
     activeAero: R.activeAero, overtake: R.overtake, tyreTemp: R.tyreTemp, compound: R.compound, wear: R.wear, aiAssists: R.aiAssists,
     ...(R.hitbox ? { hitbox: R.hitbox } : {}) });
   const car = race.cars.find(c => c.player), prefs = {};
-  car.spec = carSpec(rp.player.setup, rp.player.mods);
+  car.spec = carSpec(rp.player.setup, rp.player.mods, carClass);
   fitTyres(race, car, rp.player.compound);
   applySettings(car, rp.start, prefs);
   const ch = CH.map(k => decode(rp.inputs[k], rp.steps)), laps = [], dt = REPLAY.dt;

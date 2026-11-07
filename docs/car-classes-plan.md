@@ -78,7 +78,7 @@ the same numbers, `npm run sim-version` and the smoke test. One commit per stage
    `chassis`, `ers` …; regroup only where a second class needs it. sim-version now hashes sub-folders.)
    Create `src/sim/classes/f1-2026.js` from the tables above; tuning.js re-exports the old names
    (`export const CHASSIS = F1_2026…`), so no other file changes. A pure move. Also add `CarClass` to types.js.
-2. **The spec carries the class.** `carSpec(…, cls)`, `stockOf(cls)`, `c.spec.cls`; `createRace({ carClass })`
+2. **The spec carries the class.** (Done 2026-11-06: also `classOf(id)`, and replays record the class.) `carSpec(…, cls)`, `stockOf(cls)`, `c.spec.cls`; `createRace({ carClass })`
    (default F1) gives every car its class's stock spec. Mixed fields are not allowed yet: one class per race.
 3. **Physics reads the car's class**, a file at a time, smallest first: collide.js, tyre-temp.js, pit.js,
    active-aero.js, ecu.js, vehicle.js, spec-stats.js, driving.js, then chassis.js. Keep every float expression in

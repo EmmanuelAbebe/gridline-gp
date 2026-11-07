@@ -5,4 +5,5 @@
 /** @typedef {ReturnType<typeof import('./race.js').createRace>} Race */
 /** @typedef {ReturnType<typeof import('./track.js').buildTrack>} Track */
 /** @typedef {ReturnType<typeof import('./tyre-temp.js').tyreSet>} TyreSet */
+/** @typedef {typeof import('./classes/f1-2026.js').F1_2026} CarClass */
 export {};

@@ -974,6 +974,11 @@ showed MODIFIED only because of it).
   HANDBRAKE, CHASSIS, ACTIVE_AERO, OVERTAKE, ERS, ECU, WEAR, TYRE_TEMP, COMPOUNDS) live in `src/sim/classes/f1-2026.js`
   (`F1_2026` = one key per table: car, chassis, ers …), re-exported by tuning.js under their old names until every module
   reads the car's class. tools/sim-version.mjs hashes sub-folders of src/sim too.
+- Stage 2 done: `classes/index.js` CLASSES / DEFAULT_CLASS / `classOf(id)` (null if unknown); spec.js `carSpec(setup, mods,
+  cls = F1_2026)`, `validSetup` / `validMods` / `isModified` / `defaults` take the class, `spec.cls`, `stockOf(cls)` (cached:
+  STOCK = stockOf(F1_2026)); `createRace({ carClass })` (default F1; race.carClass, every car on its class's stock spec,
+  hitbox default = the class's); replays record `race.carClass` (id; missing = 'f1', unknown = refused).
+  tests/car-classes.test.js.
 
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)

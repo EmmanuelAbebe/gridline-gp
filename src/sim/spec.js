@@ -1,11 +1,14 @@
-// A car's performance spec: every per-car number the physics reads (vehicle.js, chassis.js, driving.js). STOCK is the
-// shared car (CAR, CHASSIS) that every AI car races; the player's comes from the garage: carSpec(setup, mods), with
-// SETUP (race setup, trade-offs) and MODS (open mods) in tuning.js. With the defaults every value is computed exactly
-// as the stock one (same operations, × 1 / + 0), so the physics stays bit-identical (sim-trace).
-import { TUNING, CAR, CHASSIS, SETUP, MODS, PRESSURE as PR, SUSPENSION as SU, DAMPER as DA } from './tuning.js';
+// A car's performance spec: every per-car number the physics reads (vehicle.js, chassis.js, driving.js), made from its
+// car class (classes/: the car's tables; car classes step 1, docs/car-classes-plan.md). stockOf(cls) is the class's
+// shared car that every AI car races (STOCK = the 2026 F1's); the player's comes from the garage: carSpec(setup, mods,
+// cls), with the class's setup (race setup, trade-offs) and mods (open mods). With the defaults every value is computed
+// exactly as the stock one (same operations, × 1 / + 0), so the physics stays bit-identical (sim-trace). spec.cls = the
+// class it was made from.
+import { TUNING } from './tuning.js';
+import { F1_2026 } from './classes/f1-2026.js';
 
-const TAU = 2 * Math.PI, R_WHEEL = TUNING.WHEEL_RADIUS, { aero, engine, gearbox } = CAR;
-const ITEMS = { setup: SETUP, mods: MODS };
+const TAU = 2 * Math.PI, R_WHEEL = TUNING.WHEEL_RADIUS;
+/** @typedef {typeof F1_2026} CarClass */
 
 // one group's values, each clamped to its range and snapped to its step; anything missing or not a number = default
 function valid(table, values = {}) {
@@ -19,22 +22,23 @@ function valid(table, values = {}) {
   return out;
 }
 // (old saves: one `mech` −5 … +5, + = a softer front anti-roll bar, for the two anti-roll bars)
-const fromMech = v => v && Number.isFinite(+v.mech) && v.mech !== null && v.arbF === undefined && v.arbR === undefined
+const fromMech = (v, SETUP) => v && SETUP.arbF && Number.isFinite(+v.mech) && v.mech !== null && v.arbF === undefined && v.arbR === undefined
   ? { ...v, arbF: SETUP.arbF.def - Math.round(+v.mech), arbR: SETUP.arbR.def + Math.round(+v.mech) } : v;
-export const validSetup = v => valid(SETUP, fromMech(v));
-export const validMods = v => valid(MODS, v);
-export const defaults = group => valid(ITEMS[group]);
+export const validSetup = (v, cls = F1_2026) => valid(cls.setup, fromMech(v, cls.setup));
+export const validMods = (v, cls = F1_2026) => valid(cls.mods, v);
+/** @param {'setup' | 'mods'} group */
+export const defaults = (group, cls = F1_2026) => valid(cls[group]);
 // true when any open mod is off its default
-export const isModified = mods => Object.entries(validMods(mods)).some(([k, v]) => v !== MODS[k].def);
+export const isModified = (mods, cls = F1_2026) => Object.entries(validMods(mods, cls)).some(([k, v]) => v !== cls.mods[k].def);
 
 // a tyre pressure off stock (psi, + = higher): its grip, peak slip angle and flexing heat factors (all exactly 1 at 0)
-function pressure(dp) {
+function pressure(PR, dp) {
   const under = Math.max(0, -dp - PR.best);
   return { grip: 1 - PR.grip * dp - PR.fold * under * under, slip: 1 - PR.slip * dp, flex: 1 - PR.flex * dp };
 }
 // the suspension off stock (SUSPENSION; chassis.js): null when it is all stock (nothing to do then)
 const SUSP_KEYS = ['springF', 'springR', 'rideF', 'rideR', 'camberF', 'camberR', 'toeF', 'toeR'];
-function suspension(s, step) {
+function suspension(SU, SETUP, s, step) {
   if (SUSP_KEYS.every(k => step(k) === 0)) return null;
   const C = SU.camber, camber = k => {                     // x = ° more negative than stock
     const x = -step(k), past = Math.max(0, x - C.best);
@@ -51,7 +55,7 @@ function suspension(s, step) {
 }
 // the dampers off stock (DAMPER; chassis.js): null when stock. cF / cR = each axle's roll damping vs stock (bump and
 // rebound together), dive / rise = the pitch damping as the nose goes down (front bump, rear rebound) / up, bump = the bump steps over stock / 5 (kerb strikes), linger = s a kerb's grip loss stays
-function dampers(step) {
+function dampers(DA, SETUP, step) {
   const keys = ['bumpF', 'bumpR', 'reboundF', 'reboundR'];
   if (keys.every(k => step(k) === 0)) return null;
   const c = k => 1 + DA.perStep * step(k), span = SETUP.bumpF.max - SETUP.bumpF.def;
@@ -62,9 +66,11 @@ function dampers(step) {
     linger: DA.linger * Math.max(0, (step('reboundF') + step('reboundR')) / 2),
   });
 }
-export function carSpec(setupIn, modsIn) {
-  const s = validSetup(setupIn), m = validMods(modsIn);
-  const pf = pressure(s.pressF - SETUP.pressF.def), pr = pressure(s.pressR - SETUP.pressR.def);
+/** @param {CarClass} cls */
+export function carSpec(setupIn, modsIn, cls = F1_2026) {
+  const { car: CAR, chassis: CHASSIS, setup: SETUP, mods: MODS, pressure: PR, suspension: SU, damper: DA } = cls, { aero, engine, gearbox } = CAR;
+  const s = validSetup(setupIn, cls), m = validMods(modsIn, cls);
+  const pf = pressure(PR, s.pressF - SETUP.pressF.def), pr = pressure(PR, s.pressR - SETUP.pressR.def);
   const wing = s.wing - SETUP.wing.def, step = k => s[k] - SETUP[k].def;
   const toeOff = Math.abs(s.toeF) + Math.abs(s.toeR) - (Math.abs(SETUP.toeF.def) + Math.abs(SETUP.toeR.def));
   const mass = m.mass;                                   // stock = CAR.mass
@@ -82,8 +88,8 @@ export function carSpec(setupIn, modsIn) {
     flex: Object.freeze([pf.flex, pr.flex]),                                           // × the tyres' flexing heat
     // the share of the sideways load transfer on the front: a stiffer front anti-roll bar / spring takes more (less front grip)
     rollFront: CHASSIS.rollFront + SETUP.rollPerStep * (step('arbF') - step('arbR')) / 2 + SU.rollSpring * (step('springF') - step('springR')) / 2,
-    susp: suspension(s, step),
-    damp: dampers(step),
+    susp: suspension(SU, SETUP, s, step),
+    damp: dampers(DA, SETUP, step),
     brakeBias: s.brakes / 100,                           // front share of the braking
     brakeMigration: s.migration / 100,                   // how much further forward the balance moves as the pedal comes off
     engineBrake: 1 + SETUP.engineBrakePerStep * (s.engineBrake - SETUP.engineBrake.def),   // × the engine braking and lift-off harvest
@@ -95,7 +101,12 @@ export function carSpec(setupIn, modsIn) {
     ratio: top.map(kmh => kmh ? (engine.redline * TAU / 60) / (kmh / 3.6 / R_WHEEL) : 0),
     modified: Object.entries(m).some(([k, v]) => v !== MODS[k].def),
     setup: Object.freeze(s), mods: Object.freeze(m),
+    cls,                                                 // the car class it was made from
   });
 }
-export const STOCK = carSpec();
-/** @typedef {typeof STOCK} Spec */
+// a class's stock car (made once per class: every car of a race shares it, so a spec can be compared by identity)
+const stocks = new Map();
+/** @param {CarClass} cls @returns {Spec} */
+export const stockOf = cls => stocks.get(cls) || stocks.set(cls, carSpec(undefined, undefined, cls)).get(cls);
+export const STOCK = stockOf(F1_2026);
+/** @typedef {ReturnType<typeof carSpec>} Spec */

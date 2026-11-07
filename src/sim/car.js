@@ -5,7 +5,7 @@ import { wrapA, wrapIdx, speedOf } from './math.js';
 import { gridSlot, headingAt } from './track.js';
 import { emit } from './events.js';
 import { pitState } from './pit.js';
-import { STOCK } from './spec.js';
+import { STOCK } from './spec.js';   // (the type's default: createRace gives each car its class's stock)
 import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
@@ -25,7 +25,7 @@ export function locate(track, c, full) {
 
 // Every field a car has, grouped by the module that owns it (a field added anywhere else is a bug: tsc checks it).
 /** @param {Track} track @param {import('./drivers.js').Driver} driver @param {number} slot @param {() => number} rng */
-export function createCar(track, driver, slot, rng) {
+export function createCar(track, driver, slot, rng, spec = STOCK) {
   const { PX, PZ, NX, NZ } = track, { idx, lat } = gridSlot(track, slot);
   const c = { player: false, ...driver, slot,
     // physics: position, heading, speed, nearest sample / lateral offset (locate), steering (-1..1 after shaping)
@@ -40,8 +40,8 @@ export function createCar(track, driver, slot, rng) {
     // air: airborne.js, null on the ground
     air: /** @type {import('./airborne.js').Air} */ (null), upset: /** @type {{ pitch: number, roll: number }} */ (null),   // upset: on its side / back after a flip
     dirt: 0, gravelDepth: 0, beached: false, beachedAt: 0, stuckT: 0, beachClock: null,
-    // performance spec (spec.js): STOCK, or the player's garage setup + mods (set by the game before the start)
-    spec: STOCK,
+    // performance spec (spec.js): its class's stock car, or the player's garage setup + mods (set by the game before the start)
+    spec,
     // drivetrain (vehicle.js): gear 1..8, -1 = reverse; autoShift = automatic gearbox; downQueue = manual downshifts waiting for the revs; slip = slipstream 0..1
     // movedOff: has driven off once (reverse can be selected from then on); revT: s brake + gas held at a standstill
     rearSpin: 0,   // chassis.js: the rear wheels' wheelspin 0..1 (CHASSIS.spin)
