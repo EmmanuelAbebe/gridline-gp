@@ -147,3 +147,24 @@ test('car classes: a heavier, narrower F1 is slower and the F1 is untouched', ()
   assert.equal(after, before, 'the F1 unchanged');
   assert.ok(+slow.split(',')[0] > +before.split(',')[0] + 0.5, `heavier is slower: ${slow.split(',')[0]} vs ${before.split(',')[0]}`);
 });
+
+// (stage 6) the game asks the car class: the player's (car-class.js, the garage's) in the menus, the race's or the car's
+// in a race; it never reads the F1's tables (SIM.SETUP, SIM.ERS …) any more
+test('car classes: the game reads the car class, not the F1\'s tables', async () => {
+  const fs = await import('node:fs'), path = await import('node:path');
+  const root = path.join(import.meta.dirname, '..'), bad = [];
+  const TABLE = /\bSIM\.(AI_CAR|HITBOX|CAR|SETUP|DIFF|PRESSURE|SUSPENSION|DAMPER|MODS|HANDBRAKE|CHASSIS|ACTIVE_AERO|OVERTAKE|ERS|ECU|WEAR|TYRE_TEMP|COMPOUNDS|VEHICLE|STOCK)\b/;
+  for (const dir of ['src/game', 'leaderboard/lib'])
+    for (const f of fs.readdirSync(path.join(root, dir), { recursive: true }).filter(f => f.endsWith('.js'))) {
+      fs.readFileSync(path.join(root, dir, f), 'utf8').split('\n').forEach((line, i) => {
+        const code = line.replace(/\/\/.*$/, '');
+        if (TABLE.test(code)) bad.push(`${dir}/${f}:${i + 1}: ${code.trim().slice(0, 80)}`);
+      });
+    }
+  assert.deepEqual(bad, []);
+  const { playerSpec, garageClass, loadGarage } = await import('../src/game/garage-store.js');
+  const g = loadGarage(null);
+  assert.equal(garageClass(g), F1, 'the F1 until the garage saves a class');
+  assert.equal(playerSpec(g).cls, F1);
+  assert.deepEqual(S.vehicleInfo(F1), S.VEHICLE, 'the dash\'s numbers');
+});

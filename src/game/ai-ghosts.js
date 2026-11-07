@@ -5,6 +5,7 @@
 // lap. The lap list (`aiLap`) comes from the same race driven ahead of time (same seed: the same laps), and the
 // ALIEN's best lap also gives the racing line (racing-line.js): where it was, its speed and pedals at every sample.
 import { SIM } from '../sim/index.js';
+import { playerClass } from './car-class.js';
 
 export const AI_GHOSTS = Object.freeze({
   laps: 3,          // laps timed for the list: the first is a standing start, the best of the others is kept
@@ -20,9 +21,9 @@ export const ghostDriver = () => SIM.DRIVERS.filter(d => !d.player).reduce((a, d
 // (aiAssists: the player's ABS / traction control, setup-store aiAssistsOf: the ghost drives on the same terms)
 // (tyreTemp: tyre temperatures as in your race, so off the line it is on cold tyres too; compound: your tyres)
 // (driver: another driver alone, for the grid's lap times: grid.js; aiTop = the fastest driver in the real field, which
-// sets an ALIEN driver's pace gap: SIM race.aiTop)
+// sets an ALIEN driver's pace gap: SIM race.aiTop) (in the car class you race: car-class.js)
 function rivalRace(track, level, activeAero, aiAssists = null, tyreTemp = false, compound = 'medium', driver = ghostDriver(), aiTop = driver.skill) {
-  const race = SIM.createRace({ type: 'unlimited' }, { track, drivers: [driver], aiPace: level.pace, aiFollow: level.follow || 1,
+  const race = SIM.createRace({ type: 'unlimited' }, { carClass: playerClass(), track, drivers: [driver], aiPace: level.pace, aiFollow: level.follow || 1,
     aiAlien: !!level.alien, seed: AI_GHOSTS.seed, activeAero, overtake: false, aiAssists, tyreTemp, compound });
   race.aiTop = aiTop;
   return race;
@@ -75,7 +76,7 @@ export function aiLapRun(track, level, { activeAero = false, aiAssists = null, t
 // Each level's lap on a circuit, made once per session (circuit × level × active aero × the AI's ABS / TC / stability
 // × tyre temperatures × compound × the circuit's straight-mode zones: track.aeroKey)
 const cache = new Map();
-const keyOf = (track, id, aero, a, tt, cmp) => `${track.id}:${track.aeroKey}:${id}:${aero}:${a ? `${a.abs}/${a.tc}/${a.stability}` : '-'}:${tt ? 'tt' : ''}:${cmp}`;
+const keyOf = (track, id, aero, a, tt, cmp) => `${playerClass().id}:${track.id}:${track.aeroKey}:${id}:${aero}:${a ? `${a.abs}/${a.tc}/${a.stability}` : '-'}:${tt ? 'tt' : ''}:${cmp}`;
 export const aiLapReady = (track, id, aero, aiAssists = null, tyreTemp = false, compound = 'medium') => cache.has(keyOf(track, id, aero, aiAssists, tyreTemp, compound));
 export function aiLap(track, id, level, activeAero, aiAssists = null, tyreTemp = false, compound = 'medium') {
   const k = keyOf(track, id, activeAero, aiAssists, tyreTemp, compound);

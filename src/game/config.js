@@ -107,8 +107,8 @@ export const RACE_SETUP = Object.freeze({
     ai: levels(Object.keys(AI_LEVELS)),
     gearbox: [['auto', 'AUTO'], ['semi', 'SEMI-AUTO'], ['manual', 'MANUAL']],
     assists: levels([...Object.keys(SIM.ASSISTS), 'custom']),
-    fuel: levels(Object.keys(SIM.WEAR.fuel)),
-    tyres: levels(Object.keys(SIM.WEAR.tyres)),
+    fuel: levels(Object.keys(SIM.DEFAULT_CLASS.wear.fuel)),     // (the levels: off / normal / high, every car class's)
+    tyres: levels(Object.keys(SIM.DEFAULT_CLASS.wear.tyres)),
     tyreTemp: levels(['off', 'on']),
     damage: levels(['off', 'on']),
     aero: levels(['off', 'on']),

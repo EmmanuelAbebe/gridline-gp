@@ -141,13 +141,13 @@ export const Hud = (() => {
           setOnce('dmgCls', worst > 0.5 ? 'bad' : worst > 0.08 ? 'warn' : '', k => { $('dmg').className = k; });
         }
       }
-      // the power unit's battery (SIM ERS): charge, and whether it is deploying (yellow) or harvesting (blue)
-      const soc = Math.round(c.soc / SIM.ERS.store * 100), ers = c.ersKw > 5 ? 'out' : c.ersKw < -5 ? 'in' : '';
+      // the power unit's battery (its class's ers): charge, and whether it is deploying (yellow) or harvesting (blue)
+      const soc = Math.round(c.soc / c.spec.cls.ers.store * 100), ers = c.ersKw > 5 ? 'out' : c.ersKw < -5 ? 'in' : '';
       setOnce('ersPct', soc, v => { $('ersPct').textContent = v + '%'; $('ersFill').style.width = v + '%'; });
       setOnce('ersFlow', ers, k => { $('ers').className = k; });
       // the ECU map (SIM ecu.js): its name, A = picked by the ECU, M = yours
-      const ecu = c.ecuMode ? SIM.ECU.maps[c.ecuMap].name + (c.ecuMode === 'auto' ? ' · A' : ' · M') : '';
-      setOnce('ecuTxt', ecu, t => { $('ecuMap').textContent = t; $('ecuMap').hidden = !t; $('ecuMap').dataset.map = c.ecuMode ? SIM.ECU.maps[c.ecuMap].id : ''; });
+      const maps = c.spec.cls.ecu.maps, ecu = c.ecuMode ? maps[c.ecuMap].name + (c.ecuMode === 'auto' ? ' · A' : ' · M') : '';
+      setOnce('ecuTxt', ecu, t => { $('ecuMap').textContent = t; $('ecuMap').hidden = !t; $('ecuMap').dataset.map = c.ecuMode ? maps[c.ecuMap].id : ''; });
       const pit = c.pit ? (c.pit.phase === 'stop' ? 'PIT STOP' : c.pitLimiter ? 'PIT LIMITER' : c.pit.drive && !c.pit.entered ? 'PIT ENTRY' : 'PIT EXIT')
         : c.pitLimiter ? 'PIT LIMITER' : c.pitRequest ? 'BOX THIS LAP' : '';
       // active aero: straight mode chip (on the button setting: dim = in a zone, yours to open), overtake mode (ready /

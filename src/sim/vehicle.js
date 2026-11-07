@@ -241,6 +241,13 @@ export function drivetrain(c, { thr, brk, shift = 0 }, dt) {
   return { drive, resist, rear: eb + e.coast, reverse: false };
 }
 
-const { engine, gearbox } = F1_2026.car;   // (the F1's: the game's dash; car classes stage 6)
-export const VEHICLE_INFO = Object.freeze({ redline: engine.redline, limiter: engine.limiter, idle: engine.idle,
-  autoUp: gearbox.autoUp, gears: GEARS });
+// a class's engine and gearbox for the game's dash and sound (rev lights, limiter, the grid's revs)
+const infos = new Map();
+/** @param {import('./types.js').CarClass} cls */
+export function vehicleInfo(cls) {
+  if (infos.has(cls)) return infos.get(cls);
+  const { engine, gearbox } = cls.car;
+  return infos.set(cls, Object.freeze({ redline: engine.redline, limiter: engine.limiter, idle: engine.idle,
+    autoUp: gearbox.autoUp, gears: gearbox.top.length - 1 })).get(cls);
+}
+export const VEHICLE_INFO = vehicleInfo(F1_2026);

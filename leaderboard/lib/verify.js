@@ -33,9 +33,11 @@ export function verifyRun(rp, claim = {}) {
   if (rp.zones) return fail('your own straight-mode zones: only the automatic zones are ranked');
   if (!Array.isArray(rp.drivers) || rp.drivers.length !== 1 || rp.drivers[0] !== PLAYER) return fail('not a time trial');
   if (rp.race?.format?.type !== 'unlimited' || Object.keys(rp.race.wear || {}).length) return fail('not a time trial');
-  if (SIM.isModified(rp.player?.mods || {})) return fail('a modified car: open mods are not ranked');
+  const cls = SIM.classOf(rp.race?.carClass ?? 'f1');                // (a replay from before car classes: the F1)
+  if (!cls) return fail('unknown car class');
+  if (SIM.isModified(rp.player?.mods || {}, cls)) return fail('a modified car: open mods are not ranked');
   if (!(rp.steps > 0) || rp.steps > RULES.maxSteps) return fail('too long');
-  if (!SIM.COMPOUNDS[rp.player?.compound]) return fail('unknown tyres');
+  if (!Object.hasOwn(cls.compounds, rp.player?.compound)) return fail('unknown tyres');
 
   const track = SIM.buildTrack(SIM.CIRCUITS[rp.circuit]), L = SIM.buildSectors(track);
   const ghostRec = createRecorder(), traceRec = createTraceRecorder(track.N);

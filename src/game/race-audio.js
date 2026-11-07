@@ -8,13 +8,13 @@ import { CameraRig } from './camera-rig.js';
 import { createProximity } from './proximity.js';
 import { poseOf } from './pose.js';
 
-const V = SIM.VEHICLE;
+// (each car's engine and gearbox: SIM.vehicleInfo of its class)
 export function createRaceAudio() {
   const proximity = createProximity(), prevPos = new THREE.Vector3(), vel = new THREE.Vector3(), step = new THREE.Vector3(), fwd = new THREE.Vector3(), up = new THREE.Vector3();
   const grid = new Map();   // rivals revving on the grid: code → { rpm, target, next }
   let started = false;
   function gridRpm(c, dt) {   // waiting for the lights: blips of throttle around 7–11k
-    let g = grid.get(c.code); if (!g) { g = { rpm: V.idle, target: 7000, next: 0 }; grid.set(c.code, g); }
+    let g = grid.get(c.code); if (!g) { g = { rpm: SIM.vehicleInfo(c.spec.cls).idle, target: 7000, next: 0 }; grid.set(c.code, g); }
     if ((g.next -= dt) <= 0) { g.target = 6500 + Math.random() * 4800; g.next = 0.25 + Math.random() * 0.9; }
     g.rpm += (g.target - g.rpm) * Math.min(1, dt * 6);
     return g;
@@ -28,7 +28,7 @@ export function createRaceAudio() {
       if (!started) { prevPos.copy(cam.position); vel.set(0, 0, 0); started = true; }
       if (dt > 0) vel.lerp(step.subVectors(cam.position, prevPos).divideScalar(dt), Math.min(1, dt * 10));
       prevPos.copy(cam.position);
-      const P = player, rpm = o.onLights ? V.idle + o.thr * (V.redline - V.idle) * 0.95 : P.rpm;
+      const P = player, V = SIM.vehicleInfo(P.spec.cls), rpm = o.onLights ? V.idle + o.thr * (V.redline - V.idle) * 0.95 : P.rpm;
       const rivals = [];
       for (const c of race.cars) {
         if (c === P) continue;

@@ -9,6 +9,7 @@ import { createGlbCar } from './car-glb.js';
 import { Debris } from './debris.js';
 import { Models } from './models.js';
 import { SIM } from '../sim/index.js';
+import { playerClass } from './car-class.js';
 
 // Built from Design.data.car. Per car: fixed parts merged into one mesh with a group per finish (paint, carbon,
 // rubber, metal, light, decal), parts that turn with the steering in a second mesh, one mesh per wheel, brake-light
@@ -342,11 +343,11 @@ export const CarModels = (() => {
   // with its own `eye` puts the driver, the cockpit camera and the mirrors' viewpoint that far from it
   const CLASSIC_EYE = [-0.33, 0.77];
   const eyeShift = () => { const e = kind === '2026' && Models.car?.getObjectByName('eye')?.position; return e ? [e.x - CLASSIC_EYE[0], e.y - CLASSIC_EYE[1]] : [0, 0]; };
-  // The cars' hitbox for a race (SIM createRace hitbox): the 2026 car's is measured (SIM HITBOX); the classic car's is
+  // The cars' hitbox for a race (SIM createRace hitbox): the 2026 car's is its class's, measured (the F1's hitbox); the classic car's is
   // made from its design (SIM hitboxFrom: the bodywork seen from above, the wheels' footprints), once per design
   let classicBox = null;
   function hitbox(design) {
-    if (kind === '2026' && Models.car) return SIM.HITBOX.parts;
+    if (kind === '2026' && Models.car) return playerClass().hitbox.parts;
     if (classicBox?.design === design) return classicBox.parts;
     const g = mergeParts(design.parts.filter(p => !p.steer && p.show !== 'off' && p.show !== 'cockpit'), { color: 0, accent: 0, number: 0 });
     const pos = g.getAttribute('position'), pts = [];

@@ -10,12 +10,13 @@ import { driverLap, driverLapReady } from './ai-ghosts.js';
 import { zoneTag, lapClass } from './aero-zones.js';
 import { rivalsOf, topSkill, gridOrder, qualiPlan, qualiStandings } from './grid.js';
 import { SIM } from '../sim/index.js';
+import { playerClass } from './car-class.js';
 
 export function createStartingGrid({ game, track, onReady }) {
   const levelId = () => game.setup.ai, level = () => RACE_SETUP.aiLevels[game.setup.ai];
   // the conditions the times are made in: the race's active aero, the AI's assists, tyre temperatures; the tyres are the
   // teams' own call: for one fast lap the grippiest compound (in the race they pick by strategy: SIM bestCompound)
-  const lapTyres = Object.entries(SIM.COMPOUNDS).reduce((a, b) => b[1].grip > a[1].grip ? b : a)[0];
+  const lapTyres = Object.entries(playerClass().compounds).reduce((a, b) => b[1].grip > a[1].grip ? b : a)[0];
   const optsOf = rivals => ({ activeAero: raceAero(game.setup).activeAero, aiAssists: aiAssistsOf(game.setup),
     tyreTemp: game.setup.tyreTemp === 'on', compound: lapTyres, aiTop: topSkill(rivals) });
   const ready = (T, rivals) => rivals.every(d => driverLapReady(T, d, levelId(), optsOf(rivals)));

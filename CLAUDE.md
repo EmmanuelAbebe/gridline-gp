@@ -997,6 +997,14 @@ showed MODIFIED only because of it).
   tests import them from the class file. MODS.mass.def = CAR.mass (was a literal 770). tests/car-classes.test.js: a guard
   (no src/sim module but index.js imports a car table; tuning.js has none) and a throwaway F1 +100 kg / 1.4 m track
   class (its AI laps slower; the F1 raced before and after it identical to the bit).
+- Stage 6 done: the game asks the car class. `src/game/car-class.js` playerClass() (the F1 until a picker exists),
+  classById(id); garage-store.js `garageClass(g)` (g.carClass, saved from stage 7) for validSetup / validMods / carSpec;
+  garage.js (setup ranges, compounds, tyre life, mods, stock stats per class), describeSetup, settings-screen.js (wear
+  notes), starting-grid.js (lap tyres), car-models.js hitbox (the 2026 car = the class's), ai-ghosts.js (the rivals' race
+  and cache key in your class); in a race the car's own (c.spec.cls): HUD battery / ECU map, the pit box's compounds, ECU
+  map steps, the phone dash, `SIM.vehicleInfo(cls)` for the dash's rev lights and race-audio.js. main.js gives the race
+  carClass. leaderboard verify.js checks the replay's class (missing = the F1; unknown refused; mods and compounds of it).
+  index.js still exports SIM.CHASSIS … (tests, tools); a test keeps src/game and leaderboard/lib off them.
 
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)

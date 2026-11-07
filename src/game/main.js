@@ -61,7 +61,7 @@ import { createHaptics } from './haptics.js';
 import { createPitCrews } from './pit-crew.js';
 import { createTyreMarks } from './tyre-marks.js';
 import { Garage } from './garage.js';
-import { loadGarage, loadRecords, recordLap, playerSpec, playerDriver, pitPlanOf } from './garage-store.js';
+import { loadGarage, loadRecords, recordLap, playerSpec, playerDriver, pitPlanOf, garageClass } from './garage-store.js';
 import { loadModels } from './models.js';
 
 const { EV } = SIM;
@@ -201,14 +201,14 @@ function newRace() {
   const raceOpts = { wear: quali ? {} : raceWear(s), aiAssists: aiAssistsOf(s),
     compound: s.type === 'trial' || quali ? game.garage.tyres.start : 'auto',      // (the rivals' teams pick their tyres: SIM bestCompound)
     hitbox: CarModels.hitbox(Design.data.car) };                         // (the shape of the cars in the race: 2026 or classic)
-  const race = SIM.createRace(format, { track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, aiFollow: RACE_SETUP.aiLevels[s.ai].follow || 1, aiAlien: !!RACE_SETUP.aiLevels[s.ai].alien, ...raceAero(s), tyreTemp: s.tyreTemp === 'on', ...raceOpts });
+  const race = SIM.createRace(format, { carClass: garageClass(game.garage), track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, aiFollow: RACE_SETUP.aiLevels[s.ai].follow || 1, aiAlien: !!RACE_SETUP.aiLevels[s.ai].alien, ...raceAero(s), tyreTemp: s.tyreTemp === 'on', ...raceOpts });
   game.raceOpts = { format, ...raceOpts, finishedAiSkill: CONFIG.finishedAiSkill }; game.replayRec = null;
   for (const [code, m] of modelOf) m.setVisible(field.some(d => d.code === code));
   const L = CONFIG.lights;
   const player = race.cars.find(c => c.player);
   setGearbox(player, game.setup.gearbox);
   player.assists = assistsOf(game.setup);
-  player.spec = playerSpec(game.garage);             // the garage's setup + open mods (the rivals race SIM.STOCK)
+  player.spec = playerSpec(game.garage);             // the garage's setup + open mods (the rivals race their class's stock car)
   SIM.fitTyres(race, player, game.garage.tyres.start); player.pitPlan = pitPlanOf(game.garage.tyres);   // garage: tyres + pit box
   player.boostAuto = s.overtake === 'auto';
   setDriverButtons(player, s);
@@ -419,11 +419,10 @@ function drawPitBox() {
   call.disabled = !!c.pit || c.finished || !game.race.track.pit;
   call.onclick = () => { requestBox(true); drawPitBox(); };
   box.replaceChildren(kick, head,
-    seg('Next tyres', [['auto', 'AUTO'], ...SIM_COMPOUNDS.map(k => [k, k.toUpperCase()])], P.tyres, v => { P.tyres = v; }),
+    seg('Next tyres', [['auto', 'AUTO'], ...Object.keys(c.spec.cls.compounds).map(k => [k, k.toUpperCase()])], P.tyres, v => { P.tyres = v; }),
     seg('Front wing', [[true, 'CHANGE IF DAMAGED'], [false, 'KEEP']], P.wing, v => { P.wing = v; }),
     seg('Repairs', [[true, 'FIX'], [false, 'SKIP']], P.repair, v => { P.repair = v; }), call);
 }
-const SIM_COMPOUNDS = Object.keys(SIM.COMPOUNDS);
 Screens.onShow(name => { if (name === 'pause') drawPause(); if (name === 'pause' || name === 'results') drawSubmit(); });
 function startFromMenu() {
   Sound.init();
@@ -509,8 +508,8 @@ const settings = bindSettings(game, { setGfx, setPref, setDriving, togglePause, 
 const openSettings = tab => settings.open(tab);
 // The start menu's line about the Settings-screen choices.
 const describeSetup = () => {
-  const g = game.garage, custom = Object.entries(g.setup).some(([k, v]) => v !== SIM.SETUP[k].def);
-  Screens.summary(setupSummary(game.setup, game.prefs, game.gfx) + (g.mods && SIM.isModified(g.mods) ? ' · car MODIFIED' : custom ? ' · custom car setup' : ''));
+  const g = game.garage, cls = garageClass(g), custom = Object.entries(g.setup).some(([k, v]) => v !== cls.setup[k].def);
+  Screens.summary(setupSummary(game.setup, game.prefs, game.gfx) + (g.mods && SIM.isModified(g.mods, cls) ? ' · car MODIFIED' : custom ? ' · custom car setup' : ''));
 };
 // the start menu's circuit line: your records here
 // the start menu's intro line (a time trial is you alone)
@@ -600,7 +599,7 @@ PhoneWheel.on('ecu', cmd => {
   if (cmd === 'auto' || cmd === 'manual') { setDriving('ecu', cmd); showMessage({ toast: `ECU maps ${cmd.toUpperCase()}`, secs: 1.5 }); return; }
   if (!racing() || !p || p.finished) return;
   if (p.ecuMode !== 'manual') setDriving('ecu', 'manual');
-  const n = SIM.ECU.maps.length, up = ((cmd - p.ecuMap) % n + n) % n;
+  const n = p.spec.cls.ecu.maps.length, up = ((cmd - p.ecuMap) % n + n) % n;
   game.pendingMap = up <= n / 2 ? up : up - n;            // the shorter way round, one map per sim step
 });
 Input.on('gesture', Sound.init);
@@ -675,8 +674,9 @@ const renderSetup = Screens.bindSetup(game.setup, SIM.DRIVERS.length, Object.val
 // ---- per-frame ----
 // Gear and rev lights (0..1, all lit at the shift point) from the car's drivetrain.
 // On the grid the gearbox is in neutral and the revs follow the throttle.
-const V = SIM.VEHICLE, REV_FROM = CONFIG.revLights.from;
+const REV_FROM = CONFIG.revLights.from;
 function dashGear(p, onLights, thr) {
+  const V = SIM.vehicleInfo(p.spec.cls);                 // (the car's engine and gearbox)
   const rpm = onLights ? V.idle + thr * (V.redline - V.idle) * (0.9 + Math.random() * 0.06) : p.rpm;
   return { gear: onLights ? 'N' : p.gear === -1 ? 'R' : String(p.gear), next: !onLights && p.downQueue > 0 ? p.gear - p.downQueue : null,
     revs: SIM.clamp((rpm - REV_FROM) / (V.autoUp - REV_FROM), 0, 1), rpm };
@@ -714,7 +714,7 @@ function renderFrame(dt) {
   // p position, l lap, t laps (0 = no lap count), d delta s (time trial; absent = none))
   phoneDash.next = { g: gi.gear, q: gi.next ?? 0, r: Math.round(gi.revs * 50) / 50, v: Math.round(SIM.speedOf(player) * 3.6),
     n: Math.round(gi.rpm / 50) * 50, e: player.ecuMode ? player.ecuMap : -1, m: player.ecuMode === 'manual' ? 'M' : 'A',
-    b: Math.round(player.soc / SIM.ERS.store * 100), k: player.ersKw > 5 ? 1 : player.ersKw < -5 ? -1 : 0,
+    b: Math.round(player.soc / player.spec.cls.ers.store * 100), k: player.ersKw > 5 ? 1 : player.ersKw < -5 ? -1 : 0,
     p: SIM.order(race).indexOf(player) + 1, l: Math.max(1, Math.min(player.lap, race.laps)), t: race.laps < Infinity ? race.laps : 0,
     ...(Hud.delta !== null ? { d: Math.round(Hud.delta * 1000) / 1000 } : {}) };
   Hud.updateDash({

@@ -90,7 +90,8 @@ the same numbers, `npm run sim-version` and the smoke test. One commit per stage
 5. **A guard.** (Done 2026-11-07; index.js still passes the F1's tables to the game until stage 6.) A test fails if a sim module other than `classes/` and spec.js imports a per-car table from
    tuning.js; then drop the re-exports. A second test races a throwaway class (the F1 with +100 kg, a narrower
    track) to prove nothing still reads the F1 behind its back: the lap must be slower, and the stock F1 unchanged.
-6. **The game.** The game asks the race's class for its setup ranges, ECU maps, compounds, wear and hitbox instead
+6. **The game.** (Done 2026-11-07: `src/game/car-class.js`; the 3D model stays the F1's car.glb / classic car until a
+   second class brings its own.) The game asks the race's class for its setup ranges, ECU maps, compounds, wear and hitbox instead
    of `SIM.SETUP` etc.; car-models.js maps a class to its model (`car.glb` for the F1).
 7. **Saved data gets the class.** A missing class reads as `'f1'`, so no save needs converting: records, ghosts,
    sectors, lap runs, the garage (setup + mods per class), the ai-ghosts cache key, the replay header, and the

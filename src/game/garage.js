@@ -10,7 +10,7 @@ import { CarModels } from './car-models.js';
 import { Design } from './design.js';
 import { $, createEmitter } from './util.js';
 import { orbitState, orbitPosition, attachOrbit, clampOrbit, ORBIT } from './orbit-camera.js';
-import { FINISHES, CAR_MODELS, SWATCHES, LIVERY_DEFAULTS, STRATEGY_DEFAULTS, COMPOUND_NAMES, hexOf, playerDriver, playerSpec } from './garage-store.js';
+import { FINISHES, CAR_MODELS, SWATCHES, LIVERY_DEFAULTS, STRATEGY_DEFAULTS, COMPOUND_NAMES, hexOf, playerDriver, playerSpec, garageClass } from './garage-store.js';
 
 // Setup (2026-11-02, the user's pick B of the canvas mock-ups): a chip per group, one group at a time; each item says what
 // moving it off stock does (lo = below stock, hi = above); `isNew` = a setting the garage didn't have before (a NEW tag)
@@ -82,7 +82,9 @@ export const Garage = (() => {
   const root = $('garageOv'), stage = $('garStage'), tabsEl = $('garTabs'), body = $('garBody'), events = createEmitter();
   let isOpen = false, garage = null, tab = 'look', group = 'aero', scene = null, cam = null, model = null, autoTurn = false, idle = 0, statsQueued = false;
   const orbit = orbitState();
-  const STOCK_STATS = SIM.specStats(SIM.STOCK);
+  // the garage's car class (garage-store.js garageClass) and its stock car's stats (made once per class)
+  const cls = () => garageClass(garage), stockStats = new Map();
+  const stockStatsOf = c => stockStats.get(c) || stockStats.set(c, SIM.specStats(SIM.stockOf(c))).get(c);
 
   // ---- the studio ----
   function floorTexture() {
@@ -146,7 +148,7 @@ export const Garage = (() => {
   }
   // a setup item (layout B): name (+ NEW) and value; − slider +; what the change does (or "Stock"); double-click = stock
   function setupRow(k, ui) {
-    const r = SIM.SETUP[k], row = el('div', 'set-item gar-set'), head = el('div', 'gar-sethead'), out = el('output'), p = el('p', 'note');
+    const r = cls().setup[k], row = el('div', 'set-item gar-set'), head = el('div', 'gar-sethead'), out = el('output'), p = el('p', 'note');
     const input = el('input'), line = el('div', 'gar-setline');
     Object.assign(input, { type: 'range', min: r.min, max: r.max, step: r.step, value: garage.setup[k] });
     head.append(el('span', 'lbl', ui.label));
@@ -157,7 +159,7 @@ export const Garage = (() => {
       input.value = v; out.textContent = ui.fmt(v); out.classList.toggle('off', off);
       p.textContent = !off ? 'Stock' : v < r.def ? ui.lo : ui.hi; p.classList.toggle('stock', !off);
     };
-    const set = v => { garage.setup[k] = SIM.validSetup({ ...garage.setup, [k]: v })[k]; draw(); changed('setup'); drawCount(); };
+    const set = v => { garage.setup[k] = SIM.validSetup({ ...garage.setup, [k]: v }, cls())[k]; draw(); changed('setup'); drawCount(); };
     input.oninput = () => set(+input.value);
     input.ondblclick = () => set(r.def);
     line.append(button('−', () => set(garage.setup[k] - r.step), 'gar-step'), input, button('+', () => set(garage.setup[k] + r.step), 'gar-step'));
@@ -166,7 +168,7 @@ export const Garage = (() => {
     return row;
   }
   // how many items are off stock, overall and per group (the chips' green dot)
-  const offStock = keys => keys.filter(k => garage.setup[k] !== SIM.SETUP[k].def).length;
+  const offStock = keys => keys.filter(k => garage.setup[k] !== cls().setup[k].def).length;
   function drawCount() {
     const n = offStock(SETUP_UI.flatMap(([, , items]) => Object.keys(items))), c = $('garSetCount');
     if (c) c.textContent = n ? `${n} changed from stock` : 'Stock setup';
@@ -189,7 +191,7 @@ export const Garage = (() => {
   function drawStats() {
     statsQueued = false;
     const card = $('garStats'); if (!card) return;
-    const s = SIM.specStats(playerSpec(garage)), b = STOCK_STATS;
+    const s = SIM.specStats(playerSpec(garage)), b = stockStatsOf(cls());
     const tile = (label, v, ref, unit, better, digits = 0) => {
       const t = el('div', 'gar-stat'), d = v - ref, good = better === 'up' ? d > 0 : d < 0;
       t.append(el('span', 'lbl', label), el('b', '', v === null ? '–' : v.toFixed(digits) + unit));
@@ -236,7 +238,7 @@ export const Garage = (() => {
     } else if (tab === 'setup') {
       body.append(statsCard());
       const top = el('div', 'gar-settop'), count = el('span', 'gar-count'); count.id = 'garSetCount';
-      top.append(count, button('ALL STOCK', () => { garage.setup = SIM.validSetup({}); changed('setup'); render(); }));
+      top.append(count, button('ALL STOCK', () => { garage.setup = SIM.validSetup({}, cls()); changed('setup'); render(); }));
       const chips = el('div', 'gar-chips'); chips.id = 'garSetChips';
       for (const [id, label] of SETUP_UI) {
         const b = button(label, () => { group = id; render(); }, ''); b.dataset.g = id; b.setAttribute('aria-pressed', String(id === group));
@@ -247,18 +249,18 @@ export const Garage = (() => {
       for (const [k, ui] of Object.entries(items)) body.append(setupRow(k, ui));
       if (group === 'aero') {
         const pre = el('div', 'set-item btns');
-        for (const [label, values] of PRESETS) pre.append(button(label, () => { garage.setup = SIM.validSetup({ ...garage.setup, ...values }); changed('setup'); render(); }));
+        for (const [label, values] of PRESETS) pre.append(button(label, () => { garage.setup = SIM.validSetup({ ...garage.setup, ...values }, cls()); changed('setup'); render(); }));
         body.append(pre);
       }
       body.append(el('p', 'note', 'Every change buys something and costs something. The rivals race the stock setup. Applies from the next race. Double-click a slider for stock.'));
       drawCount();
       queueStats();
     } else if (tab === 'tyres') {
-      const T = garage.tyres, W = SIM.WEAR.tyres, set = (k, v) => { T[k] = v; changed('tyres'); render(); };
+      const T = garage.tyres, W = cls().wear.tyres, set = (k, v) => { T[k] = v; changed('tyres'); render(); };
       const row = (label, control, note) => { const r = el('div', 'set-item'), h = el('div', 'row'); h.append(el('span', 'lbl', label), control); r.append(h); if (note) r.append(el('p', 'note', note)); return r; };
       const table = el('div', 'gar-cmp');
       for (const k of COMPOUND_NAMES) {
-        const c = SIM.COMPOUNDS[k], d = Math.round((c.grip - 1) * 100), cell = el('div', 'gar-cmp-row'), badge = el('b', 'cmp ' + k, k[0].toUpperCase());
+        const c = cls().compounds[k], d = Math.round((c.grip - 1) * 100), cell = el('div', 'gar-cmp-row'), badge = el('b', 'cmp ' + k, k[0].toUpperCase());
         cell.append(badge, el('span', 'lbl', COMPOUND_UI[k].label), el('span', '', d ? `grip ${d > 0 ? '+' : '−'}${Math.abs(d)} %` : 'grip ±0'),
           el('span', '', `${Math.round(W.normal * c.life)} laps`), el('span', '', `${c.window[0]}–${c.window[1]} °C`));
         table.append(cell);
@@ -277,15 +279,15 @@ export const Garage = (() => {
       const warn = el('div', 'gar-warn');
       warn.append(el('b', '', 'Open mods: no limits'), el('p', 'note', 'Change anything about the car. Any mod marks it MODIFIED: the results say so and its lap records are kept apart from stock ones. The rivals stay stock.'));
       body.append(warn, statsCard());
-      for (const [k, ui] of Object.entries(MODS_UI)) body.append(slider(ui.label, SIM.MODS[k], garage.mods[k], ui.fmt, null, v => { garage.mods[k] = v; changed('mods'); }));
+      for (const [k, ui] of Object.entries(MODS_UI)) body.append(slider(ui.label, cls().mods[k], garage.mods[k], ui.fmt, null, v => { garage.mods[k] = v; changed('mods'); }));
       body.append(el('div', 'set-item btns'));
-      body.lastChild.append(button('Reset all mods', () => { garage.mods = SIM.validMods({}); changed('mods'); render(); }));
+      body.lastChild.append(button('Reset all mods', () => { garage.mods = SIM.validMods({}, cls()); changed('mods'); render(); }));
       queueStats();
     }
     drawTop();
   }
   function drawTop() {
-    const modified = SIM.isModified(garage.mods);
+    const modified = SIM.isModified(garage.mods, cls());
     $('garCar').textContent = `#${garage.livery.number} · Gridline${modified ? ' · MODIFIED' : ''}`;
     $('garCar').classList.toggle('mod', modified);
     $('garViews').replaceChildren(...VIEWS.map(([id, label]) => button(label, () => setView(id), 'iconbtn')),

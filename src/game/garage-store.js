@@ -2,6 +2,7 @@
 // and the lap records per circuit, kept apart for stock and modified cars and per straight-mode zone layout. Pure functions (no DOM, no storage:
 // main.js reads / writes localStorage through Settings), tested in tests/garage-store.test.js.
 import { SIM } from '../sim/index.js';
+import { classById } from './car-class.js';
 import { lapClass, LAP_CLASS } from './aero-zones.js';
 
 const parse = json => { try { const v = JSON.parse(json); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } catch (e) { return {}; } };
@@ -36,7 +37,8 @@ export function validLivery(l = {}) {
 // tyres and the pit box (SIM COMPOUNDS, a car's pitPlan): the compound you start on, and what the crew does at your
 // stops: the next set (AUTO = the team's choice for the laps left, as the AI teams do), a new front wing if it is
 // damaged, repairs to the floor and suspension. The pause menu changes the plan for the race you are in.
-export const COMPOUND_NAMES = Object.keys(SIM.COMPOUNDS);
+// (the compounds' names: soft / medium / hard; the car class says what each one does)
+export const COMPOUND_NAMES = Object.keys(SIM.DEFAULT_CLASS.compounds);
 export const STRATEGY_DEFAULTS = Object.freeze({ start: 'medium', next: 'auto', wing: true, repair: true });
 export function validStrategy(t = {}) {
   const d = STRATEGY_DEFAULTS, bool = (v, def) => typeof v === 'boolean' ? v : def;
@@ -52,11 +54,14 @@ const OLD_STOCK = { 1: { mass: 800 } };
 export function loadGarage(json) {
   const s = parse(json), old = OLD_STOCK[s.physics ?? 1], mods = s.mods && typeof s.mods === 'object' ? { ...s.mods } : s.mods;
   if (old && mods) for (const [k, v] of Object.entries(old)) if (mods[k] === v) delete mods[k];
-  return { physics: SIM.TUNING.PHYSICS, livery: validLivery(s.livery), setup: SIM.validSetup(s.setup), mods: SIM.validMods(mods), tyres: validStrategy(s.tyres) };
+  const cls = garageClass(s);
+  return { physics: SIM.TUNING.PHYSICS, livery: validLivery(s.livery), setup: SIM.validSetup(s.setup, cls), mods: SIM.validMods(mods, cls), tyres: validStrategy(s.tyres) };
 }
 // the player's car for the race: their driver entry with the livery on it, and the spec from setup + mods
 export const playerDriver = g => ({ ...PLAYER, color: g.livery.color, accent: g.livery.accent, number: g.livery.number });
-export const playerSpec = g => SIM.carSpec(g.setup, g.mods);
+export const playerSpec = g => SIM.carSpec(g.setup, g.mods, garageClass(g));
+// the garage's car class (car-class.js; one for now: saved with the garage from car classes stage 7)
+export const garageClass = g => classById(g?.carClass);
 
 // ---- lap records: { [circuit id]: { [class]: seconds } }, class = stock / modified + the zone layout (aero-zones.js
 // lapClass: 'stock', 'modified', 'stock@120-610,...') ----

@@ -1,5 +1,5 @@
-import { SIM } from '../sim/index.js';
 import { PREFS, RACE_SETUP } from './config.js';
+import { playerClass } from './car-class.js';
 import { SCENARIOS } from './audio/scenarios.js';
 import { $, createEmitter } from './util.js';
 import { createControllerPanel } from './controller-panel.js';
@@ -17,7 +17,7 @@ const buttons = (...list) => ({ type: 'buttons', list });
 const panel = make => ({ type: 'panel', make });
 const ON_OFF = [[true, 'ON'], [false, 'OFF']];
 const LEVELS = [['off', 'OFF'], ['low', 'LOW'], ['on', 'ON']];
-const C = RACE_SETUP.choices, WEAR = SIM.WEAR;
+const C = RACE_SETUP.choices, WEAR = playerClass().wear;   // (the car you race: car-class.js)
 
 const KEYS = `<div class="keys">
   <span><kbd>↑</kbd> <kbd>W</kbd></span><span>Throttle</span>
