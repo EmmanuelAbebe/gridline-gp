@@ -43,7 +43,8 @@ test('Formula E\'s electric drivetrain: one gear, the battery pays for every met
   const DT = 1 / 120, T = S.buildTrack(S.CIRCUITS.harrow), FE = S.classOf('fe');
   const race = S.createRace(3, { carClass: FE, track: T, drivers: [S.DRIVERS.find(d => d.player)], seed: 1 }), c = race.cars[0];
   c.assists = S.ASSISTS.medium; c.autoShift = true;
-  assert.equal(c.soc, FE.ers.store, 'a full battery: 38.5 kWh');
+  assert.equal(c.soc, race.energy.total, 'the battery holds the race\'s allowance (energy.js)');
+  c.soc = FE.ers.store;
   let gears = new Set(), work = 0;
   for (let t = 0; t < 8; t += DT) {
     race.t += DT; const v0 = c.v; S.drivePlayer(race, c, { thr: 1, brk: 0, steer: 0, analog: true, shift: t > 2 && t < 2.1 ? 1 : 0 }, DT);

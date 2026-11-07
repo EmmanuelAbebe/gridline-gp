@@ -7,6 +7,7 @@ import { DRIVERS } from './drivers.js';
 import { DEFAULT_TRACK } from './track.js';
 import { createCar } from './car.js';
 import { setupWear, fitTyres, bestCompound } from './pit.js';
+import { setupEnergy, energyAtLine } from './energy.js';
 import { wrapIdx, speedOf, mulberry32 } from './math.js';
 const randomSeed = () => Math.floor(Math.random() * 2 ** 32);   // the only Math.random in the sim
 import { emit } from './events.js';
@@ -24,7 +25,7 @@ function normalizeFormat(f) {
 }
 // aiPace scales every AI driver's skill (difficulty, 1 = their own). wear = { fuel, tyres, damage } (pit.js setupWear).
 // seed: the race's random numbers (AI line biases and mistakes: race.rng); the same seed and inputs = the same race.
-export function createRace(format, { carClass = F1_2026, track = DEFAULT_TRACK, drivers = DRIVERS, aiPace = 1, wear = {}, seed = randomSeed(), activeAero = false, overtake = activeAero, aiFollow = 1, aiAlien = false, aiAssists = null, tyreTemp = false, compound = 'medium', hitbox = carClass.hitbox.parts } = {}) {
+export function createRace(format, { carClass = F1_2026, track = DEFAULT_TRACK, drivers = DRIVERS, aiPace = 1, wear = {}, seed = randomSeed(), activeAero = false, overtake = activeAero, aiFollow = 1, aiAlien = false, aiAssists = null, tyreTemp = false, compound = 'medium', hitbox = carClass.hitbox.parts, energy = true } = {}) {
   // carClass: the cars' class (classes/, spec.js): every car starts on its stock spec (one class per race)
   const fmt = normalizeFormat(format), rng = mulberry32(seed), stock = stockOf(carClass);
   // aiFollow: how tightly the AI follows its line (× lineSlope / lineSpeed, driving.js): ALIEN drives it closer
@@ -36,11 +37,15 @@ export function createRace(format, { carClass = F1_2026, track = DEFAULT_TRACK, 
   const race = { carClass, track, format: fmt, aiPace, aiFollow, aiAlien, aiTop, seed, rng, activeAero, overtake, tyreTemp, compounds: compound, hitbox,   // active-aero.js; tyre-temp.js; pit.js; collide.js (the cars' shape)
     laps: fmt.type === 'laps' ? fmt.laps : Infinity,               // distance; Infinity for timed / unlimited
     duration: fmt.type === 'timed' ? fmt.minutes * 60 : Infinity,  // seconds; the clock starts at lights out
-    chequered: false, t: 0, fastest: Infinity, fastestBy: /** @type {Car} */ (null), wear: /** @type {Wear} */ (null), cars: drivers.map((d, slot) => createCar(track, d, slot, rng, stock)) };
+    chequered: false, t: 0, fastest: Infinity, fastestBy: /** @type {Car} */ (null), wear: /** @type {Wear} */ (null),
+    energy: /** @type {{ lap: number, perLap: number, total: number | null }} */ (null),   // energy.js (electric cars)
+    cars: drivers.map((d, slot) => createCar(track, d, slot, rng, stock)) };
   // aiAssists: the AI cars' assists (an ASSISTS-shaped object; default AI.assists, medium). The game gives them the
   // player's ABS / traction control / stability, so both drive on the same terms (driving.js feelPedals without them)
   if (aiAssists) for (const c of race.cars) if (!c.player) c.assists = aiAssists;
   setupWear(race, wear);
+  // (an electric class's energy allowance: energy.js; nothing for the F1; energy false = none: energy.js measuring a lap)
+  if (energy) setupEnergy(race); else race.energy = null;
   // tyre temperatures (tyre-temp.js): every car on a fresh set off the blankets (after setupWear: it resets the pit state)
   if (tyreTemp) for (const c of race.cars) c.tyreT = tyreSet(undefined, 'medium', c.spec.cls);
   // tyre compounds (pit.js): every car on medium unless the race says otherwise: one compound for every car, or 'auto' =
@@ -78,6 +83,7 @@ export function updateLap(race, c, oldIdx) {
       emit(c, EV.LAP, { time: lt, invalid: c.lastLapInvalid });
     }
     c.lapInvalid = false;
+    if (race.energy) energyAtLine(race, c);
     if (!c.finished && c.lap >= 2 && flagFor(race, c)) {
       race.chequered = true; c.finished = true; c.finishTime = race.t; c.finishLap = c.lap; emit(c, EV.FINISH);
     }

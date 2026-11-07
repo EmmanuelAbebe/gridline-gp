@@ -398,6 +398,8 @@ export const AI_CAR = Object.freeze({
 
 export const F1_2026 = Object.freeze({
   id: 'f1', name: 'Formula 1 (2026)',
+  // a race's energy allowance (energy.js; an electric car's): none, the F1 refuels its energy every lap (ERS)
+  energy: /** @type {{ budget: number, maxLift: number, cutShare: number, maxCut: number, savePerLap: number, reserve: number, liftFrom: number }} */ (null),
   hitbox: HITBOX,
   car: CAR,
   setup: SETUP,

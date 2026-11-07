@@ -1035,6 +1035,17 @@ showed MODIFIED only because of it).
   brakeFull 23 / brakeSystem 35. Measured: 280 → 80 km/h 158 m with ABS, peak 2.03 g (the rear 0.61 of 1.96 g at
   250 km/h, its whole share at 100), regen ≤ 540 kW, ~0.4 kWh back per stop from 280; AI laps clean with and without
   assists, net energy per lap 31–49 % lower (the real cars: ~40 % of race energy from regen).
+- Stage 3 done: the race's energy (`energy.js`). `lapEnergy(track, cls)` = a measured flat-out flying lap of the fastest AI
+  driver (cached per track × class; a point-mass formula was ±10 % per circuit: Cobalt asked an 18 % saving and ran dry);
+  createRace `setupEnergy` (option `energy: false` = none, for that measuring race): race.energy {lap, perLap, total} =
+  laps (timed: duration / lap time + 1) × lap × `energy.budget` 0.93, every car's c.soc = it; unlimited (time trials) =
+  a lap's allowance afresh at each crossing (updateLap → `energyAtLine`). The saving c.save (per lap: + savePerLap 1.5 ×
+  the share of a lap's energy over the allowance left per lap, `reserve` 3 % kept): first c.powerK down to 0.7 (vehicle.js
+  electricDrive: the AI always, the player with the ECU on AUTO), then c.liftM up to 250 m (driveAI coasts before
+  BRK when faster than 25 m/s). Measured: 20 % less power saved 13–18 % of a lap's energy for 0.9–2.2 s, lifting 100–250 m
+  10–13 % for 2.5–6.3 s, hence power first. 8-lap solo races on all nine circuits: finish with 3.0 % left at 82–88 %
+  power, 1–3 % slower than flat out. HUD: Fuel row = "Energy" (kWh · laps it lasts), the battery gauge = of the
+  allowance (SIM.batteryFull), the ECU line = POWER n % · A / LIFT (SIM.liftNow). tests/energy.test.js.
 
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)

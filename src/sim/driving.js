@@ -308,6 +308,8 @@ export function driveAI(race, c, dt, skillOverride = 0) {
     c.mistakeEnd = (c.idx + Math.round(AI.mistakes.length / ds)) % N;
     brk = 0;
   }
+  // an electric car making its energy last (energy.js: c.liftM m before a braking point): lift and coast
+  if (c.liftM > 0 && race.energy && brk === 0 && sp > race.carClass.energy.liftFrom) { const to = BRK[c.idx] * ds; if (to > 0 && to < c.liftM) thr = 0; }
   if (!c.assists.abs || !c.assists.tc) [thr, brk] = feelPedals(c, thr, brk, dt);
   // (everything above asks for a share of the torque; the pedal that gives it, through the torque map: vehicle.js)
   if (thr > 0) thr = FM.pow(thr, 1 / c.spec.cls.car.engine.pedalMap);

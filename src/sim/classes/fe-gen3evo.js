@@ -3,8 +3,7 @@
 // numbers) is the F1's until a stage of the plan gives it its own. Figures from the FIA / Formula E and the press
 // (the plan's sources); ~ = our estimate where none was published.
 // Done so far (stage 1): the electric powertrain (one gear, the motor drawn from the battery), mass, tyres' grip, aero,
-// size. Still the F1's: the brakes (stage 2: regen, no rear hydraulics), the energy per race (stage 3), attack mode and
-// AWD (stage 4), tyre temperatures and wear (stage 5), the AI's lines and paces (stage 6), the hitbox (the 3D model).
+// size; the brakes = regeneration (stage 2); the race's energy (stage 3). Still the F1's: attack mode and AWD (stage 4), tyre temperatures and wear (stage 5), the AI's lines and paces (stage 6), the hitbox (the 3D model).
 import { F1_2026 } from './f1-2026.js';
 
 const F1 = F1_2026;
@@ -67,9 +66,15 @@ const WEAR = Object.freeze({ ...F1.wear, fuel: Object.freeze(Object.fromEntries(
 // no straight mode (Formula E has no moving wings): opening them changes nothing
 const ACTIVE_AERO = Object.freeze({ ...F1.activeAero, dragCut: 0, downforceCut: 0 });
 
+// The race's energy (stage 3, energy.js): the allowance = laps × a flat-out lap's net energy (energy.js measures one) ×
+// `budget` ~ (the drivers save the rest). The saving moves `savePerLap` × the share of a lap's energy a lap takes above
+// the allowance left per lap: its first `cutShare` = up to `maxCut` less power, the rest = lifting up to `maxLift` m
+// before braking points too (only faster than `liftFrom` m/s); aiming for the flag with `reserve` of the allowance left
+const ENERGY = Object.freeze({ budget: 0.93, maxLift: 250, cutShare: 0.5, maxCut: 0.3, savePerLap: 1.5, reserve: 0.03, liftFrom: 25 });
+
 export const FE_GEN3_EVO = Object.freeze({
   ...F1,
   id: 'fe', name: 'Formula E (Gen3 Evo)',
   ranked: false,                      // not on the leaderboard until the class is finished
-  car: CAR, chassis: CHASSIS, setup: SETUP, mods: MODS, ers: ERS, activeAero: ACTIVE_AERO, wear: WEAR,
+  car: CAR, chassis: CHASSIS, setup: SETUP, mods: MODS, ers: ERS, activeAero: ACTIVE_AERO, wear: WEAR, energy: ENERGY,
 });

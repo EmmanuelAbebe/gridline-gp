@@ -34,7 +34,8 @@ design) and a Formula E-shaped 3D model come after it. The F1 stays bit-identica
    31–49 % of a lap's energy back; the AI plans with the weaker rear.) Per axle: the motors' regen (rear 350 / front 250 kW: force = P / v) first, the front
    hydraulics for the rest, no rear hydraulics; lifting harvests a little. The battery gains what is regenerated. Locking
    without ABS as now. Measured: 300 → 80 km/h distance, the rear's share falling at speed.
-3. **Whole-race energy.** createRace sizes the battery to the race (energy per lap × laps, from a real allowance:
+3. **Whole-race energy.** (Done 2026-11-07: the allowance from a measured flat-out lap × 0.93; the saving cuts power
+   first (cheaper here than lifting: measured), then lifts; every circuit's 8-lap race ends with 3 % left.) createRace sizes the battery to the race (energy per lap × laps, from a real allowance:
    38.5 kWh over a ~45 min race); empty = the car coasts. The HUD: energy left vs laps left (and a target per lap). The
    ECU maps become Formula E's (race 300 kW, lift-and-coast before braking points by how much energy is short); the AI
    manages its energy the same way (it must finish, and not with half a battery).

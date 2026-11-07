@@ -717,7 +717,7 @@ function renderFrame(dt) {
   // p position, l lap, t laps (0 = no lap count), d delta s (time trial; absent = none))
   phoneDash.next = { g: gi.gear, q: gi.next ?? 0, r: Math.round(gi.revs * 50) / 50, v: Math.round(SIM.speedOf(player) * 3.6),
     n: Math.round(gi.rpm / 50) * 50, e: player.ecuMode ? player.ecuMap : -1, m: player.ecuMode === 'manual' ? 'M' : 'A',
-    b: Math.round(player.soc / player.spec.cls.ers.store * 100), k: player.ersKw > 5 ? 1 : player.ersKw < -5 ? -1 : 0,
+    b: Math.round(player.soc / SIM.batteryFull(race, player) * 100), k: player.ersKw > 5 ? 1 : player.ersKw < -5 ? -1 : 0,
     p: SIM.order(race).indexOf(player) + 1, l: Math.max(1, Math.min(player.lap, race.laps)), t: race.laps < Infinity ? race.laps : 0,
     ...(Hud.delta !== null ? { d: Math.round(Hud.delta * 1000) / 1000 } : {}) };
   Hud.updateDash({

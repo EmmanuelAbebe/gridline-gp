@@ -229,7 +229,9 @@ function electricDrive(c, thr, brk, v, resist, dt, M) {
   const s = c.spec, sp = Math.max(v, 0), rpm = rpmAt(sp, 1, s);
   c.rpm = rpm;
   const tq = FM.pow(thr, s.cls.car.engine.pedalMap);     // the torque the pedal asks for (torque map)
-  const torqueF = M.torque * s.ratio[1] * M.efficiency / R_WHEEL, powerW = M.race * s.power * 1000 * M.efficiency;
+  // (powerK: energy.js's saving cuts the power: the AI's always, the player's with the ECU on AUTO)
+  const cut = c.player && c.ecuMode !== 'auto' ? 1 : c.powerK;
+  const torqueF = M.torque * s.ratio[1] * M.efficiency / R_WHEEL, powerW = M.race * cut * s.power * 1000 * M.efficiency;
   let F = rpm >= M.maxRpm ? 0 : tq * (sp > 0.1 ? Math.min(torqueF, powerW / sp) : torqueF);
   let out = F * sp / M.efficiency;                         // W out of the battery
   if (out * dt > c.soc) { out = Math.max(0, c.soc) / dt; F = sp > 0.1 ? out * M.efficiency / sp : 0; }

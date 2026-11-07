@@ -109,7 +109,9 @@ export const Hud = (() => {
     },
     // car condition rows (only what the race uses) and the pit status line
     updateCar(race, c) {
-      const W = race.wear, tt = !!(race.tyreTemp && c.tyreT), on = !!(W && (W.fuelLaps || W.tyreLaps || W.damage)) || tt;
+      // (an electric car's race energy, SIM energy.js: the Fuel row is its Energy row)
+      const W = race.wear, tt = !!(race.tyreTemp && c.tyreT), E = race.energy?.total ? race.energy : null;
+      const on = !!(W && (W.fuelLaps || W.tyreLaps || W.damage)) || tt || !!E;
       setOnce('carOn', true, v => { $('carState').hidden = !v; });   // (the tyres row always: the compound)
       setOnce('ttOn', tt, v => { $('tt').hidden = !v; $('ttLbl').hidden = !v; });
       if (tt) {                                    // the four tyres' grip temperatures, FL FR / RL RR
@@ -120,13 +122,18 @@ export const Hud = (() => {
         }
       }
       const showRow = (id, v) => { $(id).hidden = !v; $(id + 'Lbl').hidden = !v; };   // (fuelLbl, tyresLbl, dmgLbl)
-      setOnce('fuelOn', !!W?.fuelLaps, v => showRow('fuel', v)); setOnce('tyresOn', true, v => showRow('tyres', v)); setOnce('dmgOn', !!W?.damage, v => showRow('dmg', v));
+      setOnce('fuelOn', !!W?.fuelLaps || !!E, v => showRow('fuel', v)); setOnce('fuelName', E ? 'Energy' : 'Fuel', t => { $('fuelLbl').textContent = t; }); setOnce('tyresOn', true, v => showRow('tyres', v)); setOnce('dmgOn', !!W?.damage, v => showRow('dmg', v));
       // the compound on the car (S / M / H in Pirelli's colours) and, with tyre wear, how much is left
       const q = W?.tyreLaps ? Math.round((1 - c.tyreWear) * 100) : null;
       setOnce('tyreTxt', `${c.compound}:${q}`, () => {
         const k = el => { const b = document.createElement('b'); b.className = 'cmp ' + c.compound; b.textContent = el; return b; };
         $('tyres').replaceChildren(k(c.compound[0].toUpperCase()), q === null ? ' ' + c.compound.toUpperCase() : ` ${q} %`);
       });
+      if (E) {                                     // kWh left and the laps it lasts at the last lap's use
+        const lasts = c.soc / Math.max(1, c.energyLast), short = lasts < SIM.lapsToGo(race, c);
+        setOnce('fuelTxt', c.soc <= 0 ? 'EMPTY' : `${(c.soc / 3.6e6).toFixed(1)} kWh · ${lasts.toFixed(1)} laps`, t => { $('fuel').textContent = t; });
+        setOnce('fuelCls', c.soc <= 0 || (short && lasts < 1) ? 'bad' : short ? 'warn' : '', k => { $('fuel').className = k; });
+      }
       if (on && W) {
         if (W.fuelLaps) {
           const left = SIM.fuelLaps(race, c), short = left < SIM.lapsToGo(race, c);
@@ -141,13 +148,18 @@ export const Hud = (() => {
           setOnce('dmgCls', worst > 0.5 ? 'bad' : worst > 0.08 ? 'warn' : '', k => { $('dmg').className = k; });
         }
       }
-      // the power unit's battery (its class's ers): charge, and whether it is deploying (yellow) or harvesting (blue)
-      const soc = Math.round(c.soc / c.spec.cls.ers.store * 100), ers = c.ersKw > 5 ? 'out' : c.ersKw < -5 ? 'in' : '';
+      // the power unit's battery (its class's ers; an electric car's: of the race's allowance): charge, and whether it is
+      // deploying (yellow) or harvesting (blue)
+      const soc = Math.round(c.soc / SIM.batteryFull(race, c) * 100), ers = c.ersKw > 5 ? 'out' : c.ersKw < -5 ? 'in' : '';
       setOnce('ersPct', soc, v => { $('ersPct').textContent = v + '%'; $('ersFill').style.width = v + '%'; });
       setOnce('ersFlow', ers, k => { $('ers').className = k; });
-      // the ECU map (SIM ecu.js): its name, A = picked by the ECU, M = yours
-      const maps = c.spec.cls.ecu.maps, ecu = c.ecuMode ? maps[c.ecuMap].name + (c.ecuMode === 'auto' ? ' · A' : ' · M') : '';
-      setOnce('ecuTxt', ecu, t => { $('ecuMap').textContent = t; $('ecuMap').hidden = !t; $('ecuMap').dataset.map = c.ecuMode ? maps[c.ecuMap].id : ''; });
+      // the ECU map (SIM ecu.js): its name, A = picked by the ECU, M = yours; an electric car in a race: LIFT in its lift
+      // window (SIM energy.js), else the power the energy allows (AUTO; MANUAL: full power, the energy is yours to save)
+      const maps = c.spec.cls.ecu.maps, el = !!race.energy, lift = el && SIM.liftNow(race, c);
+      const ecu = el ? (lift ? 'LIFT' : c.ecuMode === 'auto' ? `POWER ${Math.round(c.powerK * 100)}% · A` : 'POWER 100% · M')
+        : c.ecuMode ? maps[c.ecuMap].name + (c.ecuMode === 'auto' ? ' · A' : ' · M') : '';
+      const id = el ? (lift ? 'harvest' : 'balanced') : c.ecuMode ? maps[c.ecuMap].id : '';
+      setOnce('ecuTxt', ecu + id, () => { $('ecuMap').textContent = ecu; $('ecuMap').hidden = !ecu; $('ecuMap').dataset.map = id; });
       const pit = c.pit ? (c.pit.phase === 'stop' ? 'PIT STOP' : c.pitLimiter ? 'PIT LIMITER' : c.pit.drive && !c.pit.entered ? 'PIT ENTRY' : 'PIT EXIT')
         : c.pitLimiter ? 'PIT LIMITER' : c.pitRequest ? 'BOX THIS LAP' : '';
       // active aero: straight mode chip (on the button setting: dim = in a zone, yours to open), overtake mode (ready /
