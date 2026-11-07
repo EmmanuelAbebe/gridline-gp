@@ -74,7 +74,9 @@ circuit for now, and the sector `key` gets the class so saved bests never compar
 Each stage ends with: `npm run check`, sim-trace identical against a worktree of HEAD, `npm run car-bench` showing
 the same numbers, `npm run sim-version` and the smoke test. One commit per stage.
 
-1. **Move the tables.** Create `src/sim/classes/f1-2026.js` from the tables above; tuning.js re-exports the old names
+1. **Move the tables.** (Done 2026-11-06: the class keeps the tables' shapes for now, one key per table: `car`,
+   `chassis`, `ers` …; regroup only where a second class needs it. sim-version now hashes sub-folders.)
+   Create `src/sim/classes/f1-2026.js` from the tables above; tuning.js re-exports the old names
    (`export const CHASSIS = F1_2026…`), so no other file changes. A pure move. Also add `CarClass` to types.js.
 2. **The spec carries the class.** `carSpec(…, cls)`, `stockOf(cls)`, `c.spec.cls`; `createRace({ carClass })`
    (default F1) gives every car its class's stock spec. Mixed fields are not allowed yet: one class per race.

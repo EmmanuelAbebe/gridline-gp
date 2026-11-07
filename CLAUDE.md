@@ -968,6 +968,13 @@ showed MODIFIED only because of it).
   ride: no difference). Not modelled: heave (downforce over seconds), fast / slow damping, wheel hop and bumpy roads (the
   roads are smooth: soft dampers lose no grip there). tests/chassis.test.js.
 
+## Car classes (2026-11-06; user: other car types later, "from formula E to karts", one physics for all)
+- Plan: docs/car-classes-plan.md (step 1 = the 2026 F1 as the first class, no physics change, 7 stages, sim-trace
+  identical at each). Stage 1 done: the car's tables (HITBOX, CAR, SETUP, DIFF, PRESSURE, SUSPENSION, DAMPER, MODS,
+  HANDBRAKE, CHASSIS, ACTIVE_AERO, OVERTAKE, ERS, ECU, WEAR, TYRE_TEMP, COMPOUNDS) live in `src/sim/classes/f1-2026.js`
+  (`F1_2026` = one key per table: car, chassis, ers …), re-exported by tuning.js under their old names until every module
+  reads the car's class. tools/sim-version.mjs hashes sub-folders of src/sim too.
+
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)
 - Electron main runs the phone server itself: `desktop/phone-link.cjs` (`createPhoneLink({ dataDir, pagesDir, onInput,
