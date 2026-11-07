@@ -1013,6 +1013,20 @@ showed MODIFIED only because of it).
   (setPlayerClass from the garage at start). src/sim unchanged in this stage (SIM_VERSION the same); the leaderboard's
   server code changed (verify, API).
 
+## Formula E (car classes step 2, 2026-11-07; user: "start the formula E step"; picked Gen3 Evo, a whole-race energy
+## budget, physics first: picker mock-ups and a 3D model after)
+- Plan + figures + sources: docs/formula-e-plan.md (7 stages). Class `src/sim/classes/fe-gen3evo.js` FE_GEN3_EVO (id
+  'fe', `ranked: false`: verify.js refuses its laps "not on the leaderboard yet"), built on the F1 class.
+- Stage 1 done: `car.motor` {race 300 / attack 350 kW, torque 540 Nm, maxRpm 20000, efficiency 0.93} → vehicle.js
+  `electricDrive` (one gear, the drive drawn from the battery c.soc = ers.store 38.5 kWh, c.ersKw its flow; the F1 has
+  `motor: null`, its hybrid branch untouched); an `engine` shim (idle 0, redline = maxRpm, pedalMap, no engine braking),
+  gearbox top [0, 322]; mass 840, grip 1.55 (1.45 gave 0–60 mph 3.4 s), liftArea 1.6, dragArea 0.73, wheelbase 2.97,
+  track 1.5, frontWeight 0.43; setup gearing 290–350 (stock 322), mass mod 840, no fuel, active aero does nothing.
+  `npm run car-bench -- --class=fe` (REAL_FE: top 294 km/h, 0–60 mph 3.01 s RWD, 1.59 / 1.78 / 2.22 g, downforce = weight
+  at 334 km/h); tests/realism.test.js. AI solo (VOS): clean on every circuit tried, 20–28 % slower than the F1 (Elkmoor
+  50.0, Harrow 77.4, Cobalt 80.5, Marrow 62.0, Hautvale 89.8 s), ~1.1 kWh/km with no regen yet. Still the F1's: brakes,
+  hitbox, AI lines / paces, engine sound (a V6 at 20 000 rpm).
+
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)
 - Electron main runs the phone server itself: `desktop/phone-link.cjs` (`createPhoneLink({ dataDir, pagesDir, onInput,

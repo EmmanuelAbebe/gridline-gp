@@ -1,2 +1,2 @@
 // The physics code's version (tools/sim-version.mjs: a hash of src/sim; `npm run sim-version` after changing it).
-export const SIM_VERSION = '3dcdd16ba67e';
+export const SIM_VERSION = 'e0036687cee6';

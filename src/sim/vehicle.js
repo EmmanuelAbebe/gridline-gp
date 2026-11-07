@@ -211,6 +211,24 @@ function ers(c, thr, brk, v, dt, room = 1, iceKw = 0, pedal = thr) {
   return { drive, resist, coast };
 }
 
+// ---------- the electric drivetrain (a class with car.motor: Formula E) ----------
+// One gear; the motor's power out of the battery (`race` kW × the power mod; attack mode: car classes step 2 stage 4),
+// its torque through the gear below the speed where that power takes over; the wheels get `efficiency` of what leaves
+// the battery, and an empty battery gives nothing. c.soc = the battery (J), c.ersKw = its flow (+ out, − in: the HUD).
+/** @param {Car} c */
+function electricDrive(c, thr, v, resist, dt, M) {
+  const s = c.spec, sp = Math.max(v, 0), rpm = rpmAt(sp, 1, s);
+  c.rpm = rpm;
+  const tq = FM.pow(thr, s.cls.car.engine.pedalMap);     // the torque the pedal asks for (torque map)
+  const torqueF = M.torque * s.ratio[1] * M.efficiency / R_WHEEL, powerW = M.race * s.power * 1000 * M.efficiency;
+  let F = rpm >= M.maxRpm ? 0 : tq * (sp > 0.1 ? Math.min(torqueF, powerW / sp) : torqueF);
+  let out = F * sp / M.efficiency;                         // W out of the battery
+  if (out * dt > c.soc) { out = Math.max(0, c.soc) / dt; F = sp > 0.1 ? out * M.efficiency / sp : 0; }
+  c.soc -= out * dt; c.ersKw = out / 1000;
+  c.drive = F / s.mass;
+  return { drive: c.drive, resist, rear: 0, reverse: false };
+}
+
 // ---------- one step of the drivetrain ----------
 // Engine side: gear and rpm, the engine's drive at the rear wheels (per mass, before any tyre limit) and the
 // resistances (drag with slipstream, rolling, engine braking), signed so that `-resist` opposes the motion.
@@ -218,11 +236,12 @@ function ers(c, thr, brk, v, dt, room = 1, iceKw = 0, pedal = thr) {
 /** @param {Car} c */
 export function drivetrain(c, { thr, brk, shift = 0 }, dt) {
   updateGear(c, thr, brk, shift, dt);
-  const { car: { aero, engine, gearbox }, activeAero: ACTIVE_AERO, ers: ERS } = c.spec.cls;
+  const { car: { aero, engine, gearbox, motor }, activeAero: ACTIVE_AERO, ers: ERS } = c.spec.cls;
   // drag: less in a slipstream and with the wings open (active-aero.js; aeroOpen 0 multiplies by exactly 1)
   const v = c.v, dragK = c.spec.dragK * (1 - SLIP.drag * (c.slip || 0)) * (1 - ACTIVE_AERO.dragCut * c.aeroOpen);
   let resist = dragK * v * Math.abs(v) + Math.sign(v) * aero.rolling;
   if (c.gear === -1) { c.rpm = engine.idle + thr * 3000; c.drive = 0; return { drive: 0, resist, rear: 0, reverse: true }; }
+  if (motor) return electricDrive(c, thr, v, resist, dt, motor);   // (an electric car: Formula E)
   const rpm = engineRpm(v, c.gear, thr, c.spec);
   c.rpm = rpm;
   const tq = FM.pow(thr, engine.pedalMap);                // the torque the pedal asks for (torque map)

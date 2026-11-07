@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SIM as S } from '../src/sim/index.js';
-import { bench, REAL } from '../tools/car-bench.mjs';
+import { bench, REAL, REAL_FE } from '../tools/car-bench.mjs';
 
 test('the car measures like a real F1 car (2026 rules): speed, acceleration, braking, cornering, downforce, stability', () => {
   const r = bench(S);
@@ -31,4 +31,29 @@ test('real-car behaviour: the fronts lock first; the lock point falls with speed
     c.h = S.headingAt(T, c.idx); c.vy = 0; c.yawRate = 0; c.lat = 0; top = Math.max(top, c.v);
     if (c.idx > 400) { const i = 60; Object.assign(c, { idx: i, x: T.PX[i], z: T.PZ[i] }); } }
   assert.ok(c.soc < 0.05 * S.ERS.store && c.v < top - 8, `after 40 s: ${(c.v * 3.6).toFixed(0)} km/h (peak ${(top * 3.6).toFixed(0)}), battery ${(c.soc / 1e6).toFixed(2)} MJ`);
+});
+
+// Formula E (car classes step 2, docs/formula-e-plan.md): the Gen3 Evo against its real (and estimated: car-bench) ranges
+test('Formula E measures like a Gen3 Evo: top speed, 0–60 mph, cornering, downforce', () => {
+  const r = bench(S, S.classOf('fe'));
+  for (const [k, [lo, hi]] of Object.entries(REAL_FE)) assert.ok(r[k] >= lo && r[k] <= hi, `${k}: ${(+r[k]).toFixed(2)} (real ${lo}–${hi})`);
+});
+
+test('Formula E\'s electric drivetrain: one gear, the battery pays for every metre, an empty battery drives nothing', () => {
+  const DT = 1 / 120, T = S.buildTrack(S.CIRCUITS.harrow), FE = S.classOf('fe');
+  const race = S.createRace(3, { carClass: FE, track: T, drivers: [S.DRIVERS.find(d => d.player)], seed: 1 }), c = race.cars[0];
+  c.assists = S.ASSISTS.medium; c.autoShift = true;
+  assert.equal(c.soc, FE.ers.store, 'a full battery: 38.5 kWh');
+  let gears = new Set(), work = 0;
+  for (let t = 0; t < 8; t += DT) {
+    race.t += DT; const v0 = c.v; S.drivePlayer(race, c, { thr: 1, brk: 0, steer: 0, analog: true, shift: t > 2 && t < 2.1 ? 1 : 0 }, DT);
+    c.h = S.headingAt(T, c.idx); c.yawRate = 0; c.vy = 0; c.lat = 0; gears.add(c.gear); work += c.drive * S.stockOf(FE).mass * v0 * DT;
+  }
+  assert.deepEqual([...gears], [1], 'one gear (a paddle press changes nothing)');
+  const used = FE.ers.store - c.soc, eff = FE.car.motor.efficiency;
+  assert.ok(Math.abs(used * eff - work) / work < 0.02, `the battery paid for the drive: ${(used / 1e6).toFixed(2)} MJ for ${(work / 1e6).toFixed(2)} MJ at the wheels`);
+  assert.ok(c.ersKw > 250 && c.ersKw <= FE.car.motor.race + 1e-6, `flat out: ${c.ersKw.toFixed(0)} kW out of the battery (race mode ${FE.car.motor.race})`);
+  c.soc = 0; const v = c.v;
+  for (let t = 0; t < 2; t += DT) { race.t += DT; S.drivePlayer(race, c, { thr: 1, brk: 0, steer: 0, analog: true }, DT); }
+  assert.ok(c.v < v - 2 && c.drive === 0, `empty: no drive, the car coasts (${(v * 3.6).toFixed(0)} → ${(c.v * 3.6).toFixed(0)} km/h in 2 s)`);
 });

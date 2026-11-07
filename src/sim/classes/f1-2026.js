@@ -37,6 +37,8 @@ export const CAR = Object.freeze({
   // against real figures): ~770 kg with the driver (the rules' minimum 768), slicks of ~1.8 friction at their static
   // load, losing loadSens per g of extra load (load sensitivity, vehicle.js tyreGrip; never below muMin of it)
   mass: 770,          // kg, with driver
+  // an electric car's motor (vehicle.js electricDrive; Formula E's class): none, the F1 is a hybrid (engine + ERS)
+  motor: /** @type {{ race: number, attack: number, torque: number, maxRpm: number, efficiency: number }} */ (null),
   grip: 1.8,          // tyre friction at the static load (real slicks ~1.6–1.8). Until 2026-10-24: 3.0, no load sensitivity
   loadSens: 0.08, muMin: 0.6,
   aero: Object.freeze({

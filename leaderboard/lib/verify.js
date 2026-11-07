@@ -36,6 +36,7 @@ export function verifyRun(rp, claim = {}) {
   if (rp.race?.format?.type !== 'unlimited' || Object.keys(rp.race.wear || {}).length) return fail('not a time trial');
   const cls = SIM.classOf(rp.race?.carClass ?? 'f1');                // (a replay from before car classes: the F1)
   if (!cls) return fail('unknown car class');
+  if (cls.ranked === false) return fail('this car class is not on the leaderboard yet');
   if (SIM.isModified(rp.player?.mods || {}, cls)) return fail('a modified car: open mods are not ranked');
   if (!(rp.steps > 0) || rp.steps > RULES.maxSteps) return fail('too long');
   if (!Object.hasOwn(cls.compounds, rp.player?.compound)) return fail('unknown tyres');

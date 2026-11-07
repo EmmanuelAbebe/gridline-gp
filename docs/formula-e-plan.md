@@ -24,7 +24,8 @@ design) and a Formula E-shaped 3D model come after it. The F1 stays bit-identica
 
 ## Stages (each: F1 sim-trace identical, car-bench the same; the new class measured against the table)
 
-1. **The class and its electric powertrain.** `classes/fe-gen3evo.js` (`FE_GEN3_EVO`, id `fe`): the numbers above;
+1. **The class and its electric powertrain.** (Done 2026-11-07: grip 1.55 for a real launch (1.45 gave 0–60 mph 3.4 s),
+   frontWeight 0.43; the class is `ranked: false` until finished; the engine sound is still the F1's V6.) `classes/fe-gen3evo.js` (`FE_GEN3_EVO`, id `fe`): the numbers above;
    `power.type` 'electric' with a `motor` table (torque, base and max rpm, race / attack kW, efficiency). vehicle.js
    drivetrain → an electric branch: one gear, motor rpm for the dash and sound, the drive drawn from the battery
    (J, efficiency), no engine braking or shift cut; the hybrid branch untouched. `npm run car-bench -- --class=fe` with

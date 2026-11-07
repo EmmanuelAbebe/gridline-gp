@@ -203,3 +203,17 @@ test('car classes: saved data keeps the F1\'s keys and keeps other classes apart
   assert.equal(loadGarage(JSON.stringify({ carClass: 'hovercraft', setup: { wing: 9 } })).carClass, 'f1');
   assert.equal(loadGarage(JSON.stringify({ setup: { wing: 9 } })).setup.wing, 9, 'an old save keeps its setup');
 });
+
+// (step 2) Formula E is a class (classes/fe-gen3evo.js), not on the leaderboard until it is finished
+test('car classes: Formula E is known, and its laps are not ranked yet', async () => {
+  const FE = S.classOf('fe');
+  assert.ok(FE && FE.car.motor && FE.ranked === false);
+  const { verifyRun } = await import('../leaderboard/lib/verify.js');
+  const T = S.buildTrack(S.CIRCUITS.elkmoor), opts = { format: { type: 'unlimited' } };
+  const race = S.createRace(opts.format, { carClass: FE, track: T, drivers: [S.DRIVERS.find(d => d.player)], seed: 5 });
+  const car = race.cars[0], rec = S.createReplayRecorder(race, opts, { setup: {}, mods: {}, compound: 'medium' });
+  for (let k = 0; k < 120; k++) { const inp = S.quantizeInput({ steer: 0, thr: 1, brk: 0, analog: true, hb: 0, shift: 0, steerRate: Infinity, calm: 1, speedSteer: 0 });
+    race.t += 1 / 120; rec.step(car, inp); S.drivePlayer(race, car, inp, 1 / 120); }
+  const r = verifyRun(JSON.parse(JSON.stringify(rec.finish())));
+  assert.equal(r.ok, false); assert.match(r.reason, /not on the leaderboard yet/);
+});
