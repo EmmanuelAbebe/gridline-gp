@@ -87,7 +87,8 @@ const ACTIVE_AERO = Object.freeze({ ...F1.activeAero, dragCut: 0, downforceCut: 
 // `budget` ~ (the drivers save the rest). The saving moves `savePerLap` × the share of a lap's energy a lap takes above
 // the allowance left per lap: its first `cutShare` = up to `maxCut` less power, the rest = lifting up to `maxLift` m
 // before braking points too (only faster than `liftFrom` m/s); aiming for the flag with `reserve` of the allowance left
-const ENERGY = Object.freeze({ budget: 0.93, maxLift: 250, cutShare: 0.5, maxCut: 0.3, savePerLap: 1.5, reserve: 0.03, liftFrom: 25 });
+// (a time trial: each lap `trial` × a flat-out lap, a qualifying lap with energy to spare)
+const ENERGY = Object.freeze({ trial: 1.25, budget: 0.93, maxLift: 250, cutShare: 0.5, maxCut: 0.3, savePerLap: 1.5, reserve: 0.03, liftFrom: 25 });
 
 // Attack mode (stage 4, attack.js): `uses` activations, `share` of the race in all (8 minutes of a ~45-minute race), from
 // lap `fromLap`; the front motor drives at the start until `start` m/s ~. The activation zone: the outside of a slow corner's

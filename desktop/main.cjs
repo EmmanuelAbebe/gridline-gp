@@ -222,6 +222,8 @@ async function smokeTest(win) {
     document.getElementById('zoneClose').click(); await wait(200);
     return { deleted, reset: mode, backToMenu: !document.getElementById('startOv').hidden };
   })()`));
+  // (GRIDLINE_SMOKE_CLASS=fe: from here on the player races that car class: gridlineDebug.carClass, in memory only)
+  if (process.env.GRIDLINE_SMOKE_CLASS) info.carClass = await win.webContents.executeJavaScript(`gridlineDebug.carClass(${JSON.stringify(process.env.GRIDLINE_SMOKE_CLASS)})`);
   // the start menu: home (tiles), Race weekend (circuit, field, rules, grid), the time trial page; then home again
   info.menu = await win.webContents.executeJavaScript(`(async () => {
     const wait = ms => new Promise(r => setTimeout(r, ms)), $ = id => document.getElementById(id);
@@ -249,6 +251,17 @@ async function smokeTest(win) {
     lapTime: document.getElementById('tCur').textContent, position: document.getElementById('pos').textContent,
     cars: document.querySelectorAll('#towerList > *').length, sound: window.gridlineDebug.soundReady() })`);
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-race.png'), (await win.webContents.capturePage()).toPNG());
+  // (another car class: what its HUD shows a few seconds in (Formula E: the energy row, the battery, the power, the
+  // attack mode chip); attack mode is staged on after the replay check below (it can't be replayed))
+  if (info.carClass) {
+    const hud = `({ cls: gridlineDebug.raceClass?.(), fuelLbl: document.getElementById('fuelLbl').textContent, fuel: document.getElementById('fuel').textContent,
+      ers: document.getElementById('ersPct').textContent, ecu: document.getElementById('ecuMap').hidden ? '' : document.getElementById('ecuMap').textContent,
+      boost: document.getElementById('boostTag').classList.contains('on') ? document.getElementById('boostTag').textContent : '' })`;
+    await new Promise(r => setTimeout(r, 4000));
+    info.classRace = { start: await win.webContents.executeJavaScript(hud) };
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-class-hud.png'), (await win.webContents.capturePage()).toPNG());
+    info.classRace.hud = hud;
+  }
   // (GRIDLINE_SMOKE_CRASH=dv: a staged launch from behind the car: screenshots in the air and after the landing, the
   // debris of the front wing on the road)
   if (process.env.GRIDLINE_SMOKE_CRASH) {
@@ -398,6 +411,19 @@ async function smokeTest(win) {
   // the race so far (the phone's full lock and gas, pauses, settings opened) driven again from its replay: the same car
   info.replay = await win.webContents.executeJavaScript(`gridlineDebug.replayCheck()`);
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-replay.json'), JSON.stringify(await win.webContents.executeJavaScript(`gridlineDebug.replayData()`)));
+  if (info.classRace && info.classRace.hud) {
+    const hud = info.classRace.hud; delete info.classRace.hud;
+    await win.webContents.executeJavaScript(`document.getElementById('setClose').click(); document.getElementById('resumeBtn')?.click()`);
+    await new Promise(r => setTimeout(r, 1500));
+    info.classRace.attack = await win.webContents.executeJavaScript(`gridlineDebug.attack(75)`);
+    await new Promise(r => setTimeout(r, 600));
+    info.classRace.on = await win.webContents.executeJavaScript(hud);
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-class-attack.png'), (await win.webContents.capturePage()).toPNG());
+    await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click()`);
+    await new Promise(r => setTimeout(r, 400));
+    await win.webContents.executeJavaScript(`document.getElementById('pauseSettingsBtn').click()`);
+    await new Promise(r => setTimeout(r, 400));
+  }
   await win.webContents.executeJavaScript(`document.getElementById('setClose').click()`);
   // Sound studio from Settings → Sound: the bench plays (no errors), screenshot, close
   await win.webContents.executeJavaScript(`document.getElementById('pauseSettingsBtn').click();

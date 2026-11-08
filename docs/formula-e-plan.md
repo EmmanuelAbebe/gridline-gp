@@ -54,6 +54,11 @@ design) and a Formula E-shaped 3D model come after it. The F1 stays bit-identica
    Cantera 0.96.) Its own racing lines (`npm run lap-optimum -- <id> --class=fe --write-line`), its paces, feel and
    margins (`ai` of the class); full-field Formula E races clean on every circuit; ALIEN levels rescanned.
 7. **Driving it now:** a debug switch (`gridlineDebug.carClass('fe')`, `GRIDLINE_SMOKE_CLASS=fe` for a smoke run).
+   (Done 2026-11-08: the class in memory only, defaults carried over (the F1's 770 kg is not a mod on the 840 kg car);
+   the smoke run races Formula E from the start menu on, checks the Energy row, the attack chip and AWD, the time-trial
+   ghost list, and that the race replays bit for bit. Found on the way: time trials ran out of energy every lap (now a
+   flat-out lap × 1.25 each lap), the reference laps were on cold tyres (+2 laps without blankets), the pit box named
+   the tyre MEDIUM.) **Step 2 done: the Formula E physics, AI and tests.**
 
 After this step: the class picker (mock-ups on a canvas first), the Formula E 3D model, attack mode on the phone wheel.
 

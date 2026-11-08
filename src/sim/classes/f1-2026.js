@@ -408,7 +408,7 @@ export const AI_CAR = Object.freeze({
 export const F1_2026 = Object.freeze({
   id: 'f1', name: 'Formula 1 (2026)',
   // a race's energy allowance (energy.js; an electric car's): none, the F1 refuels its energy every lap (ERS)
-  energy: /** @type {{ budget: number, maxLift: number, cutShare: number, maxCut: number, savePerLap: number, reserve: number, liftFrom: number }} */ (null),
+  energy: /** @type {{ trial: number, budget: number, maxLift: number, cutShare: number, maxCut: number, savePerLap: number, reserve: number, liftFrom: number }} */ (null),
   // attack mode and the all-wheel drive start (attack.js; Formula E's): none, the F1 has overtake mode (`overtake`)
   attack: /** @type {{ share: number, uses: number, fromLap: number, start: number, zone: { length: number, lat: number, inside: number, minV: number, maxV: number, clear: number, window: number, aim: number, ahead: number, slow: number, exit: number }, ai: { safeGap: number, decide: number, each: number, spare: number } }} */ (null),
   hitbox: HITBOX,

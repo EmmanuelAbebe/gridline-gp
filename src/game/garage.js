@@ -70,6 +70,8 @@ const COMPOUND_UI = {
 // a class's own tyres in words (Formula E: one all-weather tyre, kept under the 'medium' name)
 const CLASS_COMPOUND_UI = { fe: { medium: { label: 'ALL-WEATHER', note: 'One tyre for the whole race, dry or wet: no blankets, so it starts at the air\'s temperature and needs a lap or two to come in. It hardly wears.' } } };
 const compoundUi = (cls, k) => CLASS_COMPOUND_UI[cls.id]?.[k] ?? COMPOUND_UI[k];
+// a compound's name for a class (the pause menu's pit box too): SOFT / MEDIUM / HARD, Formula E's ALL-WEATHER
+export const compoundLabel = (cls, k) => compoundUi(cls, k)?.label ?? k.toUpperCase();
 const VIEWS = [['three', '3/4'], ['front', 'FRONT'], ['side', 'SIDE'], ['rear', 'REAR'], ['top', 'TOP']];
 
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };

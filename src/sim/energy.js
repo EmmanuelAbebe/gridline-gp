@@ -2,8 +2,8 @@
 // battery: an allowance for the whole race (the FIA sets it per event, so that running flat out doesn't reach the
 // flag), ~40 % of it won back under braking, and the drivers lift and coast before the braking points to make it last.
 // Here: lapEnergy = the net energy of a flat-out lap (measured: the fastest AI driver alone, at the race's level); the race's allowance = laps × that × ENERGY.budget (timed races: the laps
-// the time gives at that pace). Unlimited races (time trials) get a lap's allowance afresh at every crossing of the line
-// (a qualifying lap). Every electric car keeps a lift distance (c.liftM): metres before a braking point to coast,
+// the time gives at that pace). Unlimited races (time trials) get a flat-out lap's allowance (× ENERGY.trial) afresh at
+// every crossing of the line (a qualifying lap: no saving). Every electric car keeps a lift distance (c.liftM): metres before a braking point to coast,
 // set at each crossing of the line from the energy the last lap took against what is left per lap to go; the AI lifts
 // there (driving.js), the player's HUD shows LIFT. A car with an engine: nothing here (race.energy null).
 import { EV } from './tuning.js';
@@ -62,7 +62,9 @@ export function setupEnergy(race) {
   if (!race.carClass.car.motor) return;
   const lap = lapEnergy(race.track, race.carClass, race.aiAlien), ENERGY = race.carClass.energy;
   const laps = race.laps < Infinity ? race.laps : race.duration < Infinity ? race.duration / lap.time + 1 : null;
-  race.energy = { lap: lap.energy, perLap: lap.energy * ENERGY.budget, total: laps ? laps * lap.energy * ENERGY.budget : null };
+  // (unlimited, a time trial: each lap on `trial` × a flat-out lap: a qualifying lap, no saving; stage 7: on the race's
+  // budget the car ran flat out until the battery emptied near the end of every lap, which the saving never saw)
+  race.energy = { lap: lap.energy, perLap: lap.energy * (laps ? ENERGY.budget : ENERGY.trial), total: laps ? laps * lap.energy * ENERGY.budget : null };
   for (const c of race.cars) {
     c.soc = race.energy.total ?? race.energy.perLap;
     // (no saving before a lap of its own is measured: each car's own consumption decides it)

@@ -21,7 +21,7 @@ test('energy: the F1 has no race allowance (its battery is per lap)', () => {
   assert.equal(S.batteryFull(race, race.cars[0]), S.ERS.store);
 });
 
-test('energy: the allowance is the race\'s laps × a measured flat-out lap × the budget; time trials get a lap\'s each lap', () => {
+test('energy: the allowance is the race\'s laps × a measured flat-out lap × the budget; time trials a flat-out lap\'s and more, each lap', () => {
   const T = S.buildTrack(S.CIRCUITS.elkmoor), lap = S.lapEnergy(T, FE), B = FE.energy.budget;
   assert.ok(lap.energy > 1.2 * 3.6e6 && lap.energy < 2.5 * 3.6e6 && lap.time > 40 && lap.time < 60, `a lap: ${(lap.energy / 3.6e6).toFixed(2)} kWh, ${lap.time.toFixed(1)} s`);
   assert.equal(S.lapEnergy(T, FE), lap, 'measured once');
@@ -30,9 +30,9 @@ test('energy: the allowance is the race\'s laps × a measured flat-out lap × th
   const timed = S.createRace({ type: 'timed', minutes: 5 }, { carClass: FE, track: T, drivers: VOS(), seed: 3 });
   assert.equal(timed.energy.total, (300 / lap.time + 1) * lap.energy * B, 'timed: the laps the time gives');
   const trial = S.createRace({ type: 'unlimited' }, { carClass: FE, track: T, drivers: VOS(), seed: 3 }), c = trial.cars[0];
-  assert.equal(trial.energy.total, null); assert.equal(c.soc, lap.energy * B);
+  assert.equal(trial.energy.total, null); assert.equal(c.soc, lap.energy * FE.energy.trial, 'a time trial: a qualifying lap, energy to spare');
   run(trial, c, { steps: 120 * 140 });
-  assert.ok(c.lap >= 3, 'two laps and more on lap allowances');
+  assert.ok(c.lap >= 3 && c.powerK === 1 && c.liftM === 0, 'two laps and more on lap allowances, flat out');
 });
 
 test('energy: the AI makes it last at LEGEND and ALIEN: the flag with a little left; flat out the battery runs dry first', () => {

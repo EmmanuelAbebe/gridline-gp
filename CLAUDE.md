@@ -1085,6 +1085,16 @@ showed MODIFIED only because of it).
   Cantera lap-1 packs), passes 360 (258); zone detours 0.9–2.0 s. tests/fe-ai.test.js. Open: ALIEN without assists at
   Cobalt (0.96: into the attack zone at a hairpin, braking + turning late) and Cantera (0.96: the corkscrew crest) is
   slower than LEGEND there.
+- Stage 7 done (step 2 complete): `gridlineDebug.carClass(id)` (main.js: game.garage's class in memory only, never saved;
+  setup / mods at the old class's defaults → the new class's; setPlayerClass; from the next race), `raceClass()`,
+  `attack(s)` (attack mode on now, taints the replay). Smoke `GRIDLINE_SMOKE_CLASS=fe`: switches after the garage
+  checks, so the race, qualifying, time trial etc. run in Formula E; out-class-hud.png (Energy row, ATTACK × 2), after the
+  replay check (same: an FE race replays bit for bit) out-class-attack.png (ATTACK m:ss · AWD); check-smoke.mjs checks
+  them and the time-trial ghost list (stock, ALIEN 1:1x). Fixed: unlimited races (time trials, AI ghost laps) give each
+  lap ENERGY.trial 1.25 × a flat-out lap (on 0.93 the car emptied the battery near the end of every lap: the clipped
+  measurement hid it); ai-ghosts.js AI_GHOSTS.coldLaps 2 more laps for a class without blankets (with tyre temps on);
+  the pause pit box names compounds by garage.js compoundLabel (FE: ALL-WEATHER). Next (after step 2): the class picker
+  (canvas mock-ups first), the Formula E 3D model and EV sound, its invented name, attack mode on the phone wheel.
 
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)

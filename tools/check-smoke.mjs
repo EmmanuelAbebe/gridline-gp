@@ -11,8 +11,14 @@ const failed = log.split('\n').find(l => l.startsWith('{"smokeFailed"'));
 if (failed) fail(`a step failed: ${JSON.parse(failed).smokeFailed}`);
 if (!line) fail('no report (the app crashed or hung)');
 const r = JSON.parse(line);
+// (GRIDLINE_SMOKE_CLASS: the race in that class; Formula E's HUD: the Energy row, attack mode in its chip)
+const fe = r.carClass === 'fe';
 const checks = [
   ['race HUD shown', r.race?.hud],
+  ...(r.carClass ? [['race in the car class asked for', r.classRace?.start?.cls === r.carClass]] : []),
+  ...(fe ? [['Formula E: the Energy row', r.classRace.start.fuelLbl === 'Energy' && / kWh · /.test(r.classRace.start.fuel)],
+    ['Formula E: stock car, its own AI laps in the ghost list', (r.trial?.ghosts || []).some(g => /^Your best/.test(g) && !/modified/.test(g)) && (r.trial?.ghosts || []).some(g => /^ALIEN.*1:1\d\.\d{3}$/.test(g))],
+    ['Formula E: attack mode chip, then on with AWD', /^ATTACK × 2/.test(r.classRace.start.boost) && /^ATTACK 1:1\d · AWD$/.test(r.classRace.on.boost)]] : []),
   ['10 cars racing', r.race?.cars === 10],
   ['race clock running', r.race?.lapTime && r.race.lapTime !== '0:00.000'],
   ['time trial: you alone', r.trial?.cars === 1],

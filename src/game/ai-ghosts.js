@@ -9,6 +9,7 @@ import { playerClass } from './car-class.js';
 
 export const AI_GHOSTS = Object.freeze({
   laps: 3,          // laps timed for the list: the first is a standing start, the best of the others is kept
+  coldLaps: 2,      // more laps for a car class without tyre blankets (its tyres start at the air's temperature)
   seed: 20261020,   // fixed: the same laps every time
   dt: 1 / 120,
   maxTime: 600,     // s of sim time before giving up
@@ -54,7 +55,9 @@ export function aiLapRun(track, level, { activeAero = false, aiAssists = null, t
   const A = AI_GHOSTS, race = rivalRace(track, level, activeAero, aiAssists, tyreTemp, compound, driver, aiTop), c = race.cars[0], N = track.N;
   const fresh = () => ({ x: new Float32Array(N), z: new Float32Array(N), kmh: new Float32Array(N), thr: new Float32Array(N), brk: new Float32Array(N), t: new Float32Array(N) });
   let cur = fresh(), best = null, last = c.idx;
-  while (c.lap <= A.laps && race.t < A.maxTime) {
+  // (a class without tyre blankets, Formula E: two laps more, for the tyres to come in from the air's temperature)
+  const TT = race.carClass.tyreTemp, laps = A.laps + (tyreTemp && TT.blanket <= TT.air ? A.coldLaps : 0);
+  while (c.lap <= laps && race.t < A.maxTime) {
     race.t += A.dt;
     SIM.driveAI(race, c, A.dt);
     for (const e of c.events) if (e.type === SIM.EV.LAP) {

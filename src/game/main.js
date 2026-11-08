@@ -60,7 +60,7 @@ import { PhoneDesigner } from './phone-designer.js';
 import { createHaptics } from './haptics.js';
 import { createPitCrews } from './pit-crew.js';
 import { createTyreMarks } from './tyre-marks.js';
-import { Garage } from './garage.js';
+import { Garage, compoundLabel } from './garage.js';
 import { loadGarage, loadRecords, recordLap, playerSpec, playerDriver, pitPlanOf, garageClass } from './garage-store.js';
 import { playerClass, setPlayerClass } from './car-class.js';
 import { loadModels } from './models.js';
@@ -413,15 +413,16 @@ function drawPitBox() {
   };
   const kick = document.createElement('span'), head = document.createElement('p'), badge = document.createElement('b'), call = document.createElement('button');
   kick.className = 'pit-kick'; kick.textContent = 'PIT BOX';
-  head.className = 'pit-head'; badge.className = 'cmp ' + c.compound; badge.textContent = c.compound[0].toUpperCase();
-  head.append(badge, ` ${c.compound}${game.race.wear?.tyreLaps ? ` · ${Math.round((1 - c.tyreWear) * 100)} % left` : ''}`);
+  const name = compoundLabel(c.spec.cls, c.compound);
+  head.className = 'pit-head'; badge.className = 'cmp ' + c.compound; badge.textContent = name[0];
+  head.append(badge, ` ${name.toLowerCase()}${game.race.wear?.tyreLaps ? ` · ${Math.round((1 - c.tyreWear) * 100)} % left` : ''}`);
   // BOX THIS LAP (B, or a controller button, while driving): the call for the end of this lap, again = stay out
   call.type = 'button'; call.className = 'pit-call' + (c.pitRequest ? ' on' : '');
   call.textContent = c.pit ? 'IN THE PIT LANE' : c.pitRequest ? 'BOXING THIS LAP · STAY OUT' : 'BOX THIS LAP';
   call.disabled = !!c.pit || c.finished || !game.race.track.pit;
   call.onclick = () => { requestBox(true); drawPitBox(); };
   box.replaceChildren(kick, head,
-    seg('Next tyres', [['auto', 'AUTO'], ...Object.keys(c.spec.cls.compounds).map(k => [k, k.toUpperCase()])], P.tyres, v => { P.tyres = v; }),
+    seg('Next tyres', [['auto', 'AUTO'], ...Object.keys(c.spec.cls.compounds).map(k => [k, compoundLabel(c.spec.cls, k)])], P.tyres, v => { P.tyres = v; }),
     seg('Front wing', [[true, 'CHANGE IF DAMAGED'], [false, 'KEEP']], P.wing, v => { P.wing = v; }),
     seg('Repairs', [[true, 'FIX'], [false, 'SKIP']], P.repair, v => { P.repair = v; }), call);
 }
@@ -803,7 +804,21 @@ if (import.meta.env.DEV || window.gridlineApp?.debug) installDebug(setTrack, () 
 if (window.gridlineDebug) {
   // (moving the car by hand can't be replayed: the replay says so)
   const D = window.gridlineDebug;
-  for (const k of ['pitNow', 'crash']) { const f = D[k]; D[k] = (...a) => { game.replayRec?.taint('debug ' + k); return f(...a); }; }
+  // the car class you race, for testing before a class picker exists (car classes: Formula E): carClass('fe'); the
+  // garage's class in memory only (never saved), its setup and mods fitted to that class; from the next race
+  D.carClass = id => {
+    const cls = SIM.classOf(id);
+    if (!cls) return null;
+    // (a value at the old class's default becomes the new one's: the F1's stock 770 kg is a mass mod on an 840 kg car)
+    const was = garageClass(game.garage), fit = (vals, from, to) => Object.fromEntries(Object.entries(vals || {}).map(([k, v]) => [k, from[k] && to[k] && v === from[k].def ? to[k].def : v]));
+    Object.assign(game.garage, { carClass: cls.id, setup: SIM.validSetup(fit(game.garage.setup, was.setup, cls.setup), cls), mods: SIM.validMods(fit(game.garage.mods, was.mods, cls.mods), cls) });
+    setPlayerClass(cls);
+    return cls.id;
+  };
+  D.raceClass = () => game.race?.carClass.id ?? null;               // the class of the race in progress
+  // attack mode on now for `s` seconds (Formula E; HUD screenshots)
+  D.attack = (s = 60) => { const c = game.player; if (!c || !game.race?.attack) return null; Object.assign(c, { attackOn: true, attackArmed: false, attackLeft: s, awd: true }); return s; };
+  for (const k of ['pitNow', 'crash', 'attack']) { const f = D[k]; D[k] = (...a) => { game.replayRec?.taint('debug ' + k); return f(...a); }; }
   // the race so far driven again from its replay, on a track of its own: does it end where yours is now?
   D.replayCheck = () => {
     const rp = JSON.parse(JSON.stringify(game.replayRec.finish())), c = game.player, t0 = performance.now();
