@@ -3,7 +3,7 @@
 // numbers) is the F1's until a stage of the plan gives it its own. Figures from the FIA / Formula E and the press
 // (the plan's sources); ~ = our estimate where none was published.
 // Done so far (stage 1): the electric powertrain (one gear, the motor drawn from the battery), mass, tyres' grip, aero,
-// size; the brakes = regeneration (stage 2); the race's energy (stage 3); attack mode and the AWD start (stage 4). Still the F1's: tyre temperatures and wear (stage 5), the AI's lines and paces (stage 6), the hitbox (the 3D model).
+// size; the brakes = regeneration (stage 2); the race's energy (stage 3); attack mode and the AWD start (stage 4); the tyres (stage 5). Still the F1's: the AI's lines and paces (stage 6), the hitbox (the 3D model).
 import { F1_2026 } from './f1-2026.js';
 
 const F1 = F1_2026;
@@ -63,7 +63,21 @@ const MODS = Object.freeze({ ...F1.mods, mass: Object.freeze({ ...F1.mods.mass, 
 const ERS = Object.freeze({ ...F1.ers, store: 38.5 * 3.6e6, start: 1, capacity: 47 * 3.6e6 });
 
 // no fuel (the battery is its only energy): every fuel-use level is none
-const WEAR = Object.freeze({ ...F1.wear, fuel: Object.freeze(Object.fromEntries(Object.keys(F1.wear.fuel).map(k => [k, 0]))) });
+// tyre wear (stage 5): laps until worn out 4× the F1's (normal 40 ~: a set lasts the race; high wear 20) and less grip lost
+// when worn (`drop`, ~: a hard all-weather compound)
+const WEAR = Object.freeze({ ...F1.wear, fuel: Object.freeze(Object.fromEntries(Object.keys(F1.wear.fuel).map(k => [k, 0]))),
+  tyres: Object.freeze(Object.fromEntries(Object.entries(F1.wear.tyres).map(([k, v]) => [k, v * 4]))), drop: 0.1 });
+
+// The tyres (stage 5): Hankook iON all-weather (grooved, one specification for the season: dry or wet), no tyre
+// blankets: a set starts at the air's temperature (start, every stop), warms into a lower, wider window than a slick's
+// (~: none published; measured: VOS on the F1's heat model settles at 75–100 °C), loses less grip cold (an all-weather
+// compound is made to work cold ~), and the fronts are nearly the rears' size (Gen3 ~: 0.9 of a rear's heat capacity)
+const TYRE_TEMP = Object.freeze({ ...F1.tyreTemp, blanket: F1.tyreTemp.air, window: Object.freeze([55, 100]),
+  cold: Object.freeze({ loss: 0.15, scale: 40 }), front: 0.9 });
+// one compound for the race (FE: no choice of tyre): under the F1's 'medium' name, so a garage's strategy, the pit box
+// and the HUD work as they are (the game names it ALL-WEATHER); it lasts a whole E-Prix (~: a set does qualifying and the
+// race) and wears very little
+const COMPOUNDS = Object.freeze({ medium: Object.freeze({ grip: 1, life: 1, window: TYRE_TEMP.window }) });
 
 // no straight mode (Formula E has no moving wings): opening them changes nothing
 const ACTIVE_AERO = Object.freeze({ ...F1.activeAero, dragCut: 0, downforceCut: 0 });
@@ -89,5 +103,5 @@ export const FE_GEN3_EVO = Object.freeze({
   ...F1,
   id: 'fe', name: 'Formula E (Gen3 Evo)',
   ranked: false,                      // not on the leaderboard until the class is finished
-  car: CAR, chassis: CHASSIS, setup: SETUP, mods: MODS, ers: ERS, activeAero: ACTIVE_AERO, wear: WEAR, energy: ENERGY, attack: ATTACK,
+  car: CAR, chassis: CHASSIS, setup: SETUP, mods: MODS, ers: ERS, activeAero: ACTIVE_AERO, wear: WEAR, energy: ENERGY, attack: ATTACK, tyreTemp: TYRE_TEMP, compounds: COMPOUNDS,
 });

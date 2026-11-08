@@ -74,6 +74,7 @@ export const messageFor = (e, c, race) => EVENT_MESSAGES[e.type]?.(e, c, race) ?
 // the other things said during a race
 export const SAY = {
   coldTyres: { radio: 'Tyres are cold off the blankets: take care into the first corners.', secs: 4 },
+  coldTyresAir: { radio: 'No blankets: the tyres are at the air\'s temperature. Build them up over the first laps.', secs: 4 },
   boxOff: { radio: 'Understood, stay out.', secs: 3 },
   timeUp: { toast: 'Time up: the leader\'s next lap is the last' },
   // qualifying (starting-grid.js)

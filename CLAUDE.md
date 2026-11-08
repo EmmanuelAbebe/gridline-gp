@@ -1062,6 +1062,14 @@ showed MODIFIED only because of it).
   Measured: the zone costs 0.6–1.5 s (Hautvale 0.6, Marrow 1.5); 9-car 6-lap races take both everywhere, contacts as
   without (Saltcross ~1400 in either: the F1's racecraft on this car, stage 6); car-bench t60 2.08 s AWD (REAL_FE 1.8–2.3),
   t60rwd 3.01. tests/attack.test.js. Not done: the zone on the minimap / in the world, the split choice (2+6 …).
+- Stage 5 done: the tyres. Class `tyreTemp` = the F1's with blanket = air (25 °C: no blankets; start and every stop),
+  window 55–100 (~; on the F1's heat model VOS settles at 75–100 °C), cold loss 0.15 / scale 40, fronts 0.9 of a rear;
+  `compounds` = one, under the 'medium' key (strategies, pit box, HUD badge work; other names fall back to it in
+  fitTyres); wear: tyres 4× the F1's laps (normal 40), drop 0.1. Game: garage.js Tyres tab lists the class's compounds
+  (CLASS_COMPOUND_UI: FE medium = ALL-WEATHER), radio SAY.coldTyresAir at lights out. Measured (VOS solo, tyre temps on):
+  lap 1 +1.4–2.3 s from cold, lap 2 +0.5–1, equal from lap 3–4 (coldest tyre ~44–57 °C after lap 3 on Cantera / Harrow:
+  grip ≥ 0.965); without assists clean on all nine circuits; 10 laps of normal wear < 35 %, no tyre stop.
+  tests/fe-tyres.test.js. Not done: the pause menu's pit box names it MEDIUM.
 
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)

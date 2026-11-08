@@ -244,7 +244,7 @@ function lightsOut() {
   trial.lightsOut();
   sectors.lightsOut(game.player);
   if (qualifying()) showMessage(SAY.qualiStart);
-  else if (game.race.tyreTemp) showMessage(SAY.coldTyres);
+  else if (game.race.tyreTemp) showMessage(game.race.carClass.tyreTemp.blanket <= game.race.carClass.tyreTemp.air ? SAY.coldTyresAir : SAY.coldTyres);
   setStartLights(0); Hud.flash('GO', 0.8); Sound.beep(...SFX.go);
   timers.after(CONFIG.lights.hideAfterGo, () => Hud.showLights(false));
 }

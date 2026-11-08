@@ -43,7 +43,9 @@ design) and a Formula E-shaped 3D model come after it. The F1 stays bit-identica
    slow corner's apex, 3 loops; it costs 0.6–1.5 s; the AWD start 0–60 mph 2.08 s vs 3.01 rear-wheel drive; full fields
    take both on every circuit; time trials have none yet.) 350 kW + AWD for its minutes, taken by driving through an activation zone off the
    racing line (the player: a button or automatic; the AI: when it is safe), AWD launch at the start.
-5. **Tyres and wear.** All-weather tyres: lower grip and load sensitivity, temperature from the air with no blankets,
+5. **Tyres and wear.** (Done 2026-11-07: no blankets, a set starts at 25 °C; window 55–100 °C; lap 1 +1.4–2.3 s, in by
+   lap 3–4; tyres 4× the F1's life; one compound, shown as ALL-WEATHER. Load sensitivity left at the F1's: the launch
+   and corner figures were set on it in stage 1.) All-weather tyres: lower grip and load sensitivity, temperature from the air with no blankets,
    a wide window, very little wear; no pit stops (the pit lane stays for drive-throughs; Pit Boost charging later).
 6. **The AI on it.** Its own racing lines (`npm run lap-optimum -- <id> --class=fe --write-line`), its paces, feel and
    margins (`ai` of the class); full-field Formula E races clean on every circuit; ALIEN levels rescanned.

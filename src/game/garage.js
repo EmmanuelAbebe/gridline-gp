@@ -67,7 +67,9 @@ const COMPOUND_UI = {
   medium: { label: 'MEDIUM', note: 'The all-rounder: the tyre the car was set up on.' },
   hard: { label: 'HARD', note: 'The least grip: about half a second a lap slower than the medium, but lasts the longest. Needs more heat: slow to warm up off the blankets.' },
 };
-const NEXT = [['auto', 'AUTO'], ...COMPOUND_NAMES.map(k => [k, COMPOUND_UI[k].label])];
+// a class's own tyres in words (Formula E: one all-weather tyre, kept under the 'medium' name)
+const CLASS_COMPOUND_UI = { fe: { medium: { label: 'ALL-WEATHER', note: 'One tyre for the whole race, dry or wet: no blankets, so it starts at the air\'s temperature and needs a lap or two to come in. It hardly wears.' } } };
+const compoundUi = (cls, k) => CLASS_COMPOUND_UI[cls.id]?.[k] ?? COMPOUND_UI[k];
 const VIEWS = [['three', '3/4'], ['front', 'FRONT'], ['side', 'SIDE'], ['rear', 'REAR'], ['top', 'TOP']];
 
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
@@ -259,16 +261,19 @@ export const Garage = (() => {
       const T = garage.tyres, W = cls().wear.tyres, set = (k, v) => { T[k] = v; changed('tyres'); render(); };
       const row = (label, control, note) => { const r = el('div', 'set-item'), h = el('div', 'row'); h.append(el('span', 'lbl', label), control); r.append(h); if (note) r.append(el('p', 'note', note)); return r; };
       const table = el('div', 'gar-cmp');
-      for (const k of COMPOUND_NAMES) {
-        const c = cls().compounds[k], d = Math.round((c.grip - 1) * 100), cell = el('div', 'gar-cmp-row'), badge = el('b', 'cmp ' + k, k[0].toUpperCase());
-        cell.append(badge, el('span', 'lbl', COMPOUND_UI[k].label), el('span', '', d ? `grip ${d > 0 ? '+' : '−'}${Math.abs(d)} %` : 'grip ±0'),
+      // (the class's compounds; a strategy naming one it doesn't have shows its first: pit.js fits that one)
+      const names = COMPOUND_NAMES.filter(k => Object.hasOwn(cls().compounds, k)), ui = k => compoundUi(cls(), k);
+      const start = names.includes(T.start) ? T.start : names[0], next = T.next === 'auto' || T.next === 'same' || names.includes(T.next) ? T.next : names[0];
+      for (const k of names) {
+        const c = cls().compounds[k], d = Math.round((c.grip - 1) * 100), cell = el('div', 'gar-cmp-row'), badge = el('b', 'cmp ' + k, ui(k).label[0]);
+        cell.append(badge, el('span', 'lbl', ui(k).label), el('span', '', d ? `grip ${d > 0 ? '+' : '−'}${Math.abs(d)} %` : 'grip ±0'),
           el('span', '', `${Math.round(W.normal * c.life)} laps`), el('span', '', `${c.window[0]}–${c.window[1]} °C`));
         table.append(cell);
       }
       body.append(table, el('p', 'note', 'Laps = until worn out on normal Tyre wear (half that on high; Settings → Driving). The rival teams pick their own tyres for the race and their stops.'));
-      body.append(row('Start on', seg(COMPOUND_NAMES.map(k => [k, COMPOUND_UI[k].label]), T.start, v => set('start', v)), COMPOUND_UI[T.start].note));
+      body.append(row('Start on', seg(names.map(k => [k, ui(k).label]), start, v => set('start', v)), ui(start).note));
       body.append(el('p', 'gar-head', 'Pit box: what the crew does at your stops'));
-      body.append(row('Next tyres', seg(NEXT, T.next, v => set('next', v)), T.next === 'auto' ? 'AUTO: the team picks the best compound for the laps you have left.' : COMPOUND_UI[T.next].note));
+      body.append(row('Next tyres', seg([['auto', 'AUTO'], ...names.map(k => [k, ui(k).label])], next, v => set('next', v)), next === 'auto' ? 'AUTO: the team picks the best compound for the laps you have left.' : next === 'same' ? '' : ui(next).note));
       body.append(row('Front wing', seg([[true, 'CHANGE IF DAMAGED'], [false, 'KEEP']], T.wing, v => set('wing', v)), T.wing ? 'A new nose costs 3 s.' : 'A damaged wing stays on: understeer, but a quicker stop.'));
       body.append(row('Repairs', seg([[true, 'FIX'], [false, 'SKIP']], T.repair, v => set('repair', v)), T.repair ? 'Floor and suspension damage fixed: up to 5 s more.' : 'Floor and suspension damage stay as they are.'));
       body.append(el('p', 'note', 'Pit with B (pad X, the BOX button). The pause menu changes the plan for the race you are in.'));
