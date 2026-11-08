@@ -128,6 +128,21 @@ table.res i{display:inline-block;width:4px;height:14px;vertical-align:-2px;margi
 .gar-warn{border:1px solid rgba(255,194,26,.45);background:rgba(255,194,26,.07);border-radius:4px;padding:10px 12px;display:grid;gap:4px}
 .gar-warn b{font-family:var(--display);letter-spacing:.08em;color:var(--amber);text-transform:uppercase}
 /* tyres & pit: the compounds side by side (badge, name, grip, life, window) */
+.gar-class{margin-bottom:10px;display:flex;flex-direction:column;gap:10px;width:100%;padding:14px 16px;background:#12161c;border:2px solid #1e242d;border-radius:3px;text-align:left;color:var(--text);cursor:pointer}
+.gar-class:hover{border-color:#5b6470}
+.gar-class[aria-pressed="true"]{border-color:var(--amber);cursor:default}
+.gar-class-head{display:flex;align-items:baseline;gap:10px}
+.gar-class-head b{font-family:var(--display);font-weight:800;font-size:28px;line-height:1}
+.gar-class-head span{font-size:13px;color:var(--muted)}
+.gar-class-head i{margin-left:auto;padding:2px 8px;background:var(--amber);color:#0b0e12;font-style:normal;font-family:var(--display);font-size:12px;font-weight:800;letter-spacing:.14em}
+.gar-class-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.gar-class-facts span{display:flex;flex-direction:column;gap:1px}
+.gar-class-facts small{font-size:12px;color:var(--muted)}
+.gar-class-facts b{font-family:var(--display);font-size:18px}
+.gar-class-blurb{font-size:13px;line-height:1.45;color:#c4c9cf}
+.gar-class-setup{font-size:12px;color:var(--muted)}
+.gar-class-setup.off{color:var(--amber)}
+.gar-class-board.on{color:var(--green)}
 .gar-cmp{display:grid;gap:4px;padding:8px 10px;border:1px solid var(--rule);border-radius:4px;background:rgba(255,255,255,.02)}
 .gar-cmp-row{display:grid;grid-template-columns:auto 5.5em 1fr 1fr 1fr;gap:8px;align-items:center;font-size:13px}
 .gar-cmp-row .cmp{font-size:14px}
@@ -328,6 +343,36 @@ table.ana-corners caption{caption-side:bottom;text-align:left;font-size:12px;col
 .mn-circlist button[aria-checked="true"] path{stroke:var(--amber)}
 .mn-circlist b{font-weight:700;font-size:18px}
 .mn-circlist small{margin-left:auto;font-family:var(--body);font-size:13px;color:var(--muted)}
+/* the CAR step (class picker, 2026-11-08: the user's pick C): the cars, the picked one's numbers, no lines in the box */
+.mn-car{flex:1;min-height:0;display:grid;grid-template-columns:340px minmax(0,1fr);gap:20px}
+.mn-carside{display:flex;flex-direction:column;gap:10px}
+.mn-carlist{display:flex;flex-direction:column;gap:10px}
+.mn-carlist button{display:flex;align-items:center;gap:14px;padding:14px 16px;min-height:64px;background:#12161c;border:2px solid #1e242d;border-radius:3px;text-align:left}
+.mn-carlist button:hover{border-color:#5b6470}
+.mn-carlist button[aria-checked="true"]{border-color:var(--amber);background:#1a1f27}
+.mn-carlist button > span{display:flex;flex-direction:column;gap:2px}
+.mn-carlist b{font-weight:800;font-size:24px;line-height:1}
+.mn-carlist small{font-family:var(--body);font-size:13px;color:var(--muted)}
+.car-icon{width:64px;height:32px;flex:none}
+.car-icon path{fill:none;stroke:#5b6470;stroke-width:2;stroke-linejoin:round}
+.mn-carlist button[aria-checked="true"] .car-icon path{stroke:var(--amber)}
+.mn-cardet{background:#12161c;display:flex;flex-direction:column;min-height:0}
+.mn-carhead{display:flex;align-items:center}
+.mn-carhead .mn-carcols{flex:1}
+.mn-carhead b{padding:12px 16px;font-weight:800;font-size:20px;color:#c4c9cf}
+.mn-carhead b.on,.mn-cardet:not(.compare) .mn-carhead b{color:var(--amber)}
+.mn-compare{margin:0 12px 0 16px;justify-self:start;align-self:center}
+.mn-compare[aria-pressed="true"]{background:var(--amber);border-color:var(--amber);color:#0b0e12}
+.mn-carrows{flex:1;min-height:0;overflow-y:auto}
+.mn-carcols{display:grid;align-items:baseline}
+.mn-carhead .mn-carcols{align-items:center}
+.mn-carrows span{padding:7px 16px;font-family:var(--body);font-size:14px;color:#f2f3f0}
+.mn-carrows span.lbl{font-size:13px;color:var(--muted);min-width:0;text-transform:none;letter-spacing:0}
+.mn-carrows .mn-carcols{align-items:stretch}
+.mn-cardet.compare .mn-carrows span:not(.lbl):not(.on){color:var(--muted)}
+.mn-cardet.compare .mn-carcols > .on{background:rgba(255,194,26,.07)}
+.mn-trialcar{justify-content:flex-start;gap:18px}
+.mn-trialcar .lbl{min-width:80px}
 .mn-field{display:flex;gap:8px;flex-wrap:wrap}
 .mn-field span{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;background:#12161c;border:1px solid #1e242d;font-size:14px}
 .mn-field i{width:10px;height:10px;border:1px solid #5b6470}

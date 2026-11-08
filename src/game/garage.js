@@ -1,5 +1,6 @@
 // The garage (start menu GARAGE): the player's car in a studio with a free orbit camera (orbit-camera.js), and a
-// panel to change it: LOOK (colours, finish, rims, race number; the car's shape in the design tools), SETUP (race
+// panel to change it: CAR (which car you race: 2026-11-08, the user's pick D on the class-picker canvas; each keeps its
+// own setup, mods and tyres: garage-store.js switchClass, done by main.js on the 'class' event), LOOK (colours, finish, rims, race number; the car's shape in the design tools), SETUP (race
 // setup: real trade-offs, SIM SETUP) and OPEN MODS (no limits, SIM MODS: the car is then MODIFIED), with live numbers
 // (SIM specStats) against the stock car. Edits go to `garage` (garage-store.js shape) and are reported with
 // 'change'; main.js saves them and puts them on the race car. Renders instead of the race scene while open (frame()).
@@ -10,7 +11,8 @@ import { CarModels } from './car-models.js';
 import { Design } from './design.js';
 import { $, createEmitter } from './util.js';
 import { orbitState, orbitPosition, attachOrbit, clampOrbit, ORBIT } from './orbit-camera.js';
-import { FINISHES, CAR_MODELS, SWATCHES, LIVERY_DEFAULTS, STRATEGY_DEFAULTS, COMPOUND_NAMES, hexOf, playerDriver, playerSpec, garageClass } from './garage-store.js';
+import { FINISHES, CAR_MODELS, SWATCHES, LIVERY_DEFAULTS, STRATEGY_DEFAULTS, COMPOUND_NAMES, hexOf, playerDriver, playerSpec, garageClass, carIn } from './garage-store.js';
+import { classUi, allClasses, classRows } from './car-class.js';
 
 // Setup (2026-11-02, the user's pick B of the canvas mock-ups): a chip per group, one group at a time; each item says what
 // moving it off stock does (lo = below stock, hi = above); `isNew` = a setting the garage didn't have before (a NEW tag)
@@ -60,7 +62,7 @@ const MODS_UI = {
   downforce: { label: 'Downforce', fmt: v => v + ' %' }, drag: { label: 'Drag', fmt: v => v + ' %' }, brakes: { label: 'Brake force', fmt: v => v + ' %' },
 };
 const PRESETS = [['LOW DOWNFORCE', { wing: 2, gearing: 370 }], ['HIGH DOWNFORCE', { wing: 10, gearing: 320 }]];   // (on the Aero group)
-const TABS = [['look', 'Look'], ['setup', 'Setup'], ['tyres', 'Tyres & pit'], ['mods', 'Open mods']];
+const TABS = [['car', 'Car'], ['look', 'Look'], ['setup', 'Setup'], ['tyres', 'Tyres & pit'], ['mods', 'Open mods']];
 // the compounds (SIM COMPOUNDS) in words
 const COMPOUND_UI = {
   soft: { label: 'SOFT', note: 'The most grip: about half a second a lap quicker than the medium. Wears out soonest, warms up quickest, overheats first.' },
@@ -84,7 +86,7 @@ function seg(options, current, onpick) {
 
 export const Garage = (() => {
   const root = $('garageOv'), stage = $('garStage'), tabsEl = $('garTabs'), body = $('garBody'), events = createEmitter();
-  let isOpen = false, garage = null, tab = 'look', group = 'aero', scene = null, cam = null, model = null, autoTurn = false, idle = 0, statsQueued = false;
+  let isOpen = false, garage = null, tab = 'car', group = 'aero', scene = null, cam = null, model = null, autoTurn = false, idle = 0, statsQueued = false;
   const orbit = orbitState();
   // the garage's car class (garage-store.js garageClass) and its stock car's stats (made once per class)
   const cls = () => garageClass(garage), stockStats = new Map();
@@ -223,7 +225,26 @@ export const Garage = (() => {
     tabsEl.replaceChildren(...TABS.map(([id, label]) => { const b = button(label, () => { tab = id; render(); }, ''); b.setAttribute('aria-pressed', String(id === tab)); return b; }));
     body.replaceChildren();
     const L = garage.livery;
-    if (tab === 'look') {
+    if (tab === 'car') {
+      for (const c of allClasses()) {
+        const U = classUi(c), on = c === cls(), mine = carIn(garage, c), card = button('', () => { if (!on) { events.emit('class', c.id); render(); } }, 'gar-class');
+        card.setAttribute('aria-pressed', String(on));
+        const head = el('div', 'gar-class-head');
+        head.append(el('b', '', U.name), el('span', '', U.tag));
+        if (on) head.append(el('i', '', 'YOUR CAR'));
+        const facts = el('div', 'gar-class-facts'), rows = Object.fromEntries(classRows(c));
+        for (const [k, label] of [['Top speed', 'Top speed'], ['0–100 km/h', '0–100 km/h'], ['Corner, 80 m radius', 'Corner, 80 m'], ['Weight', 'Weight']]) {
+          const f = el('span'); f.append(el('small', '', label), el('b', '', rows[k].replace(' (AWD start)', ''))); facts.append(f);
+        }
+        const changes = Object.entries(mine.setup).filter(([k, v]) => v !== c.setup[k].def).length, modified = SIM.isModified(mine.mods, c);
+        const setup = el('span', 'gar-class-setup' + (changes || modified ? ' off' : ''), (changes ? `Your setup: ${changes} change${changes > 1 ? 's' : ''} from stock` : 'Your setup: stock') + (modified ? ' · MODIFIED' : ''));
+        card.append(head, facts, el('span', 'gar-class-blurb', `${rows.Power}. ${U.blurb}`), setup);
+        body.append(card);
+      }
+      const ranked = cls().ranked !== false;
+      body.append(el('p', 'note', 'Each car keeps its own setup, tyres and mods; your livery and number go on both. Records, ghosts and the leaderboard follow the car you race. The electric car uses the hybrid\'s 3D model and sound for now.'),
+        el('p', 'note gar-class-board' + (ranked ? ' on' : ''), ranked ? 'On the leaderboard: your laps can be ranked.' : 'Not on the leaderboard yet: laps are kept, not ranked.'));
+    } else if (tab === 'look') {
       const car = el('div', 'set-item'), ch = el('div', 'row');
       ch.append(el('span', 'lbl', 'Car'), seg(CAR_MODELS, L.model, v => { L.model = v; changed('look'); render(); }));
       car.append(ch, el('p', 'note', L.model === '2026' ? 'The 2026 car, based on "F1 2026 concept" by Qvist_designs (CC-BY): every car in the field.' : 'The part-built car: the design tools below change its shape.'));

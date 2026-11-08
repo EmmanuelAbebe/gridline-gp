@@ -397,7 +397,7 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   Garage `#garageBtn`, Controller `#padStatus` (Hud.setPad's status; opens Settings → Controller), Settings
   `#settingsBtn`), the circuit stepper `#trackStep`; a section `#mnSection` = the rail (‹ GRIDLINE GP home, Race weekend,
   Time trial, Leaderboard, Garage, Lap analysis `#anaStartBtn`, Aero zones `#zonesBtn`, Settings, Test controls
-  `#testCtlBtn`) + a page: Race weekend `#pageRace` in four steps (circuit: map + `#circuitList`; field: `#aiSeg`,
+  `#testCtlBtn`) + a page: Race weekend `#pageRace` in steps (since 2026-11-08 a CAR step first: class picker below; circuit: map + `#circuitList`; field: `#aiSeg`,
   `#carsStep`, the line-up; rules: `#typeSeg` (no TIME TRIAL: that's its own page), `#amountStep`, fuel / tyres /
   damage / aero / overtake / tyreTemp from RACE_SETUP.choices via setDriving; grid: `#qualiSeg`, `#introText`, the grid
   from starting-grid.js forRace), each step's tab shows its choice and jumps there; `#startBtn` on the last step,
@@ -1095,6 +1095,18 @@ showed MODIFIED only because of it).
   measurement hid it); ai-ghosts.js AI_GHOSTS.coldLaps 2 more laps for a class without blankets (with tyre temps on);
   the pause pit box names compounds by garage.js compoundLabel (FE: ALL-WEATHER). Next (after step 2): the class picker
   (canvas mock-ups first), the Formula E 3D model and EV sound, its invented name, attack mode on the phone wheel.
+- Class picker (2026-11-08; the user picked C + D of four layouts on the claude.ai canvas "Gridline GP class picker"):
+  menu names GP HYBRID (f1) / GP ELECTRIC (fe) (car-class.js CLASS_UI: name, tag, plan-view icon, blurb, word facts;
+  `classRows(cls)` = the 12 comparison rows, numbers from SIM specStats of the stock car). Race weekend has five steps,
+  CAR first (start-menu.js drawCars: the cars as a list, the picked car's numbers in a box without lines, COMPARE = every
+  car side by side, the picked column highlighted; the Overtake rule reads "Attack mode" for a class with one); the time
+  trial page a Car row (`#trialCar`); the garage opens on a Car tab (a card per class: four numbers, setup changes /
+  MODIFIED, YOUR CAR). main.js `pickClass(id)` (menu only; also gridlineDebug.carClass): garage-store.js `switchClass`
+  keeps each class's own setup / mods / tyres (`garage.cars[id]`, saved; the livery is shared), setPlayerClass, the
+  qualified grid dropped, the menu lines redrawn (records, ghosts, rivals' times follow the class). spec-stats.js gives
+  an electric car its numbers (they were null: powerK) with the AWD start. The electric car still shows the hybrid's 3D
+  model and sound. Smoke: out-menu-car.png (COMPARE on; GRIDLINE_SMOKE_CLASS picks the car in the CAR step), the garage
+  shot on its Car tab.
 
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)

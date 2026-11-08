@@ -129,12 +129,19 @@ async function smokeTest(win) {
   const shot = name => win.webContents.capturePage().then(img => fs.writeFileSync(smokeOut.replace(/(\.png)?$/, `-${name}.png`), img.toPNG()));
   await win.webContents.executeJavaScript(`document.getElementById('garageBtn').click()`);
   await new Promise(r => setTimeout(r, 1200));
+  const garTab = name => win.webContents.executeJavaScript(`[...document.querySelectorAll('#garTabs button')].find(b => b.textContent === ${JSON.stringify(name)}).click()`);
   // (GRIDLINE_SMOKE_CAR=2026: the Blender car in every shot, picked the way a player does in Look)
   if (process.env.GRIDLINE_SMOKE_CAR === '2026') {
+    await garTab('Look');
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('#garageOv .seg button')].find(b => /^2026/.test(b.textContent))?.click()`);
     await new Promise(r => setTimeout(r, 800));
+    await garTab('Car');
   }
+  // the garage opens on its Car tab: a card per car class, yours marked
+  const garageCar = await win.webContents.executeJavaScript(`({ tab: document.querySelector('#garTabs [aria-pressed=true]')?.textContent,
+    cards: [...document.querySelectorAll('.gar-class')].map(c => c.querySelector('.gar-class-head b').textContent + (c.getAttribute('aria-pressed') === 'true' ? '*' : '')) })`);
   await shot('garage');
+  await garTab('Look'); await new Promise(r => setTimeout(r, 200));
   for (const [type, x] of [['mouseDown', 300], ['mouseMove', 380], ['mouseMove', 460], ['mouseUp', 460]]) {
     win.webContents.sendInputEvent({ type, x, y: 360, button: 'left', clickCount: 1 }); await new Promise(r => setTimeout(r, 60));
   }
@@ -151,6 +158,7 @@ async function smokeTest(win) {
     const stats = [...document.querySelectorAll('.gar-stat')].map(t => t.textContent);
     return { shown, stats, sliders: document.querySelectorAll('#garBody input[type=range]').length };
   })()`);
+  info.garage.car = garageCar;
   await shot('garage-setup');
   // Setup in groups: the Brakes chip (brake balance, migration, engine braking), + on migration, then ALL STOCK
   Object.assign(info.garage, await win.webContents.executeJavaScript(`(async () => {
@@ -222,23 +230,36 @@ async function smokeTest(win) {
     document.getElementById('zoneClose').click(); await wait(200);
     return { deleted, reset: mode, backToMenu: !document.getElementById('startOv').hidden };
   })()`));
-  // (GRIDLINE_SMOKE_CLASS=fe: from here on the player races that car class: gridlineDebug.carClass, in memory only)
-  if (process.env.GRIDLINE_SMOKE_CLASS) info.carClass = await win.webContents.executeJavaScript(`gridlineDebug.carClass(${JSON.stringify(process.env.GRIDLINE_SMOKE_CLASS)})`);
-  // the start menu: home (tiles), Race weekend (circuit, field, rules, grid), the time trial page; then home again
+  // the start menu: home (tiles), Race weekend (car, circuit, field, rules, grid), the time trial page; then home again
+  // (GRIDLINE_SMOKE_CLASS=fe: the CAR step picks that car, as a player does: from here on the player races it)
   info.menu = await win.webContents.executeJavaScript(`(async () => {
+    const pick = ${JSON.stringify(process.env.GRIDLINE_SMOKE_CLASS || '')};
     const wait = ms => new Promise(r => setTimeout(r, ms)), $ = id => document.getElementById(id);
     const home = { tiles: document.querySelectorAll('.mn-tile').length, cont: $('contTitle').textContent };
     // the focus moves with the arrow keys / D-pad: Continue → right = Race weekend → down = Quick race
     $('contGo').focus(); const key = k => dispatchEvent(new KeyboardEvent('keydown', { key: k }));
     key('ArrowRight'); const right = document.activeElement.id; key('ArrowDown'); home.nav = [right, document.activeElement.id];
     $('tileRace').click(); await wait(200);
-    const steps = [];
-    for (let k = 0; k < 4; k++) { steps.push(document.querySelector('#raceSteps [data-step="' + k + '"] small').textContent); if (k < 3) { $('raceNext').click(); await wait(150); } }
-    for (let i = 0; i < 40 && /Timing/.test($('gridPreview').textContent); i++) await wait(250);
-    return { home, steps, grid: $('gridPreview').children.length, start: !$('startBtn').hidden && $('startBtn').textContent, circuits: $('circuitList').children.length };
+    // the CAR step: the picked car's numbers, COMPARE = every car's (the smoke's other car picked here)
+    const rows = () => $('carRows').children.length + ' rows × ' + ($('carRows').firstElementChild.children.length - 1);
+    const car = { one: rows() }; document.querySelector('#carHead .mn-compare').click(); await wait(100); car.compare = rows();
+    car.list = [...$('carList').children].map(b => b.textContent);
+    if (pick) { document.querySelector('#carList [data-id="' + pick + '"]').click(); await wait(100); }
+    car.picked = document.querySelector('#carList [aria-checked=true]').dataset.id;
+    return { home, car };
   })()`);
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-menu-car.png'), (await win.webContents.capturePage()).toPNG());
+  if (process.env.GRIDLINE_SMOKE_CLASS) info.carClass = info.menu.car.picked;
+  Object.assign(info.menu, await win.webContents.executeJavaScript(`(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms)), $ = id => document.getElementById(id);
+    document.querySelector('#carHead .mn-compare').click(); await wait(100);
+    const steps = [];
+    for (let k = 0; k < 5; k++) { steps.push(document.querySelector('#raceSteps [data-step="' + k + '"] small').textContent); if (k < 4) { $('raceNext').click(); await wait(150); } }
+    for (let i = 0; i < 40 && /Timing/.test($('gridPreview').textContent); i++) await wait(250);
+    return { steps, grid: $('gridPreview').children.length, start: !$('startBtn').hidden && $('startBtn').textContent, circuits: $('circuitList').children.length };
+  })()`));
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-menu-grid.png'), (await win.webContents.capturePage()).toPNG());
-  await win.webContents.executeJavaScript(`document.querySelector('#raceSteps [data-step="0"]').click()`);
+  await win.webContents.executeJavaScript(`document.querySelector('#raceSteps [data-step="1"]').click()`);
   await new Promise(r => setTimeout(r, 300));
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-menu-circuit.png'), (await win.webContents.capturePage()).toPNG());
   await win.webContents.executeJavaScript(`document.getElementById('raceBack').click()`);

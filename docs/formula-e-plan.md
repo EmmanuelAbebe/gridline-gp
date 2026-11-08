@@ -60,12 +60,11 @@ design) and a Formula E-shaped 3D model come after it. The F1 stays bit-identica
    flat-out lap × 1.25 each lap), the reference laps were on cold tyres (+2 laps without blankets), the pit box named
    the tyre MEDIUM.) **Step 2 done: the Formula E physics, AI and tests.**
 
-After this step: the class picker (mock-ups on a canvas first), the Formula E 3D model, attack mode on the phone wheel.
+After this step: the class picker (done 2026-11-08: race weekend's CAR step + the garage's Car tab; menu name GP ELECTRIC), the Formula E 3D model, attack mode on the phone wheel.
 
 ## Open questions
 
-- Its name in the game (no real teams, drivers or circuits): the class's name will need an invented one before a menu
-  shows it.
+- Its name in the game: GP ELECTRIC in the menus (the canvas default; the hybrid is GP HYBRID).
 - Street circuits: Formula E races on tight street tracks; ours are wider road courses (Cobalt Bay is the closest).
 
 ## Sources

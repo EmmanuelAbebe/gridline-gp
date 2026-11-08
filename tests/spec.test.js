@@ -59,3 +59,9 @@ test('a car on a garage spec drives and races normally', () => seeded(() => {
   run(S, race, 300, aiDriver(S));
   assert.ok(race.cars.every(c => c.finished), race.cars.map(c => `${c.code} lap ${c.lap}`).join(', '));
 }));
+
+// (the garage's numbers for an electric car: its motor on the battery, the AWD start; they came out empty before)
+test('spec stats: the electric car\'s numbers', () => {
+  const s = S.specStats(S.stockOf(S.classOf('fe')));
+  assert.ok(s.top > 285 && s.top < 305 && s.t100 > 1.7 && s.t100 < 2.6 && s.brake.dist > 100, JSON.stringify(s));
+});

@@ -116,13 +116,23 @@
         <!-- race weekend: the steps -->
         <div class="mn-race" id="pageRace">
           <ol class="mn-steps" id="raceSteps" aria-label="Steps">
-            <li><button type="button" data-step="0"><i>01</i><b>CIRCUIT</b><small id="stepVal0"></small></button></li>
-            <li><button type="button" data-step="1"><i>02</i><b>FIELD</b><small id="stepVal1"></small></button></li>
-            <li><button type="button" data-step="2"><i>03</i><b>RULES</b><small id="stepVal2"></small></button></li>
-            <li><button type="button" data-step="3"><i>04</i><b>GRID</b><small id="stepVal3"></small></button></li>
+            <li><button type="button" data-step="0"><i>01</i><b>CAR</b><small id="stepVal0"></small></button></li>
+            <li><button type="button" data-step="1"><i>02</i><b>CIRCUIT</b><small id="stepVal1"></small></button></li>
+            <li><button type="button" data-step="2"><i>03</i><b>FIELD</b><small id="stepVal2"></small></button></li>
+            <li><button type="button" data-step="3"><i>04</i><b>RULES</b><small id="stepVal3"></small></button></li>
+            <li><button type="button" data-step="4"><i>05</i><b>GRID</b><small id="stepVal4"></small></button></li>
           </ol>
           <div class="mn-stepbody">
             <div class="mn-step" data-step="0">
+              <div class="mn-car">
+                <div class="mn-carside">
+                  <div class="mn-carlist" id="carList" role="radiogroup" aria-label="Car"></div>
+                  <p class="gpu">The rivals race the car you pick. Each car keeps its own setup, records, ghosts and sector bests.</p>
+                </div>
+                <div class="mn-cardet" id="carDetail"><div class="mn-carhead" id="carHead"></div><div class="mn-carrows" id="carRows"></div></div>
+              </div>
+            </div>
+            <div class="mn-step" data-step="1" hidden>
               <div class="mn-circ">
                 <div class="mn-circmain">
                   <span class="lbl" id="eventLine">Round 1</span>
@@ -133,19 +143,19 @@
                 <div class="mn-circlist" id="circuitList" role="radiogroup" aria-label="Circuit"></div>
               </div>
             </div>
-            <div class="mn-step" data-step="1" hidden>
+            <div class="mn-step" data-step="2" hidden>
               <h2>Who against?</h2>
               <div class="row"><span class="lbl">Rivals</span><div class="seg" id="aiSeg"></div></div>
               <p class="gpu" id="aiNote"></p>
               <div class="row"><span class="lbl">Cars on the grid</span><div class="stepper" id="carsStep"><button type="button" data-d="-1" aria-label="Fewer cars">−</button><output id="carsVal">10</output><button type="button" data-d="1" aria-label="More cars">+</button></div></div>
             </div>
-            <div class="mn-step" data-step="2" hidden>
+            <div class="mn-step" data-step="3" hidden>
               <h2>The rules</h2>
               <div class="row"><span class="lbl">Race type</span><div class="seg" id="typeSeg"></div></div>
               <div class="row" id="amountRow"><span class="lbl" id="amountLbl">Laps</span><div class="stepper" id="amountStep"><button type="button" data-d="-1" aria-label="Less">−</button><output id="amountVal">3</output><button type="button" data-d="1" aria-label="More">+</button></div></div>
               <div class="mn-rules" id="ruleRows"></div>
             </div>
-            <div class="mn-step" data-step="3" hidden>
+            <div class="mn-step" data-step="4" hidden>
               <h2>Grid position</h2>
               <div class="row" id="qualiRow"><span class="lbl">Qualifying</span><div class="seg" id="qualiSeg"></div></div>
               <p class="gpu" id="introText">Ten cars, five red lights.</p>
@@ -165,6 +175,7 @@
         <div class="mn-trial" id="pageTrial" hidden>
           <div class="mn-pagehead"><h2 id="trialTitle">Time trial</h2><div class="mn-circmini"><button class="mn-arrow" type="button" data-circ="-1" aria-label="Previous circuit">‹</button><button class="mn-arrow" type="button" data-circ="1" aria-label="Next circuit">›</button></div></div>
           <p class="gpu">You alone, laps until you stop. Pick who you chase: a see-through car on the same lap, with a live gap. Clean laps are kept for the leaderboard.</p>
+          <div class="row mn-trialcar"><span class="lbl">Car</span><div class="seg" id="trialCar" role="group" aria-label="Car"></div></div>
           <div class="mn-ghostrow" id="ghostRow" hidden>
       <span class="lbl">Ghost</span>
       <div class="ghost-ctl"><button class="iconbtn" id="ghostExport" type="button" title="Save your best lap here to a file, to send to a friend">EXPORT</button><button class="iconbtn" id="ghostLoad" type="button" title="Race a lap from a file (a friend's)">LOAD</button><button class="iconbtn" id="ghostClear" type="button" title="Forget the lap loaded from a file">REMOVE LOADED</button><input type="file" id="ghostFile" accept=".gz,.json,application/gzip,application/json" hidden></div>
@@ -290,7 +301,7 @@
       <div class="res-side">
         <section class="res-stats" id="resStats" aria-label="Your race"></section>
         <button class="mn-tile mn-hot" id="againBtn" type="button"><span class="mn-title" id="againTitle">Race again</span><span class="mn-sub" id="againSub"></span></button>
-        <button class="mn-tile" id="menuBtn" type="button"><span class="mn-kick">RACE WEEKEND</span><span class="mn-title">Change race</span><span class="mn-sub">Circuit · field · rules · grid</span></button>
+        <button class="mn-tile" id="menuBtn" type="button"><span class="mn-kick">RACE WEEKEND</span><span class="mn-title">Change race</span><span class="mn-sub">Car · circuit · field · rules · grid</span></button>
         <div class="res-small"><button class="iconbtn" id="resAnaBtn" type="button">LAP ANALYSIS</button><button class="iconbtn" id="requaliBtn" type="button" hidden>QUALIFY AGAIN</button><button class="iconbtn" id="lbResBtn" type="button" hidden>SUBMIT</button><button class="iconbtn" id="paddockBtn" type="button">PADDOCK</button></div>
       </div>
     </div>

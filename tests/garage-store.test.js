@@ -83,3 +83,25 @@ test('tyres & pit: the starting compound and the pit plan, validated (defaults: 
   assert.deepEqual(validStrategy({ start: 'wet', next: 7, wing: 'no', repair: null }), STRATEGY_DEFAULTS);
   assert.deepEqual(pitPlanOf(validStrategy({ next: 'soft', wing: false })), { tyres: 'soft', wing: false, repair: true });
 });
+
+// the class picker (race weekend's CAR step, the garage's Car tab): each car keeps its own setup, mods and tyres
+test('garage: switching cars keeps each car\'s own setup, mods and tyres; the livery goes on both', async () => {
+  const { switchClass, carIn, garageClass } = await import('../src/game/garage-store.js');
+  const F1 = S.DEFAULT_CLASS, FE = S.classOf('fe');
+  const g = loadGarage(JSON.stringify({ livery: { color: '#ff0000' }, setup: { wing: 9 }, mods: { power: 150 }, tyres: { start: 'soft' } }));
+  assert.deepEqual(g.cars, {});
+  assert.equal(switchClass(g, FE), FE);
+  assert.equal(garageClass(g), FE); assert.equal(g.livery.color, 0xff0000);
+  assert.deepEqual(g.setup, S.validSetup({}, FE), 'stock the first time'); assert.equal(S.isModified(g.mods, FE), false, 'not the F1\'s mods');
+  assert.equal(g.mods.mass, FE.mods.mass.def, 'its own stock weight');
+  assert.equal(carIn(g, F1).setup.wing, 9, 'the F1\'s kept');
+  g.setup.gearing = FE.setup.gearing.max;
+  const saved = loadGarage(JSON.stringify(g));                         // (saved and loaded again: both cars)
+  assert.equal(garageClass(saved), FE); assert.equal(saved.setup.gearing, FE.setup.gearing.max);
+  assert.equal(saved.cars.f1.setup.wing, 9); assert.equal(saved.cars.f1.mods.power, 150); assert.equal(saved.cars.f1.tyres.start, 'soft');
+  switchClass(saved, F1);
+  assert.equal(saved.setup.wing, 9); assert.equal(saved.mods.power, 150); assert.equal(saved.tyres.start, 'soft');
+  assert.equal(saved.cars.fe.setup.gearing, FE.setup.gearing.max); assert.equal(saved.cars.f1, undefined);
+  assert.equal(switchClass(saved, F1), F1); assert.equal(saved.setup.wing, 9, 'the same car: nothing changes');
+  assert.deepEqual(loadGarage(JSON.stringify({ cars: { hovercraft: { setup: {} }, f1: { setup: { wing: 3 } } } })).cars, {}, 'unknown classes and the one you race dropped');
+});

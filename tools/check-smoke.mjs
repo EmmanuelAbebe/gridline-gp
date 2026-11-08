@@ -19,6 +19,10 @@ const checks = [
   ...(fe ? [['Formula E: the Energy row', r.classRace.start.fuelLbl === 'Energy' && / kWh · /.test(r.classRace.start.fuel)],
     ['Formula E: stock car, its own AI laps in the ghost list', (r.trial?.ghosts || []).some(g => /^Your best/.test(g) && !/modified/.test(g)) && (r.trial?.ghosts || []).some(g => /^ALIEN.*1:1\d\.\d{3}$/.test(g))],
     ['Formula E: attack mode chip, then on with AWD', /^ATTACK × 2/.test(r.classRace.start.boost) && /^ATTACK 1:1\d · AWD$/.test(r.classRace.on.boost)]] : []),
+  // the class picker: race weekend's CAR step (the picked car's numbers, COMPARE = both), the garage's Car tab
+  ['race weekend: CAR is the first of five steps', r.menu?.steps?.length === 5 && r.menu.steps[0] === (fe ? 'GP ELECTRIC' : 'GP HYBRID')],
+  ['CAR step: your car\'s numbers, COMPARE both', r.menu?.car?.one === '12 rows × 1' && r.menu.car.compare === '12 rows × 2' && r.menu.car.list.length === 2],
+  ['garage opens on the Car tab, your car marked', r.garage?.car?.tab === 'Car' && r.garage.car.cards.join() === 'GP HYBRID*,GP ELECTRIC'],
   ['10 cars racing', r.race?.cars === 10],
   ['race clock running', r.race?.lapTime && r.race.lapTime !== '0:00.000'],
   ['time trial: you alone', r.trial?.cars === 1],

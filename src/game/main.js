@@ -61,7 +61,7 @@ import { createHaptics } from './haptics.js';
 import { createPitCrews } from './pit-crew.js';
 import { createTyreMarks } from './tyre-marks.js';
 import { Garage, compoundLabel } from './garage.js';
-import { loadGarage, loadRecords, recordLap, playerSpec, playerDriver, pitPlanOf, garageClass } from './garage-store.js';
+import { loadGarage, loadRecords, recordLap, playerSpec, playerDriver, pitPlanOf, garageClass, switchClass } from './garage-store.js';
 import { playerClass, setPlayerClass } from './car-class.js';
 import { loadModels } from './models.js';
 
@@ -541,6 +541,20 @@ Garage.on('change', (g, what) => {
 });
 Garage.on('close', () => { Settings.set(CONFIG.storageKeys.garage, JSON.stringify(game.garage)); Screens.show('start', 'startBtn'); });
 Garage.on('designTools', () => TweakPanel.toggle());
+Garage.on('class', id => pickClass(id));
+// the car you race (race weekend's CAR step, the time trial page, the garage's Car tab): the garage keeps each car's own
+// setup, mods and tyres (garage-store.js switchClass); records, ghosts, the rivals' times and the menus follow it
+function pickClass(id) {
+  const cls = SIM.classOf(id);
+  if (!cls || game.phase !== PHASE.MENU) return null;
+  if (cls !== garageClass(game.garage)) {
+    setPlayerClass(switchClass(game.garage, cls));
+    game.qualiGrid = null;                                   // (a grid qualified in the other car)
+    Settings.set(CONFIG.storageKeys.garage, JSON.stringify(game.garage));
+    describeSetup(); describeRecord(); describeEvent();
+  }
+  return cls.id;
+}
 function openGarage() { if (game.phase !== PHASE.MENU || Garage.open) return; Screens.show(null); Garage.show(game.garage, GFX_PROFILES[game.gfx]); }
 
 const ACTIONS = { camera: cycleCamera, mute: toggleMute, pause: escape, fps: () => setPref('showFps', !game.prefs.showFps), graphics: toggleGfx, confirm,
@@ -641,7 +655,7 @@ const leaderboardScreen = createLeaderboardScreen({ online, runs: () => game.run
 // ---- the start menu (start-menu.js): home tiles, a rail in the sections, Race weekend in steps ----
 menu = createStartMenu({ game, online, leaderboard: leaderboardScreen, track: () => track,
   setType: t => { game.setup.type = t; renderSetup(); saveSetup(); },
-  switchTrack: id => { game.setup.track = id; setTrack(id); renderSetup(); saveSetup(); },
+  switchTrack: id => { game.setup.track = id; setTrack(id); renderSetup(); saveSetup(); }, pickClass,
   setDriving, start: startFromMenu, openGarage, openSettings, gridNow: () => grid.forRace(),
   ghostName: () => ({ mine: 'your best', loaded: 'the loaded lap', online: 'the online #1' })[game.setup.ghost] ?? `the ${RACE_SETUP.choices.ghost.find(c => c[0] === game.setup.ghost)?.[1] ?? 'AI'} ghost`, playerColour: () => '#' + game.garage.livery.color.toString(16).padStart(6, '0') });
 // the start menu is what's on screen (no other screen over it): the pad's D-pad, B and LB / RB work it
@@ -804,17 +818,8 @@ if (import.meta.env.DEV || window.gridlineApp?.debug) installDebug(setTrack, () 
 if (window.gridlineDebug) {
   // (moving the car by hand can't be replayed: the replay says so)
   const D = window.gridlineDebug;
-  // the car class you race, for testing before a class picker exists (car classes: Formula E): carClass('fe'); the
-  // garage's class in memory only (never saved), its setup and mods fitted to that class; from the next race
-  D.carClass = id => {
-    const cls = SIM.classOf(id);
-    if (!cls) return null;
-    // (a value at the old class's default becomes the new one's: the F1's stock 770 kg is a mass mod on an 840 kg car)
-    const was = garageClass(game.garage), fit = (vals, from, to) => Object.fromEntries(Object.entries(vals || {}).map(([k, v]) => [k, from[k] && to[k] && v === from[k].def ? to[k].def : v]));
-    Object.assign(game.garage, { carClass: cls.id, setup: SIM.validSetup(fit(game.garage.setup, was.setup, cls.setup), cls), mods: SIM.validMods(fit(game.garage.mods, was.mods, cls.mods), cls) });
-    setPlayerClass(cls);
-    return cls.id;
-  };
+  // the car class you race, as the menus' pickers do (saved; from the next race): carClass('fe')
+  D.carClass = id => pickClass(id);
   D.raceClass = () => game.race?.carClass.id ?? null;               // the class of the race in progress
   // attack mode on now for `s` seconds (Formula E; HUD screenshots)
   D.attack = (s = 60) => { const c = game.player; if (!c || !game.race?.attack) return null; Object.assign(c, { attackOn: true, attackArmed: false, attackLeft: s, awd: true }); return s; };

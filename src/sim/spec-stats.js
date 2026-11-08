@@ -1,5 +1,5 @@
 // What a spec does, in numbers the garage shows next to the setup (and the tests check): straight-line speed and
-// acceleration (full throttle from standstill, automatic gearbox, traction-limited), steady cornering speed at a few
+// acceleration (full throttle from standstill, automatic gearbox, traction-limited; an AWD start where the class has one), steady cornering speed at a few
 // radii, braking distance, and the balance in slow and fast corners. Quick (a 60 s straight at 120 Hz, no track).
 import { TUNING, ASSISTS } from './tuning.js';
 import { drivetrain, cornerSpeed, brakeLimit, tyreGrip, lateralGrip } from './vehicle.js';
@@ -21,13 +21,15 @@ export function balanceAt(s, v) {
 
 /** @param {Spec} s */
 export function specStats(s) {
-  const { car: CAR, chassis: CH, ers: ERS } = s.cls;
+  const { car: CAR, chassis: CH, ers: ERS, attack: A } = s.cls;
   const c = { spec: s, v: 0, gear: 1, rpm: 0, shiftT: 0, autoShift: true, autoDown: false, downQueue: 0, slip: 0, drive: 0, aeroOpen: 0, boostOn: false,
-    assists: ASSISTS.medium, events: [], soc: ERS.store, harvested: 0, ersLap: 0, ersKw: 0, lap: 0 };
+    assists: ASSISTS.medium, events: [], soc: ERS.store, harvested: 0, ersLap: 0, ersKw: 0, lap: 0, powerK: 1, awd: false, attackOn: false };   // (powerK, awd, attackOn: an electric car's: race power, rear drive)
   let v = 0, t = 0, t100 = null, t200 = null, top = 0, steady = 0;
   while (t < 60 && steady < 2) {
+    c.awd = !!A && v < A.start;                 // (an electric car with a front motor: it drives too from the grid, attack.js)
     const d = drivetrain(/** @type {any} */ (c), { thr: 1, brk: 0 }, DT);
-    const traction = s.rearGrip * CH.longGrip * tyreGrip(G * (1 - CH.frontWeight) + s.dfK * v * v * (1 - s.aeroFront), s, G * (1 - CH.frontWeight));
+    let traction = s.rearGrip * CH.longGrip * tyreGrip(G * (1 - CH.frontWeight) + s.dfK * v * v * (1 - s.aeroFront), s, G * (1 - CH.frontWeight));
+    if (c.awd) traction += s.frontGrip * CH.longGrip * tyreGrip(G * CH.frontWeight + s.dfK * v * v * s.aeroFront, s, G * CH.frontWeight);
     const a = Math.min(d.drive, traction) - d.resist;
     v = Math.min(TUNING.V_CAP, Math.max(0, v + a * DT)); c.v = v; t += DT;
     if (t100 === null && v * KMH >= 100) t100 = t;

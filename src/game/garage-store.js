@@ -48,20 +48,38 @@ export function validStrategy(t = {}) {
 // the race car's pit plan (SIM PitPlan) from it
 export const pitPlanOf = t => ({ tyres: t.next, wing: t.wing, repair: t.repair });
 
-// saved JSON (or null) → { livery, setup, mods, tyres }
+// saved JSON (or null) → { carClass, livery, setup, mods, tyres, cars }: setup / mods / tyres are the car class you race;
+// `cars` keeps every other class's own { setup, mods, tyres } (the class picker, 2026-11-08: each car its own setup)
 // (physics 2 made the stock car 770 kg: a car saved before it with the old stock 800 kg is stock, not a mass mod)
 const OLD_STOCK = { 1: { mass: 800 } };
 export function loadGarage(json) {
   const s = parse(json), old = OLD_STOCK[s.physics ?? 1], mods = s.mods && typeof s.mods === 'object' ? { ...s.mods } : s.mods;
   if (old && mods) for (const [k, v] of Object.entries(old)) if (mods[k] === v) delete mods[k];
-  const cls = garageClass(s);
-  return { physics: SIM.TUNING.PHYSICS, carClass: cls.id, livery: validLivery(s.livery), setup: SIM.validSetup(s.setup, cls), mods: SIM.validMods(mods, cls), tyres: validStrategy(s.tyres) };
+  const cls = garageClass(s), cars = {};
+  for (const [id, c] of Object.entries(s.cars && typeof s.cars === 'object' ? s.cars : {})) {
+    const other = SIM.classOf(id);
+    if (other && other !== cls && c && typeof c === 'object') cars[id] = carOf(c, other);
+  }
+  return { physics: SIM.TUNING.PHYSICS, carClass: cls.id, livery: validLivery(s.livery), ...carOf({ ...s, mods }, cls), cars };
 }
+const carOf = (c, cls) => ({ setup: SIM.validSetup(c.setup, cls), mods: SIM.validMods(c.mods, cls), tyres: validStrategy(c.tyres) });
+// race another car class: the one you had keeps its setup, mods and tyres in `cars`, the new one gets its own back (stock
+// the first time); the livery goes on every car. Returns the class.
+export function switchClass(g, cls) {
+  const was = garageClass(g);
+  if (cls === was) return cls;
+  g.cars = { ...g.cars, [was.id]: { setup: g.setup, mods: g.mods, tyres: g.tyres } };
+  Object.assign(g, { carClass: cls.id }, carOf(g.cars[cls.id] ?? {}, cls));
+  delete g.cars[cls.id];
+  return cls;
+}
+// a class's own setup / mods: the one you race, or the one kept for it
+export const carIn = (g, cls) => cls === garageClass(g) ? g : g.cars?.[cls.id] ?? carOf({}, cls);
 // the player's car for the race: their driver entry with the livery on it, and the spec from setup + mods
 export const playerDriver = g => ({ ...PLAYER, color: g.livery.color, accent: g.livery.accent, number: g.livery.number });
 export const playerSpec = g => SIM.carSpec(g.setup, g.mods, garageClass(g));
 // the garage's car class (saved as `carClass`, its id; a save from before car classes, or of a class this game doesn't
-// have: the F1). Its setup and mods are that class's (a class picker will keep each class's own)
+// have: the F1). Its setup and mods are that class's (the others' are in `cars`)
 export const garageClass = g => classById(g?.carClass);
 
 // ---- lap records: { [circuit id]: { [class]: seconds } }, class = the car class + stock / modified + the zone layout

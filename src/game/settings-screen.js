@@ -17,7 +17,7 @@ const buttons = (...list) => ({ type: 'buttons', list });
 const panel = make => ({ type: 'panel', make });
 const ON_OFF = [[true, 'ON'], [false, 'OFF']];
 const LEVELS = [['off', 'OFF'], ['low', 'LOW'], ['on', 'ON']];
-const C = RACE_SETUP.choices, WEAR = playerClass().wear;   // (the car you race: car-class.js)
+const C = RACE_SETUP.choices, WEAR = () => playerClass().wear;   // (the car you race: car-class.js; the menus' pickers change it)
 
 const KEYS = `<div class="keys">
   <span><kbd>↑</kbd> <kbd>W</kbd></span><span>Throttle</span>
@@ -51,11 +51,11 @@ const TABS = [
       ['abs', 'ABS', 'Stops the brakes locking. Off: too much brake locks the fronts and the car goes straight on.']]
       .map(([k, label, note]) => seg('a.' + k, label, LEVELS, () => note, b => b.get('assists') === 'custom')),
     // pit stops: what wears out (applies from the next race). Box: B, pad X / phone button 3, or the BOX button.
-    seg('fuel', 'Fuel use', C.fuel, v => !WEAR.fuel[v] ? 'No fuel use.'
-      : `A full tank lasts ${WEAR.fuel[v]} laps: longer races need a stop. Cars start with what the race needs.`
+    seg('fuel', 'Fuel use', C.fuel, v => !WEAR().fuel[v] ? 'No fuel use.'
+      : `A full tank lasts ${WEAR().fuel[v]} laps: longer races need a stop. Cars start with what the race needs.`
         + ' Box with B, pad X or the BOX button: the car drives itself through the pit lane.'),
-    seg('tyres', 'Tyre wear', C.tyres, v => !WEAR.tyres[v] ? 'Tyres never wear.'
-      : `Worn out after about ${WEAR.tyres[v]} laps (sliding wears them faster): less grip.`),
+    seg('tyres', 'Tyre wear', C.tyres, v => !WEAR().tyres[v] ? 'Tyres never wear.'
+      : `Worn out after about ${WEAR().tyres[v]} laps (sliding wears them faster): less grip.`),
     seg('tyreTemp', 'Tyre temperature', C.tyreTemp, v => v === 'on'
       ? 'Tyres grip best at 90–110 °C. Off the blankets (70 °C) at the start and after a pit stop they grip less until you warm them up; sliding and wheelspin overheat them. Every car, the AI too.'
       : 'Tyres always grip as if at their best temperature.'),
