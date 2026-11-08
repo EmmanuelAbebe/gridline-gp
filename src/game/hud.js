@@ -166,9 +166,12 @@ export const Hud = (() => {
       // on with seconds left) and its button (BUTTON setting)
       const aero = !race.activeAero ? '' : c.aeroOpen > 0.5 ? 'on' : !c.aeroAuto && race.track.aeroZone[c.idx] && !c.pit ? 'ready' : '';
       setOnce('aeroOn', aero, v => { $('aeroTag').classList.toggle('on', !!v); $('aeroTag').classList.toggle('ready', v === 'ready'); });
-      const boost = c.boostOn ? `OVERTAKE ${c.boostLeft.toFixed(1)} s` : c.boostLeft > 0 ? (c.boostAuto ? 'OVERTAKE READY' : 'OVERTAKE READY · X') : '';
+      // (Formula E: attack mode in the same chip: on with its time left, armed, or the activations left)
+      const A = race.attack, att = A ? `${Math.floor(c.attackLeft / 60)}:${String(Math.floor(c.attackLeft % 60)).padStart(2, '0')}` : '';
+      const boost = A ? (c.attackOn ? `ATTACK ${att} · AWD` : c.attackArmed ? 'ATTACK ARMED · ZONE' : c.attackUses > 0 ? `ATTACK × ${c.attackUses}${c.boostAuto ? '' : ' · X'}` : '')
+        : c.boostOn ? `OVERTAKE ${c.boostLeft.toFixed(1)} s` : c.boostLeft > 0 ? (c.boostAuto ? 'OVERTAKE READY' : 'OVERTAKE READY · X') : '';
       setOnce('boostTxt', boost, t => { if (t) $('boostTag').textContent = t; $('boostTag').classList.toggle('on', !!t); });
-      setOnce('boostLive', c.boostOn, v => { $('boostTag').classList.toggle('live', v); });
+      setOnce('boostLive', A ? c.attackOn : c.boostOn, v => { $('boostTag').classList.toggle('live', v); });
       setOnce('pitTxt', pit, t => { $('pitState').hidden = !t; $('pitState').textContent = t; $('pitState').classList.toggle('limiter', !!c.pit || c.pitLimiter); });
     },
     updateTower(race, player, showGaps) {

@@ -284,4 +284,5 @@ export const EV = Object.freeze({ LAP: 'lap', FASTEST: 'fastest', FINISH: 'finis
   SAUSAGE: 'sausage', BEACHED: 'beached', RECOVERED: 'recovered',
   PIT_IN: 'pit-in', PIT_STOP: 'pit-stop', PIT_READY: 'pit-ready', PIT_GO: 'pit-go', PIT_OUT: 'pit-out', DAMAGE: 'damage',
   FUEL_LOW: 'fuel-low', FUEL_BOX: 'fuel-box', FUEL_OUT: 'fuel-out', TYRES_WORN: 'tyres-worn', TYRES_WARM: 'tyres-warm', TYRES_HOT: 'tyres-hot',
-  BOOST_READY: 'boost-ready', BOOST: 'boost', PIT_SPEEDING: 'pit-speeding', LIMITER: 'limiter', AERO: 'aero', ECU: 'ecu', LAUNCHED: 'launched', LANDED: 'landed', WING_OFF: 'wing-off' });
+  BOOST_READY: 'boost-ready', BOOST: 'boost', PIT_SPEEDING: 'pit-speeding', LIMITER: 'limiter', AERO: 'aero', ECU: 'ecu', LAUNCHED: 'launched', LANDED: 'landed', WING_OFF: 'wing-off',
+  ATTACK: 'attack', ATTACK_ARMED: 'attack-armed', ATTACK_MISSED: 'attack-missed' });

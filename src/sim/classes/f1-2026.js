@@ -38,7 +38,7 @@ export const CAR = Object.freeze({
   // load, losing loadSens per g of extra load (load sensitivity, vehicle.js tyreGrip; never below muMin of it)
   mass: 770,          // kg, with driver
   // an electric car's motor (vehicle.js electricDrive; Formula E's class): none, the F1 is a hybrid (engine + ERS)
-  motor: /** @type {{ race: number, attack: number, torque: number, maxRpm: number, efficiency: number,
+  motor: /** @type {{ race: number, attack: number, torque: number, maxRpm: number, efficiency: number, frontKw: number, frontTorque: number,
     regen: { front: number, rear: number, efficiency: number, minSpeed: number, coast: number, coastMax: number } }} */ (null),
   grip: 1.8,          // tyre friction at the static load (real slicks ~1.6–1.8). Until 2026-10-24: 3.0, no load sensitivity
   loadSens: 0.08, muMin: 0.6,
@@ -400,6 +400,8 @@ export const F1_2026 = Object.freeze({
   id: 'f1', name: 'Formula 1 (2026)',
   // a race's energy allowance (energy.js; an electric car's): none, the F1 refuels its energy every lap (ERS)
   energy: /** @type {{ budget: number, maxLift: number, cutShare: number, maxCut: number, savePerLap: number, reserve: number, liftFrom: number }} */ (null),
+  // attack mode and the all-wheel drive start (attack.js; Formula E's): none, the F1 has overtake mode (`overtake`)
+  attack: /** @type {{ share: number, uses: number, fromLap: number, start: number, zone: { length: number, lat: number, inside: number, minV: number, maxV: number, clear: number, window: number, aim: number, ahead: number, slow: number, exit: number }, ai: { safeGap: number, decide: number, each: number, spare: number } }} */ (null),
   hitbox: HITBOX,
   car: CAR,
   setup: SETUP,

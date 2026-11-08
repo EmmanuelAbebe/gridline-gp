@@ -59,6 +59,9 @@ export function createCar(track, driver, slot, rng, spec = STOCK) {
     // energy.js (an electric car in a race): the battery at the last crossing of the line, what the last lap took (J),
     // the saving 0..1 it makes: metres before a braking point to lift and coast, the motor power's share
     energyMark: 0, energyLast: 0, save: 0, liftM: 0, powerK: 1,
+    // attack.js (Formula E): activations left, armed, the next loop of the zone, seconds left of this one, on, the lap the
+    // AI decided on; the front motor driving (attack mode or the start: awdStart until past attack.start)
+    attackUses: 0, attackArmed: false, attackLoop: 0, attackLeft: 0, attackOn: false, attackLap: 0, awd: false, awdStart: false,
     soc: spec.cls.ers.store * spec.cls.ers.start, harvested: 0, ersLap: 0, ersKw: 0, deploy: 1,
     // the ECU (ecu.js): mode '' (none: ERS.map, every AI car) / 'auto' / 'manual', the map (ECU.maps index), the braking
     // points learnt from this car's driving (metres to the next per sample; null = the track's), this lap's starts

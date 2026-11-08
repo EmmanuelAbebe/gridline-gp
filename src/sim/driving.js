@@ -12,6 +12,7 @@ import { G, slipstream, cornerSpeed, brakeLimit, brakeMax, lateralGrip } from '.
 import { brakeLimitAt } from './elevation.js';
 import { checkPitEntry, stepPit, updateWear, aiWantsPit, drivePitLane, pitLimit, pitThrottle } from './pit.js';
 import { updateActiveAero } from './active-aero.js';
+import { updateAttack, attackLine } from './attack.js';
 import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
@@ -24,6 +25,7 @@ import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot
 /** @param {Race} race @param {Car} c */
 export function drivePlayer(race, c, inp, dt) {
   updateActiveAero(race, c, inp, dt);
+  updateAttack(race, c, inp, dt);
   const held = drivePitLane(race, c);                // the pit lane: you drive it; held in your box during the stop
   const thr = pitThrottle(race, c, !!inp.limiter, inp.thr);   // your own pit limiter (BUTTON setting)
   if (thr !== inp.thr) inp = { ...inp, thr };
@@ -172,7 +174,9 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   // grip they have now
   const tempK = race.tyreTemp && c.tyreT ? Math.min(...Object.values(axleTempGrip(c.tyreT))) : 1, compK = c.spec.cls.compounds[c.compound].grip, tyreK = tempK * compK;
   const dirty = tyreK !== 1 ? c.dirtyK * Math.sqrt(tyreK) : c.dirtyK;
-  const vp = j => VP[j] < TUNING.V_CAP * 0.97 ? VP[j] * dirty : VP[j];
+  // (attack mode armed: through the activation zone off its line, at most its cap there: attack.js)
+  const zoneLine = attackLine(race, c), zoneK = j => zoneLine && wrapIdx(j - zoneLine.from, N) <= zoneLine.span ? zoneLine.v : Infinity;
+  const vp = j => Math.min(VP[j] < TUNING.V_CAP * 0.97 ? VP[j] * dirty : VP[j], zoneK(j));
   let targetV = Math.min(vp((c.idx+2)%N), vp((c.idx+6)%N)) * skill;
   // the cars around: ahead in our lane (follow / pass), alongside (keep room), close behind (pressure, defending)
   const myP = progress(race, c), edge = HW - (alien ? AI.alien.edge : 2.5);   // (ALIEN: its line runs closer to the edges)
@@ -220,6 +224,8 @@ export function driveAI(race, c, dt, skillOverride = 0) {
     if (race.rng() < traitOf(c, 'defend') * C.defendChance) { c.defendTo = apex; c.defendSide = inside; }
   }
   if (c.defendTo >= 0 && !lane) off = c.defendSide * (HW - C.defendMargin);
+  // attack mode armed (attack.js): through the activation zone, off its line
+  if (zoneLine && zoneLine.off !== null) off = zoneLine.off;   // (before a pass: the room alongside still counts below)
   off = lo <= hi ? clamp(off, lo, hi) : (lo + hi) / 2;
   off = clamp(off, -edge, edge);
   // (race.aiFollow > 1, ALIEN: the line followed that much more tightly, in clean air only: in traffic like the others)
@@ -315,6 +321,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   if (thr > 0) thr = FM.pow(thr, 1 / c.spec.cls.car.engine.pedalMap);
   c.brake = brk; c.thr = thr;
   updateActiveAero(race, c, { thr, brk }, dt);
+  updateAttack(race, c, { thr, brk }, dt);
   updateWear(race, c, thr, dt);
   slipstream(race, c, progress);
   stepChassis(race, c, { thr, brk, steer: c.steer, shift: 0 }, dt);

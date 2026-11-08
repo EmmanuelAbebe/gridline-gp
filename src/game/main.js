@@ -203,7 +203,7 @@ function newRace() {
   const raceOpts = { wear: quali ? {} : raceWear(s), aiAssists: aiAssistsOf(s),
     compound: s.type === 'trial' || quali ? game.garage.tyres.start : 'auto',      // (the rivals' teams pick their tyres: SIM bestCompound)
     hitbox: CarModels.hitbox(Design.data.car) };                         // (the shape of the cars in the race: 2026 or classic)
-  const race = SIM.createRace(format, { carClass: garageClass(game.garage), track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, aiFollow: RACE_SETUP.aiLevels[s.ai].follow || 1, aiAlien: !!RACE_SETUP.aiLevels[s.ai].alien, ...raceAero(s), tyreTemp: s.tyreTemp === 'on', ...raceOpts });
+  const cls = garageClass(game.garage), race = SIM.createRace(format, { carClass: cls, track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, aiFollow: RACE_SETUP.aiLevels[s.ai].follow || 1, aiAlien: !!RACE_SETUP.aiLevels[s.ai].alien, ...raceAero(s, cls), tyreTemp: s.tyreTemp === 'on', ...raceOpts });
   game.raceOpts = { format, ...raceOpts, finishedAiSkill: CONFIG.finishedAiSkill }; game.replayRec = null;
   for (const [code, m] of modelOf) m.setVisible(field.some(d => d.code === code));
   const L = CONFIG.lights;
@@ -574,6 +574,8 @@ function requestBoost() {
   const p = game.player;
   if (!racing() || !p || p.finished || !game.race.overtake) return;
   if (p.boostAuto) { showMessage(SAY.boostAuto); return; }
+  // (attack mode, Formula E: arms / disarms it while activations are left)
+  if (game.race.attack) { if (p.attackUses > 0 && !p.attackOn) game.pendingBoost = true; else showMessage(p.attackOn ? SAY.attackOn : SAY.attackNone); return; }
   if (p.boostLeft > 0) game.pendingBoost = true; else showMessage(SAY.boostNone);
 }
 // straight mode (Z, or a controller button: Settings → Buttons) when set to BUTTON: open in a zone / close

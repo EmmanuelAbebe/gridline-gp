@@ -129,7 +129,7 @@ export function updateActiveAero(race, c, inp, dt) {
   if (!race.activeAero) return;
   const T = race.track, { activeAero: AA, overtake: OVERTAKE, ers: ERS } = c.spec.cls;
   // overtake mode: detection each time the car starts a lap
-  if (race.overtake && c.lap !== c.boostLap) {
+  if (race.overtake && c.lap !== c.boostLap && !c.spec.cls.attack) {   // (a class with attack mode: attack.js)
     c.boostLap = c.lap; c.boostOn = false;
     const gap = c.lap >= OVERTAKE.fromLap && !c.finished ? gapAhead(race, c) : Infinity;
     c.boostLeft = gap <= OVERTAKE.gap ? OVERTAKE.seconds : 0;

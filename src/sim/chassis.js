@@ -275,17 +275,21 @@ export function stepChassis(race, c, inp, dt) {
     // ABS / traction control hold the tyres at `limit` × what they can give: medium / high 0.97, low 0.985 (2026-10-24: low
     // used to allow 1.045 / 1.095, past the grip, so its wheels locked and spun as with none)
     const absLimit = A.abs > 0 ? 0.97 + 0.03 * (1 - A.abs) : null, tcLimit = A.tc > 0 ? 0.97 + 0.03 * (1 - A.tc) : null;
-    const front = axle(Q, Df, alphaF, S.peakF, -brake * bias * back, absLimit, null, 1, 0, P ? P.longF : 1);
+    // an electric car's front motor driving too (attack mode, the start: d.front its most): the drive split by the axles'
+    // loads (the rear motor's torque the rest), traction control on the front as on the rear
+    const fD = d.front && d.drive > 0 ? Math.min(d.front, Math.max(d.drive - d.rearMax, d.drive * loadF / (loadF + loadR))) : 0;
+    const front = fD ? axle(Q, Df, alphaF, S.peakF, fD - brake * bias * back, fD > brake * bias ? tcLimit : absLimit, null, 1, 0, P ? P.longF : 1)
+      : axle(Q, Df, alphaF, S.peakF, -brake * bias * back, absLimit, null, 1, 0, P ? P.longF : 1);
     // (engine braking on a lift, d.rear: through the rear tyres; the handbrake's own branch keeps it in the car's drag)
     const eng = inp.hb ? 0 : d.rear;
     // the rear's share of the brakes; an electric car without rear hydraulics (Formula E): no more than its rear motor
     // regenerates (vehicle.js regenRear: weak at speed, so the balance moves forward)
     const rearBrake = M ? Math.min(brake * (1 - bias), regenRear(sp, S)) : brake * (1 - bias);
-    const rearLong = d.drive - eng - rearBrake * back;
+    const rearDrive = fD ? d.drive - fD : d.drive, rearLong = rearDrive - eng - rearBrake * back;
     // rear braking: ABS, and (stability assist) a margin kept for cornering, like brake-force distribution
     // any ABS keeps the rears from locking (a locked rear turning in spins the car); partial ABS only lets the fronts lock a little
     const rearBrakeLimit = absLimit === null ? null : Math.min(0.97, absLimit) * (1 - CH.rearBrakeMargin * A.stability);
-    const braking = rearBrake + eng > d.drive;   // which limit applies: ABS while braking, traction control on the throttle
+    const braking = rearBrake + eng > rearDrive;   // which limit applies: ABS while braking, traction control on the throttle
     // handbrake: the rears locked (no drive, no ABS); written as its own branch so nothing changes without it
     // (without traction control the rear wheels' spin builds up: c.rearSpin, CH.spin)
     const spin = !braking && tcLimit === null && rearLong > 0 ? (spinState.v = sp, spinState) : null;

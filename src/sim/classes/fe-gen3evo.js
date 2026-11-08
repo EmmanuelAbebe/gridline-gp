@@ -3,7 +3,7 @@
 // numbers) is the F1's until a stage of the plan gives it its own. Figures from the FIA / Formula E and the press
 // (the plan's sources); ~ = our estimate where none was published.
 // Done so far (stage 1): the electric powertrain (one gear, the motor drawn from the battery), mass, tyres' grip, aero,
-// size; the brakes = regeneration (stage 2); the race's energy (stage 3). Still the F1's: attack mode and AWD (stage 4), tyre temperatures and wear (stage 5), the AI's lines and paces (stage 6), the hitbox (the 3D model).
+// size; the brakes = regeneration (stage 2); the race's energy (stage 3); attack mode and the AWD start (stage 4). Still the F1's: tyre temperatures and wear (stage 5), the AI's lines and paces (stage 6), the hitbox (the 3D model).
 import { F1_2026 } from './f1-2026.js';
 
 const F1 = F1_2026;
@@ -17,7 +17,9 @@ const TOP = 322;                      // km/h at the motor's max speed: the theo
 // rear hydraulics), `front` 250 kW before the front hydraulics take the rest; force = P / v, so at speed the rear does
 // little and the balance moves forward; below `minSpeed` m/s as at it (the motor's torque caps it); `efficiency` of the
 // braking power reaches the battery ~; lifting off the throttle: `coast` kW, at most `coastMax` m/s² ~ (the F1's)
-const MOTOR = Object.freeze({ race: 300, attack: 350, torque: 540, maxRpm: 20000, efficiency: 0.93,
+// the front motor (stage 4: attack mode, the start): up to `frontKw` and `frontTorque` ~ of the drive on the front wheels
+// (the total stays race / attack kW)
+const MOTOR = Object.freeze({ race: 300, attack: 350, torque: 540, maxRpm: 20000, efficiency: 0.93, frontKw: 250, frontTorque: 360,
   regen: Object.freeze({ front: 250, rear: 350, efficiency: 0.9, minSpeed: 5, coast: 120, coastMax: 1.0 }) });
 
 const CAR = Object.freeze({
@@ -72,9 +74,20 @@ const ACTIVE_AERO = Object.freeze({ ...F1.activeAero, dragCut: 0, downforceCut: 
 // before braking points too (only faster than `liftFrom` m/s); aiming for the flag with `reserve` of the allowance left
 const ENERGY = Object.freeze({ budget: 0.93, maxLift: 250, cutShare: 0.5, maxCut: 0.3, savePerLap: 1.5, reserve: 0.03, liftFrom: 25 });
 
+// Attack mode (stage 4, attack.js): `uses` activations, `share` of the race in all (8 minutes of a ~45-minute race), from
+// lap `fromLap`; the front motor drives at the start until `start` m/s ~. The activation zone: the outside of a slow corner's
+// apex (`minV`..`maxV` m/s on the line, the line within `inside` of the half-width of its inside edge, `clear` m from the
+// line and the pit roads), three loops over `length` m, each crossed `lat` of the half-width past the middle (within
+// `window` samples); the AI aims `aim` m past that from `ahead` m before it (at most `slow` × its line's apex speed until
+// `exit` m past the zone), decides `ai.decide` m before it: armed when
+// nobody is within `ai.safeGap` s behind or with no more than `ai.each` × uses + `ai.spare` laps left
+const ATTACK = Object.freeze({ share: 8 / 45, uses: 2, fromLap: 2, start: 100 / 3.6,
+  zone: Object.freeze({ length: 24, lat: 0.3, inside: 0.4, minV: 14, maxV: 40, clear: 250, window: 3, aim: 2.0, ahead: 180, slow: 0.92, exit: 30 }),
+  ai: Object.freeze({ safeGap: 1.5, decide: 300, each: 1.5, spare: 1 }) });
+
 export const FE_GEN3_EVO = Object.freeze({
   ...F1,
   id: 'fe', name: 'Formula E (Gen3 Evo)',
   ranked: false,                      // not on the leaderboard until the class is finished
-  car: CAR, chassis: CHASSIS, setup: SETUP, mods: MODS, ers: ERS, activeAero: ACTIVE_AERO, wear: WEAR, energy: ENERGY,
+  car: CAR, chassis: CHASSIS, setup: SETUP, mods: MODS, ers: ERS, activeAero: ACTIVE_AERO, wear: WEAR, energy: ENERGY, attack: ATTACK,
 });

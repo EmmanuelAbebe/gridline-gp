@@ -16,10 +16,11 @@ export const REAL = Object.freeze({
   spins: [0, 2],           // turn-in grid (brake ≤ 0.5, steering ≤ 0.9, 90 … 260 km/h, no assists) combinations that spin
 });
 // Formula E, Gen3 Evo (docs/formula-e-plan.md): `npm run car-bench -- --class=fe`. ~ = estimates (no published figure).
-// Car classes step 2 stage 1: rear-wheel drive (AWD comes with attack mode, stage 4: then 0–60 mph 1.82 s).
 export const REAL_FE = Object.freeze({
   topClosed: [285, 315],   // km/h ~ at the end of a 1.2 km straight from 200 km/h, race mode 300 kW (322 theoretical at 350)
-  t60: [2.5, 3.2],         // s 0–60 mph (96.6 km/h), rear-wheel drive (Gen3: ~2.8 s)
+  // s 0–60 mph (96.6 km/h): a race start, the front motor driving too (stage 4; Gen3 Evo: 1.82 s, on a grippier surface
+  // than the all-weather tyres' race grip ~), and rear-wheel drive alone (Gen3: ~2.8 s)
+  t60: [1.8, 2.3], t60rwd: [2.5, 3.2],
   corner80: [1.2, 1.6], corner150: [1.4, 1.9], corner250: [1.8, 2.5],   // g ~ steady (all-weather tyres, low downforce)
   dfWeight: [300, 360],    // km/h ~ (a fraction of the F1's downforce)
   // stage 2: braking from 280 km/h (its top speed's region) to 80 with ABS: the rear only regenerates (no hydraulics) ~
@@ -50,6 +51,10 @@ export function bench(S, cls = S.DEFAULT_CLASS) {
     }
     out.flat = c.v * 3.6;                  // after 40 s flat out: the battery empty, clipping (information)
   }
+  // (an electric car: the same launch without the front motor's help)
+  if (cls.attack) { const { race, c } = solo('medium'); c.awdStart = false;
+    for (let t = 0; t < 10 && !out.t60rwd; t += DT) { race.t += DT; S.drivePlayer(race, c, { thr: 1, brk: 0, steer: 0, analog: true }, DT); c.awdStart = false; pin(c);
+      if (c.v * 3.6 >= 96.56) out.t60rwd = t + DT; } }
   // braking 300 → 80 km/h with ABS: distance, peak deceleration
   { const { race, c } = solo('medium'); place(c, cls.car.motor ? 280 : 300, 8); let d = 0, x = c.x, z = c.z, v0 = c.v, peak = 0;
     while (c.v * 3.6 > 80) { race.t += DT; S.drivePlayer(race, c, { thr: 0, brk: 1, steer: 0, analog: true }, DT); pin(c);
@@ -70,10 +75,10 @@ export function bench(S, cls = S.DEFAULT_CLASS) {
   return out;
 }
 
-const LABELS = { topClosed: 'top speed, cornering mode', topOpen: 'top speed, straight mode', t60: '0–60 mph', t100: '0–100 km/h', t200: '0–200 km/h',
+const LABELS = { topClosed: 'top speed, cornering mode', topOpen: 'top speed, straight mode', t60: '0–60 mph', t60rwd: '0–60 mph, rear motor only', t100: '0–100 km/h', t200: '0–200 km/h',
   brakePeak: 'braking, peak', brakeDist: 'braking to 80 km/h', corner80: 'cornering at 80 km/h', corner150: 'cornering at 150 km/h',
   corner250: 'cornering at 250 km/h', corner300: 'cornering at 300 km/h', dfWeight: 'downforce = weight at', spins: 'turn-in spins (of 64)' };
-const UNITS = { topClosed: 'km/h', topOpen: 'km/h', t60: 's', t100: 's', t200: 's', brakePeak: 'g', brakeDist: 'm', corner80: 'g', corner150: 'g', corner250: 'g', corner300: 'g', dfWeight: 'km/h', spins: '' };
+const UNITS = { topClosed: 'km/h', topOpen: 'km/h', t60: 's', t60rwd: 's', t100: 's', t200: 's', brakePeak: 'g', brakeDist: 'm', corner80: 'g', corner150: 'g', corner250: 'g', corner300: 'g', dfWeight: 'km/h', spins: '' };
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   // [another copy of the game's folder] [--class=<id>]

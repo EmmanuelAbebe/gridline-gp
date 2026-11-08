@@ -60,7 +60,15 @@ export const EVENT_MESSAGES = {
     + (c.boostAuto ? ' It deploys on the straights.' : ' Press X / pad View when you want it.'), secs: 4 }),
   [EV.BOOST]: (e, c) => c.boostAuto ? null : e.on ? { toast: `Overtake mode ON  ·  ${e.left.toFixed(1)} s`, secs: 1.5 }
     : e.left > 0.05 ? { toast: `Overtake mode off  ·  ${e.left.toFixed(1)} s left`, secs: 1.5 } : { toast: 'Overtake mode used up', secs: 1.5 },
+  // attack mode (Formula E: attack.js)
+  [EV.ATTACK_ARMED]: (e, c, race) => ({ radio: e.armed ? `Attack mode armed: through the activation zone, on the ${zoneSide(race)} of the apex.` : 'Attack mode disarmed.', secs: 4 }),
+  [EV.ATTACK_MISSED]: () => ({ toast: 'Missed the activation zone: attack mode still armed for the next lap', secs: 2.5 }),
+  [EV.ATTACK]: e => e.on ? { radio: `Attack mode on: 350 kW and all-wheel drive for ${clock(e.left)}. ${e.uses ? `${e.uses} more to take.` : 'That was the last one.'}`, secs: 4 }
+    : { toast: e.uses ? `Attack mode over  ·  ${e.uses} left` : 'Attack mode over', secs: 2 },
 };
+// the zone's side as the driver sees it (side +1 = the track's right)
+const zoneSide = race => (race?.attack?.zone.side > 0 ? 'right' : 'left');
+const clock = s => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 export const messageFor = (e, c, race) => EVENT_MESSAGES[e.type]?.(e, c, race) ?? null;
 
 // the other things said during a race
@@ -76,6 +84,8 @@ export const SAY = {
   noHud: { toast: 'Start a race to arrange the HUD' },
   boostNone: { toast: 'No overtake mode this lap: cross the line within 1 s of the car ahead' },
   boostAuto: { toast: 'Overtake mode is on AUTO: pick BUTTON in Settings → Driving to fire it yourself' },
+  attackOn: { toast: 'Attack mode is on' },
+  attackNone: { toast: 'No attack mode left in this race' },
   aeroOff: { toast: 'Active aero is off for this race (Settings → Driving)' },
   aeroAuto: { toast: 'Straight mode is on AUTO: pick BUTTON in Settings → Driving to open the wings yourself' },
   ecuAuto: { toast: 'The ECU maps are on AUTO: pick MANUAL in Settings → Driving to choose them yourself' },

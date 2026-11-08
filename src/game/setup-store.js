@@ -60,8 +60,9 @@ export const raceFormat = s => s.type === 'timed' ? { type: 'timed', minutes: s.
 // fuel / tyre / damage choices → createRace's wear option
 // (time trial: none, so every lap is comparable)
 export const raceWear = s => s.type === 'trial' ? {} : { fuel: s.fuel, tyres: s.tyres, damage: s.damage === 'on' };
-// active aero / overtake mode choices → createRace's options
-export const raceAero = s => ({ activeAero: s.aero === 'on', overtake: s.aero === 'on' && s.overtake !== 'off' });
+// active aero / overtake mode choices → createRace's options (a class with attack mode, Formula E: the overtake setting
+// is its attack mode, with or without active aero)
+export const raceAero = (s, cls = null) => ({ activeAero: s.aero === 'on', overtake: (s.aero === 'on' || !!cls?.attack) && s.overtake !== 'off' });
 
 // The grid: the fastest `cars - 1` rivals in skill order, with you about three-quarters of the way back.
 // time trial: you alone

@@ -8,6 +8,7 @@ import { DEFAULT_TRACK } from './track.js';
 import { createCar } from './car.js';
 import { setupWear, fitTyres, bestCompound } from './pit.js';
 import { setupEnergy, energyAtLine } from './energy.js';
+import { setupAttack } from './attack.js';
 import { wrapIdx, speedOf, mulberry32 } from './math.js';
 const randomSeed = () => Math.floor(Math.random() * 2 ** 32);   // the only Math.random in the sim
 import { emit } from './events.js';
@@ -39,6 +40,7 @@ export function createRace(format, { carClass = F1_2026, track = DEFAULT_TRACK, 
     duration: fmt.type === 'timed' ? fmt.minutes * 60 : Infinity,  // seconds; the clock starts at lights out
     chequered: false, t: 0, fastest: Infinity, fastestBy: /** @type {Car} */ (null), wear: /** @type {Wear} */ (null),
     energy: /** @type {{ lap: number, perLap: number, total: number | null }} */ (null),   // energy.js (electric cars)
+    attack: /** @type {{ zone: import('./attack.js').AttackZone, seconds: number }} */ (null),   // attack.js (Formula E)
     cars: drivers.map((d, slot) => createCar(track, d, slot, rng, stock)) };
   // aiAssists: the AI cars' assists (an ASSISTS-shaped object; default AI.assists, medium). The game gives them the
   // player's ABS / traction control / stability, so both drive on the same terms (driving.js feelPedals without them)
@@ -46,6 +48,8 @@ export function createRace(format, { carClass = F1_2026, track = DEFAULT_TRACK, 
   setupWear(race, wear);
   // (an electric class's energy allowance: energy.js; nothing for the F1; energy false = none: energy.js measuring a lap)
   if (energy) setupEnergy(race); else race.energy = null;
+  // (attack mode and the AWD start: attack.js; a class without them: nothing)
+  setupAttack(race);
   // tyre temperatures (tyre-temp.js): every car on a fresh set off the blankets (after setupWear: it resets the pit state)
   if (tyreTemp) for (const c of race.cars) c.tyreT = tyreSet(undefined, 'medium', c.spec.cls);
   // tyre compounds (pit.js): every car on medium unless the race says otherwise: one compound for every car, or 'auto' =

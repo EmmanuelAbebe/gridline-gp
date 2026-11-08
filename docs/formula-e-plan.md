@@ -39,7 +39,9 @@ design) and a Formula E-shaped 3D model come after it. The F1 stays bit-identica
    38.5 kWh over a ~45 min race); empty = the car coasts. The HUD: energy left vs laps left (and a target per lap). The
    ECU maps become Formula E's (race 300 kW, lift-and-coast before braking points by how much energy is short); the AI
    manages its energy the same way (it must finish, and not with half a battery).
-4. **Attack mode and the start.** 350 kW + AWD for its minutes, taken by driving through an activation zone off the
+4. **Attack mode and the start.** (Done 2026-11-07: 2 activations, 8/45 of the race in all; the zone = the outside of a
+   slow corner's apex, 3 loops; it costs 0.6–1.5 s; the AWD start 0–60 mph 2.08 s vs 3.01 rear-wheel drive; full fields
+   take both on every circuit; time trials have none yet.) 350 kW + AWD for its minutes, taken by driving through an activation zone off the
    racing line (the player: a button or automatic; the AI: when it is safe), AWD launch at the start.
 5. **Tyres and wear.** All-weather tyres: lower grip and load sensitivity, temperature from the air with no blankets,
    a wide window, very little wear; no pit stops (the pit lane stays for drive-throughs; Pit Boost charging later).

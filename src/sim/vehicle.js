@@ -231,7 +231,10 @@ function electricDrive(c, thr, brk, v, resist, dt, M) {
   const tq = FM.pow(thr, s.cls.car.engine.pedalMap);     // the torque the pedal asks for (torque map)
   // (powerK: energy.js's saving cuts the power: the AI's always, the player's with the ECU on AUTO)
   const cut = c.player && c.ecuMode !== 'auto' ? 1 : c.powerK;
-  const torqueF = M.torque * s.ratio[1] * M.efficiency / R_WHEEL, powerW = M.race * cut * s.power * 1000 * M.efficiency;
+  // (attack mode: attack kW, no saving; the front motor driving too (attack.js c.awd): its torque on top, the total power
+  // the same; chassis.js splits the drive between the axles, the front's share at most `front`)
+  const k = s.ratio[1] * M.efficiency / R_WHEEL, torqueF = (M.torque + (c.awd ? M.frontTorque : 0)) * k;
+  const powerW = (c.attackOn ? M.attack : M.race * cut) * s.power * 1000 * M.efficiency;
   let F = rpm >= M.maxRpm ? 0 : tq * (sp > 0.1 ? Math.min(torqueF, powerW / sp) : torqueF);
   let out = F * sp / M.efficiency;                         // W out of the battery
   if (out * dt > c.soc) { out = Math.max(0, c.soc) / dt; F = sp > 0.1 ? out * M.efficiency / sp : 0; }
@@ -241,7 +244,9 @@ function electricDrive(c, thr, brk, v, resist, dt, M) {
   // tyres (as an engine's braking; chassis.js charges the battery with all the rear's braking). On the brakes the rear
   // motor is the rear brake already (chassis.js), so no more on top
   const R = M.regen, coast = thr < 0.05 && !(brk > 0.05) && sp > 0.5 ? Math.min(R.coast * 1000 / (s.mass * sp), R.coastMax) * s.engineBrake : 0;
-  return { drive: c.drive, resist: resist + coast, rear: coast, reverse: false };
+  // the front motor's most (per mass): its torque and power; the rear's: its torque
+  const front = c.awd ? Math.min(M.frontTorque * k, sp > 0.1 ? M.frontKw * 1000 * M.efficiency / sp : Infinity) / s.mass : 0;
+  return { drive: c.drive, resist: resist + coast, rear: coast, reverse: false, front, rearMax: M.torque * k / s.mass };
 }
 
 // ---------- one step of the drivetrain ----------
@@ -255,7 +260,7 @@ export function drivetrain(c, { thr, brk, shift = 0 }, dt) {
   // drag: less in a slipstream and with the wings open (active-aero.js; aeroOpen 0 multiplies by exactly 1)
   const v = c.v, dragK = c.spec.dragK * (1 - SLIP.drag * (c.slip || 0)) * (1 - ACTIVE_AERO.dragCut * c.aeroOpen);
   let resist = dragK * v * Math.abs(v) + Math.sign(v) * aero.rolling;
-  if (c.gear === -1) { c.rpm = engine.idle + thr * 3000; c.drive = 0; return { drive: 0, resist, rear: 0, reverse: true }; }
+  if (c.gear === -1) { c.rpm = engine.idle + thr * 3000; c.drive = 0; return { drive: 0, resist, rear: 0, reverse: true, front: 0, rearMax: 0 }; }
   if (motor) return electricDrive(c, thr, brk, v, resist, dt, motor);   // (an electric car: Formula E)
   const rpm = engineRpm(v, c.gear, thr, c.spec);
   c.rpm = rpm;
@@ -272,7 +277,7 @@ export function drivetrain(c, { thr, brk, shift = 0 }, dt) {
   resist += eb;
   resist += e.resist;
   c.drive = drive;
-  return { drive, resist, rear: eb + e.coast, reverse: false };
+  return { drive, resist, rear: eb + e.coast, reverse: false, front: 0, rearMax: 0 };   // (front: no front drive)
 }
 
 // a class's engine and gearbox for the game's dash and sound (rev lights, limiter, the grid's revs)

@@ -1046,6 +1046,22 @@ showed MODIFIED only because of it).
   10–13 % for 2.5–6.3 s, hence power first. 8-lap solo races on all nine circuits: finish with 3.0 % left at 82–88 %
   power, 1–3 % slower than flat out. HUD: Fuel row = "Energy" (kWh · laps it lasts), the battery gauge = of the
   allowance (SIM.batteryFull), the ECU line = POWER n % · A / LIFT (SIM.liftNow). tests/energy.test.js.
+- Stage 4 done: attack mode + the AWD start (`attack.js`, class `attack`; the F1's null). createRace `setupAttack`: with
+  race.overtake (game: raceAero(s, cls) = the Overtake setting, with or without active aero) in lap / timed races
+  race.attack {zone, seconds} = `share` 8/45 of the race (laps × lapEnergy's lap time) / `uses` 2; time trials none.
+  `attackZone(track, cls)` = the outside of the apex of a slow corner (minV–maxV on the class's line, the line within
+  `inside` of its edge, `clear` 250 m from the line and the pit roads), loops at the apex ± 12 m crossed ≥ 0.3 × HW past the
+  middle on that side. Car attackUses / attackArmed / attackLoop / attackLeft / attackOn / attackLap, awd = attackOn ||
+  awdStart (from the grid until 100 km/h). vehicle.js electricDrive: attack kW (no saving cut), + motor.frontTorque with
+  AWD, returns `front` (front motor's most: frontKw 250 / frontTorque) + `rearMax`; chassis.js splits the drive by axle
+  load (`fD`, traction control on the front too; the F1: d.front 0, untouched floats). AI: arms once a lap `ai.decide`
+  300 m before the zone from lap 2 when nobody within 1.5 s behind or ≤ 1.5 × uses + 1 laps left; aims zone.lat + 2 m from
+  180 m before (over a pass), its profile capped at 0.92 × the line's apex speed through the zone + 30 m (at the line's
+  speed it slid off Hautvale's). Player: BUTTON = X arms / disarms, AUTO = the AI's rule (you still drive through). EV
+  ATTACK / ATTACK_ARMED / ATTACK_MISSED (radio, toasts); HUD boost chip ATTACK × n / ARMED · ZONE / ATTACK m:ss · AWD.
+  Measured: the zone costs 0.6–1.5 s (Hautvale 0.6, Marrow 1.5); 9-car 6-lap races take both everywhere, contacts as
+  without (Saltcross ~1400 in either: the F1's racecraft on this car, stage 6); car-bench t60 2.08 s AWD (REAL_FE 1.8–2.3),
+  t60rwd 3.01. tests/attack.test.js. Not done: the zone on the minimap / in the world, the split choice (2+6 …).
 
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)
