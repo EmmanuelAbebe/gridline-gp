@@ -1070,6 +1070,21 @@ showed MODIFIED only because of it).
   lap 1 +1.4–2.3 s from cold, lap 2 +0.5–1, equal from lap 3–4 (coldest tyre ~44–57 °C after lap 3 on Cantera / Harrow:
   grip ≥ 0.965); without assists clean on all nine circuits; 10 laps of normal wear < 35 %, no tyre stop.
   tests/fe-tyres.test.js. Not done: the pause menu's pit box names it MEDIUM.
+- Stage 6 done: the AI. tools/lap-optimum.mjs `--class=<id>` (the class's car; electric: the motor's force, the rear
+  braking regenBrake; lines to `src/sim/racing-lines-<id>.js`) → racing-lines-fe.js (margins as the F1's: 2.2 racing,
+  ALIEN 0.8, Cobalt / Saltcross 1.5); FE ai = the F1's + lines, `alien` paces (5-lap race with energy and attack mode, the
+  most that stays clean: pace default 1.06, paceOff 1.04, see the class), and class switches (the F1's keep the old
+  behaviour: sim-trace identical): `defendBelow` (FE 150 km/h: defending into fast corners ran it wide on lap 1),
+  `offRoad` (driving.js offLine: an off-line car's speed from the road's own curve at its offset, T.K: passing round the
+  outside of a corner whose line sweeps across ran wide; the old rule assumes a path parallel to the line), `mistakeK`
+  (FE 0.5), `alienHold` (ALIEN without ABS plans with feelBrakeNow). The ALIEN's own pedals take the attack zone's cap
+  (vp2). energy.js lapEnergy(track, cls, alien): the allowance from a flat-out lap at the race's level (race.aiAlien:
+  the ALIEN's; else LEGEND's: from LEGEND's an ALIEN race ran short, from the ALIEN's for all LEGEND out-raced it); no
+  pre-saving before a car's own lap is measured. Measured: LEGEND solo ~1.6–6.8 % off the lap model (the F1 2.5–4.5 %);
+  ALIEN ≈ the model; 9-car 5-lap races × 3 seeds: walls 0, spins 0, cuts 7 (F1 17), hard contacts 158 (108: Elkmoor,
+  Cantera lap-1 packs), passes 360 (258); zone detours 0.9–2.0 s. tests/fe-ai.test.js. Open: ALIEN without assists at
+  Cobalt (0.96: into the attack zone at a hairpin, braking + turning late) and Cantera (0.96: the corkscrew crest) is
+  slower than LEGEND there.
 
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)

@@ -3,8 +3,9 @@
 // numbers) is the F1's until a stage of the plan gives it its own. Figures from the FIA / Formula E and the press
 // (the plan's sources); ~ = our estimate where none was published.
 // Done so far (stage 1): the electric powertrain (one gear, the motor drawn from the battery), mass, tyres' grip, aero,
-// size; the brakes = regeneration (stage 2); the race's energy (stage 3); attack mode and the AWD start (stage 4); the tyres (stage 5). Still the F1's: the AI's lines and paces (stage 6), the hitbox (the 3D model).
+// size; the brakes = regeneration (stage 2); the race's energy (stage 3); attack mode and the AWD start (stage 4); the tyres (stage 5); the AI (stage 6). Still the F1's: the hitbox (the 3D model).
 import { F1_2026 } from './f1-2026.js';
+import { RACING_LINES, ALIEN_LINES } from '../racing-lines-fe.js';
 
 const F1 = F1_2026;
 const TOP = 322;                      // km/h at the motor's max speed: the theoretical top speed (Wikipedia, FIA)
@@ -99,9 +100,28 @@ const ATTACK = Object.freeze({ share: 8 / 45, uses: 2, fromLap: 2, start: 100 / 
   zone: Object.freeze({ length: 24, lat: 0.3, inside: 0.4, minV: 14, maxV: 40, clear: 250, window: 3, aim: 2.0, ahead: 180, slow: 0.92, exit: 30 }),
   ai: Object.freeze({ safeGap: 1.5, decide: 300, each: 1.5, spare: 1 }) });
 
+// ALIEN paces (stage 6): the most that stays clean, the fastest driver alone in a 5-lap race (energy, attack mode); with
+// medium assists / none. Its laps match the lap model's on its line (Elkmoor 49.6 s vs 49.5). Without assists two
+// circuits hold it back: Cobalt Bay 0.96 (into the attack zone at a hairpin's apex, held on the outside it turns late
+// while braking, and spins), Cantera 0.96 (its corkscrew's crest)
+const ALIEN = Object.freeze({
+  pace: Object.freeze({ default: 1.06, elkmoor: 1.02, harrow: 1.04, marrow: 1.08, northfold: 1.08, hautvale: 1.04, cantera: 1.04, ironpark: 1.10 }),
+  paceOff: Object.freeze({ default: 1.04, elkmoor: 1.00, harrow: 1.06, cobalt: 0.96, marrow: 1.08, northfold: 1.12, cantera: 0.96, ironpark: 1.06 }),
+});
+// The AI on this car (stage 6): its own time-optimal lines (racing-lines-fe.js: npm run lap-optimum -- <circuit>
+// --class=fe --write-line / --write-alien, the F1's margins); defending only into corners slower than `defendBelow`
+// (~150 km/h: on these tyres a car covering the inside of a fast corner was 5 m off its line when the move ended, too
+// fast for where it was, and ran wide: the whole field at Saltcross's and Hautvale's first fast corners on lap 1);
+// off its line the speed from the road's curve there (`offRoad`: passing round the outside of those corners, held at the
+// road's edge 10 m from its line, it planned the line's speed and ran wide); its mistakes half the F1's (`mistakeK`: a
+// 5 % late brake while passing in the pack slid it straight on at Elkmoor and Cantera; on the F1's grip it is caught); the ALIEN without ABS plans its
+// braking with the hold-back its feet keep after a lock (`alienHold`)
+const AI_CAR = Object.freeze({ ...F1.ai, alien: ALIEN, lines: Object.freeze({ racing: RACING_LINES, alien: ALIEN_LINES }), defendBelow: 150 / 3.6,
+  offRoad: true, mistakeK: 0.5, alienHold: true });
+
 export const FE_GEN3_EVO = Object.freeze({
   ...F1,
   id: 'fe', name: 'Formula E (Gen3 Evo)',
   ranked: false,                      // not on the leaderboard until the class is finished
-  car: CAR, chassis: CHASSIS, setup: SETUP, mods: MODS, ers: ERS, activeAero: ACTIVE_AERO, wear: WEAR, energy: ENERGY, attack: ATTACK, tyreTemp: TYRE_TEMP, compounds: COMPOUNDS,
+  car: CAR, chassis: CHASSIS, setup: SETUP, mods: MODS, ers: ERS, activeAero: ACTIVE_AERO, wear: WEAR, energy: ENERGY, attack: ATTACK, tyreTemp: TYRE_TEMP, compounds: COMPOUNDS, ai: AI_CAR,
 });

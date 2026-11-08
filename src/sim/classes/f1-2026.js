@@ -394,6 +394,15 @@ export const AI_CAR = Object.freeze({
     paceOff: Object.freeze({ default: 1.10, hautvale: 1.01, cantera: 1.04, saltcross: 1.02, marrow: 1.14, northfold: 1.07 }),
   }),
   lines: Object.freeze({ racing: RACING_LINES, alien: ALIEN_LINES }),
+  // defending (driving.js racecraft): only into corners whose apex is slower than this (m/s) on its line; the F1 into any
+  defendBelow: Infinity,
+  // off its line (passing, defending): false = the speed from the line's curve at that offset (driving.js offLine); true =
+  // from the road's own curve there (holding the outside of a corner whose line sweeps across: tighter than the line)
+  offRoad: false,
+  // × the size of the AI's mistakes (AI.mistakes.over: a share too fast into a corner)
+  mistakeK: 1,
+  // ALIEN without ABS: its braking planned with the hold-back after a lock too (driving.js); the F1's: without it
+  alienHold: false,
 });
 
 export const F1_2026 = Object.freeze({

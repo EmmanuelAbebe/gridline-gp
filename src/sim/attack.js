@@ -55,7 +55,7 @@ export function setupAttack(race) {
   for (const c of race.cars) c.awdStart = !!A;
   if (!A || !race.overtake) return;
   const zone = attackZone(race.track, race.carClass);
-  const length = race.laps < Infinity ? race.laps * lapEnergy(race.track, race.carClass).time : race.duration;
+  const length = race.laps < Infinity ? race.laps * lapEnergy(race.track, race.carClass, race.aiAlien).time : race.duration;
   if (!zone || !(length < Infinity)) return;
   race.attack = { zone, seconds: length * A.share / A.uses };
   for (const c of race.cars) { c.attackUses = A.uses; c.attackArmed = false; c.attackLoop = 0; c.attackLeft = 0; c.attackOn = false; c.attackLap = 0; }

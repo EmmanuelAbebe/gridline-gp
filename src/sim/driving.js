@@ -219,7 +219,8 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   // defend: one move to the inside before the braking zone, held to the apex (only against a real threat: close,
   // in our slipstream and at least as fast; not with a car already alongside)
   if (behind && c.defendTo < 0 && !skillOverride && toBrake * ds < C.defendFrom && toBrake * ds > C.defendLate
-      && -behind.gap < C.defendRange && behind.o.slipBy === c && behind.o.v > c.v - 1 && lo === -edge && hi === edge && c.defendZone !== apex) {
+      && -behind.gap < C.defendRange && behind.o.slipBy === c && behind.o.v > c.v - 1 && lo === -edge && hi === edge && c.defendZone !== apex
+      && !(VP[apex] > CA.defendBelow)) {                      // (the class's: only into corners slower than defendBelow m/s)
     c.defendZone = apex;                                     // decided once per corner
     if (race.rng() < traitOf(c, 'defend') * C.defendChance) { c.defendTo = apex; c.defendSide = inside; }
   }
@@ -258,8 +259,12 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   if (lost) targetV = Math.min(targetV, AI.recoverSpeed);
   // speed: the hardest deceleration the profile asks for ahead. Off the racing line (passing, defending) a corner is
   // tighter on the inside, so the profile there is scaled by the corner speed of the offset path.
+  // (the class's ai.offRoad: the path at this offset follows the road's own curve (T.K), so holding the outside of a
+  // corner whose line sweeps across the road is tighter than the line, not wider: the speed there at most that path's)
   const offLine = j => {
     const d = c.offset - RO[j] - bias, k = LK[j];
+    if (CA.offRoad) { if (Math.abs(d) < 1) return 1; const kr = T.K[j];
+      return Math.min(1, cornerSpeed(Math.abs(kr / Math.max(0.2, 1 - kr * c.offset)), CA.grip, stock) / Math.max(1, VP[j])); }
     if (Math.abs(d) < 1 || Math.abs(k) < 1e-4) return 1;
     return Math.min(1, cornerSpeed(Math.abs(k / Math.max(0.2, 1 - k * d)), CA.grip, stock) / cornerSpeed(Math.abs(k), CA.grip, stock));
   };
@@ -281,12 +286,14 @@ export function driveAI(race, c, dt, skillOverride = 0) {
     // over the target, brake once the hardest deceleration ahead passes brakeAt × the limit (late and hard); in
     // traffic with AI cars it drives like the others (a whole ALIEN field braking that late: 4× the hard contacts)
     // (cold tyres: it takes their whole grip loss as margin when properly cold, only the square root once nearly warm)
-    const A = AI.alien, tk = FM.pow(tempK, 0.5 + 0.5 * clamp((0.97 - tempK) / 0.03, 0, 1)) * Math.sqrt(compK), vt = j => VP[j] >= TUNING.V_CAP - 1e-3 ? TUNING.V_CAP : tyreK !== 1 ? VP[j] * skill * offLine(j) * tk : VP[j] * skill * offLine(j);
+    const A = AI.alien, tk = FM.pow(tempK, 0.5 + 0.5 * clamp((0.97 - tempK) / 0.03, 0, 1)) * Math.sqrt(compK), vp2 = j => Math.min(VP[j], zoneK(j)),   // (an attack zone's cap: attack.js)
+      vt = j => VP[j] >= TUNING.V_CAP - 1e-3 ? TUNING.V_CAP : tyreK !== 1 ? vp2(j) * skill * offLine(j) * tk : vp2(j) * skill * offLine(j);
     const target = lost ? AI.recoverSpeed : Math.min(vt((c.idx + 2) % N), vt((c.idx + 5) % N), followCap);   // (never into the car ahead)
     let need2 = 0;
     for (let k = 2; k <= A.brakeLook; k += k < 12 ? 2 : 4) { const w = vt((c.idx + k) % N); need2 = Math.max(need2, (sp * sp - w * w) / (2 * k * ds)); }
     // (without ABS: what its feet can do, the pedal it has learnt the fronts take × the full pedal's force)
-    const lim0 = (E ? brakeLimitAt(E, c.idx, sp, c.spec) : brakeLimit(sp, c.spec)) * (c.assists.abs ? 0.97 : Math.min(0.97, c.feelBrake)), o2 = sp - target;
+    // (its class's ai.alienHold: without ABS also the hold-back its feet keep after a lock, feelPedals' feelBrakeNow)
+    const lim0 = (E ? brakeLimitAt(E, c.idx, sp, c.spec) : brakeLimit(sp, c.spec)) * (c.assists.abs ? 0.97 : CA.alienHold ? Math.min(0.97, c.feelBrake) * c.feelBrakeNow : Math.min(0.97, c.feelBrake)), o2 = sp - target;
     const lim = tyreK !== 1 ? lim0 * tyreK : lim0;                // (cold or hot tyres: it brakes earlier)
     if (need2 > lim * A.brakeAt || o2 > A.overBrake) brk = clamp(need2 / (lim * A.brakeScale) + Math.max(0, o2) * A.brakeGain, 0, 1);
     else thr = o2 > 0 ? clamp(1 - o2 * A.thrGain, 0, 1) : 1;
@@ -310,7 +317,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   const chance = AI.mistakes.chance * (1 - c.skill) * 10 * (1 + C.pressureMistakes * traitOf(c, 'nerves') * c.pressure);
   if (brk > 0 && c.brake === 0 && !skillOverride && !alien && !c.mistake && sp - vmin > AI.mistakes.minDrop && race.rng() < chance) {
     const [lo2, hi2] = AI.mistakes.over;
-    c.mistake = lo2 + race.rng() * (hi2 - lo2);
+    c.mistake = (lo2 + race.rng() * (hi2 - lo2)) * CA.mistakeK;   // (the class's: less on less grip)
     c.mistakeEnd = (c.idx + Math.round(AI.mistakes.length / ds)) % N;
     brk = 0;
   }

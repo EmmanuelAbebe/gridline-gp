@@ -4,30 +4,38 @@
 //     on lateral offsets, the car's centre kept on the tarmac: no track-limit cuts, full grip).
 //  2. The real physics: a bot drives that line in the full sim (chassis.js, medium assists) and pushes its speed
 //     profile as far as it goes without walls, cuts or spins.
-// Usage: node tools/lap-optimum.mjs [circuit=northfold] [--no-aero] [--margin=0.3] [--tune] [--push=a,b,...]
+// Usage: node tools/lap-optimum.mjs [circuit=northfold] [--class=f1] [--no-aero] [--margin=0.3] [--tune] [--push=a,b,...]
 //   --write-line: store the optimised line (control offsets) in src/sim/racing-lines.js for the AI (track.js uses it;
 //   run it with --margin=<AI.lineMargin> for every circuit after changing a circuit or the car), then stop.
+//   --class=fe: Formula E's car (the electric motor, the rear braking only its regeneration) and its own lines file
+//   (src/sim/racing-lines-fe.js).
 import { SIM } from '../src/sim/index.js';
 import { TUNING, ASSISTS } from '../src/sim/tuning.js';
-import { CAR, CHASSIS, ACTIVE_AERO as AA } from '../src/sim/classes/f1-2026.js';   // (the F1's lines; another class: car classes)
-import { RACING_LINES, ALIEN_LINES } from '../src/sim/racing-lines.js';
 import fs from 'node:fs';
+import { regenBrake } from '../src/sim/vehicle.js';
 
 const args = process.argv.slice(2), id = args.find(a => !a.startsWith('--')) || 'northfold';
+const cls = SIM.classOf((args.find(a => a.startsWith('--class=')) || '=f1').split('=')[1]);
+if (!cls) throw new Error('unknown --class');
+const { car: CAR, chassis: CHASSIS, activeAero: AA } = cls, MOTOR = CAR.motor;
+const LINES_FILE = cls.id === 'f1' ? 'racing-lines.js' : `racing-lines-${cls.id}.js`;
+const { RACING_LINES = {}, ALIEN_LINES = {} } = fs.existsSync(new URL(`../src/sim/${LINES_FILE}`, import.meta.url)) ? await import(`../src/sim/${LINES_FILE}`) : {};
 const aero = !args.includes('--no-aero'), margin = +(args.find(a => a.startsWith('--margin=')) || '=0.3').split('=')[1];
-const T = SIM.buildTrack({ ...SIM.CIRCUITS[id], id }), { N, PX, PZ, NX, NZ, HW } = T, S = SIM.STOCK, G = 9.81;
+const T = SIM.buildTrack({ ...SIM.CIRCUITS[id], id }), { N, PX, PZ, NX, NZ, HW } = T, S = SIM.stockOf(cls), G = 9.81;
 const DT = 1 / 120, W = HW - margin;
 
 // ---------- 1. quasi-steady-state lap ----------
-const gears = SIM.VEHICLE.gears, limiter = SIM.VEHICLE.limiter;
+const gears = SIM.vehicleInfo(cls).gears, limiter = SIM.vehicleInfo(cls).limiter, R_WHEEL = TUNING.WHEEL_RADIUS;
 const powerAt = v => {          // best wheel force per mass over the gears at speed v
+  // (an electric car: its one gear, the motor's torque, then its race power (vehicle.js electricDrive))
+  if (MOTOR) return SIM.rpmAt(v, 1, S) >= MOTOR.maxRpm ? 0 : Math.min(MOTOR.torque * S.ratio[1] * MOTOR.efficiency / R_WHEEL, MOTOR.race * S.power * 1000 * MOTOR.efficiency / Math.max(v, 0.1)) / S.mass;
   let best = 0;
   for (let g = 1; g <= gears; g++) { const r = SIM.rpmAt(v, g, S); if (r < limiter && r > 3000) best = Math.max(best, driveAt(r, g)); }
   // + the MGU-K (2026 power unit, sim ERS), tapering above 290 km/h; the battery assumed to last (energy: the bot's job)
-  const E = SIM.ERS, taper = Math.min(1, Math.max(0, (E.taperTo - v) / (E.taperTo - E.taperFrom)));
+  const E = cls.ers, taper = Math.min(1, Math.max(0, (E.taperTo - v) / (E.taperTo - E.taperFrom)));
   return best + E.kw * 1000 * S.power * taper / (S.mass * Math.max(v, E.minSpeed));
 };
-const P = CAR.engine.power, R_WHEEL = TUNING.WHEEL_RADIUS;
+const P = CAR.engine.power;
 function driveAt(rpm, g) {
   let kw = P[P.length - 1][1];
   for (let i = 1; i < P.length; i++) if (rpm <= P[i][0]) { const [r0, p0] = P[i - 1], [r1, p1] = P[i]; kw = p0 + (p1 - p0) * (rpm - r0) / (r1 - r0); break; }
@@ -69,7 +77,9 @@ function lapTime(off) {
   for (let p = 0; p < 2; p++) for (let i = N - 1; i >= 0; i--) {
     const j = (i + 1) % N, u = env[j], df = S.dfK * u * u, n = Math.max(-df, load(j, u, KS[j])), lat = latNeed(j, u, KS[j]), latMax = Math.max(1, grip(n + df));
     const f = Math.sqrt(Math.max(0, 1 - (lat / latMax) ** 2));
-    const dec = Math.min(CHASSIS.brakeSystem, CHASSIS.longGrip * grip(n + df)) * f + S.dragK * u * u + CAR.aero.rolling + CAR.engine.engineBrake * 0.8 + slopeG(j);
+    // (an electric car: the rear's share only what its motor regenerates: vehicle.js regenBrake)
+    const brk = Math.min(CHASSIS.brakeSystem, CHASSIS.longGrip * grip(n + df));
+    const dec = (MOTOR ? regenBrake(brk, u, S) : brk) * f + S.dragK * u * u + CAR.aero.rolling + CAR.engine.engineBrake * 0.8 + slopeG(j);
     env[i] = Math.min(env[i], Math.sqrt(u * u + 2 * Math.max(2, dec) * DS[i]));
   }
   // acceleration (forwards, twice round), straight mode in the zones while it can take the bend with open wings
@@ -126,7 +136,7 @@ if (args.includes('--write-line') || args.includes('--write-alien')) {
   tables[args.includes('--write-alien') ? 'ALIEN_LINES' : 'RACING_LINES'][id] = entry;
   const body = t => Object.entries(t).sort(([a], [b]) => a.localeCompare(b))
     .map(([k, l]) => `  ${k}: { N: ${l.N}, step: ${l.step}, margin: ${l.margin}, lap: ${l.lap},\n    offsets: [${l.offsets.join(', ')}] },`).join('\n');
-  fs.writeFileSync(new URL('../src/sim/racing-lines.js', import.meta.url), `// Time-optimal racing lines, one per circuit (generated: npm run lap-optimum -- <circuit> --margin=<m> --write-line,
+  fs.writeFileSync(new URL(`../src/sim/${LINES_FILE}`, import.meta.url), `// Time-optimal racing lines${cls.id === 'f1' ? '' : ` for ${cls.name}`}, one per circuit (generated: npm run lap-optimum -- <circuit>${cls.id === 'f1' ? '' : ` --class=${cls.id}`} --margin=<m> --write-line,
 // or --write-alien for ALIEN_LINES). Lateral offsets of the line (m, + = right of the centre line) at every \`step\`-th
 // track sample, joined by a periodic Catmull-Rom spline (track.js storedLine). \`N\` = the circuit's sample count it was
 // made for (a changed circuit falls back to the minimum-curvature line); \`margin\` = metres kept inside the road edge;
@@ -140,14 +150,14 @@ export const ALIEN_LINES = {
 ${body(tables.ALIEN_LINES)}
 };
 `);
-  console.log(`wrote the ${id} line to src/sim/racing-lines.js`);
+  console.log(`wrote the ${id} line to src/sim/${LINES_FILE}`);
   process.exit(0);
 }
 
 // ---------- 2. the real physics: a bot on that line ----------
 // pure pursuit on the line + the AI's speed logic on the braking envelope × `push`
 function drive(push, laps = 3, mult = null) {
-  const race = SIM.createRace(laps, { track: T, drivers: SIM.DRIVERS.filter(d => d.player), activeAero: aero, seed: 1 });
+  const race = SIM.createRace(laps, { carClass: cls, track: T, drivers: SIM.DRIVERS.filter(d => d.player), activeAero: aero, seed: 1, energy: false });
   const c = race.cars[0]; c.assists = ASSISTS.medium;
   const vt = j => prof[j] >= TUNING.V_CAP - 1e-3 ? TUNING.V_CAP : prof[j] * (mult ? mult[segOf[j]] : push);
   let trouble = 0, spins = 0, maxLat = 0, offTarmac = 0, lapDist = 0;

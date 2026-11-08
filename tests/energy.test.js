@@ -1,6 +1,6 @@
 // A race's energy for an electric car (src/sim/energy.js; car classes step 2 stage 3, docs/formula-e-plan.md): the
-// battery is the race's allowance, sized from a measured flat-out lap; the cars save the rest (less power, then lifting)
-// to reach the flag with a little left. The F1 has none of it.
+// battery is the race's allowance, sized from a measured flat-out lap at the race's level (LEGEND / ALIEN); the cars save
+// the rest (less power, then lifting) to reach the flag with a little left. The F1 has none of it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SIM as S } from '../src/sim/index.js';
@@ -35,16 +35,17 @@ test('energy: the allowance is the race\'s laps × a measured flat-out lap × th
   assert.ok(c.lap >= 3, 'two laps and more on lap allowances');
 });
 
-test('energy: the AI makes it last: the flag with a little left; flat out the battery runs dry first', () => {
-  for (const id of ['elkmoor', 'harrow']) {
-    const T = S.buildTrack(S.CIRCUITS[id]);
-    const race = S.createRace(8, { carClass: FE, track: T, drivers: VOS(), seed: 3 }), c = race.cars[0], total = c.soc;
+test('energy: the AI makes it last at LEGEND and ALIEN: the flag with a little left; flat out the battery runs dry first', () => {
+  for (const id of ['elkmoor', 'harrow']) for (const aiAlien of [false, true]) {
+    const T = S.buildTrack(S.CIRCUITS[id]), at = `${id}${aiAlien ? ' (ALIEN)' : ''}`;
+    const race = S.createRace(8, { carClass: FE, track: T, drivers: VOS(), seed: 3, aiAlien }), c = race.cars[0], total = c.soc;
+    assert.equal(total, 8 * S.lapEnergy(T, FE, aiAlien).energy * FE.energy.budget, `${at}: its level's allowance`);
     const empty = run(race, c);
-    assert.ok(c.finished && !empty, `${id}: finished without running dry`);
-    assert.ok(c.soc > 0.01 * total && c.soc < 0.06 * total, `${id}: ${(c.soc / total * 100).toFixed(1)} % left at the flag`);
-    assert.ok(c.powerK < 1, `${id}: it saved (power ${c.powerK.toFixed(2)})`);
-    const greedy = S.createRace(8, { carClass: FE, track: T, drivers: VOS(), seed: 3 }), g = greedy.cars[0];
-    assert.ok(run(greedy, g, { force: { save: 0, powerK: 1, liftM: 0 } }), `${id}: flat out it runs dry before the flag`);
+    assert.ok(c.finished && !empty, `${at}: finished without running dry`);
+    assert.ok(c.soc > 0.01 * total && c.soc < 0.06 * total, `${at}: ${(c.soc / total * 100).toFixed(1)} % left at the flag`);
+    assert.ok(c.powerK < 1, `${at}: it saved (power ${c.powerK.toFixed(2)})`);
+    const greedy = S.createRace(8, { carClass: FE, track: T, drivers: VOS(), seed: 3, aiAlien }), g = greedy.cars[0];
+    assert.ok(run(greedy, g, { force: { save: 0, powerK: 1, liftM: 0 } }), `${at}: flat out it runs dry before the flag`);
   }
 });
 

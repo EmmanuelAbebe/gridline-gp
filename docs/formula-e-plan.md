@@ -47,7 +47,11 @@ design) and a Formula E-shaped 3D model come after it. The F1 stays bit-identica
    lap 3–4; tyres 4× the F1's life; one compound, shown as ALL-WEATHER. Load sensitivity left at the F1's: the launch
    and corner figures were set on it in stage 1.) All-weather tyres: lower grip and load sensitivity, temperature from the air with no blankets,
    a wide window, very little wear; no pit stops (the pit lane stays for drive-throughs; Pit Boost charging later).
-6. **The AI on it.** Its own racing lines (`npm run lap-optimum -- <id> --class=fe --write-line`), its paces, feel and
+6. **The AI on it.** (Done 2026-11-08: its own lines (racing-lines-fe.js; lap-optimum --class=fe); racecraft for its
+   grip (defending only into corners under 150 km/h, off-line speeds from the road's curve, half-size mistakes); ALIEN
+   paces rescanned; the energy allowance from a flat-out lap at the race's level. 9-car races × 3 seeds: 0 walls, 0
+   spins, 7 cuts (the F1 17), 158 hard contacts (108), 360 passes (258). Open: the ALIEN without assists at Cobalt 0.96 /
+   Cantera 0.96.) Its own racing lines (`npm run lap-optimum -- <id> --class=fe --write-line`), its paces, feel and
    margins (`ai` of the class); full-field Formula E races clean on every circuit; ALIEN levels rescanned.
 7. **Driving it now:** a debug switch (`gridlineDebug.carClass('fe')`, `GRIDLINE_SMOKE_CLASS=fe` for a smoke run).
 

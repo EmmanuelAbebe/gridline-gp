@@ -1,7 +1,7 @@
 // A race's energy for an electric car (car classes step 2 stage 3: docs/formula-e-plan.md). Formula E races on one
 // battery: an allowance for the whole race (the FIA sets it per event, so that running flat out doesn't reach the
 // flag), ~40 % of it won back under braking, and the drivers lift and coast before the braking points to make it last.
-// Here: lapEnergy = the net energy of a flat-out lap (measured: the fastest AI driver alone); the race's allowance = laps × that × ENERGY.budget (timed races: the laps
+// Here: lapEnergy = the net energy of a flat-out lap (measured: the fastest AI driver alone, at the race's level); the race's allowance = laps × that × ENERGY.budget (timed races: the laps
 // the time gives at that pace). Unlimited races (time trials) get a lap's allowance afresh at every crossing of the line
 // (a qualifying lap). Every electric car keeps a lift distance (c.liftM): metres before a braking point to coast,
 // set at each crossing of the line from the energy the last lap took against what is left per lap to go; the AI lifts
@@ -18,17 +18,21 @@ import { aiOf } from './ai-profile.js';
 /** @typedef {import('./types.js').CarClass} CarClass */
 
 const measured = new WeakMap(), DT = 1 / 120;
-// A flat-out lap's net energy (J) and time (s) on this track in this class's car: the fastest AI driver alone at full
-// pace, its flying lap (lap 2), on a battery that never runs out; measured once per track × class (~0.2–0.5 s). The
-// race's allowance is made from it, as the FIA sets each event's from the cars' real consumption. (A formula, a point
-// mass on the AI's speed profile, was tried first: ±10 % per circuit, so Cobalt Bay asked for an 18 % saving and ran dry.)
-/** @param {Track} track @param {CarClass} cls @returns {{ energy: number, time: number }} */
-export function lapEnergy(track, cls) {
+// A flat-out lap's net energy (J) and time (s) on this track in this class's car: the fastest AI driver alone at the
+// race's level (`alien`: the ALIEN, else LEGEND), its flying lap (lap 2), on a battery that never runs out; measured
+// once per track × class × level (~0.2–0.5 s). The race's allowance is made from it, as the FIA sizes each event's to
+// the field's real consumption, so every level saves about the same share (stage 6: from LEGEND's lap an ALIEN race ran
+// short and slowed 8–10 % at the end; from the ALIEN's for every race, LEGEND had energy in hand and out-raced it).
+// (A formula, a point mass on the AI's speed profile, was tried first: ±10 % per circuit, so Cobalt Bay asked for an
+// 18 % saving and ran dry.)
+/** @param {Track} track @param {CarClass} cls @param {boolean} [alien] @returns {{ energy: number, time: number }} */
+export function lapEnergy(track, cls, alien = false) {
   let byClass = measured.get(track);
   if (!byClass) measured.set(track, byClass = new Map());
-  if (byClass.has(cls)) return byClass.get(cls);
+  const key = alien ? cls.id + ':alien' : cls.id;
+  if (byClass.has(key)) return byClass.get(key);
   const driver = DRIVERS.filter(d => !d.player).reduce((a, d) => d.skill > a.skill ? d : a);
-  const race = createRace(2, { carClass: cls, track, drivers: [driver], seed: 1, energy: false }), c = race.cars[0];
+  const race = createRace(2, { carClass: cls, track, drivers: [driver], seed: 1, energy: false, aiAlien: alien }), c = race.cars[0];
   c.soc = 1e12;
   let mark = 0, out = { energy: 0, time: 0 };
   for (let k = 0; k < 120 * 900 && !c.finished; k++) {
@@ -36,7 +40,7 @@ export function lapEnergy(track, cls) {
     for (const e of c.events) if (e.type === EV.LAP) { if (c.lap === 2) mark = c.soc; else out = { energy: mark - c.soc, time: e.time }; }
     c.events.length = 0;
   }
-  byClass.set(cls, out);
+  byClass.set(key, out);
   return out;
 }
 
@@ -56,13 +60,13 @@ export function liftNow(race, c) {
 export function setupEnergy(race) {
   race.energy = null;
   if (!race.carClass.car.motor) return;
-  const lap = lapEnergy(race.track, race.carClass), ENERGY = race.carClass.energy;
+  const lap = lapEnergy(race.track, race.carClass, race.aiAlien), ENERGY = race.carClass.energy;
   const laps = race.laps < Infinity ? race.laps : race.duration < Infinity ? race.duration / lap.time + 1 : null;
   race.energy = { lap: lap.energy, perLap: lap.energy * ENERGY.budget, total: laps ? laps * lap.energy * ENERGY.budget : null };
   for (const c of race.cars) {
     c.soc = race.energy.total ?? race.energy.perLap;
+    // (no saving before a lap of its own is measured: each car's own consumption decides it)
     c.energyMark = c.soc; c.energyLast = lap.energy; c.save = 0; c.liftM = 0; c.powerK = 1;
-    liftFor(race, c);
   }
 }
 
