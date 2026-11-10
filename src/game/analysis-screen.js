@@ -94,6 +94,9 @@ export function createAnalysis({ game, sectors, aiLapOf, track, models }) {
       short: ref.driver?.code ?? (ref.id === 'mine' ? 'BEST' : ref.name.split(' ')[0].slice(0, 10).toUpperCase()), mc, rc,
     } : null;
     if (C) { C.d = deltaSeries(C.me, C.ref); $('cmpRefKey').textContent = ref.name; buildTele(); }
+    // a lap saved before positions were kept (2026-11-10) and with no ghost of it: drawn on the racing line, not where you drove
+    const old = C && [C.me, C.ref].some(R => R.source === 'centre');
+    if (old && !$('anaNote').textContent) $('anaNote').textContent = 'Your best ever was saved before laps kept where the car went: it replays on the racing line. Your next best keeps your own line.';
     T = Math.min(T, C ? C.me.time : 0); jump = true; dirty = true;
     R3.setLiveries({ ...game.garage.livery }, liveryOf(ref));
     showTab();

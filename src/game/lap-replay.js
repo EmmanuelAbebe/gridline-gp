@@ -15,6 +15,7 @@ export const REPLAY = Object.freeze({
   lock: 0.3,                     // rad: full steering on the model
   wheelR: 0.36,                  // m: wheel radius (the wheels' spin)
   turnSpan: 0.6,                 // s: the heading change over this much of the lap gives the curvature
+  smooth: 6,                     // samples: a lap without positions is drawn on its times smoothed over ± this many
 });
 
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -29,15 +30,22 @@ export function replayOf(trace, track, ghost = null) {
   for (let i = 0; i < N; i++) { const v = trace.t[i]; if (Number.isFinite(v) && v >= last) last = v; ti[i] = last; }
   ti[N] = Math.max(last, trace.time);
   const time = ti[N];
-  // the (fractional) sample the car was at T s into its lap
-  function sampleAt(T) {
-    if (!(T > ti[0])) return 0;
+  // the times smoothed over ±REPLAY.smooth samples, for drawing a lap without positions of its own: a lap's times are
+  // in whole sim steps (1/120 s) and a ~2 m sample takes 2 or 3 of them at speed, so read as they are the car pulsed
+  // (±40 % speed frame to frame). (An average of a rising sequence still rises.)
+  const tp = new Float64Array(N + 1), K = REPLAY.smooth;
+  for (let i = 0; i <= N; i++) { let a = 0, n = 0; for (let j = Math.max(0, i - K); j <= Math.min(N, i + K); j++) { a += ti[j]; n++; } tp[i] = a / n; }
+  tp[0] = ti[0]; tp[N] = ti[N];
+  // the (fractional) sample the car was at T s into its lap (on the lap's times A)
+  function sampleOn(A, T) {
+    if (!(T > A[0])) return 0;
     if (T >= time) return N;
     let lo = 0, hi = N;
-    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (ti[m] <= T) lo = m; else hi = m; }
-    const d = ti[lo + 1] - ti[lo];
-    return lo + (d > 0 ? (T - ti[lo]) / d : 0);
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (A[m] <= T) lo = m; else hi = m; }
+    const d = A[lo + 1] - A[lo];
+    return lo + (d > 0 ? (T - A[lo]) / d : 0);
   }
+  const sampleAt = T => sampleOn(ti, T);
   // the time into the lap at (fractional) sample s
   const timeAt = s => { s = clamp(s, 0, N); const i = Math.min(N - 1, Math.floor(s)); return ti[i] + (ti[i + 1] - ti[i]) * (s - i); };
   // a per-sample value at s (null where the source has none)
@@ -66,7 +74,7 @@ export function replayOf(trace, track, ghost = null) {
   function poseAt(T) {
     T = clamp(T, 0, time);
     const s = sampleAt(T);
-    const p = (ghost && ghostPose(ghost, T)) || (hasXZ && fromTrace(s)) || centre(s);
+    const p = (ghost && ghostPose(ghost, T)) || (hasXZ && fromTrace(s)) || centre(sampleOn(tp, T));
     return { ...p, s };
   }
   return { time, ti, N, sampleAt, timeAt, valueAt, poseAt, source: ghost ? 'ghost' : hasXZ ? 'trace' : 'centre',

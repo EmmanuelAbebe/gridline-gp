@@ -93,3 +93,14 @@ test('your saved best keeps where the car was; a lap without positions replays o
   const off = (p.x - T.PX[i]) * T.NX[i] + (p.z - T.PZ[i]) * T.NZ[i];
   assert.ok(Math.abs(off - T.RO[i]) < 0.5, `on the racing line: ${off.toFixed(2)} vs ${T.RO[i].toFixed(2)}`);
 });
+
+test('a replayed car moves smoothly frame to frame, with or without positions of its own', () => {
+  // (a lap's times are whole sim steps: read as they are, a lap without positions pulsed ±40 % in speed at 60 fps)
+  for (const R of [replayOf(alien, T), replayOf({ ...alien, x: null, z: null, h: null }, T)]) {
+    const d = []; let p = R.poseAt(1);
+    for (let t = 1 + 1 / 60; t < R.time - 1; t += 1 / 60) { const q = R.poseAt(t); d.push(Math.hypot(q.x - p.x, q.z - p.z)); p = q; }
+    let worst = 0;
+    for (let i = 5; i < d.length - 5; i++) { let m = 0; for (let j = -5; j <= 5; j++) m += d[i + j]; worst = Math.max(worst, Math.abs(d[i] / (m / 11) - 1)); }
+    assert.ok(worst < 0.1, `${R.source}: ${(worst * 100).toFixed(0)} % frame to frame`);
+  }
+});
