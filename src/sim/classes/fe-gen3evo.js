@@ -105,9 +105,11 @@ const ATTACK = Object.freeze({ share: 8 / 45, uses: 2, fromLap: 2, start: 100 / 
 // medium assists / none. Its laps match the lap model's on its line (Elkmoor 49.6 s vs 49.5). Without assists two
 // circuits hold it back: Cobalt Bay 0.96 (into the attack zone at a hairpin's apex, held on the outside it turns late
 // while braking, and spins), Cantera 0.96 (its corkscrew's crest)
+// (2026-11-09: lock-ups build up (CHASSIS.lock), so it brakes better without ABS: Northfold 1.12 → 1.10 (it cut a
+// corner), Harrow 1.06 → 1.04 (walls))
 const ALIEN = Object.freeze({
   pace: Object.freeze({ default: 1.06, elkmoor: 1.02, harrow: 1.04, marrow: 1.08, northfold: 1.08, hautvale: 1.04, cantera: 1.04, ironpark: 1.10 }),
-  paceOff: Object.freeze({ default: 1.04, elkmoor: 1.00, harrow: 1.06, cobalt: 0.96, marrow: 1.08, northfold: 1.12, cantera: 0.96, ironpark: 1.06 }),
+  paceOff: Object.freeze({ default: 1.04, elkmoor: 1.00, harrow: 1.04, cobalt: 0.96, marrow: 1.08, northfold: 1.10, cantera: 0.96, ironpark: 1.06 }),
 });
 // The AI on this car (stage 6): its own time-optimal lines (racing-lines-fe.js: npm run lap-optimum -- <circuit>
 // --class=fe --write-line / --write-alien, the F1's margins); defending only into corners slower than `defendBelow`

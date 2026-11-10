@@ -107,7 +107,7 @@ export function steerLock(v, assist, spec = STOCK) {
 // One axle's forces. D = grip (per mass), alpha = slip angle, long = braking (−) or drive (+) asked of it.
 // Returns lateral force, longitudinal force actually delivered, and how far past the grip limit it is (0..1+).
 /** @param {ChassisQ} Q */
-function axle(Q, D, alpha, peak, long, limit, spin = null, driveK = 1, inner = 0, longK = 1) {
+function axle(Q, D, alpha, peak, long, limit, spin = null, driveK = 1, inner = 0, longK = 1, lock = null) {
   const CH = Q.CH;
   let fy = -D * tyreCurve(alpha, peak, Q);
   const lg = longK === 1 ? CH.longGrip : CH.longGrip * longK, longMax = D * lg;   // (longK: camber's cost lengthways)
@@ -129,6 +129,16 @@ function axle(Q, D, alpha, peak, long, limit, spin = null, driveK = 1, inner = 0
     if (Math.abs(fy) > room) fy = Math.sign(fy) * room;
     return { fy, fx, over: s > P ? 1 + (s - P) / (1 - P) : Math.min(over, 1) };
   }
+  // braking wheels without ABS: they slow down while the pedal asks more than the tyres give (CH.lock, lockStep)
+  if (lock && fx < 0 && (over > 1 || lock.s > 0)) {
+    const L = CH.lock, s = lockStep(L, lock, over, avail, CH.slideLong), k = lockK(L, s, CH.slideLong);
+    fx = Math.max(fx, -avail * k);
+    const past = lockPast(L, s);
+    fy *= 1 - (1 - CH.lockLateral) * past;
+    const room = Math.sqrt(Math.max(0, D * D - fx * fx));
+    if (Math.abs(fy) > room) fy = Math.sign(fy) * room;
+    return { fy, fx, over: s > L.peak ? 1 + past : Math.min(over, 1) };
+  }
   if (over > 1) {                                                         // locked or spinning: sliding friction
     fx = Math.sign(fx) * avail * CH.slideLong;
     fy *= Math.max(CH.lockLateral, 1 - (over - 1) * 2);
@@ -145,6 +155,20 @@ function spinStep(CH, spin, over, avail) {
   const S = CH.spin, rate = (over - 1) * avail * S.mass / (Math.max(spin.v, S.minSpeed) * S.full);
   spin.s = clamp(spin.s + rate * spin.h, 0, 1);
   return spin.s;
+}
+
+// An axle's slip ratio under braking (lock = { s, v, h, m }: 0 rolling .. 1 locked, the car's speed, the sub-step, the
+// car's mass / the wheels' inertia at the tyre): the brakes' pull beyond what the tyres give back (`over` × avail asked,
+// k × avail given, per car mass) slows the wheels through their inertia; once the tyres give more than the brakes
+// ask the wheels spin back up. k = the braking force at that slip: full up to the tyre's peak slip, then falling to
+// slideLong at a locked wheel.
+// past = how far past the tyre's peak slip toward a sliding tyre (at `fall`: 0 .. 1)
+const lockPast = (L, s) => clamp((s - L.peak) / (L.fall - L.peak), 0, 1);
+const lockK = (L, s, slideLong) => 1 - (1 - slideLong) * lockPast(L, s);
+function lockStep(L, lock, over, avail, slideLong) {
+  const rate = (over - lockK(L, lock.s, slideLong)) * avail * lock.m / Math.max(lock.v, L.minSpeed);
+  lock.s = clamp(lock.s + rate * lock.h, 0, 1);
+  return lock.s;
 }
 
 // One player step: steering, drivetrain, tyres, assists, integration. Moves c.x/c.z/c.h; the caller runs afterMove.
@@ -172,6 +196,7 @@ export function stepChassis(race, c, inp, dt) {
   if (c.surface in ROUGH) c.dirt = Math.max(c.dirt || 0, ROUGH[c.surface]);
   else if (c.dirt) c.dirt = Math.max(0, c.dirt - dt / OT.clean);
   const dirt = (1 - OT.loss * (c.dirt || 0)) * cond.grip;
+  if (c.beached || c.air) c.relaxF = c.relaxR = null;   // (the tyres' lag starts afresh on landing / recovery)
   if (c.beached) { c.v = c.vy = c.yawRate = 0; c.slideF = c.slideR = 0; return; }   // stuck: waiting for the marshals
   if (c.air) { stepAir(race, c, d.resist, dt); return; }                       // in the air (airborne.js): no tyres
   // deep in gravel at walking pace the wheels dig in
@@ -185,6 +210,8 @@ export function stepChassis(race, c, inp, dt) {
   const TT = race.tyreTemp ? c.tyreT : null, tg = TT ? axleTempGrip(TT) : null;
   let heatF = 0, heatR = 0, wheelN = null, outF = 0, outR = 0;
   const spinState = { s: c.rearSpin, v: 0, h };
+  // (the wheels' lock-ups building under braking: CH.lock; the rears turn the drivetrain too: heavier to stop)
+  const lockState = CH.lock ? { s: c.frontLock, v: 0, h, m: CH.lock.mass } : null, rearLockState = CH.lock ? { s: c.rearLock, v: 0, h, m: CH.lock.rearMass } : null;
   for (let s = 0; s < n; s++) {
     // v: along the car's heading (negative = travelling backwards, e.g. past 90° in a spin), vy: sideways
     const v = c.v, sp = Math.abs(v), vy = c.vy, w = c.yawRate, speed = FM.hypot(v, vy);
@@ -220,6 +247,7 @@ export function stepChassis(race, c, inp, dt) {
       c.yawRate = c.v * FM.tan(delta) / L; c.vy = B_REAR * c.yawRate;
       c.h += c.yawRate * h;
       c.x += (FM.cos(c.h) * c.v - FM.sin(c.h) * c.vy) * h; c.z += (FM.sin(c.h) * c.v + FM.cos(c.h) * c.vy) * h;
+      c.relaxF = c.relaxR = null; if (lockState) lockState.s = rearLockState.s = 0;
       continue;
     }
     // axle loads (per mass): weight + downforce (less in dirty air, and sideways or backwards the wings stall)
@@ -266,8 +294,17 @@ export function stepChassis(race, c, inp, dt) {
     // slip angles (velocity at each axle vs where its wheels point)
     // (rolling backwards the steering acts the other way round)
     const back = v / Math.max(sp, 0.5);   // +1 forwards, −1 backwards, smooth through 0 (brakes then damp v to rest)
-    const alphaF = FM.atan2(vy + A_FRONT * w, Math.max(sp, 1)) - delta * Math.sign(back || 1);
-    const alphaR = FM.atan2(vy - B_REAR * w, Math.max(sp, 1));
+    const kinF = FM.atan2(vy + A_FRONT * w, Math.max(sp, 1)) - delta * Math.sign(back || 1);
+    const kinR = FM.atan2(vy - B_REAR * w, Math.max(sp, 1));
+    // the tyres' lag (CHASSIS.relax, the relaxation length): the carcass has to deflect before the force builds, so the
+    // slip angle the tyre works at follows the wheel's own (kinematic) one over `relax` m of travel, exactly
+    // (null: no lag, the kinematic angle as it is)
+    let alphaF = kinF, alphaR = kinR;
+    if (CH.relax) {
+      const k = 1 - FM.exp(-speed * h / CH.relax);
+      alphaF = c.relaxF = c.relaxF === null ? kinF : c.relaxF + (kinF - c.relaxF) * k;
+      alphaR = c.relaxR = c.relaxR === null ? kinR : c.relaxR + (kinR - c.relaxR) * k;
+    }
     // brakes split by axle load (+ a front bias), drive on the rear
     const brake = brakeMax(sp, S) * inp.brk;
     // (brake-by-wire keeps the rear share with the MGU-K harvesting; it moves forward as the pedal comes off: migration)
@@ -278,8 +315,11 @@ export function stepChassis(race, c, inp, dt) {
     // an electric car's front motor driving too (attack mode, the start: d.front its most): the drive split by the axles'
     // loads (the rear motor's torque the rest), traction control on the front as on the rear
     const fD = d.front && d.drive > 0 ? Math.min(d.front, Math.max(d.drive - d.rearMax, d.drive * loadF / (loadF + loadR))) : 0;
-    const front = fD ? axle(Q, Df, alphaF, S.peakF, fD - brake * bias * back, fD > brake * bias ? tcLimit : absLimit, null, 1, 0, P ? P.longF : 1)
-      : axle(Q, Df, alphaF, S.peakF, -brake * bias * back, absLimit, null, 1, 0, P ? P.longF : 1);
+    // (rolling forwards on the brakes: the front wheels' own speed, CH.lock; else they roll with the car)
+    const fLock = lockState && brake > 0 && v > 0 ? (lockState.v = sp, lockState) : null;
+    if (lockState && !fLock) lockState.s = 0;
+    const front = fD ? axle(Q, Df, alphaF, S.peakF, fD - brake * bias * back, fD > brake * bias ? tcLimit : absLimit, null, 1, 0, P ? P.longF : 1, fLock)
+      : axle(Q, Df, alphaF, S.peakF, -brake * bias * back, absLimit, null, 1, 0, P ? P.longF : 1, fLock);
     // (engine braking on a lift, d.rear: through the rear tyres; the handbrake's own branch keeps it in the car's drag)
     const eng = inp.hb ? 0 : d.rear;
     // the rear's share of the brakes; an electric car without rear hydraulics (Formula E): no more than its rear motor
@@ -297,8 +337,10 @@ export function stepChassis(race, c, inp, dt) {
     const lock = inp.hb ? 0 : S.diff[inp.brk > DIFF.pedal ? 0 : inp.thr > DIFF.pedal ? 2 : 1];
     // (on the throttle a more open diff lets the inside rear, unloaded by the cornering, spin up first)
     const unload = clamp(lr / (loadR / 2), 0, 1), driveK = lock < 0 && inp.thr > DIFF.pedal ? 1 - DIFF.traction * -lock * unload : 1;
+    const rLock = rearLockState && braking && !inp.hb && v > 0 ? (rearLockState.v = sp, rearLockState) : null;
+    if (rearLockState && !rLock) rearLockState.s = 0;
     const rear = inp.hb ? axle(Q, Dr, alphaR, S.peakR, -Dr * CH.longGrip * HANDBRAKE.lock * inp.hb * back, null)
-      : axle(Q, Dr, alphaR, S.peakR, rearLong, braking ? rearBrakeLimit : tcLimit, spin, driveK, (1 - unload) / 2, P ? P.longR : 1);
+      : axle(Q, Dr, alphaR, S.peakR, rearLong, braking ? rearBrakeLimit : tcLimit, spin, driveK, (1 - unload) / 2, P ? P.longR : 1, rLock);
     if (!spin) spinState.s = 0;
     // how far past the grip limit each axle is: 0 = gripping, 1 = fully sliding (locked, spinning or past peak slip)
     slideF = Math.max(slideF, front.over - 1, Math.abs(alphaF) / S.peakF - 1);
@@ -365,6 +407,7 @@ export function stepChassis(race, c, inp, dt) {
   }
   if (regenJ > 0) { c.soc = Math.min(ERS.capacity, c.soc + regenJ); c.ersKw -= regenJ / dt / 1000; }
   c.slideF = clamp(slideF, 0, 1); c.slideR = clamp(slideR, 0, 1); c.lockF = lockF; c.lockR = lockR; c.spinR = spinR; c.rearSpin = spinState.s;
+  if (lockState) { c.frontLock = lockState.s; c.rearLock = rearLockState.s; }
   c.roll += c.v * dt / TUNING.WHEEL_RADIUS;
   if (TT) {
     const st = S.mass * G / 2;    // (crawling: the static loads)

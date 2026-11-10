@@ -215,6 +215,20 @@ export const CHASSIS = Object.freeze({
   // stays full up to `peak` of the spin (the tyre's peak slip), then falls to slideLong at a full spin, the cornering
   // grip with it to lockLateral. Only without traction control (TC keeps the drive under the limit: nothing changes).
   spin: Object.freeze({ full: 0.3, peak: 0.3, mass: 6, minSpeed: 5 }),
+  // the tyres' relaxation length (2026-11-09, chassis.js): the slip angle the tyre works at follows the wheel's own over
+  // this many metres of travel (null = none, as before). An assumed value for an F1 slick: LibreCorsa's 2026 F1 tyre 0.12
+  // (assumed), its GT3 0.10 (from Assetto Corsa's data); road tyres are longer (~0.3–0.6 m)
+  relax: 0.12,
+  // lock-ups build up (2026-11-09; the rear's wheelspin has since 2026-10-28, `spin`): without ABS, wheels asked to brake
+  // harder than their tyres grip slow down through their inertia instead of locking in one step; the braking force stays
+  // full up to the tyre's peak slip ratio `peak` (0 rolling .. 1 locked), then falls to slideLong by `fall` (a sliding
+  // tyre), the cornering grip with it to lockLateral. `mass`: the car's mass / the two front wheels' inertia at the tyre
+  // (wheel, tyre, disc: ~0.8 kg·m² each at 0.36 m ≈ 12 kg for both: ~60, assumed); `rearMass`: the rears turn the
+  // drivetrain too (in gear under braking: the engine's ~0.05–0.08 kg·m² × the overall ratio², + wheels and discs ≈ 30–80 kg
+  // at the tyre, estimated: ~15; spin.mass 6 was tuned for pulling away). Only without ABS (ABS keeps the tyres under their limit: nothing changes). With the fronts alone building
+  // up (the rears still locking at once) trail braking spun the car: the fronts kept braking at their peak, more load went
+  // forward and the light rears locked (200 km/h, 30 % pedal + 30 % tilt: 36°).
+  lock: Object.freeze({ peak: 0.12, fall: 0.4, mass: 60, rearMass: 15, minSpeed: 5 }),
   maxSteer: 0.3,        // rad of road-wheel angle at full lock (no steering assist)
   // player analog steering at speed (driving.js, inp.calm 0..1): the slope near the centre is cut so a small tilt
   // turns the car like the original game (37 m/s² at full tilt; the tyres give ~1.35× their share at small angles,
@@ -380,6 +394,8 @@ export const AI_CAR = Object.freeze({
     slideDrift: 0.14,      // rad of drift above which it only touches the throttle (none by twice that)
     react: 0.12,           // s: it feels the rears starting to spin (feelAt × CHASSIS.spin.peak) and sliding this late
     feelAt: 0.7,
+    lockAt: 1.0,           // the fronts locking under braking (CHASSIS.lock): past this share of their peak slip it eases off (0.7: it eased off
+                           // while the tyres still braked at full force, and the Formula E ALIEN hit Marrow's wall)
     ease: 3,               // /s: easing off the throttle while it still feels them spinning
     rise: 3 }),            // /s: the throttle goes on at most this fast
   alien: Object.freeze({

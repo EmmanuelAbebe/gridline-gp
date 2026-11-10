@@ -77,6 +77,9 @@ export function createCar(track, driver, slot, rng, spec = STOCK) {
     // player driving (driving.js drivePlayer): smoothed steering input (null until the first player step); the steering
     // assist's state (steer-assist.js: self-steer, limit in degrees, countersteer share; null until it first steers)
     // padAssist = the steering assist's preset steering this step ('' = none: the leaderboard shows the lap with it)
+    // relaxF / relaxR (chassis.js): the slip angle each axle's tyres work at with their lag (null = start from the wheel's own)
+    relaxF: /** @type {number} */ (null), relaxR: /** @type {number} */ (null),
+    frontLock: 0, rearLock: 0,  // chassis.js: each axle's slip ratio under braking 0 (rolling) .. 1 (locked) (CHASSIS.lock)
     steerIn: null, padAssist: '', sa: /** @type {{ self: number, limit: number, counter: number }} */ (null),
     // AI (driving.js driveAI): line offset, own line bias, mistake = share too fast until mistakeEnd, passing,
     // dirtyK = corner-speed factor in dirty air (smoothed); racecraft: pressure 0..1 (a car close behind), defending

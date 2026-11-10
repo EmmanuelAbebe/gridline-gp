@@ -240,14 +240,18 @@ test('engine braking: more slows the car harder on a lift and, at the limit, mak
   const calm = lift(6), loose = lift(11);
   assert.ok(calm < 3 && loose > 6, `lift at the limit: stock ${calm.toFixed(1)}°, most engine braking ${loose.toFixed(1)}°`);
 });
-test('brake migration: on a rear-biased balance none spins the car trail braking, the stock 5 % holds it', () => {
+// (since 2026-11-09 lock-ups build up through the wheels' inertia (CHASSIS.lock): a rear passing its limit locks over a
+// few tenths, so easing off the pedal catches it; before, it locked in one step and none spun the car: 19.5°)
+test('brake migration: on a rear-biased balance none lets the rears lock trail braking, the stock 5 % keeps them rolling', () => {
   const trail = migration => {
-    const { race, c } = setupCar({ migration, brakes: 53 }, 260, 7); let mx = 0;
-    for (let i = 0; i < 240; i++) { const k = i / 240; race.t += DT; S.drivePlayer(race, c, { thr: 0, brk: 0.6 - 0.5 * k, steer: 0.3 * k, analog: true }, DT); mx = Math.max(mx, driftDeg(c)); }
-    return mx;
+    const { race, c } = setupCar({ migration, brakes: 53 }, 260, 7); let mx = 0, locked = 0, slip = 0;
+    for (let i = 0; i < 240; i++) { const k = i / 240; race.t += DT; S.drivePlayer(race, c, { thr: 0, brk: 0.6 - 0.5 * k, steer: 0.3 * k, analog: true }, DT);
+      mx = Math.max(mx, driftDeg(c)); if (c.lockR) locked += DT; slip = Math.max(slip, c.rearLock); }
+    return { mx, locked, slip };
   };
   const none = trail(0), stock = trail(5), most = trail(10);
-  assert.ok(none > 8 && stock < 3 && most <= stock, `max drift: 0 % ${none.toFixed(1)}°, 5 % ${stock.toFixed(1)}°, 10 % ${most.toFixed(1)}°`);
+  assert.ok(none.locked > 0.1 && stock.locked === 0 && most.slip <= stock.slip, `rears locked: 0 % ${none.locked.toFixed(2)} s, 5 % ${stock.locked.toFixed(2)} s; slip 10 % ${most.slip.toFixed(2)} ≤ 5 % ${stock.slip.toFixed(2)}`);
+  assert.ok(none.mx > stock.mx && none.mx < 10, `max drift: 0 % ${none.mx.toFixed(1)}° (a twitch, caught), 5 % ${stock.mx.toFixed(1)}°`);
 });
 test('differential: stock changes nothing; mid-corner open rotates, locked holds; on the throttle open loses traction, locked gains it', () => {
   const run = (setup, kmh, gear, secs, inp, assists = 'off') => {

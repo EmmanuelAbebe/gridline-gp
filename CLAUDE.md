@@ -1108,6 +1108,28 @@ showed MODIFIED only because of it).
   model and sound. Smoke: out-menu-car.png (COMPARE on; GRIDLINE_SMOKE_CLASS picks the car in the CAR step), the garage
   shot on its Car tab.
 
+## Tyre lag and lock-ups that build up (2026-11-09; user: "part 2 building the tyres", after comparing with
+## github.com/AgentiLoop/F1 and github.com/KhazP/librecorsa)
+- Relaxation length `CHASSIS.relax` 0.12 m (chassis.js: each axle's slip angle follows the kinematic one over that
+  much travel, exactly; car relaxF / relaxR, reset in the kinematic / air / beached branches; null = off). LibreCorsa's F1
+  tyre 0.12 (assumed), its GT3 0.10 (AC data); AgentiLoop 0.45. Measured: no change at F1 speeds (yaw rise 25 ms at
+  250–300 km/h with or without, even 0.45 m), AI laps ±0.1 s: the first game's "progressive" feel was its steering limit,
+  a road-wheel rate limit and heavier yaw inertia, not tyre lag.
+- Lock-ups build up `CHASSIS.lock` {peak 0.12, fall 0.4, mass 60, rearMass 15}: without ABS a braking axle's slip ratio
+  (car frontLock / rearLock 0..1) rises with the brake beyond the grip through the wheels' inertia (`lockStep`; rear = the
+  drivetrain too) and falls back once the tyres give more; force full to `peak`, down to slideLong by `fall`, cornering to
+  lockLateral; c.lockF / lockR only past the peak. ABS never passes the limit: unchanged. Front-only spun trail braking
+  (the rears still locked at once: 36° at 200 km/h, 30 % pedal + tilt), hence both axles; rearMass 25 stayed locked.
+  Measured (no ABS): 300 km/h 80 % pedal locks after 367 ms (was 8), full pedal 50 ms; 300 → 80 km/h at full pedal 114 m
+  (was 119); trail-braking ≤ 2.5°; brake migration now decides whether the rears lock (0 %: 0.28 s, 5 %: none), a 4–5°
+  twitch at worst, not a spin (the migration test and the garage text say so).
+- AI without ABS (driving.js feelPedals): feels the fronts locking past `ai.feel.lockAt` 1.0 × the peak slip; while they
+  are locked, off the pedal until they roll (a light pedal kept a cornering wheel locked: the ALIEN on cold tyres at
+  Elkmoor). Fixed on the way: the throttle's rise limit compared the pedal with a torque request (it compounded: 0.23 →
+  0.76 in 30 ms; Formula E LEGEND spun out of a Marrow hairpin). Formula E ALIEN paceOff northfold 1.10, harrow 1.04.
+  Known: without ABS Formula E rivals are 0.4–1 s a lap slower on slow circuits (the old AI locked its fronts 5–6 s a race
+  and its lock-ups offset its over-braking; now it drives what it plans: hairpin entries a few km/h slow); F1 ±0.3 s.
+
 ## Steering assist for phones and pads (2026-11-09; user found their old phone wheel felt better in two other browser
 ## games, github.com/AgentiLoop/F1 and github.com/KhazP/librecorsa: both limit a pad's steering at speed)
 - SIM `steer-assist.js` (adapted from LibreCorsa's steering-assist.ts ← AC Advanced Gamepad Assist, MIT: CREDITS.md):

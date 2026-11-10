@@ -23,7 +23,7 @@ const SETUP_UI = [
   }],
   ['brakes', 'Brakes', {
     brakes: { label: 'Brake balance', fmt: v => v.toFixed(1) + ' % front', lo: 'Toward the rear: rotates the car into corners; without ABS the rears can lock and spin it.', hi: 'Toward the front: the fronts lock first (straight on, safe), longer stops.' },
-    migration: { label: 'Brake migration', fmt: v => v + ' %', isNew: true, lo: 'The balance stays put as you come off the pedal: the rear stays busy while trail braking (less than 5 % can spin a rear-biased car).', hi: 'The balance moves forward as you ease off the pedal: a calmer rear when trail braking, more understeer and front locking toward the apex.' },
+    migration: { label: 'Brake migration', fmt: v => v + ' %', isNew: true, lo: 'The balance stays put as you come off the pedal: the rear stays busy while trail braking (less than 5 % can lock the rears of a rear-biased car: the back steps out).', hi: 'The balance moves forward as you ease off the pedal: a calmer rear when trail braking, more understeer and front locking toward the apex.' },
     engineBrake: { label: 'Engine braking', fmt: v => String(v), isNew: true, lo: 'Less drag on the rear wheels when you lift: a calm rear into corners, but the car slows less and harvests less energy.', hi: 'More drag on the rear wheels when you lift: slows harder and charges the battery more, but the rear can step out lifting mid-corner.' },
   }],
   ['diff', 'Differential', {

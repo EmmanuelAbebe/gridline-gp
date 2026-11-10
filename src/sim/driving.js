@@ -106,8 +106,11 @@ function feelPedals(c, thr, brk, dt) {
     // (feelBrake: the share of the tyres' straight-line limit it dares; the pedal for that falls with the speed)
     const straight = Math.abs(c.steer) < 0.1, learning = c.surface === 'track' && c.v > 25;   // (a lock on the grass says nothing)
     const sp = Math.max(c.v, 1), toPedal = brakeLimit(sp, c.spec) / brakeMax(sp, c.spec), share = c.brake / toPedal;
-    if (c.lockF || c.lockR || (c.brake > 0 && c.slideR > F.slide)) {             // (braking with the rear sliding: off it)
-      if (c.lockF && !c.lockR && straight && learning) c.feelBrake = Math.max(F.brakeMin, c.feelBrake * F.cut, Math.min(c.feelBrake, share) * F.cut);
+    // (lock-ups build up, CHASSIS.lock: it feels the fronts starting to lock, past lockAt of the tyres' peak slip, before
+    // they do; 2026-11-09: waiting for the lock itself, the ALIEN on cold tyres without ABS went straight on at Elkmoor)
+    const L = c.spec.cls.chassis.lock, lockingF = c.lockF || (!!L && c.frontLock > F.lockAt * L.peak);
+    if (lockingF || c.lockR || (c.brake > 0 && c.slideR > F.slide)) {             // (braking with the rear sliding: off it)
+      if (lockingF && !c.lockR && straight && learning) c.feelBrake = Math.max(F.brakeMin, c.feelBrake * F.cut, Math.min(c.feelBrake, share) * F.cut);
       c.feelBrakeNow = Math.max(F.floor, Math.min(1, share / c.feelBrake) * F.nowCut);
     } else {
       if (brk > 0 && share >= c.feelBrake * c.feelBrakeNow * 0.98) c.feelBrake = Math.min(F.brakeMax, c.feelBrake + F.learn * dt);
@@ -115,6 +118,9 @@ function feelPedals(c, thr, brk, dt) {
     }
     // trail braking: the more it turns, the less brake (what the tyres give to the corner they can't give to stopping)
     brk = Math.min(brk, c.feelBrake * c.feelBrakeNow * toPedal * (1 - F.trail * Math.min(1, Math.abs(c.steer))));
+    // fronts locked (past the tyres' peak slip): off the pedal until they roll again (a locked wheel while cornering has
+    // almost no grip left to brake with, so a light pedal keeps it locked through the corner: the ALIEN on cold tyres)
+    if (L && c.frontLock > L.peak) brk = 0;
   }
   if (!c.assists.tc) {
     const T = (c.feelThr ||= new Array(10).fill(F.thr)), g = Math.max(0, c.gear);
@@ -141,7 +147,9 @@ function feelPedals(c, thr, brk, dt) {
     // feeding the power in as the cornering eases (the grip left for the drive on the friction circle, by the cornering
     // it feels in the seat), and squeezing it on at a foot's pace (its speed control would stab it from 0 to 0.8)
     const lat = Math.min(1, Math.abs(c.ay) / lateralGrip(Math.max(Math.abs(c.v), 1), c.spec));
-    thr = Math.min(thr, T[g] * Math.max(F.floor, Math.sqrt(1 - lat * lat)), c.thr + F.rise * dt);
+    // (thr here is torque, c.thr the pedal: the pedal's rise as torque, engine.pedalMap; 2026-11-09: compared as it was,
+    // the limit compounded step by step, 0.23 → 0.76 of pedal in 30 ms out of a slow corner, and the rear let go)
+    thr = Math.min(thr, T[g] * Math.max(F.floor, Math.sqrt(1 - lat * lat)), FM.pow(Math.min(1, c.thr + F.rise * dt), c.spec.cls.car.engine.pedalMap));
     // sliding: only a touch of throttle until the car points where it goes again
     const drift = Math.abs(driftAngle(c));
     if (drift > F.slideDrift) thr = Math.min(thr, F.floor * clamp(1 - (drift - F.slideDrift) / F.slideDrift, 0, 1));
