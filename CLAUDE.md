@@ -1392,6 +1392,10 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   circuit = on your car), FOLLOW = your car in the middle; the road with its edges, each lap's own line (yours up to your car,
   the other dashed; `lineOf` = poseAt at each sample's time), dots, the gap line (by time), the next corner's braking (red) /
   full gas (green) points with labels, mini-sectors as a tint, scale bar, inset (`#cmpZoomMini`). Smoke: out-analysis-zoom.png.
+- Ghosts carry the pedals and gear (2026-11-10, ghost.js `pedals`: 3 characters a frame, `ghostPedals`); traceFromGhost
+  gives thr / brk / gear / x / z / h. User: "delete any records that do not have those data": your own ghosts without
+  pedals are left out on load (loadGhosts `own`), a saved best lap without positions or pedals is dropped (expandTrace;
+  the sector times stay); loaded files / online ghosts are kept. Your ghost laps always count toward the bests (bestsFor).
 - Replays of a lap without positions are drawn on times smoothed over ±`REPLAY.smooth` samples (whole sim steps made the car
   pulse up to ±40 % frame to frame); saved bests keep x / z / h / gear since 2026-11-10 (older ones: the racing line + a note).
 - Smoke (GRIDLINE_SMOKE_LAP=1): out-analysis-cmp.png (2D, played), -3d, -tv, -onboard, and from the start menu your best

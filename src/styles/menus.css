@@ -588,6 +588,7 @@ b.faster{color:var(--green)} b.slower{color:#ff6a5e}
 .cmp-tele .v{font-family:var(--display);font-weight:700;font-size:20px;line-height:1.2}
 .cmp-tele .bar{height:10px;border-radius:5px;background:#262d36;overflow:hidden}
 .cmp-tele .bar i{display:block;height:100%;width:0}
+.cmp-tele .na{font-size:12px;color:var(--muted)}
 .cmp-tele .bar.t i{background:var(--green)} .cmp-tele .bar.b i{background:#ff5a4e}
 .cmp-corner{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 64px 64px 62px;align-content:start;gap:3px 8px;padding:10px 14px;background:#12161c;border:1px solid var(--rule);border-radius:4px;font-size:13px}
 .cmp-corner .head{grid-column:span 4;display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px}

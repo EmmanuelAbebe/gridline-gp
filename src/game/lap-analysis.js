@@ -8,7 +8,7 @@
 // pose, which give the same arrays without the pedals. The circuit's split (SIM.buildSectors): corners, mini-sectors
 // (a corner's braking point to the next one's), three sectors.
 import { SIM } from '../sim/index.js';
-import { ghostPose } from './ghost.js';
+import { ghostPose, ghostPedals } from './ghost.js';
 
 export const ANALYSIS = Object.freeze({
   version: 1,
@@ -64,7 +64,8 @@ export const traceFromAi = lap => lap && lap.line?.t ? { time: lap.time, t: lap.
 // a recorded ghost (ghost.js): the splits interpolated to every sample, the speed from its pose
 export function traceFromGhost(g, N) {
   if (!g || !Array.isArray(g.splits)) return null;
-  const t = nanArray(N), kmh = nanArray(N), S = g.split, h = 0.5 / g.hz;
+  const t = nanArray(N), kmh = nanArray(N), S = g.split, h = 0.5 / g.hz, has = !!ghostPedals(g, 0);
+  const thr = has ? nanArray(N) : null, brk = has ? nanArray(N) : null, gear = has ? nanArray(N) : null, x = nanArray(N), z = nanArray(N), hd = nanArray(N);
   for (let i = 0; i < N; i++) {
     const k = Math.floor(i / S), a = g.splits[k], b = (k + 1) * S >= N ? g.time : g.splits[k + 1];
     if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
@@ -73,8 +74,10 @@ export function traceFromGhost(g, N) {
     const end = g.frames.length / 3 / g.hz - 1 / g.hz, ta = Math.min(end - 2 * h, Math.max(1 / g.hz, t[i] - h)), tb = Math.min(end, ta + 2 * h);
     const p = ghostPose(g, ta), q = ghostPose(g, tb);
     if (p && q && tb > ta) kmh[i] = Math.hypot(q.x - p.x, q.z - p.z) / (tb - ta) * 3.6;
+    if (has) { const P = ghostPedals(g, t[i] * g.hz); thr[i] = P.thr; brk[i] = P.brk; gear[i] = P.gear ?? NaN; }
+    const at = ghostPose(g, t[i]); if (at) { x[i] = at.x; z[i] = at.z; hd[i] = at.h; }
   }
-  return { time: g.time, t, kmh, thr: null, brk: null, start: !!g.start };
+  return { time: g.time, t, kmh, thr, brk, x, z, h: hd, ...(has ? { gear } : {}), start: !!g.start };
 }
 
 // ---- times ----
@@ -172,7 +175,10 @@ export function expandTrace(c, N) {
   if (x && z && h) Object.assign(tr, { x, z, h });
   if (gear) tr.gear = gear;
   const within = (a, lo, hi) => a.every(v => !(v < lo || v > hi));          // (NaN = a sample not reached: fine)
-  return within(tr.t, 0, tr.time + 1) && within(tr.kmh, 0, 600) && (!tr.thr || within(tr.thr, 0, 1.05)) && (!tr.brk || within(tr.brk, 0, 1.05)) ? tr : null;
+  // (2026-11-10, user: "delete any records that do not have those data": a best lap saved without where the car went or
+  // without the pedals is dropped; the sector and mini-sector times stay)
+  if (!tr.x || !tr.thr || !tr.brk) return null;
+  return within(tr.t, 0, tr.time + 1) && within(tr.kmh, 0, 600) && within(tr.thr, 0, 1.05) && within(tr.brk, 0, 1.05) ? tr : null;
 }
 // (only a trace in use is compacted: one still as loaded (a circuit not driven this time) is already compact)
 export const storeSectorsJson = store => JSON.stringify({ v: STORE_VERSION, physics: SIM.TUNING.PHYSICS, circuits: store },

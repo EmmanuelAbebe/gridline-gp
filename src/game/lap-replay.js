@@ -77,7 +77,7 @@ export function replayOf(trace, track, ghost = null) {
     const p = (ghost && ghostPose(ghost, T)) || (hasXZ && fromTrace(s)) || centre(sampleOn(tp, T));
     return { ...p, s };
   }
-  return { time, ti, N, sampleAt, timeAt, valueAt, poseAt, source: ghost ? 'ghost' : hasXZ ? 'trace' : 'centre',
+  return { time, ti, N, sampleAt, timeAt, valueAt, poseAt, source: ghost ? 'ghost' : hasXZ ? 'trace' : 'centre', pedals: !!(trace.thr && trace.brk),
     kmh: s => valueAt(trace.kmh, s), thr: s => valueAt(trace.thr, s), brk: s => valueAt(trace.brk, s),
     gear: s => { const g = trace.gear?.[Math.min(N - 1, Math.round(clamp(s, 0, N - 1)))]; return Number.isFinite(g) && g > 0 ? g : null; } };
 }

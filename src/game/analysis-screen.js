@@ -175,10 +175,12 @@ export function createAnalysis({ game, sectors, aiLapOf, track, models }) {
     $('cmpTele').innerHTML = `<span></span><span class="who"><i class="ana-dot me"></i>YOU</span><span class="who"><i class="ana-dot ref"></i>${C.name}</span>`
       + row('km/h', '<b class="v" data-k="kmhMe"></b>', '<b class="v" data-k="kmhRef"></b>')
       + row('Gear', '<b class="v" data-k="gearMe"></b>', '<b class="v" data-k="gearRef"></b>')
-      + row('Throttle', '<span class="bar t"><i data-k="thrMe"></i></span>', '<span class="bar t"><i data-k="thrRef"></i></span>')
-      + row('Brake', '<span class="bar b"><i data-k="brkMe"></i></span>', '<span class="bar b"><i data-k="brkRef"></i></span>');
+      + row('Throttle', bar(C.me, 't', 'thrMe'), bar(C.ref, 't', 'thrRef'))
+      + row('Brake', bar(C.me, 'b', 'brkMe'), bar(C.ref, 'b', 'brkRef'));
   }
-  const tele = k => $('cmpTele').querySelector(`[data-k="${k}"]`);
+  // a pedal's bar, or for a lap recorded without pedals (a ghost from before 2026-11-10: positions only) a word saying so
+  const bar = (R, cls, k) => R.pedals ? `<span class="bar ${cls}"><i data-k="${k}"></i></span>` : '<span class="na">not recorded</span>';
+  const tele = k => $('cmpTele').querySelector(`[data-k="${k}"]`) ?? { style: {}, textContent: '' };
   const pct = v => v === null ? '0%' : Math.round(Math.max(0, Math.min(1, v)) * 100) + '%';
   function nextCorner(s) {
     const L = D.L; let k = L.corners.findIndex(c => c.apex >= s); if (k < 0) k = 0;

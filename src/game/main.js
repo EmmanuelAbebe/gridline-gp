@@ -95,7 +95,7 @@ const game = {
   aeroZones: loadAeroZones(Settings.get(CONFIG.storageKeys.aeroZones), SIM.CIRCUITS),   // your straight-mode zones per circuit   // what each controller button does (Settings → Buttons)
   records: loadRecords(Settings.get(CONFIG.storageKeys.records)), // best valid lap per circuit, stock and modified apart
   // ghost laps (ghost.js): your best per circuit and class, and ones loaded from a file; game.ghost = the one shown
-  ghosts: loadGhosts(Settings.get(CONFIG.storageKeys.ghosts), SIM.CIRCUITS), loadedGhosts: loadGhosts(Settings.get(CONFIG.storageKeys.ghostsLoaded), SIM.CIRCUITS),
+  ghosts: loadGhosts(Settings.get(CONFIG.storageKeys.ghosts), SIM.CIRCUITS, { own: true }), loadedGhosts: loadGhosts(Settings.get(CONFIG.storageKeys.ghostsLoaded), SIM.CIRCUITS),
   ghost: null, ghostStart: null, trial: false, rival: null,   // rival: a live AI ghost (ai-ghosts.js createRival)
   lights: { t: 0, lit: 0, hold: 0 }, resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
   towerT: 0, mapT: 0, slowWindows: 0, acc: 0, carsDirty: false,

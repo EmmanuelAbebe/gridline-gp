@@ -3,18 +3,29 @@
 // GHOST.split track samples (for the live delta). Kept per circuit, car class (stock / modified, like the lap records)
 // and straight-mode zone layout (`zones`: aero-zones.js zoneTag, '' = automatic): your best, and one loaded from a file
 // (a friend's).
+// Since 2026-11-10 a ghost also carries the driver's pedals and gear at each frame (`pedals`: a string, 3 characters a
+// frame: throttle and brake in 5 % steps, gear; PEDALS), for the lap comparison's throttle / brake / gear readouts.
+// Older ghosts and files have none.
 import { SIM } from '../sim/index.js';
 import { lapClass, LAP_CLASS } from './aero-zones.js';
 import { playerClass } from './car-class.js';
 
 export const GHOST = Object.freeze({ hz: 20, split: 20, version: 1, maxFrames: 20 * 600 });
+const PEDALS = Object.freeze({ base: 48, steps: 20 });      // char = base + value (pedal × steps, gear)
+const pedalChar = v => String.fromCharCode(PEDALS.base + Math.max(0, Math.min(PEDALS.steps, Math.round(v * PEDALS.steps))));
+// a ghost's pedals at frame f: { thr, brk, gear } or null (none recorded)
+export function ghostPedals(g, f) {
+  const P = g.pedals; if (typeof P !== 'string' || P.length !== g.frames.length) return null;
+  const i = Math.max(0, Math.min(g.frames.length / 3 - 1, Math.round(f))) * 3, at = k => P.charCodeAt(i + k) - PEDALS.base;
+  return { thr: at(0) / PEDALS.steps, brk: at(1) / PEDALS.steps, gear: at(2) || null };
+}
 
 // Records the lap in progress; start() at each crossing of the line, sample() every sim step, lap() when the lap is
 // done → a ghost (or null for a lap too short to be real).
 export function createRecorder() {
-  let frames = [], splits = [], t0 = 0, next = 0, lastSplit = -1, on = false;
+  let frames = [], splits = [], pedals = '', t0 = 0, next = 0, lastSplit = -1, on = false;
   return {
-    start(t) { frames = []; splits = []; t0 = t; next = 0; lastSplit = -1; on = true; },
+    start(t) { frames = []; splits = []; pedals = ''; t0 = t; next = 0; lastSplit = -1; on = true; },
     stop() { on = false; },
     get recording() { return on; },
     // c: the car (x, z, h, idx); t: race time
@@ -25,6 +36,7 @@ export function createRecorder() {
       if (lt + 1e-9 >= next && frames.length < GHOST.maxFrames * 3) {
         const r = (v, k) => Math.round(v * k) / k + 0;        // (+ 0: no -0, which a file can't keep)
         frames.push(r(c.x, 100), r(c.z, 100), r(c.h, 1000));
+        pedals += pedalChar(c.thr) + pedalChar(c.brake) + String.fromCharCode(PEDALS.base + Math.max(0, Math.min(9, c.gear | 0)));
         next += 1 / GHOST.hz;
       }
     },
@@ -32,7 +44,7 @@ export function createRecorder() {
     lap(time, meta) {
       on = false;
       if (frames.length < 3 * GHOST.hz * 5 || !(time > 0)) return null;
-      return { v: GHOST.version, physics: SIM.TUNING.PHYSICS, time, ...meta, date: meta.date ?? null, hz: GHOST.hz, split: GHOST.split, frames, splits };
+      return { v: GHOST.version, physics: SIM.TUNING.PHYSICS, time, ...meta, date: meta.date ?? null, hz: GHOST.hz, split: GHOST.split, frames, splits, pedals };
     },
   };
 }
@@ -94,12 +106,14 @@ export function validGhost(g, circuits) {
 const fromStill = g => Math.hypot(g.frames[3] - g.frames[0], g.frames[4] - g.frames[1]) < 0.1;   // (from still: ~1 cm; flying: > 0.7 m)
 const slot = (modified, start, zones = '', car = 'f1') => lapClass(modified, zones, car) + (start ? ':start' : '');
 const isSlot = k => LAP_CLASS.test(k.replace(/:start$/, ''));
-export function loadGhosts(json, circuits) {
+// own: your own ghosts (2026-11-10, user: "delete any records that do not have those data"): one recorded without the
+// pedals is left out (and so gone at the next save); loaded files and online laps are kept either way
+export function loadGhosts(json, circuits, { own = false } = {}) {
   let s; try { s = JSON.parse(json); } catch (e) { return {}; }
   const out = {};
   if (s && typeof s === 'object') for (const [id, r] of Object.entries(s)) for (const k of r && typeof r === 'object' ? Object.keys(r) : []) {
     const g = isSlot(k) && expandGhost(r[k]);
-    if (!validGhost(g, circuits) || g.circuit !== id) continue;
+    if (!validGhost(g, circuits) || g.circuit !== id || (own && !ghostPedals(g, 0))) continue;
     g.start = typeof g.start === 'boolean' ? g.start : fromStill(g);
     keepGhost(out, g);                             // (an old save's standing lap moves to its own slot)
   }

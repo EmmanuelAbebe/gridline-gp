@@ -104,3 +104,43 @@ test('a replayed car moves smoothly frame to frame, with or without positions of
     assert.ok(worst < 0.1, `${R.source}: ${(worst * 100).toFixed(0)} % frame to frame`);
   }
 });
+
+test('a ghost keeps your throttle, brake and gear, saved and loaded, and the comparison reads them', async () => {
+  const { createRecorder, compactGhost, expandGhost, ghostPedals } = await import('../src/game/ghost.js');
+  const { traceFromGhost } = await import('../src/game/lap-analysis.js');
+  const race = SIM.createRace({ type: 'unlimited' }, { track: T, drivers: SIM.DRIVERS.filter(d => d.player), seed: 3 }), c = race.cars[0], rec = createRecorder();
+  let g = null, laps = 0;
+  rec.start(0);
+  while (!g && race.t < 200) {
+    race.t += 1 / 120; SIM.driveAI(race, c, 1 / 120, 0.9);
+    for (const e of c.events) if (e.type === SIM.EV.LAP && ++laps === 2) g = rec.lap(e.time, {}); else if (e.type === SIM.EV.LAP) rec.start(c.lapStart);
+    c.events.length = 0; rec.sample(c, race.t);
+  }
+  assert.ok(g && g.pedals.length === g.frames.length);
+  const back = expandGhost(JSON.parse(JSON.stringify(compactGhost(g))));
+  assert.equal(back.pedals, g.pedals);
+  const tr = traceFromGhost(back, N), R = replayOf(tr, T, back);
+  assert.ok(R.pedals);
+  let braked = 0, full = 0;
+  for (let i = 0; i < N; i += 5) { if (tr.brk[i] > 0.5) braked++; if (tr.thr[i] > 0.95) full++; assert.ok(tr.gear[i] >= 1 && tr.gear[i] <= 8); }
+  assert.ok(braked > 3 && full > 50, `${braked} braking, ${full} flat out`);
+  assert.equal(ghostPedals({ frames: [0, 0, 0] }, 0), null, 'an old ghost: none');
+  assert.equal(replayOf({ ...tr, thr: null, brk: null }, T).pedals, false);
+});
+
+test('your own saved laps without the path or the pedals are dropped; loaded ones are kept', async () => {
+  const { loadGhosts, compactGhost, storeJson } = await import('../src/game/ghost.js');
+  const { compactTrace, expandTrace } = await import('../src/game/lap-analysis.js');
+  // a best lap: kept with positions and pedals, dropped without either
+  assert.ok(expandTrace(JSON.parse(JSON.stringify(compactTrace(alien))), N));
+  assert.equal(expandTrace(JSON.parse(JSON.stringify(compactTrace({ ...alien, x: null }))), N), null);
+  assert.equal(expandTrace(JSON.parse(JSON.stringify(compactTrace({ ...alien, thr: null, brk: null }))), N), null);
+  // a ghost without pedals: gone from your own store, kept as a loaded file
+  const frames = []; for (let i = 0; i < 400; i++) frames.push(T.PX[i * 3 % N], T.PZ[i * 3 % N], 0);
+  const g = { v: 1, physics: SIM.TUNING.PHYSICS, time: 20, circuit: T.id, modified: false, hz: 20, split: 20, frames, splits: [0, 1, 2], start: false };
+  const json = storeJson({ [T.id]: { stock: g } });
+  assert.equal(loadGhosts(json, SIM.CIRCUITS, { own: true })[T.id], undefined);
+  assert.ok(loadGhosts(json, SIM.CIRCUITS)[T.id].stock);
+  const withPedals = { ...g, pedals: '0' .repeat(frames.length) };
+  assert.ok(loadGhosts(JSON.stringify({ [T.id]: { stock: compactGhost(withPedals) } }), SIM.CIRCUITS, { own: true })[T.id].stock);
+});
