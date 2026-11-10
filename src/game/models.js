@@ -5,6 +5,7 @@ import pitsGlb from './models/pits.glb?url';
 import standsGlb from './models/stands.glb?url';
 import tracksideGlb from './models/trackside.glb?url';
 import carGlb from './models/car.glb?url';
+import feGlb from './models/fe.glb?url';
 import driverGlb from './models/driver.glb?url';
 
 // Models made in Blender (tools/blender/*.py, `npm run models`), packed into the page as data URLs and loaded once at
@@ -19,9 +20,10 @@ import driverGlb from './models/driver.glb?url';
 //   geometries carry its seat layout in userData, from the glTF extras).
 //   Models.trackside = { post, truss, lights, marshal, tvtower, brakeboard, advert: { [role]: geometry } } (trackside.py).
 //   Models.car = the 2026 car's glTF scene (tools/blender/car.py; car-glb.js clones it per car).
+//   Models.fe = the electric car's (GP ELECTRIC, class 'fe': tools/blender/fe.py), the same names and roles as car.glb.
 //   Models.driver = { scene, clip } (tools/blender/cockpit.py: the driver, helmet and steering wheel in the 2026 car's frame;
 //   clip 'steer' = the arms on the wheel from full left to full right; car-glb.js clones it per car).
-export const Models = { trees: null, treeMaps: null, pits: null, stands: null, trackside: null, car: null, driver: null };
+export const Models = { trees: null, treeMaps: null, pits: null, stands: null, trackside: null, car: null, fe: null, driver: null };
 
 const KIND = { spruce: 'cone', broad: 'ball' };   // the .glb's tree names (spruce_a ...) → theme kinds
 
@@ -52,6 +54,7 @@ export async function loadModels() {
   Models.stands = modules(await parse(standsGlb));
   Models.trackside = modules(await parse(tracksideGlb));
   Models.car = (await parse(carGlb)).scene;
+  Models.fe = (await parse(feGlb)).scene;
   const drv = await parse(driverGlb);
   drv.scene.traverse(o => { if (o.isMesh && o.material.map) o.material.map.encoding = THREE.LinearEncoding; });
   Models.driver = { scene: drv.scene, clip: drv.animations.find(a => a.name === 'steer') };

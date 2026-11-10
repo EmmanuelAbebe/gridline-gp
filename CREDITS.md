@@ -13,6 +13,18 @@ Changes made for the game (tools/blender/qvist.py): turned into the game's frame
 own colours and liveries, given brake lights, a helmet, a steering wheel and the driver's anchor points. The game's
 own licence (LICENSE) does not cover this model: it stays under CC-BY-4.0.
 
+## The electric car (GP ELECTRIC)
+
+This work is based on "Formula E [Jaguar I Type-4]"
+(https://sketchfab.com/3d-models/formula-e-jaguar-i-type-4-c722e175f91240a88eec2d777b6d503f) by 3dblenderlol
+(https://sketchfab.com/3dblenderlol) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/).
+
+Changes made for the game (tools/blender/fe.py → src/game/models/fe.glb): the team's and sponsors' logos and the model's
+own steering wheel removed, scaled to the game's electric car (2.97 m wheelbase) and turned into the game's frame, cut
+down from about 296,000 to about 52,000 triangles, every part given one of the game's paint roles (painted in each
+car's own livery), the wheels, mirrors, rear light and front wing halves split into the parts the game moves, the
+driver's anchor points added. The game's own licence (LICENSE) does not cover this model: it stays under CC-BY-4.0.
+
 ## The driver, helmet and steering wheel (2026 car)
 
 The driver is based on "race driver" (https://sketchfab.com/3d-models/race-driver-e4e97df9865d466c8359fbb23e757308)

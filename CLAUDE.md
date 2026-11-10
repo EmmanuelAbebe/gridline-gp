@@ -1107,6 +1107,18 @@ showed MODIFIED only because of it).
   an electric car its numbers (they were null: powerK) with the AWD start. The electric car still shows the hybrid's 3D
   model and sound. Smoke: out-menu-car.png (COMPARE on; GRIDLINE_SMOKE_CLASS picks the car in the CAR step), the garage
   shot on its Car tab.
+- The electric car's 3D model (2026-11-10; user picked "Formula E [Jaguar I Type-4]" by 3dblenderlol, CC-BY, from the
+  model shortlist artifact; the CLeN Nissan Gen2 lowpoly kept as a fallback in ~/Downloads/fe-nissan-gen2): tools/blender/
+  fe.py (`run.sh fe stage=build [preview=dir]`; stage=probe / mats list the download's parts and materials) →
+  src/game/models/fe.glb (52k triangles, 3.2 MB). Scale 2.97 / 3.25 = the class's wheelbase (width 1.74 m), parts mapped
+  to the roles by their material (MAT_ROLE / OBJ_ROLE; logos and the model's steering wheel dropped), welded before
+  cutting down (the parts are loose triangles), wheels = tyre (rubber past 0.70 of the radius, metal inside) + brake disc
+  and caliper; fw_main_l / _r, mirror_glass_l / _r, rain_light; no movers (no active aero on the class). `driver_at` =
+  the F1's driver (driver.glb) moved into this cockpit (its wheel 0.14 m back, 2 cm lower); eye, steer, grips moved alike.
+  Game: models.js Models.fe; car-models.js templateOf() = the class's model (Blender kind only), classChanged() swaps
+  every car (main.js after setPlayerClass); car-glb.js seatDriver(at). tests/models.test.js "fe.glb". Not done: its own
+  hitbox (still the F1's 5.44 m on a 4.6 m car), its sound, the halo's attack-mode LEDs. Other downloads parked for
+  later classes: ~/Downloads/kart-modular, kart-f9, f2-concept, sanremo-70 (all CC-BY).
 
 ## Tyre lag and lock-ups that build up (2026-11-09; user: "part 2 building the tyres", after comparing with
 ## github.com/AgentiLoop/F1 and github.com/KhazP/librecorsa)

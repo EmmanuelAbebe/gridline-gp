@@ -92,6 +92,26 @@ test('car.glb: the 2026 car (Qvist_designs, CC-BY) on the physics\' wheelbase, t
   assert.match(JSON.stringify(j.asset), /Qvist_designs|CC-BY/, 'the credit travels with the file');
 });
 
+// the electric car (GP ELECTRIC: tools/blender/fe.py from "Formula E [Jaguar I Type-4]", CC-BY): the same names and roles
+// car-glb.js drives the F1's by, on its class's wheelbase, the team's logos gone, and where the F1's driver goes in it
+test('fe.glb: the electric car on its class\'s wheelbase, the parts the game moves, no team logos, within budget', () => {
+  const j = glbJson('../src/game/models/fe.glb'), byName = new Map(j.nodes.map(n => [n.name, n])), FE = SIM.classOf('fe');
+  for (const name of ['body', 'wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr', 'fw_main_l', 'fw_main_r', 'steer', 'grip_l', 'grip_r', 'screen', 'eye',
+    'driver_at', 'mirror_glass_l', 'mirror_glass_r', 'rain_light']) assert.ok(byName.has(name), `${name} is there`);
+  const at = n => byName.get(n).translation ?? [0, 0, 0];
+  assert.ok(Math.abs(at('wheel_fl')[0] - at('wheel_rl')[0] - FE.chassis.wheelbase) < 0.02, `wheelbase ${at('wheel_fl')[0] - at('wheel_rl')[0]}`);
+  assert.ok(at('wheel_fr')[2] > 0 && at('wheel_fl')[2] < 0, 'right = +z');
+  assert.ok(Math.abs(at('wheel_fl')[1] - at('wheel_rl')[1]) < 0.01 && at('wheel_fl')[1] > 0.25 && at('wheel_fl')[1] < 0.36, 'axles at the tyres\' radius');
+  assert.ok(at('eye')[1] > 0.6 && at('eye')[1] < 0.8 && Math.abs(at('driver_at')[0]) < 0.3, 'the driver moved into its cockpit');
+  assert.ok(byName.get('fw_main_l').extras?.side === -1 && byName.get('fw_main_r').extras?.side === 1, 'front wing halves, sides');
+  const roles = new Set(j.materials.map(m => m.name));
+  for (const r of ['paint_main', 'paint_accent', 'carbon', 'rubber', 'metal', 'light', 'glass']) assert.ok(roles.has(r), `material ${r}`);
+  assert.ok(![...roles].some(r => /jaguar|panasonic|julius|formulae/i.test(r)) && !j.images?.length, 'no logos, no textures: the livery is ours');
+  const tris = j.meshes.reduce((t, m) => t + m.primitives.reduce((s, p) => s + j.accessors[p.indices].count / 3, 0), 0);
+  assert.ok(tris < 60000, `${tris} triangles`);
+  assert.match(JSON.stringify(j.asset), /3dblenderlol|CC-BY/, 'the credit travels with the file');
+});
+
 test('driver.glb: the driver (skinned, a steering clip), the helmet and the steering wheel, in the 2026 car\'s seat', () => {
   const j = glbJson('../src/game/models/driver.glb'), byName = new Map(j.nodes.map(n => [n.name, n]));
   for (const name of ['helmet', 'wheel', 'wheel_screen', 'Head_06', 'LeftHand_013', 'RightHand_036']) assert.ok(byName.has(name), `${name} is there`);

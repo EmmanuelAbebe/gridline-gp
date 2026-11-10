@@ -8,7 +8,8 @@ import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 //   (brake lights), glass, dark; wheel_fl/fr/rl/rr = axle centres (spin about z, the fronts steer about y);
 //   fw_flap1, fw_flap2, rw_flap (extras.open = degrees in straight mode, turned about their hinge, z);
 //   steer (turns about x) with grip_l / grip_r / screen; mirror_glass_l / _r; extras.show 'outside' = hidden in the
-//   cockpit view (the helmet). The driver, helmet and steering wheel come from models/driver.glb (seatDriver).
+//   cockpit view (the helmet). The driver, helmet and steering wheel come from models/driver.glb (seatDriver), posed in the
+//   F1's cockpit; driver_at (fe.glb) = where that driver goes in another model's.
 // Every mesh's COLOR_0 = Blender's baked ambient occlusion; the materials multiply it.
 const ROLE_COLOURS = { carbon: 0x101114, rubber: 0x0b0b0c, metal: 0x8a8d92, glass: 0x1a2128, dark: 0x050506 };
 const shared = { quality: {}, fast: {} };
@@ -19,8 +20,10 @@ const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), fwd = new THREE.
 
 // one car's driver: a clone of the skinned driver in the car's frame, the steering wheel moved onto the car's steer node
 // (which turns it), the helmet hung on the head bone (it was placed on the head in Blender: attach keeps where it is)
-function seatDriver(t, model, steer) {
-  const group = SkeletonUtils.clone(t.scene); model.add(group); model.updateMatrixWorld(true);
+function seatDriver(t, model, steer, at) {
+  const group = SkeletonUtils.clone(t.scene); model.add(group);
+  if (at) group.position.copy(at);         // (a model whose seat isn't the F1's: its driver_at, before the wheel moves over)
+  model.updateMatrixWorld(true);
   const wheel = [];
   const holder = group.getObjectByName('wheel');
   if (holder && steer) for (const c of [...holder.children]) { steer.attach(c); wheel.push(c); }
@@ -81,7 +84,7 @@ export function createGlbCar(scene, driverIn, design, ctx) {
   const wingGone = [false, false];
   for (const [k, list] of wingHalves.entries()) for (const o of list) o.traverse(x => { x.userData.wing = k; });
   const steer = node('steer'), grips = ['grip_r', 'grip_l'].map(n => node(n)?.position.clone() ?? new THREE.Vector3());
-  const seated = ctx.driverTemplate?.clip ? seatDriver(ctx.driverTemplate, model, steer) : null;
+  const seated = ctx.driverTemplate?.clip ? seatDriver(ctx.driverTemplate, model, steer, node('driver_at')?.position) : null;
 
   // per-car materials: the livery's paint, the rims, the brake lights; the rest shared per graphics profile
   const light = new THREE.MeshBasicMaterial({ color: ctx.LIGHT_OFF.clone() });

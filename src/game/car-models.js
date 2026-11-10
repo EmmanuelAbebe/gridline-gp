@@ -296,7 +296,11 @@ export const CarModels = (() => {
   // ---- the stand-in every caller holds: remembers what was set, so a swap to the other kind looks the same
   let kind = 'classic';
   const live = new Set(), kindListeners = new Set();
-  const glbCtx = () => ({ debris: Debris, eyeShift: eyeShift(), template: Models.car, driverTemplate: Models.driver, env, glow, SHADOW_GEO, SHADOW_MAT, GLOW_GEO, LIGHT_OFF, LIGHT_ON, FINISH_LOOKS, FRONT_STEER, DEG, createDriverBody, markShadows });
+  // the Blender model of the car class you race (every car in a race is of that class): the electric car's own body
+  // (fe.glb), else the F1's
+  const templateOf = () => (playerClass().id === 'fe' && Models.fe) || Models.car;
+  let template = null;
+  const glbCtx = () => ({ debris: Debris, eyeShift: eyeShift(), template: (template = templateOf()), driverTemplate: Models.driver, env, glow, SHADOW_GEO, SHADOW_MAT, GLOW_GEO, LIGHT_OFF, LIGHT_ON, FINISH_LOOKS, FRONT_STEER, DEG, createDriverBody, markShadows });
   function create(scene, driver, design) {
     const st = { design, livery: null, mats: null, shadows: true, visible: true, cockpit: false, screen: null, service: null, pedals: [0, 0] };
     const make = () => kind === '2026' && Models.car ? createGlbCar(scene, driver, st.design, glbCtx()) : createClassic(scene, driver, st.design);
@@ -338,11 +342,17 @@ export const CarModels = (() => {
     for (const w of live) w.swap();
     for (const fn of kindListeners) fn(k);
   }
+  // the player's car class changed (main.js pickClass): the Blender cars turn into that class's model
+  function classChanged() {
+    if (kind !== '2026' || templateOf() === template) return;
+    for (const w of live) w.swap();
+    for (const fn of kindListeners) fn(kind);
+  }
 
   // the classic car's seat (design-defaults: the cockpit camera's back 0.33 / height 0.77, driver-body.js); a model
   // with its own `eye` puts the driver, the cockpit camera and the mirrors' viewpoint that far from it
   const CLASSIC_EYE = [-0.33, 0.77];
-  const eyeShift = () => { const e = kind === '2026' && Models.car?.getObjectByName('eye')?.position; return e ? [e.x - CLASSIC_EYE[0], e.y - CLASSIC_EYE[1]] : [0, 0]; };
+  const eyeShift = () => { const e = kind === '2026' && templateOf()?.getObjectByName('eye')?.position; return e ? [e.x - CLASSIC_EYE[0], e.y - CLASSIC_EYE[1]] : [0, 0]; };
   // The cars' hitbox for a race (SIM createRace hitbox): the 2026 car's is its class's, measured (the F1's hitbox); the classic car's is
   // made from its design (SIM hitboxFrom: the bodywork seen from above, the wheels' footprints), once per design
   let classicBox = null;
@@ -357,7 +367,7 @@ export const CarModels = (() => {
     classicBox = { design, parts: SIM.hitboxFrom(pts, wheels) };
     return classicBox.parts;
   }
-  return { create, measure, ghostMaterials, setKind, hitbox, get kind() { return kind; }, get eyeShift() { return eyeShift(); }, onKind(fn) { kindListeners.add(fn); }, applyProfile(models, p) {
+  return { create, measure, ghostMaterials, setKind, classChanged, hitbox, get kind() { return kind; }, get eyeShift() { return eyeShift(); }, onKind(fn) { kindListeners.add(fn); }, applyProfile(models, p) {
     const set = p.lambertCars ? MATS.fast : MATS.quality; for (const m of models) m.setMaterials(set);
     SHADOW_MAT.opacity = p.shadows ? 0.6 : 0.8;        // with sun shadows on, the contact shadow is only the ambient part
   } };

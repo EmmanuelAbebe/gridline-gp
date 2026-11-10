@@ -102,6 +102,7 @@ const game = {
   pendingShift: 0, pendingAero: false, pendingLimiter: false, pendingMap: 0, autoShiftHinted: false, queueHinted: false, steerRate: Infinity,   // paddle press waiting for the next sim step
 };
 setPlayerClass(garageClass(game.garage));             // the car class you race (car-class.js): the garage's
+CarModels.classChanged();                              // (its 3D model: fe.glb for the electric car)
 Input.setButtonMaps(game.buttonMaps);
 const isRunning = () => !!game.race && game.phase !== PHASE.MENU && !game.paused && !game.frozen;
 
@@ -550,7 +551,7 @@ function pickClass(id) {
   const cls = SIM.classOf(id);
   if (!cls || game.phase !== PHASE.MENU) return null;
   if (cls !== garageClass(game.garage)) {
-    setPlayerClass(switchClass(game.garage, cls));
+    setPlayerClass(switchClass(game.garage, cls)); CarModels.classChanged();
     game.qualiGrid = null;                                   // (a grid qualified in the other car)
     Settings.set(CONFIG.storageKeys.garage, JSON.stringify(game.garage));
     describeSetup(); describeRecord(); describeEvent();
