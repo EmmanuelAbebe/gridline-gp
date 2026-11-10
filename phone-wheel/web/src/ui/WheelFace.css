@@ -41,3 +41,18 @@
 .drive.size-s .cluster .auxbtn { --clu-btn: var(--clu-btn-s); } .drive.size-l .cluster .auxbtn { --clu-btn: var(--clu-btn-l); font-size: 14px; }
 .cluster .utils { display: flex; gap: 4px; margin-top: 4px; }
 .cluster .utils button.round { width: var(--util-size); height: var(--util-size); font-size: 14px; }
+
+/* the electric car and the kart (no gears): km/h big in the gear's place; the electric car's power and race energy under it */
+.wscreen .gear.bigspeed { font-size: min(40cqh, 30cqw); }
+.wscreen .gearbox .unit { position: absolute; bottom: 0; font-size: 11px; letter-spacing: .14em; color: var(--muted); }
+.wscreen .power { display: flex; flex-direction: column; align-items: center; gap: 1px; color: var(--muted); font-size: 12px; }
+.wscreen .power b { font-size: min(6cqh, 15px); color: var(--text); }
+
+/* the electric car's energy row: its name, AUTO SAVE, MANUAL */
+.maprow.energyrow { grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
+.maprow .row-name { display: flex; align-items: center; padding: 0 4px; font: 800 10px var(--screen-font); letter-spacing: .14em; color: var(--muted); }
+
+/* a kart's one row of buttons: its buttons, then the four rounds */
+.cluster.row { flex-direction: row; justify-content: center; gap: 8px; }
+.drive .cluster.row .auxbtn { width: auto; min-width: calc(var(--clu-btn) * 1.6); height: var(--maprow-h); border-radius: 10px; padding: 0 14px; }
+.cluster.row .utils { margin-top: 0; align-items: center; }

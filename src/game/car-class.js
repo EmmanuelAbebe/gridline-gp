@@ -22,6 +22,9 @@ export const CLASS_UI = {
     facts: { power: '300 kW · 350 in attack mode', tyres: 'One all-weather tyre, from cold', energy: 'One battery for the whole race',
       straights: 'Attack mode × 2 through a zone', pits: 'Drive-throughs only (no stops needed)', pace: '20–28 % slower a lap' } },
 };
+// the phone wheel's layout for this class (phone-wheel/web settings.ts CarKind): an electric car's (no gears, the race's
+// energy, attack mode), a kart's (a future class: car.kind 'kart'), else the hybrid race wheel
+export const phoneCar = cls => cls.car.motor ? 'electric' : cls.car.kind === 'kart' ? 'kart' : 'hybrid';
 export const classUi = cls => CLASS_UI[cls.id] ?? { name: cls.name.toUpperCase(), tag: '', icon: '', blurb: '', facts: {} };
 export const allClasses = () => Object.values(SIM.CLASSES);
 

@@ -5,22 +5,23 @@
 // { free, groups, labels }), ✕ posts 'gridline-design-cancel'. The game sends the layout on to the phone.
 import { useEffect, useState } from 'react';
 import * as engine from '../engine/engine.ts';
-import { sanitize, type Config } from '../settings/settings.ts';
+import { CAR_KINDS, forCar, sanitize, type CarKind, type Config } from '../settings/settings.ts';
 import { Drive, mirrorPairs, slotsOf } from './Drive.tsx';
 import { clusterGroups, LayoutEditor, measureLayout, type Draft } from './LayoutEditor.tsx';
 
 const post = (msg: Record<string, unknown>) => window.parent.postMessage(msg, '*');
 // what the screen shows meanwhile: a car mid-lap
-const SAMPLE = { g: '4', q: 0, r: 0.5, v: 187, n: 10950, e: 1, m: 'A', b: 63, k: 1, p: 4, l: 3, t: 5, d: -0.214 };
+const SAMPLE = { g: '4', q: 0, r: 0.5, v: 187, n: 10950, e: 1, m: 'A', b: 63, k: 1, p: 4, l: 3, t: 5, d: -0.214, w: 92, j: 74, x: 28, a: 1, u: 2, o: 0 };
 
 export function Designer() {
-  const [cfg, setCfg] = useState<Config | null>(null), [draft, setDraft] = useState<Draft | null>(null);
+  const [cfg, setCfg] = useState<Config | null>(null), [draft, setDraft] = useState<Draft | null>(null), [car, setCar] = useState<CarKind>('hybrid');
   useEffect(() => {
-    engine.setDash(SAMPLE);
     const take = (e: MessageEvent) => {
       if (e.source !== window.parent || e.data?.type !== 'gridline-design') return;
-      const c = sanitize(e.data.cfg);
-      setCfg(c); setDraft(c.layout.free ? { boxes: c.layout.free, groups: c.layout.groups } : null);
+      // (the game says which car you are designing for: its version of the profile, settings.ts forCar)
+      const kind: CarKind = CAR_KINDS.includes(e.data.car) ? e.data.car : 'hybrid', c = forCar(sanitize(e.data.cfg), kind);
+      engine.setDash({ ...SAMPLE, c: kind });
+      setCar(kind); setCfg(c); setDraft(c.layout.free ? { boxes: c.layout.free, groups: c.layout.groups } : null);
     };
     addEventListener('message', take);
     post({ type: 'gridline-design-ready' });
@@ -35,11 +36,11 @@ export function Designer() {
   if (!cfg) return <div className="designer-wait">Waiting for the game…</div>;
   return (
     <>
-      <Drive cfg={cfg} openSettings={() => {}} preview free={draft ? draft.boxes : undefined} />
-      {draft && <LayoutEditor slots={slotsOf(cfg, () => {}, true)} pairs={mirrorPairs(cfg)} draft={draft} setDraft={setDraft}
+      <Drive cfg={cfg} car={car} openSettings={() => {}} preview free={draft ? draft.boxes : undefined} />
+      {draft && <LayoutEditor slots={slotsOf(cfg, () => {}, true, car)} pairs={mirrorPairs(cfg)} draft={draft} setDraft={setDraft}
         cancel={() => post({ type: 'gridline-design-cancel' })}
-        done={() => post({ type: 'gridline-design-done', layout: { free: draft.boxes, groups: draft.groups, labels: cfg.layout.labels } })}
-        standard={() => post({ type: 'gridline-design-done', layout: { free: null, groups: {}, labels: cfg.layout.labels } })} />}
+        done={() => post({ type: 'gridline-design-done', layout: { free: draft.boxes, groups: draft.groups, labels: cfg.layout.labels, car } })}
+        standard={() => post({ type: 'gridline-design-done', layout: { free: null, groups: {}, labels: cfg.layout.labels, car } })} />}
     </>
   );
 }

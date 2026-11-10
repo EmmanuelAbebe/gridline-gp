@@ -42,3 +42,10 @@
 .wheel { width: 80%; height: 80%; color: var(--text); transition: transform .03s linear; display: block; }
 .wheel-btn.centred .wheel { color: var(--accent); }
 .wheel.lock { color: var(--brake); }   /* at full lock (WheelFace.tsx) */
+
+/* the car (2026-11-10, settings.ts forCar): no shift keys, so the pedals take their room; a kart's face = the screen
+   over one row of buttons */
+.drive.car-electric { --pedal-col: 21vw; }
+.drive.car-kart { --pedal-col: 27vw; }
+.face.kart { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) var(--maprow-h); gap: var(--gap); min-width: 0; min-height: 0; }
+.face.kart > [data-slot="screen"] { display: grid; }

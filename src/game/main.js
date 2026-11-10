@@ -62,7 +62,7 @@ import { createPitCrews } from './pit-crew.js';
 import { createTyreMarks } from './tyre-marks.js';
 import { Garage, compoundLabel } from './garage.js';
 import { loadGarage, loadRecords, recordLap, playerSpec, playerDriver, pitPlanOf, garageClass, switchClass } from './garage-store.js';
-import { playerClass, setPlayerClass } from './car-class.js';
+import { playerClass, setPlayerClass, phoneCar } from './car-class.js';
 import { loadModels } from './models.js';
 
 const { EV } = SIM;
@@ -707,6 +707,14 @@ function dashGear(p, onLights, thr) {
 // the phone wheel's rev strip, gear and ECU display (phone-wheel/web: Dash): 20 a second while it changes, once a second
 // otherwise (a phone that connects later gets it too), {} = not driving
 const phoneDash = { next: null, sent: '', wait: 0, since: 0 };
+function phoneElectric(race, c) {
+  const car = phoneCar(c.spec.cls);
+  if (car !== 'electric') return { c: car };
+  const E = race.energy?.total ? race.energy : null, A = race.attack, lift = !!E && SIM.liftNow(race, c);
+  return { c: car, w: lift ? 0 : E && c.ecuMode === 'auto' ? Math.round(c.powerK * 100) : 100,
+    ...(E ? { j: Math.round(c.soc / 3.6e5), x: Math.round(c.soc / Math.max(1, c.energyLast) * 10) } : {}),
+    a: !A ? 0 : c.attackOn ? 3 : c.attackArmed ? 2 : c.attackUses > 0 ? 1 : 0, u: c.attackUses, o: Math.ceil(c.attackLeft) };
+}
 function sendPhoneDash(dt, driving) {
   const d = driving && phoneDash.next ? phoneDash.next : {}, text = JSON.stringify(d);
   phoneDash.since += dt;
@@ -734,12 +742,14 @@ function renderFrame(dt) {
   const drive = Input.drive, onLights = game.phase === PHASE.LIGHTS;
   const gi = dashGear(player, onLights, drive.thr);
   // (+ the ECU: n rpm, e map index (−1 none), m 'A' / 'M', b battery %, k −1 harvesting / 0 / 1 deploying; the screen:
-  // p position, l lap, t laps (0 = no lap count), d delta s (time trial; absent = none))
+  // p position, l lap, t laps (0 = no lap count), d delta s (time trial; absent = none); c the phone's layout for the car
+  // (car-class.js phoneCar), and an electric car's w power % (0 = lifting), j kWh × 10, x laps it lasts × 10, a attack mode
+  // (0 none left / 1 ready / 2 armed / 3 on), u activations left, o its seconds left)
   phoneDash.next = { g: gi.gear, q: gi.next ?? 0, r: Math.round(gi.revs * 50) / 50, v: Math.round(SIM.speedOf(player) * 3.6),
     n: Math.round(gi.rpm / 50) * 50, e: player.ecuMode ? player.ecuMap : -1, m: player.ecuMode === 'manual' ? 'M' : 'A',
     b: Math.round(player.soc / SIM.batteryFull(race, player) * 100), k: player.ersKw > 5 ? 1 : player.ersKw < -5 ? -1 : 0,
     p: SIM.order(race).indexOf(player) + 1, l: Math.max(1, Math.min(player.lap, race.laps)), t: race.laps < Infinity ? race.laps : 0,
-    ...(Hud.delta !== null ? { d: Math.round(Hud.delta * 1000) / 1000 } : {}) };
+    ...(Hud.delta !== null ? { d: Math.round(Hud.delta * 1000) / 1000 } : {}), ...phoneElectric(race, player) };
   Hud.updateDash({
     kmh: Math.round(SIM.speedOf(player) * 3.6), rpm: Math.round(gi.rpm / 50) * 50, gear: gi.gear, gearNext: gi.next, revs: gi.revs, slip: onLights ? 0 : player.slip,
     steer: player.finished ? 0 : player.steer, steerIn: player.finished ? 0 : player.steerIn, thr: drive.thr, brk: drive.brk,

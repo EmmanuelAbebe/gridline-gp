@@ -1126,7 +1126,11 @@ showed MODIFIED only because of it).
   regenerating (brk × speed), quiet coasting, silent standing; gear mesh × 11.5, inverter 7.6 kHz. The sound engine keeps a
   V6 and a motor voice for the player and each rival slot, state.electric picks (race-audio.js: car.motor; no grid revs,
   limiter or shift beep). Scenes feAccel / feRegen / fePass (sound-check prints `whine`: the strongest tone vs the motor's;
-  Doppler on fePass matches the formula). ~5 dB under the V6 in the cockpit, a pass-by ~10 dB under. Other downloads parked for
+  Doppler on fePass matches the formula). ~5 dB under the V6 in the cockpit, a pass-by ~10 dB under.
+- The phone wheel follows it (2026-11-10, the user's pick of the canvas mock-ups): main.js dash adds `c` (car-class.js
+  phoneCar: 'electric' for a class with car.motor, 'kart' for car.kind 'kart', else 'hybrid') and for an electric car
+  `phoneElectric` w power % (0 lifting), j kWh × 10, x laps it lasts × 10, a attack 0..3, u uses, o seconds; the game's
+  phone designer sends `car` so a layout made there lands on that car's. Phone side: phone-wheel/CLAUDE.md. Other downloads parked for
   later classes: ~/Downloads/kart-modular, kart-f9, f2-concept, sanremo-70 (all CC-BY).
 
 ## Tyre lag and lock-ups that build up (2026-11-09; user: "part 2 building the tyres", after comparing with

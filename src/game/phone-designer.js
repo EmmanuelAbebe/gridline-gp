@@ -6,6 +6,7 @@
 // Nothing drives meanwhile: it is opened from the settings, which pause a race.
 import { $ } from './util.js';
 import { PhoneWheel } from './phone-wheel.js';
+import { playerClass, phoneCar } from './car-class.js';
 
 const PAGE = '../phone-wheel/web/dist/index.html?designer';   // (beside dist/ in the repo and in the app)
 const FALLBACK = { w: 844, h: 390 };                            // a phone's landscape screen in CSS px, if it doesn't say
@@ -22,10 +23,11 @@ export const PhoneDesigner = (() => {
   // the frame's messages: ready → it gets the profile; done → the layout goes to the phone; cancel
   function onMessage(e) {
     if (!frame || e.source !== frame.contentWindow || !e.data || typeof e.data.type !== 'string') return;
-    if (e.data.type === 'gridline-design-ready' && cfg) frame.contentWindow.postMessage({ type: 'gridline-design', cfg }, '*');
+    // (the car you race: the phone keeps a layout per car, car-class.js phoneCar)
+    if (e.data.type === 'gridline-design-ready' && cfg) frame.contentWindow.postMessage({ type: 'gridline-design', cfg, car: phoneCar(playerClass()) }, '*');
     else if (e.data.type === 'gridline-design-done') {
       const l = e.data.layout;
-      if (l && typeof l === 'object') { PhoneWheel.setLayout({ free: l.free ?? null, groups: l.groups ?? {}, labels: l.labels }); close(); return; }
+      if (l && typeof l === 'object') { PhoneWheel.setLayout({ free: l.free ?? null, groups: l.groups ?? {}, labels: l.labels, car: ['hybrid', 'electric', 'kart'].includes(l.car) ? l.car : 'hybrid' }); close(); return; }
     } else if (e.data.type === 'gridline-design-cancel') close();
   }
   async function open() {

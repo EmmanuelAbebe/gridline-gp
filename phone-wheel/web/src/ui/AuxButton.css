@@ -4,3 +4,10 @@
 .size-m .auxbtn { height: var(--aux-size-m); width: calc(var(--aux-size-m) * 1.2); font-size: 18px; }
 .size-l .auxbtn { height: var(--aux-size-l); width: calc(var(--aux-size-l) * 1.2); font-size: 22px; }
 .auxbtn.down { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+/* a button showing a game state (the electric car's ATTACK): its name, the state small under it; armed = outlined,
+   on = filled (attack mode's purple, as the game's HUD) */
+.auxbtn.live { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+.auxbtn.live .sub { font-size: 10px; font-weight: 600; letter-spacing: .02em; color: var(--muted); }
+.auxbtn.live[data-state="armed"] { border-color: #c88bff; color: #e8d4ff; }
+.auxbtn.live[data-state="on"] { background: #c88bff; border-color: #c88bff; color: #140d1c; }
+.auxbtn.live[data-state="on"] .sub { color: #140d1c; }

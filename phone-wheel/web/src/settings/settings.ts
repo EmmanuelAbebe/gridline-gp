@@ -38,7 +38,16 @@ export type FreeLayout = Record<string, Rect>
 export type Groups = Record<string, string>
 // force feedback from the game (engine/haptics.ts): strength × every effect, and which effects play
 export interface FeedbackCfg { on: boolean; strength: number; hits: boolean; kerbs: boolean; offTrack: boolean; slides: boolean; shifts: boolean; lock: boolean }
-export interface Config { steer: SteerCfg; gas: PedalCfg; brake: PedalCfg; buttons: ButtonCfg[]; flick: FlickCfg; layout: LayoutCfg; feedback: FeedbackCfg }
+// The car you drive (2026-11-10, Gridline GP's car classes; the user's pick of the canvas mock-ups): the race wheel follows it.
+// hybrid = the F1 (the profile's own buttons and layout, as before), electric = Formula E (no gears: no shift keys; the
+// race's energy and attack mode; the ENERGY row in place of the ECU maps), kart (pedals, speed, a few buttons). The
+// game says which (engine.dash.c); each other car keeps its own buttons and your own layout for it (`cars`).
+export type CarKind = 'hybrid' | 'electric' | 'kart';
+export const CAR_KINDS: readonly CarKind[] = ['hybrid', 'electric', 'kart'];
+export const CAR_NAMES: Record<CarKind, string> = { hybrid: 'GP HYBRID', electric: 'GP ELECTRIC', kart: 'KART' };
+export interface CarCfg { buttons: ButtonCfg[]; free: FreeLayout | null; groups: Groups }
+export interface Config { steer: SteerCfg; gas: PedalCfg; brake: PedalCfg; buttons: ButtonCfg[]; flick: FlickCfg; layout: LayoutCfg; feedback: FeedbackCfg;
+  cars: Record<'electric' | 'kart', CarCfg> }
 // v: store format; 2 (2026-10-21) = profiles have been given the REAR (look back) button once
 export interface Store { active: string; profiles: Record<string, Config>; v?: number }
 export const STORE_VERSION = 4;
@@ -62,6 +71,13 @@ export const DEFAULTS: Config = {
   layout: { swapPedals: false, pedalSize: 1, buttonSize: 'm', showWheel: true, haptics: true, shiftButtons: true, swapShift: false, putDown: true, dash: true, ecu: true,
     labels: { pedals: false, shift: false, gauges: false }, free: null, groups: {} },
   feedback: { on: true, strength: 1, hits: true, kerbs: true, offTrack: true, slides: true, shifts: false, lock: true },
+  // the other cars' buttons: Formula E = the pit ones and ATTACK (View = the game's overtake action, which arms attack mode
+  // in Formula E); a kart = look back only (no pit stops, no battery)
+  cars: {
+    electric: { buttons: [{ label: 'BOX', bind: 'X', toggle: false, side: 'pit' }, { label: 'LIM', bind: 'DOWN', toggle: false, side: 'pit' },
+      { label: 'REAR', bind: 'RS', toggle: false, side: 'pit' }, { label: 'ATK', bind: 'BACK', toggle: false, side: 'race' }], free: null, groups: {} },
+    kart: { buttons: [{ label: 'REAR', bind: 'RS', toggle: false, side: 'pit' }], free: null, groups: {} },
+  },
 };
 
 export const clone = <T>(o: T): T => JSON.parse(JSON.stringify(o));
@@ -105,10 +121,21 @@ export function clampRect(r: Rect): Rect {
   return { x: Math.min(1 - w, Math.max(0, r.x)), y: Math.min(1 - h, Math.max(0, r.y)), w, h };
 }
 
+function buttonList(raw: unknown, d: ButtonCfg[]): ButtonCfg[] {
+  return (Array.isArray(raw) ? raw : d).slice(0, MAX_BUTTONS).map((r: unknown, i: number) => {
+    const b = obj(r);
+    const label = typeof b.label === 'string' ? b.label.slice(0, 4) : String(i + 1), bind = pick(b.bind, IDS, 'A');
+    return { label, bind, toggle: bool(b.toggle, false), side: pick(b.side, ['pit', 'race'] as const, sideOf(label, bind)) };
+  });
+}
+function carCfg(raw: unknown, d: CarCfg): CarCfg {
+  const c = obj(raw);
+  return { buttons: buttonList(c.buttons, d.buttons), free: freeLayout(c.free), groups: groupsOf(c.groups) };
+}
+
 // Fill in anything missing or out of range, so old or hand-edited profiles always load.
 export function sanitize(input: unknown): Config {
-  const s = obj(input), D = DEFAULTS, st = obj(s.steer), l = obj(s.layout), f = obj(s.flick), fb = obj(s.feedback);
-  const buttons = Array.isArray(s.buttons) ? s.buttons : D.buttons;
+  const s = obj(input), D = DEFAULTS, st = obj(s.steer), l = obj(s.layout), f = obj(s.flick), fb = obj(s.feedback), cars = obj(s.cars);
   return {
     steer: {
       sensitivity: num(st.sensitivity, D.steer.sensitivity, -35, 70),
@@ -119,11 +146,7 @@ export function sanitize(input: unknown): Config {
     },
     gas: pedal(s.gas, D.gas),
     brake: pedal(s.brake, D.brake),
-    buttons: buttons.slice(0, MAX_BUTTONS).map((raw: unknown, i: number) => {
-      const b = obj(raw);
-      const label = typeof b.label === 'string' ? b.label.slice(0, 4) : String(i + 1), bind = pick(b.bind, IDS, 'A');
-      return { label, bind, toggle: bool(b.toggle, false), side: pick(b.side, ['pit', 'race'] as const, sideOf(label, bind)) };
-    }),
+    buttons: buttonList(s.buttons, D.buttons),
     flick: {
       on: bool(f.on, D.flick.on),
       distance: num(f.distance, D.flick.distance, 15, 120),
@@ -156,8 +179,24 @@ export function sanitize(input: unknown): Config {
       shifts: bool(fb.shifts, D.feedback.shifts),
       lock: bool(fb.lock, D.feedback.lock),
     },
+    cars: { electric: carCfg(cars.electric, D.cars.electric), kart: carCfg(cars.kart, D.cars.kart) },
   };
 }
+
+// The profile as the race wheel uses it for `kind`: the hybrid = the profile itself; another car = its own buttons and
+// your own layout for it, no shift keys (one gear), the ECU row only for the electric car (its ENERGY row) and the top
+// strip for both (the race's energy / the revs). Everything else (steering, pedals, feedback, labels) is shared.
+export function forCar(c: Config, kind: CarKind): Config {
+  if (kind === 'hybrid') return c;
+  const own = c.cars[kind];
+  return { ...c, buttons: own.buttons, layout: { ...c.layout, free: own.free, groups: own.groups, shiftButtons: false, ecu: kind === 'electric' } };
+}
+// your own layout (Layout → Move and resize, or the game's phone designer) onto the car it was made for
+export function setCarLayout(c: Config, kind: CarKind, free: FreeLayout | null, groups: Groups) {
+  if (kind === 'hybrid') { c.layout.free = free; c.layout.groups = groups; } else { c.cars[kind].free = free; c.cars[kind].groups = groups; }
+}
+// the button list Settings → Buttons edits for `kind`
+export const buttonsOf = (c: Config, kind: CarKind): ButtonCfg[] => (kind === 'hybrid' ? c.buttons : c.cars[kind].buttons);
 
 // ---------- storage: { active: name, profiles: { name: settings } }
 const STORE_KEY = 'pw-store';

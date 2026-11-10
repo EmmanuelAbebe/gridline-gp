@@ -24,3 +24,20 @@ export function RevStrip({ label = false }: { label?: boolean }) {
   const leds = <div className="revstrip" ref={box} aria-hidden="true">{Array.from({ length: N }, (_, i) => <i key={i} className={`led ${colour(i)}`} />)}</div>;
   return label ? <div className="revrow"><span className="gauge-label">REV</span>{leds}</div> : leds;
 }
+
+// The electric car's strip in the same place (2026-11-10): the race's energy left as 15 cells (dash.b = % of the
+// allowance), green, the top two blue while the motors regenerate (dash.k −1)
+export function EnergyStrip({ label = false }: { label?: boolean }) {
+  const box = useRef<HTMLDivElement>(null);
+  let shown = '';
+  useFrame(() => {
+    const el = box.current, d = engine.dash;
+    if (!el) return;
+    const lit = d.g ? Math.round(d.b / 100 * N) : 0, regen = d.g && d.k < 0, key = `${lit}${regen}`;
+    if (key === shown) return;
+    shown = key;
+    [...el.children].forEach((led, i) => { led.className = `led ${i < lit ? (regen && i >= lit - 2 ? 'b on' : 'g on') : 'g'}`; });
+  });
+  const cells = <div className="revstrip energy" ref={box} aria-hidden="true">{Array.from({ length: N }, (_, i) => <i key={i} className="led g" />)}</div>;
+  return label ? <div className="revrow"><span className="gauge-label">ENERGY</span>{cells}</div> : cells;
+}

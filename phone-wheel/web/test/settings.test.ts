@@ -1,7 +1,7 @@
 // The phone page's pure logic: settings (sanitize, profiles), curves, flick to shift, and the tilt → steering angle.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BUTTONS, DEFAULTS, bitOf, clone, createFlick, loadStore, pedalValue, sanitize, steerCurve, freeLayout, MIN_BOX } from '../src/settings/settings.ts';
+import { BUTTONS, DEFAULTS, bitOf, clone, createFlick, loadStore, pedalValue, sanitize, steerCurve, freeLayout, MIN_BOX, forCar, setCarLayout, buttonsOf, CAR_KINDS } from '../src/settings/settings.ts';
 import { tiltDegrees, resetTilt } from '../src/engine/engine.ts';
 
 test('button bits match the wire protocol order (phonewheel/protocol.py, desktop/phone-link.cjs)', () => {
@@ -103,4 +103,39 @@ test('your own layout: boxes stay on the screen and keep a usable size; anything
   const s = sanitize({ layout: { free: { btn0: { x: 0.4, y: 0.4, w: 0.1, h: 0.1 } } } });
   assert.deepEqual(s.layout.free, { btn0: { x: 0.4, y: 0.4, w: 0.1, h: 0.1 } });
   assert.equal(sanitize({}).layout.free, null, 'the standard layout by default');
+});
+
+// the race wheel follows the car (2026-11-10): an old profile gets each other car's defaults; the electric car has no
+// shift keys and an ATTACK button, the kart only REAR; a layout saved for one car leaves the others as they were
+test('per car: defaults on old profiles, forCar, layouts kept apart', () => {
+  const old = sanitize({ buttons: [{ label: 'BOX', bind: 'X' }], layout: { free: { brake: { x: 0, y: 0, w: 0.2, h: 1 } } } });
+  assert.equal(old.cars.electric.buttons.find((b) => b.bind === 'BACK')?.label, 'ATK');
+  assert.deepEqual(old.cars.kart.buttons.map((b) => b.label), ['REAR']);
+  assert.equal(forCar(old, 'hybrid'), old, 'the hybrid is the profile itself');
+  const el = forCar(old, 'electric'), kart = forCar(old, 'kart');
+  assert.equal(el.layout.shiftButtons, false); assert.equal(el.layout.ecu, true); assert.equal(el.layout.free, null);
+  assert.equal(kart.layout.shiftButtons, false); assert.equal(kart.layout.ecu, false);
+  assert.deepEqual(el.steer, old.steer, 'steering and pedals are shared');
+  const c = clone(old), box = { screen: { x: 0.3, y: 0.1, w: 0.4, h: 0.5 } };
+  setCarLayout(c, 'electric', box, { screen: 'mid' });
+  assert.deepEqual(c.cars.electric.free, box); assert.deepEqual(c.layout.free, old.layout.free, 'the hybrid\'s own layout untouched');
+  assert.equal(c.cars.kart.free, null);
+  const again = sanitize(JSON.parse(JSON.stringify(c)));
+  assert.deepEqual(again.cars.electric.free, box, 'saved and loaded');
+  buttonsOf(again, 'kart').push({ label: 'X', bind: 'X', toggle: false, side: 'pit' });
+  assert.equal(again.cars.kart.buttons.length, 2); assert.equal(again.buttons.length, 1);
+  assert.deepEqual([...CAR_KINDS], ['hybrid', 'electric', 'kart']);
+});
+
+test('the game\'s dash names the car: the wheel follows it while driving, keeps it between races', async () => {
+  const engine = await import('../src/engine/engine.ts');
+  engine.setDash({ g: '1', c: 'electric', w: 92, j: 74, x: 28, a: 2, u: 1, o: 0 });
+  assert.equal(engine.getCar(), 'electric');
+  assert.deepEqual([engine.dash.w, engine.dash.j, engine.dash.x, engine.dash.a, engine.dash.u], [92, 7.4, 2.8, 2, 1]);
+  engine.setDash({});
+  assert.equal(engine.getCar(), 'electric', 'not driving: the last car stays');
+  engine.setDash({ g: '4', v: 200 });
+  assert.equal(engine.getCar(), 'hybrid', 'an older game (no c): the hybrid');
+  engine.setDash({ g: '1', c: 'spaceship' });
+  assert.equal(engine.getCar(), 'hybrid');
 });

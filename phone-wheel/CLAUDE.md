@@ -77,6 +77,17 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   null = the standard grid, also the Standard button); Drive then places each element absolutely, its contents scaled to
   the box (container query units). A button added later gets a small box in the middle. Profiles → Export / Import
   carries it to another phone (or from the PC preview).
+- The race wheel follows the car (2026-11-10; the user's pick of the "Gridline phone wheel per car" canvas, as drawn):
+  dash `c` = 'hybrid' / 'electric' / 'kart' (Gridline GP car-class.js phoneCar; absent = hybrid) → engine.ts `getCar` /
+  `onCar` (only while driving, remembered in localStorage `pw-car`); settings.ts `CarKind`, `cars` {electric, kart: {buttons,
+  free, groups}} per profile (defaults: electric BOX / LIM / REAR + ATK on View = the game's overtake = attack mode; kart
+  REAR), `forCar(cfg, kind)` = the profile as that car uses it (the hybrid = the profile itself: old layouts unchanged;
+  others: their buttons and own layout, no shift keys, the ECU row only for electric), `setCarLayout`, `buttonsOf`.
+  App: the engine, Drive, the layout editor and Settings → Buttons use the car's; DONE / STD and the game designer's
+  layout (`car` in gridline-design / setLayout) go to that car. Electric: RevStrip.tsx `EnergyStrip` (dash.b of the
+  allowance, blue while regenerating), WheelScreen km/h big + POWER % (LIFT / 350 kW in attack) + kWh · laps (dash w, j, x),
+  WheelFace `EnergyRow` (AUTO SAVE / MANUAL = ecu 4 / 5), AuxButton `live` face (ATTACK: × uses / ARMED / m:ss · AWD from
+  dash a, u, o; data-state armed / on purple). Kart: wider pedals, the screen over one row (Cluster side 'row').
 - PC → phone also `{fx: {k, kh, o, s, h?, g?}}` = Gridline GP's force feedback (src/game/haptics.js), played by
   `web/src/engine/haptics.ts` `planFeedback` (pure, test/haptics.test.ts): a motor is only on/off, so strength = pulse
   width; kerbs = regular ripple kept in phase when renewed, gravel/grass = uneven rumble, slides = fine buzz, hits /
