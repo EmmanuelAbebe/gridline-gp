@@ -1119,7 +1119,14 @@ showed MODIFIED only because of it).
   every car (main.js after setPlayerClass); car-glb.js seatDriver(at). tests/models.test.js "fe.glb". Its hitbox (FE class
   `hitbox`, 2026-11-10): measured from fe.glb, 4.55 × 1.74 m (front wing, front over the wheels, tyres, sidepods to the
   rear fenders, rear = ramp); 4 races × Harrow / Elkmoor / Cantera vs the F1's: hard contacts 125 → 56, walls 36 → 4,
-  airborne steps 1651 → 646. Not done: its sound, the halo's attack-mode LEDs. Other downloads parked for
+  airborne steps 1651 → 646. Not done: the halo's attack-mode LEDs.
+- Its sound (2026-11-10): audio/motor-voice.js (the engine voice's interface: update / configure / stop, outputs intake
+  (empty) / turbo (inverter) / ers (gear mesh)), SOUND.motor in audio-config.js: a PeriodicWave of the motor's orders
+  (rpm / 60 × order 4 = the main whine, ~1.05 kHz at 280 km/h) + a detuned twin, low-pass by load, loud driving and
+  regenerating (brk × speed), quiet coasting, silent standing; gear mesh × 11.5, inverter 7.6 kHz. The sound engine keeps a
+  V6 and a motor voice for the player and each rival slot, state.electric picks (race-audio.js: car.motor; no grid revs,
+  limiter or shift beep). Scenes feAccel / feRegen / fePass (sound-check prints `whine`: the strongest tone vs the motor's;
+  Doppler on fePass matches the formula). ~5 dB under the V6 in the cockpit, a pass-by ~10 dB under. Other downloads parked for
   later classes: ~/Downloads/kart-modular, kart-f9, f2-concept, sanremo-70 (all CC-BY).
 
 ## Tyre lag and lock-ups that build up (2026-11-09; user: "part 2 building the tyres", after comparing with

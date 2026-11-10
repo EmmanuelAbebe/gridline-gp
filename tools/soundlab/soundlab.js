@@ -66,6 +66,14 @@ if (!location.search.includes('race')) for (const [name, sc] of Object.entries(S
     r.doppler = { base: +base.toFixed(1), early: +f(1.2).toFixed(1), late: +f(4.8).toFixed(1),
       theoryEarly: +(base * c / (c - v * cosAt(1.2))).toFixed(1), theoryLate: +(base * c / (c - v * cosAt(4.8))).toFixed(1) };
   }
+  if (name.startsWith('fe')) {   // the electric motor: the strongest tone vs its main whine (rpm / 60 × SOUND.motor.order)
+    const M = SOUND.motor, peakAt = t => { const a = Math.floor(t * SR), n = 8192; let best = 0, bf = 0;
+      for (let fr = 60; fr < 5000; fr += 4) { let s = 0, c = 0; for (let i = 0; i < n; i++) { const w = 2 * Math.PI * fr * i / SR, x = mono[a + i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / n)); s += x * Math.sin(w); c += x * Math.cos(w); }
+        const m = s * s + c * c; if (m > best) { best = m; bf = fr; } }
+      return bf; };
+    r.whine = [1, 2.5, sc.seconds - 1].map(t => { const st = sc.at(t), rpm = (st.rivals[0] ?? st.player).rpm;
+      return { t, expect: Math.round(rpm / 60 * M.order), peak: peakAt(t) }; });
+  }
   results[name] = r;
 }
 if (!location.search.includes('race')) { window.soundlab = { results }; document.title = 'done'; }

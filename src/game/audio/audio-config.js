@@ -34,6 +34,22 @@ const DEFAULTS = {
     turbo: { low: 1800, high: 5200, gain: 0.007, spoolUp: 0.22, spoolDown: 0.45, chirp: 0.06 },
     ers: { ratio: 8, gain: 0.005, harvest: 0.006 },  // MGU-K whine: rpm / 60 × ratio; deploying on the throttle, harvesting on the brakes
   },
+  // An electric car's motor (motor-voice.js; GP ELECTRIC, 2026-11-10): no combustion, so what you hear is the motor and
+  // its gearing. A permanent-magnet motor whines at its electrical frequency (rpm / 60 × the pole pairs, `order`) and its
+  // harmonics (`partials`: order × k, amplitude), loudest under load: driving and regenerating alike (the braking whine
+  // is the motor harvesting), quiet when coasting; a single-speed gearbox adds the gear mesh (rpm / 60 × `mesh.order`,
+  // a little more on the brakes), the inverter a faint switching whistle. Up to ~20 000 rpm (the class's motor.maxRpm):
+  // the main whine tops out near 1.3 kHz. Quieter than the V6 (real Formula E cars are), so tyres and wind come through.
+  motor: {
+    order: 4,
+    partials: [[0.5, 0.25], [1, 1], [2, 0.42], [3, 0.2], [4.5, 0.08]],
+    detune: 0.006,                      // a second, slightly detuned whine: the beating of a real motor's slots
+    gain: { coast: 0.05, load: 0.2, regen: 0.16, speed: 0.04 },   // level: coasting / × driving load / × braking / + speed
+    tone: { base: 900, load: 3200 },    // low-pass over the whine: base + load share
+    mesh: { order: 11.5, gain: 0.025, regen: 0.035 },
+    inverter: { hz: 7600, gain: 0.004 },
+    rival: { gain: 0.64 },              // a rival's (one whine, Doppler and air absorption like the engines)
+  },
   // rival engines: the same waves, fewer layers; only the nearest few play
   rivals: { voices: 4, maxDistance: 520, gain: 1.3, refDistance: 9, rolloff: 1.15,
     air: { full: 16000, perMetre: 120, min: 650 } },   // air absorption: low-pass = full × e^(−d / perMetre)

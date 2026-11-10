@@ -16,6 +16,10 @@ const passBy = kmh => ({
   },
 });
 
+// an electric car (GP ELECTRIC: one gear, 20 000 rpm at 322 km/h; the motor-voice.js scenes)
+const feRpm = kmh => kmh / 322 * 20000;
+const feCar = o => car({ rpm: 0, gear: 1, beepRpm: 0, ...o });
+
 export const SCENARIOS = {
   steady: { label: 'Steady 10 000 rpm, full throttle (outside)', seconds: 3, mix: 'tv',
     at() { return { listener: listenerAt(0, 1, 0), player: car({ rpm: 10000, thr: 1, gear: 5, speed: 60 }), rivals: [] }; } },
@@ -56,6 +60,16 @@ export const SCENARIOS = {
         rivals: [{ id: 'R', x, y: 0.6, z: 3, vx: vr, vz: 0, rpm: rpmFor(290, 7), thr: 1, gear: 7 }] };
     },
     events: (a, b) => a < 2.5 && b >= 2.5 ? [{ whoosh: [1, 0.8] }] : [] },
+  feAccel: { label: 'Electric: full power from a standstill (cockpit)', seconds: 6, mix: 'driver',
+    at(t) { const kmh = Math.min(280, 290 * (1 - Math.exp(-t / 2.4)));
+      return { electric: true, listener: listenerAt(0, 1, 0), player: feCar({ rpm: feRpm(kmh), thr: 1, speed: kmh / 3.6 }), rivals: [] }; } },
+  feRegen: { label: 'Electric: braking from 280 km/h, the motors regenerating (cockpit)', seconds: 4, mix: 'driver',
+    at(t) { const kmh = Math.max(60, 280 - t * 70);
+      return { electric: true, listener: listenerAt(0, 1, 0), player: feCar({ rpm: feRpm(kmh), brk: t < 3.2 ? 1 : 0, speed: kmh / 3.6 }), rivals: [] }; } },
+  fePass: { label: 'Electric: a car passing at 250 km/h', seconds: 6, mix: 'tv', playerOn: false,
+    at(t) { const v = 250 / 3.6, x = (t - 3) * v;
+      return { electric: true, listener: listenerAt(0, 1.2, -12, 0, 1), player: feCar({}),
+        rivals: [{ id: 'R', x, y: 0.6, z: 0, vx: v, vz: 0, rpm: feRpm(250), thr: 1, brk: 0, speed: v, gear: 1 }] }; } },
 };
 
 // Runs a scene: frame(state, t) for t in steps of 1/60 s from `start` (context time). `schedule(fn)` = how frames

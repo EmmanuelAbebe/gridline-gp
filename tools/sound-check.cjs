@@ -19,7 +19,7 @@ app.whenReady().then(async () => {
   fs.mkdirSync(outDir, { recursive: true });
   for (const [name, r] of Object.entries(results)) {
     if (r.wav) fs.writeFileSync(path.join(outDir, name + '.wav'), Buffer.from(r.wav, 'base64'));
-    if (r.rmsDb) console.log(name.padEnd(11), 'peak', r.peak, ' dB', r.rmsDb.join(' '), r.doppler ? '\n            doppler ' + JSON.stringify(r.doppler) : '', r.orders ? '\n            orders 0.5..24 (dB re 3rd): ' + r.orders.join(' ') : '');
+    if (r.rmsDb) console.log(name.padEnd(11), 'peak', r.peak, ' dB', r.rmsDb.join(' '), r.doppler ? '\n            doppler ' + JSON.stringify(r.doppler) : '', r.orders ? '\n            orders 0.5..24 (dB re 3rd): ' + r.orders.join(' ') : '', r.whine ? '\n            whine ' + r.whine.map(w => `t ${w.t}: ${w.peak} Hz (motor ${w.expect})`).join(', ') : '');
     else console.log(name.padEnd(12), 'above 2 kHz', r.above2k + '%', ' tonal peaks', r.peaks.map(p => `${p.hz} Hz ${p.db} dB (+${p.prom})`).join(', ') || 'none');
   }
   await server.close(); app.exit(0);

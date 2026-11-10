@@ -28,19 +28,22 @@ export function createRaceAudio() {
       if (!started) { prevPos.copy(cam.position); vel.set(0, 0, 0); started = true; }
       if (dt > 0) vel.lerp(step.subVectors(cam.position, prevPos).divideScalar(dt), Math.min(1, dt * 10));
       prevPos.copy(cam.position);
-      const P = player, V = SIM.vehicleInfo(P.spec.cls), rpm = o.onLights ? V.idle + o.thr * (V.redline - V.idle) * 0.95 : P.rpm;
+      // (an electric class, car.motor: the motor's voice; on the grid it stands still, nothing to rev)
+      const P = player, V = SIM.vehicleInfo(P.spec.cls), electric = !!P.spec.cls.car.motor;
+      const rpm = o.onLights ? (electric ? 0 : V.idle + o.thr * (V.redline - V.idle) * 0.95) : P.rpm;
       const rivals = [];
       for (const c of race.cars) {
         if (c === P) continue;
-        const p = poseOf(c), ch = Math.cos(p.h), sh = Math.sin(p.h), g = o.onLights ? gridRpm(c, dt) : null;
+        const p = poseOf(c), ch = Math.cos(p.h), sh = Math.sin(p.h), g = o.onLights && !electric ? gridRpm(c, dt) : null;
         rivals.push({ id: c.code, x: p.x, y: 0.6, z: p.z, vx: ch * c.v - sh * (c.vy || 0), vz: sh * c.v + ch * (c.vy || 0),
-          rpm: g ? g.rpm : c.rpm, thr: g ? (g.target > g.rpm ? 0.8 : 0.1) : c.thr || 0, gear: o.onLights ? 0 : c.gear });
+          rpm: g ? g.rpm : o.onLights ? 0 : c.rpm, thr: g ? (g.target > g.rpm ? 0.8 : 0.1) : o.onLights ? 0 : c.thr || 0, brk: c.brake || 0, speed: Math.abs(c.v),
+          gear: o.onLights ? 0 : c.gear });
       }
       Sound.frame({
-        mix: o.cam.cockpitBody ? 'driver' : 'tv', active: o.running, dt, doppler: prefs.doppler, shiftBeep: prefs.shiftBeep,
+        mix: o.cam.cockpitBody ? 'driver' : 'tv', active: o.running, dt, electric, doppler: prefs.doppler, shiftBeep: prefs.shiftBeep && !electric,
         listener: { x: cam.position.x, y: cam.position.y, z: cam.position.z, fx: fwd.x, fy: fwd.y, fz: fwd.z, ux: up.x, uy: up.y, uz: up.z, vx: vel.x, vy: vel.y, vz: vel.z },
         player: { rpm, thr: P.finished ? 0 : o.thr, brk: o.brk, speed: Math.hypot(P.v, P.vy || 0), gear: o.onLights ? 0 : P.gear,
-          limiter: rpm >= V.limiter - 120, slideF: P.slideF, slideR: P.slideR, lockF: P.lockF, spinR: P.spinR,
+          limiter: !electric && rpm >= V.limiter - 120, slideF: P.slideF, slideR: P.slideR, lockF: P.lockF, spinR: P.spinR,
           surface: P.surface, onKerb: P.onKerb, slip: P.slip, beepRpm: P.autoShift ? 0 : V.autoUp },
         rivals,
       });

@@ -7,6 +7,7 @@
 // HRTF panner, with Doppler computed from the real relative velocity (Web Audio has none built in) and air absorption.
 import { SOUND } from './audio-config.js';
 import { createEngineVoice } from './engine-voice.js';
+import { createMotorVoice } from './motor-voice.js';
 import { noise, filter, gain, chain, glide, burst, thump, ring, beep, panner, place, setNoiseColour } from './synth.js';
 
 const clamp01 = x => Math.max(0, Math.min(1, x));
@@ -22,19 +23,22 @@ export function createSoundEngine(ctx) {
   const low = filter(ctx, 'lowshelf', SOUND.eq.lowHz, 0.7), high = filter(ctx, 'highshelf', SOUND.eq.highHz, 0.7), cabin = gain(ctx, 1);
   chain(cabin, low, high, engineBus);
   const cabinFx = gain(ctx, 1); chain(cabinFx, filter(ctx, 'highshelf', 3000, 0.7), fxBus);   // tyres, surfaces
-  const player = createEngineVoice(ctx, cabin, { full: true, seed: 1 });
+  // the player's car: a V6 and an electric motor (motor-voice.js), the one of its class playing (state.electric)
+  const engineVoice = createEngineVoice(ctx, cabin, { full: true, seed: 1 }), motorVoice = createMotorVoice(ctx, cabin, { full: true, seed: 1 });
   const intakeMix = gain(ctx, 1), turboMix = gain(ctx, 1);
-  player.outputs.intake.connect(intakeMix).connect(cabin);
-  // turbo and ERS through the cabin EQ too, so the treble setting reaches every high sound of the car
-  player.outputs.turbo.connect(turboMix).connect(cabin);
-  player.outputs.ers.connect(cabin);
+  for (const v of [engineVoice, motorVoice]) {
+    v.outputs.intake.connect(intakeMix);
+    // turbo and ERS (the motor: inverter and gear mesh) through the cabin EQ too, so the treble setting reaches every high sound of the car
+    v.outputs.turbo.connect(turboMix); v.outputs.ers.connect(cabin);
+  }
+  intakeMix.connect(cabin); turboMix.connect(cabin);
 
   // rivals
   const R = SOUND.rivals, rivalsEq = filter(ctx, 'highshelf', 2500, 0.7); rivalsEq.connect(engineBus);
   const voices = Array.from({ length: R.voices }, (_, i) => {
     const p = panner(ctx, R.refDistance, R.rolloff), g = gain(ctx, 0);
     chain(g, p, rivalsEq);
-    return { voice: createEngineVoice(ctx, g, { full: false, seed: 2 + i }), out: g, panner: p, id: null, gear: 0 };   // each engine a little different
+    return { engine: createEngineVoice(ctx, g, { full: false, seed: 2 + i }), motor: createMotorVoice(ctx, g, { full: false, seed: 2 + i }), out: g, panner: p, id: null, gear: 0 };   // each engine a little different
   });
 
   // continuous effects: tyres, surfaces, wind (each a noise source → filter → level)
@@ -89,8 +93,8 @@ export function createSoundEngine(ctx) {
     refresh(t = ctx.currentTime) {
       const mix = st.mix; st.mix = null; setMix(mix, t);
       glide(low.frequency, SOUND.eq.lowHz, t, 0.05); glide(high.frequency, SOUND.eq.highHz, t, 0.05);
-      player.configure();
-      for (const vc of voices) { vc.voice.configure(); vc.panner.refDistance = R.refDistance; vc.panner.rolloffFactor = R.rolloff; }
+      engineVoice.configure(); motorVoice.configure();
+      for (const vc of voices) { vc.engine.configure(); vc.motor.configure(); vc.panner.refDistance = R.refDistance; vc.panner.rolloffFactor = R.rolloff; }
       crowdPanner.refDistance = SOUND.crowd.refDistance;
       setNoiseColour(ctx, t);
     },
@@ -116,9 +120,9 @@ export function createSoundEngine(ctx) {
       burst(ctx, pan, t, { freq: 2400, to: 380, Q: 0.8, attack: 0.06, decay: 0.38, level: k * P.gain * strength });
       thump(ctx, pan, t + 0.03, { freq: 70, to: 40, decay: 0.2, level: k * P.gain * 0.7 * strength });
     },
-    // Everything continuous, once per frame. state: { mix, active, playerOn (default true), doppler, shiftBeep,
+    // Everything continuous, once per frame. state: { mix, active, playerOn (default true), electric (an electric class's motors), doppler, shiftBeep,
     //   listener { x, y, z, fx, fy, fz, ux, uy, uz, vx, vy, vz }, player { rpm, thr, brk, speed, gear, limiter,
-    //   slideF, slideR, lockF, spinR, surface, onKerb, slip, beepRpm }, rivals [{ id, x, y, z, vx, vz, rpm, thr, gear }] }
+    //   slideF, slideR, lockF, spinR, surface, onKerb, slip, beepRpm }, rivals [{ id, x, y, z, vx, vz, rpm, thr, brk, speed, gear }] }
     frame(s, t = ctx.currentTime) {
       setMix(s.mix, t);
       const on = s.active ? 1 : 0, p = s.player, L = s.listener, M = SOUND.mix[st.mix], Y = SOUND.layers;
@@ -130,8 +134,9 @@ export function createSoundEngine(ctx) {
         li.upX.setValueAtTime(L.ux, t); li.upY.setValueAtTime(L.uy, t); li.upZ.setValueAtTime(L.uz, t);
       } else { li.setPosition(L.x, L.y, L.z); li.setOrientation(L.fx, L.fy, L.fz, L.ux, L.uy, L.uz); }
 
-      // player's car
-      player.update({ ...p, on: s.playerOn === false ? 0 : on }, t);
+      // player's car: its class's voice, the other silent (state.electric: the cars of an electric class)
+      const pOn = s.playerOn === false ? 0 : on, el = !!s.electric;
+      (el ? motorVoice : engineVoice).update({ ...p, on: pOn }, t); (el ? engineVoice : motorVoice).update({ ...p, on: 0 }, t);
       if (s.active && st.gear > 0 && p.gear > 0 && p.gear !== st.gear) shiftFx(p.gear > st.gear, t);
       if (s.active && s.shiftBeep && p.beepRpm && st.rpm < p.beepRpm && p.rpm >= p.beepRpm) beep(ctx, fxBus, t, SOUND.shift.beepHz, 0.07, 0.08);
       st.gear = p.gear; st.rpm = p.rpm;
@@ -171,7 +176,8 @@ export function createSoundEngine(ctx) {
           pitch = Math.max(0.5, Math.min(2, (c + toward) / (c + away)));
         }
         const air = Math.max(R.air.min, R.air.full * Math.exp(-d / R.air.perMetre));
-        vc.voice.update({ rpm: r.rpm, thr: r.thr, on, pitch, air }, t);
+        const rv = { rpm: r.rpm, thr: r.thr, brk: r.brk || 0, speed: r.speed || 0, pitch, air };
+        (s.electric ? vc.motor : vc.engine).update({ ...rv, on }, t); (s.electric ? vc.engine : vc.motor).update({ ...rv, on: 0 }, t);
         glide(vc.out.gain, on * Y.rivals * R.gain, t, 0.05);
         if (r.gear > vc.gear && d < 40) burst(ctx, vc.out, t, { type: 'highpass', freq: 1800, decay: 0.03, level: 0.2 });
         vc.gear = r.gear;
