@@ -130,9 +130,9 @@ test('driver.glb: the driver (skinned, a steering clip), the helmet and the stee
   assert.match(JSON.stringify(j.asset), /BELAZ.*MizuCorp.*OscarContrerasLithgow/, 'the credits travel with the file');
 });
 
-// car.glb seen from above: [x, z] of every vertex of the nodes whose name matches `re`, in the car's frame
-function planPoints(re) {
-  const b = readFileSync(new URL('../src/game/models/car.glb', import.meta.url)), jl = b.readUInt32LE(12), bin = b.subarray(20 + jl + 8), j = glbJson('../src/game/models/car.glb');
+// a car model seen from above (car.glb, or `file`): [x, z] of every vertex of the nodes whose name matches `re`, in the car's frame
+function planPoints(re, file = '../src/game/models/car.glb') {
+  const b = readFileSync(new URL(file, import.meta.url)), jl = b.readUInt32LE(12), bin = b.subarray(20 + jl + 8), j = glbJson(file);
   const parent = {}; j.nodes.forEach((n, i) => (n.children || []).forEach(c => { parent[c] = i; }));
   const at = i => { let t = [0, 0, 0]; for (let k = i; k !== undefined; k = parent[k]) { const u = j.nodes[k].translation || [0, 0, 0]; t = t.map((v, q) => v + u[q]); } return t; };
   const pts = [];
@@ -163,6 +163,13 @@ function followsShape(parts, pts) {
 
 test('car.glb: the cars\' hitbox (SIM HITBOX) follows the body and tyres seen from above, within ~10 cm', () => {
   followsShape(SIM.HITBOX.parts, planPoints(/^(body|tyre_|fw_flap|fw_main|rw_flap)/));
+});
+
+test('fe.glb: the electric car\'s hitbox (its class\'s HITBOX) follows its body and tyres seen from above, within ~10 cm', () => {
+  const fe = '../src/game/models/fe.glb', parts = SIM.classOf('fe').hitbox.parts;
+  followsShape(parts, planPoints(/^(body|tyre_|fw_main)/, fe));
+  const pts = parts.flatMap(p => p.pts), len = Math.max(...pts.map(p => p[0])) - Math.min(...pts.map(p => p[0]));
+  assert.ok(Math.abs(len - 4.55) < 0.05 && parts.some(p => p.ramp) && parts.filter(p => p.kind === 'tyre').length === 2, `${len} m long, a ramp, two tyre parts (mirrored)`);
 });
 
 test('hitboxFrom: a hitbox made from a car\'s shape (the classic car\'s) follows it too: front wing halves, ramp, tyres', () => {

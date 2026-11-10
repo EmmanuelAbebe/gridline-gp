@@ -3,7 +3,7 @@
 // numbers) is the F1's until a stage of the plan gives it its own. Figures from the FIA / Formula E and the press
 // (the plan's sources); ~ = our estimate where none was published.
 // Done so far (stage 1): the electric powertrain (one gear, the motor drawn from the battery), mass, tyres' grip, aero,
-// size; the brakes = regeneration (stage 2); the race's energy (stage 3); attack mode and the AWD start (stage 4); the tyres (stage 5); the AI (stage 6). Still the F1's: the hitbox (the 3D model).
+// size; the brakes = regeneration (stage 2); the race's energy (stage 3); attack mode and the AWD start (stage 4); the tyres (stage 5); the AI (stage 6); the hitbox from its 3D model (2026-11-10, fe.glb).
 import { F1_2026 } from './f1-2026.js';
 import { RACING_LINES, ALIEN_LINES } from '../racing-lines-fe.js';
 
@@ -122,9 +122,26 @@ const ALIEN = Object.freeze({
 const AI_CAR = Object.freeze({ ...F1.ai, alien: ALIEN, lines: Object.freeze({ racing: RACING_LINES, alien: ALIEN_LINES }), defendBelow: 150 / 3.6,
   offRoad: true, mistakeK: 0.5, alienHold: true });
 
+// The hitbox (collide.js; HITBOX's form, see the F1's): measured from fe.glb, the Gen2-style body on the class's wheelbase
+// (tests/models.test.js holds it to the body and tyres seen from above): the front wing tapering to the nose, the front of
+// the car (the bodywork covers the front wheels, ±0.73 m from the cockpit forward), the front tyres, the sidepods out to
+// the rear wheels' fenders, the rear tyres, the rear (diffuser: the ramp). 4.55 m long, 1.74 m wide (the F1's: 5.44 × 1.88,
+// which hit other cars ~40 cm early at each end). Every part convex; materials and the wing's strength as the F1's.
+const HITBOX = Object.freeze({
+  ...F1.hitbox,
+  parts: [
+    { name: 'front wing', kind: 'wing', mirror: true, pts: [[1.8, 0], [2.43, 0], [2.43, 0.08], [2.2, 0.4], [2.0, 0.66], [1.9, 0.73], [1.8, 0.73]] },
+    { name: 'front', kind: 'body', pts: [[-0.6, -0.75], [1.8, -0.74], [1.8, 0.74], [-0.6, 0.75]] },
+    { name: 'front tyre', kind: 'tyre', mirror: true, pts: [[1.18, 0.46], [1.79, 0.46], [1.79, 0.74], [1.18, 0.74]] },
+    { name: 'sidepods', kind: 'body', pts: [[-1.6, -0.84], [-1.1, -0.87], [-0.6, -0.75], [-0.6, 0.75], [-1.1, 0.87], [-1.6, 0.84]] },
+    { name: 'rear tyre', kind: 'tyre', mirror: true, pts: [[-1.79, 0.56], [-1.18, 0.56], [-1.18, 0.84], [-1.79, 0.84]] },
+    { name: 'rear', kind: 'body', ramp: true, pts: [[-2.12, -0.55], [-1.9, -0.84], [-1.6, -0.84], [-1.6, 0.84], [-1.9, 0.84], [-2.12, 0.55]] },
+  ],
+});
+
 export const FE_GEN3_EVO = Object.freeze({
   ...F1,
   id: 'fe', name: 'Formula E (Gen3 Evo)',
   ranked: false,                      // not on the leaderboard until the class is finished
-  car: CAR, chassis: CHASSIS, setup: SETUP, mods: MODS, ers: ERS, activeAero: ACTIVE_AERO, wear: WEAR, energy: ENERGY, attack: ATTACK, tyreTemp: TYRE_TEMP, compounds: COMPOUNDS, ai: AI_CAR,
+  hitbox: HITBOX, car: CAR, chassis: CHASSIS, setup: SETUP, mods: MODS, ers: ERS, activeAero: ACTIVE_AERO, wear: WEAR, energy: ENERGY, attack: ATTACK, tyreTemp: TYRE_TEMP, compounds: COMPOUNDS, ai: AI_CAR,
 });

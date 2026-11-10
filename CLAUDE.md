@@ -1116,8 +1116,10 @@ showed MODIFIED only because of it).
   and caliper; fw_main_l / _r, mirror_glass_l / _r, rain_light; no movers (no active aero on the class). `driver_at` =
   the F1's driver (driver.glb) moved into this cockpit (its wheel 0.14 m back, 2 cm lower); eye, steer, grips moved alike.
   Game: models.js Models.fe; car-models.js templateOf() = the class's model (Blender kind only), classChanged() swaps
-  every car (main.js after setPlayerClass); car-glb.js seatDriver(at). tests/models.test.js "fe.glb". Not done: its own
-  hitbox (still the F1's 5.44 m on a 4.6 m car), its sound, the halo's attack-mode LEDs. Other downloads parked for
+  every car (main.js after setPlayerClass); car-glb.js seatDriver(at). tests/models.test.js "fe.glb". Its hitbox (FE class
+  `hitbox`, 2026-11-10): measured from fe.glb, 4.55 × 1.74 m (front wing, front over the wheels, tyres, sidepods to the
+  rear fenders, rear = ramp); 4 races × Harrow / Elkmoor / Cantera vs the F1's: hard contacts 125 → 56, walls 36 → 4,
+  airborne steps 1651 → 646. Not done: its sound, the halo's attack-mode LEDs. Other downloads parked for
   later classes: ~/Downloads/kart-modular, kart-f9, f2-concept, sanremo-70 (all CC-BY).
 
 ## Tyre lag and lock-ups that build up (2026-11-09; user: "part 2 building the tyres", after comparing with
