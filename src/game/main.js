@@ -337,6 +337,8 @@ const distanceOf = race => race.format.type === 'laps' ? `${race.laps} lap${race
 // results: on to the race after qualifying (from that grid), else the same race again (the same grid)
 function again() { if (qualifying()) game.session = 'race'; newRace(); }
 
+// the steering assist's preset for the controller in use (a steering wheel steers the rack directly: it has its own feel)
+const padAssistNow = () => game.prefs.padAssist !== 'off' && Input.pad.kind !== 'wheel' ? game.prefs.padAssist : '';
 function simStep(dt) {
   const race = game.race;
   if (game.ended) return;                     // ended from the pause menu: the field stays where it stopped
@@ -350,7 +352,7 @@ function simStep(dt) {
     else if (c.player && !c.finished) {
       // (quantised before the car gets them, and recorded: the replay feeds the car the very same numbers)
       const drive = game.botInput ? game.botInput(c) : Input.drive;          // (gridlineDebug.botDrive: a test driver on your controls)
-      const inp = SIM.quantizeInput({ ...drive, brk: drive.brk * game.prefs.brakeForce / 100, steerRate: game.steerRate, calm: game.prefs.calm / 100, speedSteer: game.prefs.speedSteer === 'on' ? SIM.ASSISTS.medium.steer : 0, shift: game.pendingShift, boost: game.pendingBoost, aero: game.pendingAero, limiter: game.pendingLimiter, map: Math.sign(game.pendingMap) });
+      const inp = SIM.quantizeInput({ ...drive, brk: drive.brk * game.prefs.brakeForce / 100, steerRate: game.steerRate, calm: game.prefs.calm / 100, speedSteer: game.prefs.speedSteer === 'on' ? SIM.ASSISTS.medium.steer : 0, padAssist: padAssistNow(), shift: game.pendingShift, boost: game.pendingBoost, aero: game.pendingAero, limiter: game.pendingLimiter, map: Math.sign(game.pendingMap) });
       game.replayRec?.step(c, inp);
       SIM.drivePlayer(race, c, inp, dt);
       game.pendingShift = 0; game.pendingMap -= Math.sign(game.pendingMap); game.pendingBoost = game.pendingAero = game.pendingLimiter = false; }

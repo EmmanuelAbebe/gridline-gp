@@ -13,7 +13,9 @@ import { brakeLimitAt } from './elevation.js';
 import { checkPitEntry, stepPit, updateWear, aiWantsPit, drivePitLane, pitLimit, pitThrottle } from './pit.js';
 import { updateActiveAero } from './active-aero.js';
 import { updateAttack, attackLine } from './attack.js';
-import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
+import { M as FM } from './fmath.js';
+import { steerAssist } from './steer-assist.js';
+import { STEER_ASSIST } from './tuning.js';   // (deterministic sin, cos, atan2, hypot …: the same race on every engine)
 /** @typedef {import('./types.js').Car} Car */
 /** @typedef {import('./types.js').Race} Race */
 
@@ -32,8 +34,14 @@ export function drivePlayer(race, c, inp, dt) {
   const rate = inp.analog ? inp.steerRate ?? 14 : 5;
   c.steerIn ??= c.steer;
   c.steerIn += clamp(clamp(inp.steer, -1, 1) - c.steerIn, -dt*rate, dt*rate);
-  c.steer = inp.analog && inp.calm ? calmSteer(c.steerIn, c.v, inp.calm, c.spec) : c.steerIn;
-  if (inp.speedSteer) c.steer = speedSteer(c.steer, c.v, inp.speedSteer, (c.assists || ASSISTS.medium).steer, c.spec);
+  // an analog controller with the steering assist (steer-assist.js) in place of calm / speed-sensitive steering
+  const assist = inp.analog && inp.padAssist ? STEER_ASSIST[inp.padAssist] : null;
+  c.padAssist = assist ? inp.padAssist : '';
+  if (assist) c.steer = steerAssist(c, c.steerIn, assist, dt);
+  else {
+    c.steer = inp.analog && inp.calm ? calmSteer(c.steerIn, c.v, inp.calm, c.spec) : c.steerIn;
+    if (inp.speedSteer) c.steer = speedSteer(c.steer, c.v, inp.speedSteer, (c.assists || ASSISTS.medium).steer, c.spec);
+  }
   c.brake = inp.brk; c.thr = inp.thr;
   if (held) { afterMove(race, c); return; }
   updateWear(race, c, inp.thr, dt);

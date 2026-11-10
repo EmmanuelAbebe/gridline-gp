@@ -1108,6 +1108,22 @@ showed MODIFIED only because of it).
   model and sound. Smoke: out-menu-car.png (COMPARE on; GRIDLINE_SMOKE_CLASS picks the car in the CAR step), the garage
   shot on its Car tab.
 
+## Steering assist for phones and pads (2026-11-09; user found their old phone wheel felt better in two other browser
+## games, github.com/AgentiLoop/F1 and github.com/KhazP/librecorsa: both limit a pad's steering at speed)
+- SIM `steer-assist.js` (adapted from LibreCorsa's steering-assist.ts ← AC Advanced Gamepad Assist, MIT: CREDITS.md):
+  drivePlayer, analog input with `inp.padAssist` = a `STEER_ASSIST` preset (loose / balanced / stable; tuning.js) in place
+  of calm + speed-sensitive steering: full tilt = the road-wheel angle putting the fronts at `targetSlip` (~0.95) of their
+  peak slip angle (spec.peakF) relative to the front axle's travel; self-steer toward the rear axle's travel + yaw damping,
+  full with the controller centred, fading as it steers; countersteer aims at the rear's travel + a margin; a yaw-rate
+  guard. Left out: their stick smoother (no in-game smoothing on controllers), keyboard parts, peak-slip learning. State
+  `c.sa`, `c.padAssist` (the leaderboard: verify.js settings.steerAssist, a chip on the site). Replays record it (PREFS).
+  Measured (assists off): held full tilt 4–5 % more lateral g than scrubbing at full lock; full opposite lock 0.15 s into a
+  17° slide spins the car without it (88°) at 140–280 km/h, caught with it (≤ 21°); held full tilt + 60 % throttle at
+  120 km/h with no TC spins with it (the fronts no longer scrub speed off). AI untouched: sim-trace identical.
+- Game: Settings → Controller "Steering assist (phone, pads)" OFF / LOOSE / BALANCED (default) / STABLE (`prefs.padAssist`;
+  hides Speed-sensitive steering and Steering at speed when on); main.js padAssistNow: not for a controller of kind 'wheel'.
+  tests/steer-assist.test.js; the replay test switches it on mid-race.
+
 ## Controllers and the phone wheel in the app (2026-10-19; user: connect from Settings → Controller, phone now, Xbox pads /
 ## gamepads / joysticks / wheels later)
 - Electron main runs the phone server itself: `desktop/phone-link.cjs` (`createPhoneLink({ dataDir, pagesDir, onInput,

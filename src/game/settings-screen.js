@@ -11,6 +11,8 @@ import { createOnlinePanel } from './online-panel.js';
 // note?(key, value), action(name) } and this module only draws the controls and reports changes.
 const pct = v => v + ' %';
 const seg = (key, label, options, note, when) => ({ type: 'seg', key, label, options, note, when });
+// (speed-sensitive and calm steering: only with the steering assist off, which takes their place)
+const directSteer = b => b.get('padAssist') === 'off';
 const slider = (key, label, fmt, note) => ({ type: 'slider', key, label, fmt, note, limits: PREFS.limits[key] });
 const buttons = (...list) => ({ type: 'buttons', list });
 // a self-drawing block (make(bind) → { el, tick(pad) }), built once and kept: it may hold state and listeners
@@ -94,12 +96,15 @@ const TABS = [
     slider('smoothing', 'Steering smoothing', v => v ? String(v) : 'OFF',
       v => v ? `The steering takes ${Math.round(1000 * v / PREFS.smoothingRate)} ms from centre to full lock.`
         : 'Off: the car gets your controller\'s steering exactly as it arrives. Smoothing on the phone wheel is set in its own app.'),
+    seg('padAssist', 'Steering assist (phone, pads)', [['off', 'OFF'], ['loose', 'LOOSE'], ['balanced', 'BALANCED'], ['stable', 'STABLE']], v => v === 'off'
+      ? 'Off: your tilt goes to the steering as it is (with the two settings below). A phone has no steering feel, so nothing tells you when the front tyres are at their limit: past it they scrub, and opposite lock in a slide is the full 17°.'
+      : `Full tilt = the front tyres just under their grip peak at any speed, so you can't scrub them past it; the wheels follow the rear's direction by themselves when you centre the controller (a real wheel self-aligning), and steering into a slide aims at where the rear is going, not full opposite lock. ${{ loose: 'LOOSE: the least self-steer, the fronts allowed a little past their peak.', balanced: 'BALANCED: the middle.', stable: 'STABLE: the most self-steer and yaw damping, a safer margin under the peak.' }[v]} The car and its tyres are unchanged; laps on the leaderboard show it. Not used with a steering wheel. Adapted from LibreCorsa / AC Advanced Gamepad Assist.`),
     seg('speedSteer', 'Speed-sensitive steering', [['on', 'ON'], ['off', 'OFF']], v => v === 'on'
       ? 'Your controller\'s travel matches what the tyres can use at every speed (like a wheel with a quicker ratio when slow), even with assists off; the last 15 % reaches full lock for catching slides. The car itself is unchanged.'
-      : 'Off: full travel is always the full 17° lock (unless Steering help is on). At 300 km/h only the first ~20 % of the travel is within the grip.'),
-    slider('calm', 'Steering at speed', v => v ? v + ' % calm' : 'DIRECT', v => v
+      : 'Off: full travel is always the full 17° lock (unless Steering help is on). At 300 km/h only the first ~20 % of the travel is within the grip.', directSteer),
+    { ...slider('calm', 'Steering at speed', v => v ? v + ' % calm' : 'DIRECT', v => v
       ? 'Small tilts turn the car gently at any speed, like the first versions; full tilt still uses all the grip.'
-      : 'Direct: the same tilt asks for the same share of grip, so at high speed (lots of downforce) a small tilt turns hard.'),
+      : 'Direct: the same tilt asks for the same share of grip, so at high speed (lots of downforce) a small tilt turns hard.'), when: directSteer },
     slider('deadZone', 'Steering dead zone', pct, () => 'Steering ignored around the centre.'),
     slider('range', 'Full lock at', v => v + ' % travel', v => v < 100 ? `Full lock arrives at ${v} % of the controller's travel.` : 'Full lock at the end of the controller\'s travel.'),
     slider('curve', 'Steering response', v => v === 1 ? 'LINEAR' : v.toFixed(1),

@@ -15,7 +15,8 @@ function driver(T, seed = 3) {
     const ti = (car.idx + 12) % T.N, diff = S.wrapA(Math.atan2(T.PZ[ti] - car.z, T.PX[ti] - car.x) - car.h);
     const slow = car.v > VP[(car.idx + 4) % T.N];
     return { steer: S.clamp(diff * 3 + (rnd() - 0.5) * 0.02, -1, 1), thr: slow ? 0 : 0.97 + rnd() * 0.03, brk: slow ? 0.8 + rnd() * 0.2 : 0,
-      analog: true, hb: 0, shift: rnd() < 0.002 ? 1 : 0, steerRate: Infinity, calm: 1, speedSteer: 0.5 };
+      analog: true, hb: 0, shift: rnd() < 0.002 ? 1 : 0, steerRate: Infinity, calm: 1, speedSteer: 0.5,
+      padAssist: car.lap >= 2 ? 'balanced' : '' };   // (the steering assist from lap 2: a setting changed mid-race, and its own state)
   };
 }
 const hashOf = cars => cars.map(c => [c.x, c.z, c.h, c.v, c.vy, c.yawRate, c.lap, c.gear, c.soc].join(',')).join('|');

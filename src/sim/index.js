@@ -1,7 +1,7 @@
 // SIM: track geometry, driving model and race rules.
 // Pure JS (no DOM, no Three.js) so it also runs headless in Node: tools/sim-test.mjs, tests/.
 // Units are SI throughout: metres, seconds, m/s, m/s².
-import { TUNING, AI, CONTACT, LIMITS, SLIP, ASSISTS, EV, SURFACES, OFFTRACK, WALLS, RUNOFF, BARRIER, BARRIERS, ZONE, PIT, SPEED_STEER, ELEVATION, SECTORS } from './tuning.js';
+import { TUNING, AI, CONTACT, LIMITS, SLIP, ASSISTS, EV, SURFACES, OFFTRACK, WALLS, RUNOFF, BARRIER, BARRIERS, ZONE, PIT, SPEED_STEER, STEER_ASSIST, ELEVATION, SECTORS } from './tuning.js';
 // the F1's tables under their old names (the game reads them: car classes stage 6)
 import { HITBOX, CAR, CHASSIS, WEAR, SETUP, MODS, ACTIVE_AERO, OVERTAKE, ERS, HANDBRAKE, TYRE_TEMP, COMPOUNDS, ECU } from './classes/f1-2026.js';
 import { buildSectors } from './sectors.js';
@@ -31,7 +31,7 @@ import { hitboxFrom, HITBOX_FIT } from './hitbox.js';
 import { REPLAY, quantizeInput, createReplayRecorder, replayRun } from './replay.js';
 import { SIM_VERSION } from './sim-version.js';
 import { ecuMapOf, gapBehind } from './ecu.js';
-export const SIM = Object.freeze({ SIM_VERSION, ECU, ecuMapOf, gapBehind, REPLAY, quantizeInput, createReplayRecorder, replayRun, TYRE_TEMP, COMPOUNDS, STRATEGY, AIR, hitboxFrom, HITBOX_FIT, fitTyres, bestCompound, tyreSet, tempGrip, axleTempGrip, gripTemp, TUNING, AI, CONTACT, HITBOX, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, HANDBRAKE, SPEED_STEER, CIRCUITS,
+export const SIM = Object.freeze({ SIM_VERSION, ECU, ecuMapOf, gapBehind, REPLAY, quantizeInput, createReplayRecorder, replayRun, TYRE_TEMP, COMPOUNDS, STRATEGY, AIR, hitboxFrom, HITBOX_FIT, fitTyres, bestCompound, tyreSet, tempGrip, axleTempGrip, gripTemp, TUNING, AI, CONTACT, HITBOX, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, HANDBRAKE, SPEED_STEER, STEER_ASSIST, CIRCUITS,
   SURFACES, OFFTRACK, WALLS, RUNOFF, BARRIER, BARRIERS, ZONE, surfaceAt, PIT, WEAR, fuelLaps, lapsToGo, carCondition, laneCentre, laneOuter, alongLane, serviceSteps,
   steerLock, tyreCurve, driftAngle, DRIVERS, EV, track: DEFAULT_TRACK,
   SETUP, MODS, ACTIVE_AERO, OVERTAKE, ERS, gapAhead, setAeroZones, aeroZonesInMetres, zoneRisk, aeroSafeOf, aiAeroPlan, carSpec, STOCK, stockOf, CLASSES, DEFAULT_CLASS, classOf, aiOf, batteryFull, liftNow, lapEnergy, attackZone, validSetup, validMods, isModified, specStats, balanceAt,

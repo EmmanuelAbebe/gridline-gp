@@ -28,12 +28,12 @@ export const REPLAY = Object.freeze({
 
 // ---- the controls ----
 // inp as the game builds it for drivePlayer → the same, quantised (and only the fields the car reads). The prefs
-// that travel with it (steerRate, calm, speedSteer) are settings: kept as they are.
+// that travel with it (steerRate, calm, speedSteer, padAssist) are settings: kept as they are.
 const q = (v, k) => Math.round(Math.max(-1, Math.min(1, +v || 0)) * k) / k;
 export function quantizeInput(inp) {
   return { steer: q(inp.steer, REPLAY.steer), thr: Math.max(0, q(inp.thr, REPLAY.pedal)), brk: Math.max(0, q(inp.brk, REPLAY.pedal)),
     analog: !!inp.analog, hb: inp.hb ? 1 : 0, shift: Math.sign(inp.shift || 0), boost: !!inp.boost, aero: !!inp.aero, limiter: !!inp.limiter, map: Math.sign(inp.map || 0),
-    steerRate: inp.steerRate, calm: inp.calm, speedSteer: inp.speedSteer };
+    steerRate: inp.steerRate, calm: inp.calm, speedSteer: inp.speedSteer, padAssist: inp.padAssist };
 }
 // one step's controls as whole numbers (the channels of a replay) and back
 const CH = ['steer', 'thr', 'brk', 'flags', 'shift'];
@@ -65,7 +65,7 @@ function decode(runs, n) {
 
 // ---- the settings the game may change on the player's car mid-race ----
 const FLAGS = ['autoShift', 'autoDown', 'boostAuto', 'aeroAuto', 'limiterAuto', 'pitRequest', 'ecuMode'];
-const PREFS = ['steerRate', 'calm', 'speedSteer'];
+const PREFS = ['steerRate', 'calm', 'speedSteer', 'padAssist'];
 const num = v => v === Infinity ? 'inf' : v ?? null;                 // (JSON keeps no Infinity)
 const unnum = v => v === 'inf' ? Infinity : v ?? undefined;
 /** @param {Car} c */

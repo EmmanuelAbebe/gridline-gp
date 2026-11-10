@@ -46,10 +46,12 @@ export function verifyRun(rp, claim = {}) {
   let best = null, help = null;
   ghostRec.start(0); traceRec.start(1, { lap: 0, idx: 0 }, 0);
   // the most help the car had at any moment of the lap (assists changed mid-lap count at their strongest)
+  const PAD = ['', 'loose', 'balanced', 'stable'];
   const strongest = (h, c) => {
     const a = h ? { ...h.assists } : { ...c.assists };
     if (h) for (const k in a) a[k] = Math.max(a[k], c.assists[k]);
-    return { assists: a, auto: !!(h?.auto || c.autoShift), semi: !!(h?.semi || c.autoDown) };
+    const pad = [h?.pad || '', c.padAssist || ''].sort((x, y) => PAD.indexOf(y) - PAD.indexOf(x))[0];   // (the strongest preset used)
+    return { assists: a, auto: !!(h?.auto || c.autoShift), semi: !!(h?.semi || c.autoDown), pad };
   };
   let run;
   try {
@@ -78,7 +80,7 @@ export function verifyRun(rp, claim = {}) {
     sectors: sectorTimes(best.trace, L).map(t => Math.round(t * 1000) / 1000),
     settings: {
       assists: assistName(h.assists), gearbox: h.auto ? 'auto' : h.semi ? 'semi' : 'manual', tyres: rp.player.compound,
-      tyreTemp: !!R.tyreTemp, overtake: !!R.overtake, setup: SIM.validSetup(rp.player.setup),   // (as the car got it: carSpec clamps)
+      tyreTemp: !!R.tyreTemp, overtake: !!R.overtake, steerAssist: h.pad || undefined, setup: SIM.validSetup(rp.player.setup),   // (as the car got it: carSpec clamps)
     },
     ghost: compactGhost(best.ghost),
   };

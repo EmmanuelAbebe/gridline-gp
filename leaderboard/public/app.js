@@ -41,7 +41,7 @@ function drawRows() {
     return `<tr data-id="${esc(r.id)}" tabindex="0"><td class="r num">${r.rank}</td><td class="name">${esc(r.name || '?')}</td>
       <td class="r num${r.rank === 1 ? ' best' : ''}">${fmt(r.time)}</td><td class="r num">${r.rank === 1 ? '' : '+' + r.gap.toFixed(3)}</td>
       ${sec(0)}${sec(1)}${sec(2)}
-      <td><span class="chip${s.assists === 'off' ? ' off' : ''}">${ASSISTS[s.assists] || '?'}</span></td><td>${esc(s.gearbox || '')}</td>
+      <td><span class="chip${s.assists === 'off' ? ' off' : ''}">${ASSISTS[s.assists] || '?'}</span>${s.steerAssist ? ` <span class="chip" title="Steering assist for a phone / pad: ${esc(s.steerAssist)}">steer assist</span>` : ''}</td><td>${esc(s.gearbox || '')}</td>
       <td><span class="cmp ${esc(s.tyres || '')}" title="${esc(s.tyres || '')}">${esc((s.tyres || '?')[0].toUpperCase())}</span>${s.tyreTemp ? '' : ' <span class="chip">no temps</span>'}</td>
       <td>${esc(s.controller || '')}</td><td>${r.date ? new Date(r.date).toLocaleDateString() : ''}</td></tr>`;
   }).join('');

@@ -1,6 +1,7 @@
 // Driving and race-rule constants. Units are SI throughout: metres, seconds, m/s, m/s².
 // A car's own numbers live in its class (classes/: the 2026 F1's in classes/f1-2026.js; docs/car-classes-plan.md):
 // this file holds the world's (surfaces, run-off, hills, limits, the pit lane, contact, assists) and the AI's racecraft.
+import { M as FM } from './fmath.js';
 export const TUNING = Object.freeze({
   // the physics' version: 2 = real-F1 physics (2026-10-24). Lap records and ghosts are kept per version (game
   // config storageKeys, ghost.js validGhost): laps on different physics don't compare
@@ -112,6 +113,21 @@ export const AI = Object.freeze({
 // of the travel the controller reaches that speed's usable angle; the rest of the travel reaches the full lock, so a
 // big slide can still be caught with opposite lock.
 export const SPEED_STEER = Object.freeze({ catchFrom: 0.85 });
+
+// Steering assist for a phone or a pad (steer-assist.js, 2026-11-09): the presets, from four sliders as LibreCorsa / AC
+// Advanced Gamepad Assist resolve them. self: self-steer and countersteer strength 0..1; damp: yaw damping 0..1; margin:
+// the fronts' target vs 95 % of their peak slip (− = a safer understeer cushion); maxSelf: most road-wheel angle the
+// self-steer turns to by itself (deg, at most the car's lock).
+const steerPreset = ({ self, damp, margin, maxSelf }) => Object.freeze({
+  exponent: 1 + (1 - FM.log(10 * ((self * 0.5 + 0.12) * 0.9 + 0.1)) / FM.log(10)),
+  damping: damp * 0.5 + 0.12, maxSelfDeg: maxSelf, maxCut: 3 * self + 3.5,
+  counter: (1 - self) * 0.2 + 0.1, targetSlip: 0.95 - (self - 0.5) * 0.04 + margin,
+});
+export const STEER_ASSIST = Object.freeze({
+  loose: steerPreset({ self: 0.3, damp: 0.3, margin: 0.05, maxSelf: 8 }),
+  balanced: steerPreset({ self: 0.5, damp: 0.5, margin: 0, maxSelf: 25 }),
+  stable: steerPreset({ self: 0.85, damp: 0.9, margin: -0.04, maxSelf: 30 }),
+});
 
 // Surfaces (2026-10-18, after research into real run-off; the user found the old grass "too punishing": it braked at
 // up to 2.2 g down to 60 km/h). Real grass barely slows a car, it takes the grip away: tyres have about half their

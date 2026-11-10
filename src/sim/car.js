@@ -74,8 +74,10 @@ export function createCar(track, driver, slot, rng, spec = STOCK) {
     feelBrake: Number(spec.cls.ai.feel.brake), feelBrakeNow: 1, feelThr: /** @type {number[]} */ (null), feelThrNow: 1, feelLag: /** @type {number[]} */ (null), feelSpun: false,
     // trail: lateral offset and time when this car last passed each track sample (its wake, for slipstream)
     trailLat: new Float32Array(track.N), trailT: new Float32Array(track.N).fill(-1),
-    // player driving (driving.js drivePlayer): smoothed steering input (null until the first player step)
-    steerIn: null,
+    // player driving (driving.js drivePlayer): smoothed steering input (null until the first player step); the steering
+    // assist's state (steer-assist.js: self-steer, limit in degrees, countersteer share; null until it first steers)
+    // padAssist = the steering assist's preset steering this step ('' = none: the leaderboard shows the lap with it)
+    steerIn: null, padAssist: '', sa: /** @type {{ self: number, limit: number, counter: number }} */ (null),
     // AI (driving.js driveAI): line offset, own line bias, mistake = share too fast until mistakeEnd, passing,
     // dirtyK = corner-speed factor in dirty air (smoothed); racecraft: pressure 0..1 (a car close behind), defending
     // to the apex sample defendTo on defendSide (defendZone = the corner last decided for)

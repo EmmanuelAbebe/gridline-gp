@@ -27,7 +27,7 @@ const G = 9.81;
 // frequencies (rad/s), C_SHAPE / B_UNIT the tyre curve's shape
 const bundles = new WeakMap();
 /** @param {import('./types.js').CarClass} cls */
-function chassisOf(cls) {
+export function chassisOf(cls) {
   let Q = bundles.get(cls);
   if (Q) return Q;
   const CH = cls.chassis, SU = cls.suspension, DA = cls.damper, SETUP = cls.setup, L = CH.wheelbase;

@@ -46,6 +46,7 @@ const checks = [
   // (the same) the phone designer: the phone page in a frame with the editor, DONE sends the layout to the phone
   ['phone designer edits and sends the layout', !r.phone || r.phone.error || (r.phone.design?.frame && r.phone.design.boxes >= 8 && r.phone.design.sent && r.phone.design.closed)],
   ['phone map tap reaches the ECU', !r.phone || r.phone.error || (r.phone.ecu?.mode === 'manual' && r.phone.ecu?.map === 2)],
+  ['phone steers through the steering assist', !r.phone || r.phone.error || (r.phone.assist?.preset === 'balanced' && (r.phone.assist.kmh < 80 || r.phone.assist.steer < 0.9))],
 ];
 for (const [name, ok] of checks) console.log(`${ok ? 'ok  ' : 'FAIL'}  ${name}`);
 console.log(`webgl: ${r.webgl}, compositing: ${r.gpu2d}, phone: ${r.phone?.seen?.state ?? r.phone?.error ?? '?'}`);
