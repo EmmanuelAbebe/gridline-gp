@@ -20,16 +20,16 @@ export function createSectorTiming({ game, aiLapOf }) {
   const save = () => Settings.set(CONFIG.storageKeys.sectors, storeSectorsJson(store));
   let S = null;              // this race: { track, L, cls, bests, candidates, ref, laps, session, rec, mini }
 
-  // your all-time bests here (per car class and straight-mode zone layout: zones = zoneTag); the first time (or after a
-  // layout change) from your saved ghost lap, if any (car: the car class's id)
+  // your all-time bests here (per car class and straight-mode zone layout: zones = zoneTag), with your saved ghost laps in
+  // them (car: the car class's id). The ghosts always count (2026-11-10): a ghost faster than the saved best (a lap the
+  // sector store missed) becomes the best ever, and its recorded path is what the lap comparison replays; before, they
+  // only counted with no best at all, so such a best replayed on the racing line
   function bestsFor(track, L, modified, zones = '', car = playerClass().id) {
     const cls = lapClass(modified, zones, car);
     let b = bestsOf(store, track.id, cls, L);
-    if (!b || !b.best) {                        // (no best lap's trace: none yet, or a damaged save, lap-analysis.js expandTrace)
-      if (!b) { b = emptyBests(L); putBests(store, track.id, cls, b); }
-      const g = ghostOf(game.ghosts, track.id, modified, false, zones, car), gs = ghostOf(game.ghosts, track.id, modified, true, zones, car);
-      for (const x of [g, gs]) { const tr = x && traceFromGhost(x, track.N); if (tr) keepBests(b, L, tr); }
-    }
+    if (!b) { b = emptyBests(L); putBests(store, track.id, cls, b); }
+    const g = ghostOf(game.ghosts, track.id, modified, false, zones, car), gs = ghostOf(game.ghosts, track.id, modified, true, zones, car);
+    for (const x of [g, gs]) { const tr = x && !(b.best && x.time >= b.best.time && !x.start) && traceFromGhost(x, track.N); if (tr) keepBests(b, L, tr); }
     return b;
   }
   // your saved ghost lap that is this trace's lap (the same time), for where the car was (lap-replay.js); else null
