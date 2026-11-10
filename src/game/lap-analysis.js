@@ -158,13 +158,19 @@ export function sessionPace(laps, L, ai = {}) {
 export const STORE_VERSION = 1;
 const enc = (arr, k) => { let last = 0; return Array.from(arr, v => { if (!Number.isFinite(v)) return null; const q = Math.round(v * k), d = q - last; last = q; return d; }); };
 const dec = (arr, k, N) => { const out = nanArray(N); let q = 0; arr.forEach((d, i) => { if (d === null) return; q += d; out[i] = q / k; }); return out; };
-export const compactTrace = tr => tr && { time: tr.time, start: !!tr.start, t: enc(tr.t, 1000), kmh: enc(tr.kmh, 1), thr: tr.thr && enc(tr.thr, 20), brk: tr.brk && enc(tr.brk, 20) };
+// (2026-11-10: where the car was too, in cm / mrad, and its gear: the lap comparison replays your best ever from it)
+export const compactTrace = tr => tr && { time: tr.time, start: !!tr.start, t: enc(tr.t, 1000), kmh: enc(tr.kmh, 1), thr: tr.thr && enc(tr.thr, 20), brk: tr.brk && enc(tr.brk, 20),
+  ...(tr.x && tr.z && tr.h ? { x: enc(tr.x, 100), z: enc(tr.z, 100), h: enc(tr.h, 1000) } : {}), ...(tr.gear ? { gear: enc(tr.gear, 1) } : {}) };
 // (null when it doesn't decode to a lap: every time within the lap, every speed a car's. Until 2026-11-05 each save
 // compacted the saved bests of circuits not driven since the start once more, so those decode to huge numbers)
 export function expandTrace(c, N) {
   if (!c || !(c.time > 0) || !Array.isArray(c.t) || c.t.length !== N || !Array.isArray(c.kmh) || c.kmh.length !== N) return null;
   const pedal = a => Array.isArray(a) && a.length === N ? dec(a, 20, N) : null;
   const tr = { time: c.time, start: !!c.start, t: dec(c.t, 1000, N), kmh: dec(c.kmh, 1, N), thr: pedal(c.thr), brk: pedal(c.brk) };
+  const arr = (a, k) => Array.isArray(a) && a.length === N ? dec(a, k, N) : null;
+  const x = arr(c.x, 100), z = arr(c.z, 100), h = arr(c.h, 1000), gear = arr(c.gear, 1);
+  if (x && z && h) Object.assign(tr, { x, z, h });
+  if (gear) tr.gear = gear;
   const within = (a, lo, hi) => a.every(v => !(v < lo || v > hi));          // (NaN = a sample not reached: fine)
   return within(tr.t, 0, tr.time + 1) && within(tr.kmh, 0, 600) && (!tr.thr || within(tr.thr, 0, 1.05)) && (!tr.brk || within(tr.brk, 0, 1.05)) ? tr : null;
 }

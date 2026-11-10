@@ -3,7 +3,8 @@
 // (tests/lap-replay.test.js).
 // A lap (lap-analysis.js trace: t, kmh, thr, brk at every track sample, + x / z / h / gear where recorded) becomes a
 // replay: where the car was and what it did any time into its lap. Positions come from the trace's own x / z (your laps
-// this session, the AI's), else a recorded ghost's pose (your best ever, a loaded file), else the middle of the road.
+// this session, the AI's, your saved best), else a recorded ghost's pose (a loaded file), else the racing line (track.RO;
+// the middle of the road without one).
 // Two laps are compared BY TIME (both the same time into their laps: a ghost race, the gap = who is ahead) or BY
 // DISTANCE (the other car at your spot: how each took it, the gap in time only).
 import { ghostPose } from './ghost.js';
@@ -46,10 +47,12 @@ export function replayOf(trace, track, ghost = null) {
     if (!Number.isFinite(x)) return Number.isFinite(y) ? y : null;
     return Number.isFinite(y) ? x + (y - x) * u : x;
   }
-  const hasXZ = !!(trace.x && trace.z) && Number.isFinite(trace.x[0]);
+  const hasXZ = !!(trace.x && trace.z) && trace.x.some(Number.isFinite);
+  // on the racing line (no positions of the lap's own: a lap saved before 2026-11-10)
+  const at = (i, a) => a ? a[i] : 0, lx = i => track.PX[i] + track.NX[i] * at(i, track.RO), lz = i => track.PZ[i] + track.NZ[i] * at(i, track.RO);
   function centre(s) {
-    const i = Math.min(N - 1, Math.floor(clamp(s, 0, N))), j = (i + 1) % N, u = s - i;
-    return { x: track.PX[i] + (track.PX[j] - track.PX[i]) * u, z: track.PZ[i] + (track.PZ[j] - track.PZ[i]) * u, h: Math.atan2(track.TZ[i], track.TX[i]) };
+    const i = Math.min(N - 1, Math.floor(clamp(s, 0, N))), j = (i + 1) % N, u = s - i, x = lx(i) + (lx(j) - lx(i)) * u, z = lz(i) + (lz(j) - lz(i)) * u;
+    return { x, z, h: Math.atan2(lz(j) - lz(i), lx(j) - lx(i)) };
   }
   function fromTrace(s) {
     const x = valueAt(trace.x, s), z = valueAt(trace.z, s);

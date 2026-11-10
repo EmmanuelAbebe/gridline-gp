@@ -32,9 +32,9 @@ test('a replay: time and sample are each other\'s inverse; its position follows 
     assert.ok(Math.hypot(p.x - alien.x[i], p.z - alien.z[i]) < 0.01, `sample ${i}`);
     assert.ok(Math.cos(p.h - Math.atan2(T.TZ[i], T.TX[i])) > 0.9, `sample ${i}: heading`);
   }
-  // no positions: the middle of the road
+  // no positions: on the racing line (the test below)
   const bare = replayOf({ ...alien, x: null, z: null, h: null }, T), q = bare.poseAt(alien.t[400]);
-  assert.equal(bare.source, 'centre'); assert.ok(Math.hypot(q.x - T.PX[400], q.z - T.PZ[400]) < 2.5);
+  assert.equal(bare.source, 'centre'); assert.ok(Math.hypot(q.x - T.PX[400], q.z - T.PZ[400]) < T.HW);
 });
 
 test('compared by time the faster lap is ahead; by distance it is at your spot; the delta is the time difference there', () => {
@@ -79,4 +79,17 @@ test('your laps are recorded with where the car was and its gear', () => {
   for (const k of ['x', 'z', 'h', 'gear']) assert.ok(tr[k].every(Number.isFinite), k);
   const R = replayOf(tr, T), p = R.poseAt(tr.t[600]);
   assert.ok(Math.hypot(p.x - tr.x[600], p.z - tr.z[600]) < 0.01);
+});
+
+test('your saved best keeps where the car was; a lap without positions replays on the racing line', async () => {
+  const { compactTrace, expandTrace } = await import('../src/game/lap-analysis.js');
+  const back = expandTrace(JSON.parse(JSON.stringify(compactTrace(alien))), N);
+  for (const i of [5, 600, 1100]) {
+    assert.ok(Math.hypot(back.x[i] - alien.x[i], back.z[i] - alien.z[i]) < 0.02, `sample ${i}`);
+    assert.equal(back.gear[i], alien.gear[i]);
+  }
+  assert.equal(replayOf(back, T).source, 'trace');
+  const bare = replayOf({ ...alien, x: null, z: null, h: null }, T), i = 400, p = bare.poseAt(alien.t[i]);
+  const off = (p.x - T.PX[i]) * T.NX[i] + (p.z - T.PZ[i]) * T.NZ[i];
+  assert.ok(Math.abs(off - T.RO[i]) < 0.5, `on the racing line: ${off.toFixed(2)} vs ${T.RO[i].toFixed(2)}`);
 });
