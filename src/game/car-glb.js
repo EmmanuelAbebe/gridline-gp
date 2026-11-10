@@ -13,8 +13,9 @@ import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 //   F1's cockpit; driver_at (fe.glb) = where that driver goes in another model's.
 // Every mesh's COLOR_0 = Blender's baked ambient occlusion; the materials multiply it.
 const ROLE_COLOURS = { carbon: 0x101114, rubber: 0x0b0b0c, metal: 0x8a8d92, glass: 0x1a2128, dark: 0x050506 };
-// the halo's LEDs (Formula E's attack mode: the real Gen2 cars light the halo blue): off = like the carbon, on = this blue
-const HALO = { off: new THREE.Color(0x16181c), on: new THREE.Color(0x2f9bff), rise: 10, fall: 5 };
+// the halo's LEDs (Formula E's attack mode, as the real Gen2 cars light theirs): off = like the carbon, on = attack mode's
+// purple (the HUD chip's, hud.css #boostTag.live; 2026-11-10 the user's pick over the real cars' blue)
+const HALO = { off: new THREE.Color(0x16181c), on: new THREE.Color(0xa46bff), rise: 10, fall: 5 };
 const shared = { quality: {}, fast: {} };
 // the driver (models/driver.glb, tools/blender/cockpit.py): the clip's keys run from the wheel at −lock to +lock; the head
 // leans against the cornering (rad per m/s² of lateral g, at most, how fast it follows /s)

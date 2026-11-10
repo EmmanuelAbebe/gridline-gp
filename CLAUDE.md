@@ -1122,9 +1122,9 @@ showed MODIFIED only because of it).
   airborne steps 1651 → 646.
 - The halo's attack-mode LEDs (2026-11-10; the real Gen2 cars light the halo blue): fe.py splits the halo's upward faces
   (normal z > LED_UP 0.55) into `halo_led`, role `halo`; car-glb.js HALO: a per-car basic material, off ≈ carbon, up to
-  blue 0x2f9bff while car.attackOn (rise 10 / fall 5 per s). Seen from outside (the cockpit sees the halo's dark underside).
-  Smoke (GRIDLINE_SMOKE_CAR=2026, FE): out-class-halo.png from the chase camera, the LED blue's pixels over the car (0 before
-  attack mode, ~32 with it; check > 10); gridlineDebug.carKind().
+  attack mode's purple 0xa46bff (the HUD chip's; the user's pick over the real cars' blue) while car.attackOn (rise 10 / fall 5 per s). Seen from outside (the cockpit sees the halo's dark underside).
+  Smoke (GRIDLINE_SMOKE_CAR=2026, FE): out-class-halo.png from the chase camera, the LED purple's pixels over the car, HUD hidden
+  (its chip is that purple; check > 10); gridlineDebug.carKind().
 - Its sound (2026-11-10): audio/motor-voice.js (the engine voice's interface: update / configure / stop, outputs intake
   (empty) / turbo (inverter) / ers (gear mesh)), SOUND.motor in audio-config.js: a PeriodicWave of the motor's orders
   (rpm / 60 × order 4 = the main whine, ~1.05 kHz at 280 km/h) + a detuned twin, low-pass by load, loud driving and
