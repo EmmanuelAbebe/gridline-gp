@@ -1367,6 +1367,29 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   `out-analysis.png`, checks; `GRIDLINE_SMOKE_LAP=1` also drives two laps (autopilot) → `out-sectors-lap.png`,
   `out-analysis-lap.png`.
 
+## Lap analysis reworked, lap comparison (2026-11-10; user: "ghost car comparison or virtual lap comparison similar to how
+## they show it in broadcasts (include a 3d and a 2d view option)", then "build the full lap analysis section and rework it
+## to fit" the canvas mock-ups "Gridline lap comparison")
+- `#anaOv` is a `.mn.sub-panel` (1280 × 800, like pause / results): title + circuit, tabs OVERVIEW / COMPARE, 2D / 3D (on
+  COMPARE), DONE; the two lap pickers (amber = yours, cyan = the other). OVERVIEW = the old content on one screen (map,
+  sectors, pace tiles + the AI gaps as chips, the corner table). Canvases drawn at 2× (analysis-screen.js `U`).
+- `lap-replay.js` (pure, tests/lap-replay.test.js): `replayOf(trace, track, ghost?)` = a lap's sample / time either way,
+  values, `poseAt(T)` from the trace's own x / z / h (your laps this session: createTraceRecorder now records x, z, h, gear;
+  AI laps: ai-ghosts.js line h, gear), else the ghost of that lap (your best ever: sector-timing `myGhost` = your saved
+  ghost when its time matches; a loaded file), else the road's middle; `compareAt(me, ref, T, 'time' | 'distance')`
+  {sMe, sRef, tRef, delta, ahead}; `deltaSeries`; `modelState` (wheels, steering from the path's curvature, brakes).
+  Saved bests stay without positions (compactTrace drops them).
+- COMPARE 2D: the map fills in mini-sector by mini-sector (green / red, white = this one), both dots; delta + gap (m ahead
+  / behind, by time; "same spot" by distance), km/h, gear, throttle, brake of both; the next corner (brakes, slowest, exit,
+  time + gap); the delta + speed traces (click / drag = go there); play, scrub, 0.25–4×, SYNC BY TIME / BY DISTANCE.
+- COMPARE 3D (`analysis-3d.js`): the circuit fills the screen (overlay transparent, `.ana-3d`), the race's / menu's car
+  models and the HUD hidden, two cars of our own (yours in your livery, the other see-through in its livery); cameras CHASE,
+  TV (trackside every 240 m outside the bend, cutting as you pass, zoomed on both cars), HELI, ONBOARD (the cockpit camera's
+  eye); the virtual-lap box, mini map, both speeds, a tag over the other car (a chip at the bottom when out of view).
+  main.js frame: `analysis.frame(dt)` returns true when it drew the scene. Leaving restores cars, camera, HUD.
+- Smoke (GRIDLINE_SMOKE_LAP=1): out-analysis-cmp.png (2D, played), -3d, -tv, -onboard, and from the start menu your best
+  ever in 3D (-analysis-menu3d.png); check-smoke checks them.
+
 ## Ideas not done yet
 - Online leaderboard with replay validation: `docs/leaderboard-plan.md`. Phase 0 done 2026-10-28: replays
   (`src/sim/replay.js`: the game records the player's quantised inputs + settings changes from lights out; replayRun

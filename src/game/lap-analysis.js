@@ -2,7 +2,8 @@
 // to determine where a player is slow or faster, as well as calculating pace for a new kind of comparison", against
 // "the fastest lap from me or the AI and later on from other players".
 // A lap trace = one lap at every track sample: the lap time when the car got there (t), its speed (kmh) and pedals
-// (thr / brk; null where a source has none). Your laps are recorded live; the AI's come from its ghost lap (ai-ghosts.js
+// (thr / brk; null where a source has none), and where it was (x / z / h, its gear: your laps and the AI's, for the
+// lap replay, lap-replay.js; not saved: your saved best is replayed from your ghost lap). Your laps are recorded live; the AI's come from its ghost lap (ai-ghosts.js
 // line); a recorded ghost (yours from before, or another player's file) has a time every GHOST.split samples and its
 // pose, which give the same arrays without the pedals. The circuit's split (SIM.buildSectors): corners, mini-sectors
 // (a corner's braking point to the next one's), three sectors.
@@ -36,6 +37,7 @@ export function createTraceRecorder(N) {
     for (let k = 0; k < passed; k++) {
       const i = c.idx - k; if (i < 0) break;
       tr.t[i] = lapT; tr.kmh[i] = SIM.speedOf(c) * 3.6; tr.thr[i] = c.thr; tr.brk[i] = c.brake;
+      tr.x[i] = c.x; tr.z[i] = c.z; tr.h[i] = c.h; tr.gear[i] = c.gear;
     }
     last = c.idx;
   };
@@ -43,7 +45,7 @@ export function createTraceRecorder(N) {
     get on() { return !!tr; },
     get current() { return tr; },
     start(lapNo, c, lapT) {
-      tr = { time: 0, t: nanArray(N), kmh: nanArray(N), thr: nanArray(N), brk: nanArray(N), start: lapNo === 1 && lapT < 0.5, pit: false };
+      tr = { time: 0, t: nanArray(N), kmh: nanArray(N), thr: nanArray(N), brk: nanArray(N), x: nanArray(N), z: nanArray(N), h: nanArray(N), gear: nanArray(N), start: lapNo === 1 && lapT < 0.5, pit: false };
       lap = lapNo; last = c.lap === lapNo ? -1 : c.idx;          // (-1: from the line, sample 0 included)
       if (c.lap === lapNo) fill(c, lapT);
     },
@@ -58,7 +60,7 @@ export function createTraceRecorder(N) {
   };
 }
 // an AI ghost lap (ai-ghosts.js aiLap: { time, line })
-export const traceFromAi = lap => lap && lap.line?.t ? { time: lap.time, t: lap.line.t, kmh: lap.line.kmh, thr: lap.line.thr, brk: lap.line.brk } : null;
+export const traceFromAi = lap => lap && lap.line?.t ? { time: lap.time, t: lap.line.t, kmh: lap.line.kmh, thr: lap.line.thr, brk: lap.line.brk, x: lap.line.x, z: lap.line.z, h: lap.line.h, gear: lap.line.gear } : null;
 // a recorded ghost (ghost.js): the splits interpolated to every sample, the speed from its pose
 export function traceFromGhost(g, N) {
   if (!g || !Array.isArray(g.splits)) return null;

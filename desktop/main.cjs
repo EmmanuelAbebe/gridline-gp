@@ -578,9 +578,48 @@ async function smokeTest(win) {
     await win.webContents.executeJavaScript(`gridlineDebug.autopilot(0); document.getElementById('pauseBtn').click(); document.getElementById('pauseAnaBtn').click()`);
     await new Promise(r => setTimeout(r, 800));
     fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-analysis-lap.png'), (await win.webContents.capturePage()).toPNG());
-    await win.webContents.executeJavaScript(`document.getElementById('anaClose').click()`);
+    // COMPARE: the two laps replayed in 2D (play for a moment), then in 3D (chase, then the TV cameras), then Done
+    const shot = async name => fs.writeFileSync(smokeOut.replace(/(\.png)?$/, `-${name}.png`), (await win.webContents.capturePage()).toPNG());
+    const js = code => win.webContents.executeJavaScript(code);
+    await js(`document.getElementById('anaTabCmp').click(); document.getElementById('cmpPos').value = 400; document.getElementById('cmpPos').dispatchEvent(new Event('input'))`);
+    await new Promise(r => setTimeout(r, 600));
+    const before = await js(`document.getElementById('cmpClock').textContent`);
+    await js(`document.getElementById('cmpPlay').click()`);
+    await new Promise(r => setTimeout(r, 1500));
+    await js(`document.getElementById('cmpPlay').click()`);
+    await shot('analysis-cmp');
+    info.compare = await js(`({ shown: !document.getElementById('anaCmp').hidden && !document.getElementById('cmp2d').hidden, delta: document.getElementById('cmpDelta').textContent,
+      gap: document.getElementById('cmpGap').textContent, before: ${JSON.stringify(before)}, after: document.getElementById('cmpClock').textContent,
+      corner: document.querySelector('#cmpCorner .head b')?.textContent ?? '' })`);
+    await js(`document.querySelector('#anaView [data-v="3d"]').click()`);
+    await new Promise(r => setTimeout(r, 1000));
+    await shot('analysis-3d');
+    info.compare.chase = await js(`({ on: document.getElementById('anaOv').classList.contains('ana-3d'), tag: !document.getElementById('cmpTag3d').hidden,
+      hudHidden: document.getElementById('hud').hidden, vl: document.querySelector('#cmpVl .vl-head')?.textContent ?? '' })`);
+    await js(`document.querySelector('#cmpCams [data-id="tv"]').click()`);
+    await new Promise(r => setTimeout(r, 800));
+    await shot('analysis-tv');
+    await js(`document.querySelector('#cmpCams [data-id="onboard"]').click()`);
+    await new Promise(r => setTimeout(r, 800));
+    await shot('analysis-onboard');
+    await js(`document.getElementById('anaClose').click()`);
+    await new Promise(r => setTimeout(r, 300));
+    info.compare.after3d = await js(`({ pause: !document.getElementById('pauseOv').hidden, hud: !document.getElementById('hud').hidden, plain: !document.getElementById('anaOv').classList.contains('ana-3d') })`);
   }
   await win.webContents.executeJavaScript(`gridlineDebug.toMenu()`);
+  // (GRIDLINE_SMOKE_LAP: from the start menu, your best ever replayed in 3D against the ALIEN, from your saved ghost lap)
+  if (process.env.GRIDLINE_SMOKE_LAP) {
+    const js = code => win.webContents.executeJavaScript(code);
+    await new Promise(r => setTimeout(r, 500));
+    await js(`document.getElementById('anaStartBtn').click(); document.getElementById('anaTabCmp').click(); document.querySelector('#anaView [data-v="3d"]').click();
+      document.getElementById('cmpPos').value = 300; document.getElementById('cmpPos').dispatchEvent(new Event('input'))`);
+    await new Promise(r => setTimeout(r, 1000));
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-analysis-menu3d.png'), (await win.webContents.capturePage()).toPNG());
+    info.compareMenu = await js(`(() => { const on = document.getElementById('anaOv').classList.contains('ana-3d'), lap = document.getElementById('anaLap').selectedOptions[0]?.textContent ?? '';
+      document.getElementById('anaClose').click(); return { on, lap, home: !document.getElementById('startOv').hidden }; })()`);
+    await new Promise(r => setTimeout(r, 300));
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-analysis-menu-after.png'), (await win.webContents.capturePage()).toPNG());
+  }
   // exercise the bridge the way a player would: Settings → Graphics → Display FULL SCREEN, then the paddock's quit
   // button (which must end the app)
   const displayBtn = text => `[...document.querySelectorAll('#setBody .seg button')].find(b => b.textContent === '${text}')`;

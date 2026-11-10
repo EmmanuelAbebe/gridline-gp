@@ -31,6 +31,12 @@ const checks = [
   ['ghost list filled', (r.trial?.ghosts || []).length >= 6],
   ['sector panel: 3 sectors + mini-sectors', r.sectors?.cells === 3 && r.sectors.minis >= 4],
   ['lap analysis opens and closes', r.analysis?.shown && r.analysis.corners >= 4 && r.analysis.refs >= 2 && r.analysis.backToPause],
+  ...(r.compare ? [
+    ['lap compare 2D: your lap against the reference, replayed', r.compare.shown && /^[+−±]\d/.test(r.compare.delta) && r.compare.gap && r.compare.corner.startsWith('NEXT') && r.compare.before !== r.compare.after],
+    ['lap compare 3D: the circuit behind, the other car tagged, the HUD out of the way', r.compare.chase.on && r.compare.chase.tag && r.compare.chase.hudHidden && r.compare.chase.vl.startsWith('VIRTUAL LAP')],
+    ['lap compare: Done puts the pause menu and the HUD back', r.compare.after3d.pause && r.compare.after3d.hud && r.compare.after3d.plain],
+    ...(r.compareMenu ? [['lap compare from the start menu: your best ever in 3D, back to the paddock', r.compareMenu.on && /best ever/.test(r.compareMenu.lap) && r.compareMenu.home]] : []),
+  ] : []),
   ['quit asks first', r.quitAsks === true && r.quitStay === true],
   ['garage setup: Brakes group with migration + engine braking', r.garage?.brakes?.items === 'Brake balance, Brake migration, Engine braking' && r.garage.brakes.fresh === 2 && r.garage.brakes.migration === '6 %' && r.garage.brakes.dot && r.garage.allStock === 'Stock setup'],
   ['garage setup: Differential group', r.garage?.diff === 'Entry (on the brakes) 6, Mid-corner (coasting) 6, Exit (on the throttle) 5'],

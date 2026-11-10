@@ -256,22 +256,58 @@
     <button class="btn ghost small" id="phoneDesignClose" type="button" hidden>Close</button></div>
   <div class="pd-stage" id="phoneDesignStage"></div>
 </div>
-<div id="anaOv" class="overlay" hidden>
-  <div class="card xwide analysis" role="dialog" aria-labelledby="anaTitle">
-    <div class="set-head"><p class="verdict" id="anaTitle">Lap analysis</p><button class="btn small" id="anaClose" type="button">Done</button></div>
-    <div class="ana-pick">
-      <label><span class="lbl">Your lap</span><select id="anaLap"></select></label>
-      <label><span class="lbl">Compared with</span><select id="anaRef"></select></label>
+<div id="anaOv" class="overlay sub" hidden>
+  <div class="mn sub-panel analysis" role="dialog" aria-labelledby="anaTitle">
+    <div class="ana-top">
+      <header class="sub-top">
+        <h1 class="sub-title" id="anaTitle">Lap analysis</h1><span class="sub-ctx" id="anaCtx"></span>
+        <div class="ana-tabs" role="tablist" aria-label="Analysis views"><button type="button" role="tab" id="anaTabOver" aria-selected="true">OVERVIEW</button><button type="button" role="tab" id="anaTabCmp" aria-selected="false">COMPARE</button></div>
+        <div class="seg ana-view" id="anaView" role="group" aria-label="View" hidden><button type="button" data-v="2d" aria-pressed="true">2D</button><button type="button" data-v="3d" aria-pressed="false">3D</button></div>
+        <button class="btn small ana-done" id="anaClose" type="button">Done</button>
+      </header>
+      <div class="ana-pick">
+        <label><i class="ana-dot me"></i><span class="lbl">Your lap</span><select id="anaLap"></select></label>
+        <label><i class="ana-dot ref"></i><span class="lbl">Compared with</span><select id="anaRef"></select></label>
+      </div>
+      <p class="gpu ana-note" id="anaNote"></p>
     </div>
-    <p class="gpu" id="anaNote"></p>
-    <div class="ana-grid">
-      <div class="ana-map"><canvas id="anaMap" width="560" height="420" aria-label="Circuit map: green where you gained time, red where you lost it"></canvas>
-        <p class="gpu ana-key"><i class="g"></i>gained <i class="r"></i>lost (the stronger, the more) · <i class="s"></i>sector lines</p></div>
-      <div class="res-wrap"><table class="res ana-sec"><thead><tr><th>Sector</th><th class="r">You</th><th class="r">Compared</th><th class="r">Gap</th><th class="r">Your best</th><th class="r">Best</th></tr></thead><tbody id="anaSec"></tbody></table></div>
-    </div>
-    <div class="res-wrap"><table class="res ana-corners"><caption></caption><thead><tr><th>Corner</th><th class="r">Time</th><th class="r">Gap</th><th class="r">Brakes</th><th class="r">Entry</th><th class="r">Slowest</th><th class="r">Exit</th><th class="r">Full gas</th></tr></thead><tbody id="anaCorners"></tbody></table></div>
-    <div id="anaPace" class="ana-pace"></div>
+    <section class="ana-over" id="anaOver">
+      <div class="ana-map"><canvas id="anaMap" width="1120" height="660" aria-label="Circuit map: green where you gained time, red where you lost it"></canvas>
+        <p class="gpu ana-key"><i class="g"></i>gained <i class="r"></i>lost (the stronger, the more) <i class="s"></i>sector lines</p></div>
+      <div class="ana-side">
+        <table class="res ana-sec"><thead><tr><th>Sector</th><th class="r">You</th><th class="r">Compared</th><th class="r">Gap</th><th class="r">Your best</th><th class="r">Best</th></tr></thead><tbody id="anaSec"></tbody></table>
+        <div id="anaPace" class="ana-pace"></div>
+      </div>
+      <div class="ana-cbox"><table class="res ana-corners"><thead><tr><th>Corner</th><th class="r">Time</th><th class="r">Gap</th><th class="r">Brakes</th><th class="r">Entry</th><th class="r">Slowest</th><th class="r">Exit</th><th class="r">Full gas</th></tr></thead><tbody id="anaCorners"></tbody></table>
+        <p class="gpu ana-cap" id="anaCap"></p></div>
+    </section>
+    <section class="ana-cmp" id="anaCmp" hidden>
+      <div class="cmp-2d" id="cmp2d">
+        <div class="cmp-map"><canvas id="cmpMap" width="1440" height="780" aria-label="Circuit map: both laps replayed, each mini-sector coloured once both cars are through it"></canvas>
+          <p class="gpu ana-key"><i class="g"></i>gained <i class="r"></i>lost <i class="w"></i>this mini-sector <i class="me"></i>you <i class="ref"></i><span id="cmpRefKey">compared</span></p></div>
+        <div class="cmp-side">
+          <div class="cmp-delta"><div><span class="lbl">Delta</span><b id="cmpDelta">–</b></div><div class="cmp-gap"><b id="cmpGap"></b><span id="cmpGapNote"></span></div></div>
+          <div class="cmp-tele" id="cmpTele"></div>
+          <div class="cmp-corner" id="cmpCorner"></div>
+        </div>
+        <canvas id="cmpGraph" class="cmp-graph" width="2448" height="280" aria-label="The delta over the lap, and both laps' speed, with where the replay is"></canvas>
+      </div>
+      <div class="cmp-3d" id="cmp3d" hidden>
+        <div class="cmp-vl" id="cmpVl"></div>
+        <canvas class="cmp-mini" id="cmpMini" width="440" height="300" aria-label="Mini map with both cars"></canvas>
+        <div class="cmp-speeds" id="cmpSpeeds"></div>
+        <div class="cmp-cams" role="group" aria-label="Camera"><span class="lbl">Camera</span><div class="seg" id="cmpCams"></div><span class="gpu" id="cmpCamNote"></span></div>
+      </div>
+      <div class="cmp-bar">
+        <button class="cmp-play" id="cmpPlay" type="button" aria-label="Play"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="cmpPlayIcon" d="M7 4l13 8-13 8z"></path></svg></button>
+        <label class="cmp-pos"><span class="sr">Where in the lap</span><input type="range" id="cmpPos" min="0" max="1000" value="0"></label>
+        <span class="cmp-clock" id="cmpClock"></span>
+        <div class="seg" id="cmpRate" role="group" aria-label="Playback speed"></div>
+        <span class="lbl">Sync</span><div class="seg" id="cmpSync" role="group" aria-label="Sync the laps"><button type="button" data-s="time" aria-pressed="true">BY TIME</button><button type="button" data-s="distance" aria-pressed="false">BY DISTANCE</button></div>
+      </div>
+    </section>
   </div>
+  <div class="cmp-tag3d" id="cmpTag3d" hidden></div>
 </div>
 
 <div id="zoneOv" class="overlay" hidden>

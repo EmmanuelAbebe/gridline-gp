@@ -36,6 +36,12 @@ export function interpolatePoses(cars, a) {
     ground(c, p);
   }
 }
+// a pose to draw at x, z, h near track sample idx, on the road (the lap replay's cars, lap-replay.js / analysis-3d.js)
+export function roadPose(x, z, h, idx) {
+  const p = { x, z, h, y: 0, pitch: 0, roll: 0, airY: 0, airPitch: 0, airRoll: 0 };
+  ground({ idx: SIM.wrapIdx(Math.round(idx), track?.N ?? 1) }, p);
+  return p;
+}
 // the road under the drawn position: height, and the slopes along / across the car (from the track's grade and bank)
 function ground(c, p) {
   road(c, p);

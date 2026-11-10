@@ -155,7 +155,7 @@ async function drawSubmit() {
 }
 // ---- sectors (sector-timing.js) and the lap analysis screen (analysis-screen.js) ----
 const sectors = createSectorTiming({ game, aiLapOf: (id, aero) => trial.aiLapOf(id, aero) });
-const analysis = createAnalysis({ game, sectors, aiLapOf: (id, aero) => trial.aiLapOf(id, aero), track: () => track });
+const analysis = createAnalysis({ game, sectors, aiLapOf: (id, aero) => trial.aiLapOf(id, aero), track: () => track, models: () => [...carModels, trial.model] });
 
 // ---- the starting grid by lap time and qualifying (starting-grid.js, grid.js) ----
 const grid = createStartingGrid({ game, track: () => track, onReady: () => describeEvent() });
@@ -788,12 +788,13 @@ function frame(now) {
   away.watch(dt);
   InputMonitor.sample(dt, Input.drive, Input.pad);
   SettingsScreen.tick(Input.pad, Input.shapeSteer(Input.pad.steerRaw));
-  if (game.carsDirty) { game.carsDirty = false; for (const m of carModels) m.rebuild(Design.data.car); trial.model.rebuild(Design.data.car); mirrors.build(playerModel0.object, playerModel0.mirrorParts()); }
+  if (game.carsDirty) { game.carsDirty = false; for (const m of carModels) m.rebuild(Design.data.car); trial.model.rebuild(Design.data.car); analysis.rebuild(Design.data.car); mirrors.build(playerModel0.object, playerModel0.mirrorParts()); }
   const running = isRunning();
   if (running) { game.acc += dt; while (game.acc >= STEP) { simStep(STEP); game.acc -= STEP; } }
   if (running) Debris.step(dt);
   else game.acc = 0;
   if (Garage.open) Garage.frame(dt);
+  else if (analysis.frame(dt)) { /* (the lap comparison in 3D: it drew the circuit with its own cars and camera) */ }
   else if (game.race) {
     interpolatePoses(game.race.cars, running ? game.acc / STEP : 1);
     trial.interpolate(running ? game.acc / STEP : 1);

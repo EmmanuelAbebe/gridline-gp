@@ -32,13 +32,19 @@ export function createSectorTiming({ game, aiLapOf }) {
     }
     return b;
   }
-  // the laps to compare with: yours, the ALIEN's, a loaded one (another player's)
+  // your saved ghost lap that is this trace's lap (the same time), for where the car was (lap-replay.js); else null
+  function myGhost(tr, id, modified, zones, car) {
+    const g = tr && ghostOf(game.ghosts, id, modified, !!tr.start, zones, car);
+    return g && Math.abs(g.time - tr.time) < 0.002 ? g : null;
+  }
+  // the laps to compare with: yours, the ALIEN's, a loaded one (another player's); ghost = the recorded ghost of that lap
   function candidatesFor(race, modified) {
-    const id = race.track.id, alien = aiLapOf('alien', race.activeAero), loaded = ghostOf(game.loadedGhosts, id, modified, false, zoneTag(race.track, race.activeAero), race.carClass?.id ?? playerClass().id);
+    const id = race.track.id, alien = aiLapOf('alien', race.activeAero), zones = zoneTag(race.track, race.activeAero), car = race.carClass?.id ?? playerClass().id;
+    const loaded = ghostOf(game.loadedGhosts, id, modified, false, zones, car);
     return [
-      S.bests.best && { id: 'mine', name: 'Your best', trace: S.bests.best },
-      alien && { id: 'alien', name: `ALIEN · ${ghostDriver().code}`, trace: traceFromAi(alien) },
-      loaded && { id: 'loaded', name: loaded.driver && loaded.driver !== 'You' ? loaded.driver : 'Loaded lap', trace: traceFromGhost(loaded, race.track.N) },
+      S.bests.best && { id: 'mine', name: 'Your best', trace: S.bests.best, ghost: myGhost(S.bests.best, id, modified, zones, car) },
+      alien && { id: 'alien', name: `ALIEN · ${ghostDriver().code}`, trace: traceFromAi(alien), driver: ghostDriver() },
+      loaded && { id: 'loaded', name: loaded.driver && loaded.driver !== 'You' ? loaded.driver : 'Loaded lap', trace: traceFromGhost(loaded, race.track.N), ghost: loaded },
     ].filter(Boolean);
   }
   const showRef = () => Hud.sectorRef(S.ref.ref ? `${S.ref.ref.name} ${S.ref.ref.trace.time.toFixed(3)}` : '');
@@ -57,7 +63,7 @@ export function createSectorTiming({ game, aiLapOf }) {
 
   return {
     get data() { return S; },
-    store, bestsFor,
+    store, bestsFor, myGhost,
     // a new race: the layout, your bests, the reference; nothing recorded until lights out
     start(race, player) {
       const track = race.track, L = SIM.buildSectors(track), zones = zoneTag(track, race.activeAero), car = race.carClass.id, bests = bestsFor(track, L, player.spec.modified, zones, car);

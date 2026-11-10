@@ -191,13 +191,6 @@ table.res i{display:inline-block;width:4px;height:14px;vertical-align:-2px;margi
 
 /* lap analysis (analysis-screen.js) */
 .card.xwide{width:min(1060px,100%)}
-.analysis{gap:14px}
-.analysis .verdict em{font-size:.6em;margin-left:8px}
-.ana-pick{display:flex;flex-wrap:wrap;gap:12px}
-.ana-pick label{display:grid;gap:4px;flex:1 1 260px}
-.ana-pick select{font:inherit;font-family:var(--display);font-size:15px;color:var(--text);background:#1d232b;border:1px solid var(--rule);border-radius:3px;padding:6px 8px}
-.ana-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px;align-items:start}
-.ana-map canvas{width:100%;height:auto;display:block;background:rgba(255,255,255,.03);border-radius:3px}
 .ana-key{margin:6px 0 0;font-size:12px}
 .ana-key i{display:inline-block;width:14px;height:4px;margin:0 4px 2px 10px;vertical-align:middle;border-radius:2px}
 .ana-key i.g{background:#36d27f} .ana-key i.r{background:#ff463c} .ana-key i.s{background:#ffc21a}
@@ -206,11 +199,6 @@ table.res td.best{color:var(--purple)}
 table.res tr.tot td{border-top:2px solid var(--rule)}
 table.res tr.theo td{color:var(--muted);font-weight:500}
 table.res small{color:var(--muted);font-weight:500}
-table.ana-corners caption{caption-side:bottom;text-align:left;font-size:12px;color:var(--muted);padding-top:6px}
-.ana-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:10px}
-.ana-stats div{display:grid;gap:2px;padding:6px 8px;background:rgba(255,255,255,.05);border-radius:3px}
-.ana-stats b{font-family:var(--display);font-size:20px;font-weight:700}
-@media (max-width:760px){.ana-grid{grid-template-columns:1fr}}
 /* the pause menu's pit box */
 .pit-box{display:grid;gap:6px;margin:4px 0 12px;padding:10px 12px;border:1px solid var(--rule);border-radius:4px;background:rgba(255,255,255,.03);text-align:left}
 .pit-box .row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px}
@@ -505,14 +493,13 @@ table.res tr.me td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
 .card.dialog .btns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
 .card.dialog .dlg-keys{font-size:13px}
 .card.dialog .dlg-keys b{color:var(--text)}
-/* the pause menu's pit box: rows like the settings, full-size chips; the lap analysis pickers */
+/* the pause menu's pit box: rows like the settings, full-size chips */
 .pit-box{gap:0;margin:0;padding:6px 18px 10px;background:#10141a;border-color:var(--rule)}
 .pit-box .row{padding:10px 0;border-bottom:1px solid var(--rule)}
 .pit-box .row:last-child{border-bottom:0}
 .pit-box .row .lbl{font-family:var(--body);font-size:15px;letter-spacing:0;text-transform:none;color:var(--text)}
 .pit-box .seg button{font-size:15px;padding:0 12px}
 .pit-head{padding:8px 0 4px;font-size:14px}
-.ana-pick select{min-height:44px;font-size:16px;background:#12161c;border-color:var(--rule-strong);padding:0 12px}
 /* 2026-10-30, the user's edit of the mock-up: no rail; tools under the tiles; the circuit step's map bigger and the list
    narrow, the name centred; the grid without a box, a thick white line on top; the controller's state in the race footer */
 .mn-tools{display:flex;gap:8px;margin-top:-4px}
@@ -529,3 +516,110 @@ table.res tr.me td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
 .pd-head h2{margin:0;font-family:var(--display);font-weight:800;font-size:26px}
 .pd-stage{position:relative;overflow:hidden;border:1px solid var(--rule-strong);border-radius:18px;background:#0e1116;box-shadow:0 30px 80px rgba(0,0,0,.6)}
 .pd-stage iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:#0e1116}
+/* lap analysis (2026-11-10, analysis-screen.js; the user: "rework it to fit" the compare mock-ups): a panel the paddock's
+   size; OVERVIEW = the map, sectors, pace and corners on one screen; COMPARE = the two laps replayed, 2D or 3D */
+.analysis .sub-top{gap:14px}
+.ana-top{display:flex;flex-direction:column;gap:10px}
+.ana-tabs{display:flex;gap:6px;margin-left:12px}
+.ana-tabs button,.ana-view button{min-height:44px;padding:0 18px;font-size:17px;font-weight:700;letter-spacing:.08em;background:transparent;color:var(--muted);border:1px solid var(--rule-strong);border-radius:4px}
+.ana-tabs button[aria-selected="true"]{background:var(--amber);border-color:var(--amber);color:#111}
+.ana-view{margin-left:auto}
+.ana-view button{border:0;border-radius:0;min-width:60px;padding:0}
+.ana-view button[aria-pressed="true"]{background:#1d232c;color:var(--text)}
+.ana-done{margin-left:auto}
+.ana-view:not([hidden]) + .ana-done{margin-left:0}
+.ana-pick{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ana-pick label{display:flex;align-items:center;gap:12px;height:48px;padding:0 0 0 14px;border:1px solid var(--rule-strong);border-radius:4px;background:#12161c}
+.ana-pick .lbl{white-space:nowrap}
+.ana-pick select{flex:1;min-width:0;height:46px;font:inherit;font-family:var(--display);font-size:18px;font-weight:600;color:var(--text);background:transparent;border:0;padding:0 10px;cursor:pointer}
+.ana-pick select option{background:#12161c}
+.ana-dot{width:12px;height:12px;border-radius:50%;flex:none}
+.ana-dot.me,.ana-key i.me{background:var(--amber)} .ana-dot.ref,.ana-key i.ref{background:#4fd1ff}
+.ana-note{margin:0}
+.ana-note:empty{display:none}
+.ana-key i.w{background:#e9ebe6}
+.ana-key i.me,.ana-key i.ref{width:10px;height:10px;border-radius:50%}
+/* overview */
+.ana-over{flex:1;min-height:0;display:grid;grid-template-columns:560px minmax(0,1fr);grid-template-rows:330px minmax(0,1fr);gap:14px}
+.ana-map canvas,.cmp-map canvas{display:block;width:100%;background:#0f1318;border-radius:4px}
+.ana-map canvas{height:308px}
+.ana-side{min-height:0;display:flex;flex-direction:column;gap:12px}
+.ana-side table.res{min-width:0}
+.ana-side table.res td{padding:5px 8px}
+.ana-cbox{grid-column:span 2;min-height:0;overflow-y:auto;padding:4px 14px;background:#12161c;border:1px solid var(--rule);border-radius:4px}
+.ana-cbox table.res{min-width:0}
+.ana-cbox table.res td{padding:2px 8px;font-size:15px}
+.ana-cbox table.res th{padding:6px 8px 4px}
+.ana-cap{margin:4px 0 6px;font-size:12px}
+.ana-stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.ana-stats div{display:flex;flex-direction:column;gap:2px;padding:8px 10px;background:#12161c;border:1px solid var(--rule);border-radius:4px}
+.ana-stats b{font-family:var(--display);font-size:20px;font-weight:700}
+.ana-ai{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
+.ana-ai span:not(.lbl){font-family:var(--display);font-size:15px;font-weight:600;padding:6px 10px;border:1px solid var(--rule-strong);border-radius:4px}
+.ana-ai span b{margin-left:6px}
+.ana-ai .faster{color:var(--green)} .ana-ai .slower{color:#ff8a80}
+/* compare */
+.ana-cmp{flex:1;min-height:0;display:flex;flex-direction:column;gap:12px}
+.cmp-2d{flex:1;min-height:0;display:grid;grid-template-columns:720px minmax(0,1fr);grid-template-rows:minmax(0,1fr) 140px;gap:12px}
+.cmp-map{position:relative}
+.cmp-map canvas{height:390px}
+.cmp-map .ana-key{margin-top:4px}
+.cmp-side{min-height:0;display:flex;flex-direction:column;gap:10px}
+.cmp-delta{display:flex;align-items:flex-end;justify-content:space-between;padding:10px 14px;background:#12161c;border:1px solid var(--rule);border-radius:4px}
+.cmp-delta > div:first-child{display:flex;flex-direction:column}
+.cmp-delta b{font-family:var(--display);font-size:44px;font-weight:700;line-height:1}
+.cmp-gap{display:flex;flex-direction:column;align-items:flex-end;text-align:right;font-size:13px;color:var(--muted)}
+.cmp-gap b{font-size:22px;color:var(--text)}
+.faster{color:var(--green)} .slower{color:#ff8a80}
+b.faster{color:var(--green)} b.slower{color:#ff6a5e}
+.cmp-tele{display:grid;grid-template-columns:72px minmax(0,1fr) minmax(0,1fr);gap:2px 12px;align-items:center;padding:10px 14px;background:#12161c;border:1px solid var(--rule);border-radius:4px;font-size:13px}
+.cmp-tele .lbl{font-size:11px}
+.cmp-tele .who{display:flex;align-items:center;gap:6px;font-family:var(--display);font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmp-tele .v{font-family:var(--display);font-weight:700;font-size:20px;line-height:1.2}
+.cmp-tele .bar{height:10px;border-radius:5px;background:#262d36;overflow:hidden}
+.cmp-tele .bar i{display:block;height:100%;width:0}
+.cmp-tele .bar.t i{background:var(--green)} .cmp-tele .bar.b i{background:#ff5a4e}
+.cmp-corner{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 64px 64px 62px;align-content:start;gap:3px 8px;padding:10px 14px;background:#12161c;border:1px solid var(--rule);border-radius:4px;font-size:13px}
+.cmp-corner .head{grid-column:span 4;display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px}
+.cmp-corner .head b{font-family:var(--display);font-size:19px;letter-spacing:.04em}
+.cmp-corner .head span,.cmp-corner .k{color:var(--muted)}
+.cmp-corner .r{text-align:right;font-family:var(--display);font-weight:600;font-size:15px}
+.cmp-corner .me{color:var(--amber)} .cmp-corner .ref{color:#4fd1ff}
+.cmp-graph{grid-column:span 2;display:block;width:100%;height:140px;background:#0f1318;border-radius:4px;cursor:pointer}
+.cmp-bar{display:flex;align-items:center;gap:12px;height:48px}
+.cmp-play{width:48px;height:48px;flex:none;border:0;border-radius:50%;background:var(--amber);display:flex;align-items:center;justify-content:center}
+.cmp-play svg{width:20px;height:20px;fill:#111}
+.cmp-pos{flex:1;display:flex;align-items:center}
+.cmp-pos input{flex:1;height:44px;accent-color:var(--amber);cursor:pointer}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.cmp-clock{min-width:150px;text-align:right;font-family:var(--display);font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+.cmp-bar .seg button,.cmp-cams .seg button{min-height:44px;min-width:52px;padding:0 10px;font-size:15px}
+/* compare in 3D: the circuit fills the screen behind, the panel's parts float over it */
+#anaOv.ana-3d{background:transparent}
+#anaOv.ana-3d .mn{background:transparent;border-color:transparent;box-shadow:none}
+#anaOv.ana-3d .ana-top,#anaOv.ana-3d .cmp-bar{padding:10px 12px;background:rgba(11,14,18,.9);border-radius:6px}
+#anaOv.ana-3d .cmp-bar{height:auto}
+.cmp-3d{position:relative;flex:1;min-height:0}
+.cmp-vl{position:absolute;left:0;top:0;width:300px;border-radius:6px;overflow:hidden;background:rgba(11,14,18,.92)}
+.cmp-vl .vl-head{display:flex;justify-content:space-between;padding:6px 12px;background:var(--amber);color:#111;font-family:var(--display);font-size:17px;font-weight:700;letter-spacing:.06em}
+.cmp-vl .vl-rows{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:6px 8px;align-items:center;padding:10px 12px;font-family:var(--display);font-size:18px;font-weight:600}
+.cmp-vl .vl-rows span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmp-vl .vl-minis{display:flex;gap:2px;padding:0 12px 12px}
+.cmp-vl .vl-minis i{flex:1;height:8px;border-radius:2px;background:#262d36}
+.cmp-mini{position:absolute;right:0;top:0;width:220px;height:150px;border-radius:6px;background:rgba(11,14,18,.92)}
+.cmp-speeds{position:absolute;left:0;bottom:0;display:flex;gap:8px}
+.cmp-speeds div{padding:8px 12px;border-radius:6px;background:rgba(11,14,18,.92);font-family:var(--display);line-height:1.1}
+.cmp-speeds .who{font-size:13px;font-weight:700;letter-spacing:.08em}
+.cmp-speeds b{font-size:30px}
+.cmp-speeds small{font-size:14px;color:var(--muted)}
+.cmp-cams{position:absolute;right:0;bottom:0;display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:rgba(11,14,18,.92)}
+.cmp-cams .gpu{position:absolute;right:4px;bottom:62px;white-space:nowrap;color:var(--text);text-shadow:0 1px 3px #000}
+.cmp-tag3d{position:fixed;left:0;top:0;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;pointer-events:none;font-family:var(--display);font-weight:700}
+.cmp-tag3d .t{display:flex;border-radius:4px;overflow:hidden;white-space:nowrap}
+.cmp-tag3d .t span{padding:4px 8px;background:#0b0e12;font-size:17px;color:var(--text)}
+.cmp-tag3d .t span:first-child{background:#4fd1ff;color:#08202b}
+.cmp-tag3d .t span.faster{color:var(--green)} .cmp-tag3d .t span.slower{color:#ff6a5e}
+.cmp-tag3d .t span + span + span{border-left:1px solid var(--rule-strong);color:#c4c9cf}
+.cmp-tag3d i{width:2px;height:22px;background:#4fd1ff}
+.cmp-tag3d.far{transform:translate(-50%,0)}
+.cmp-tag3d.far i{display:none}

@@ -50,10 +50,10 @@ export function rivalGap(player, now, rival) {
 }
 
 // One level's lap: { time, line } of its best clean flying lap (null if none). ~50 ms of sim.
-// line: that lap per track sample: x, z, kmh, thr, brk, t (s into the lap) (Float32Arrays of N)
+// line: that lap per track sample: x, z, h, kmh, thr, brk, gear, t (s into the lap) (Float32Arrays of N)
 export function aiLapRun(track, level, { activeAero = false, aiAssists = null, tyreTemp = false, compound = 'medium', driver = undefined, aiTop = undefined } = {}) {
   const A = AI_GHOSTS, race = rivalRace(track, level, activeAero, aiAssists, tyreTemp, compound, driver, aiTop), c = race.cars[0], N = track.N;
-  const fresh = () => ({ x: new Float32Array(N), z: new Float32Array(N), kmh: new Float32Array(N), thr: new Float32Array(N), brk: new Float32Array(N), t: new Float32Array(N) });
+  const fresh = () => ({ x: new Float32Array(N), z: new Float32Array(N), h: new Float32Array(N), gear: new Float32Array(N), kmh: new Float32Array(N), thr: new Float32Array(N), brk: new Float32Array(N), t: new Float32Array(N) });
   let cur = fresh(), best = null, last = c.idx;
   // (a class without tyre blankets, Formula E: two laps more, for the tyres to come in from the air's temperature)
   const TT = race.carClass.tyreTemp, laps = A.laps + (tyreTemp && TT.blanket <= TT.air ? A.coldLaps : 0);
@@ -69,7 +69,7 @@ export function aiLapRun(track, level, { activeAero = false, aiAssists = null, t
     const passed = Math.min(50, SIM.wrapIdx(c.idx - last, N));
     for (let k = 0; k < passed; k++) {
       const i = SIM.wrapIdx(c.idx - k, N);
-      cur.x[i] = c.x; cur.z[i] = c.z; cur.kmh[i] = c.v * 3.6; cur.thr[i] = c.thr; cur.brk[i] = c.brake; cur.t[i] = race.t - c.lapStart;
+      cur.x[i] = c.x; cur.z[i] = c.z; cur.h[i] = c.h; cur.gear[i] = c.gear; cur.kmh[i] = c.v * 3.6; cur.thr[i] = c.thr; cur.brk[i] = c.brake; cur.t[i] = race.t - c.lapStart;
     }
     last = c.idx;
   }
