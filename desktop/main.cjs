@@ -591,6 +591,18 @@ async function smokeTest(win) {
     info.compare = await js(`({ shown: !document.getElementById('anaCmp').hidden && !document.getElementById('cmp2d').hidden, delta: document.getElementById('cmpDelta').textContent,
       gap: document.getElementById('cmpGap').textContent, before: ${JSON.stringify(before)}, after: document.getElementById('cmpClock').textContent,
       corner: document.querySelector('#cmpCorner .head b')?.textContent ?? '' })`);
+    // the 2D map zoomed in: a double-click on the map, then FOLLOW your car while it plays, then the whole circuit again
+    await js(`(() => { const cv = document.getElementById('cmpMap'), r = cv.getBoundingClientRect();
+      cv.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); })()`);
+    await js(`document.getElementById('cmpFollow').click(); document.getElementById('cmpPlay').click()`);
+    await new Promise(r => setTimeout(r, 1200));
+    await js(`document.getElementById('cmpPlay').click()`);
+    await new Promise(r => setTimeout(r, 300));                // (a frame to paint the paused button)
+    await shot('analysis-zoom');
+    info.compare.zoom = await js(`({ zoomed: document.querySelector('.cmp-map').classList.contains('zoomed'), x: document.getElementById('cmpZoomX').textContent,
+      follow: document.getElementById('cmpFollow').getAttribute('aria-pressed'), inset: !document.getElementById('cmpZoomMini').hidden })`);
+    await js(`(() => { const cv = document.getElementById('cmpMap'); cv.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); })()`);
+    info.compare.zoom.whole = await js(`!document.querySelector('.cmp-map').classList.contains('zoomed')`);
     await js(`document.querySelector('#anaView [data-v="3d"]').click()`);
     await new Promise(r => setTimeout(r, 1000));
     await shot('analysis-3d');

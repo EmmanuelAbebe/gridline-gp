@@ -1387,6 +1387,13 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   TV (trackside every 240 m outside the bend, cutting as you pass, zoomed on both cars), HELI, ONBOARD (the cockpit camera's
   eye); the virtual-lap box, mini map, both speeds, a tag over the other car (a chip at the bottom when out of view).
   main.js frame: `analysis.frame(dt)` returns true when it drew the scene. Leaving restores cars, camera, HUD.
+- The 2D map zoomed (2026-11-10, the canvas board "COMPARE · 2D zoomed"; analysis-screen.js drawZoom, `MAP_ZOOM`): double-click
+  the map = × 5 on that spot (again = the whole circuit), wheel zooms at the cursor, drag looks around, − / + (+ from the whole
+  circuit = on your car), FOLLOW = your car in the middle; the road with its edges, each lap's own line (yours up to your car,
+  the other dashed; `lineOf` = poseAt at each sample's time), dots, the gap line (by time), the next corner's braking (red) /
+  full gas (green) points with labels, mini-sectors as a tint, scale bar, inset (`#cmpZoomMini`). Smoke: out-analysis-zoom.png.
+- Replays of a lap without positions are drawn on times smoothed over ±`REPLAY.smooth` samples (whole sim steps made the car
+  pulse up to ±40 % frame to frame); saved bests keep x / z / h / gear since 2026-11-10 (older ones: the racing line + a note).
 - Smoke (GRIDLINE_SMOKE_LAP=1): out-analysis-cmp.png (2D, played), -3d, -tv, -onboard, and from the start menu your best
   ever in 3D (-analysis-menu3d.png); check-smoke checks them.
 

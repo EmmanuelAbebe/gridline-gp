@@ -33,6 +33,7 @@ const checks = [
   ['lap analysis opens and closes', r.analysis?.shown && r.analysis.corners >= 4 && r.analysis.refs >= 2 && r.analysis.backToPause],
   ...(r.compare ? [
     ['lap compare 2D: your lap against the reference, replayed', r.compare.shown && /^[+−±]\d/.test(r.compare.delta) && r.compare.gap && r.compare.corner.startsWith('NEXT') && r.compare.before !== r.compare.after],
+    ['lap compare 2D zoomed: double-click zooms in, follows your car, double-click again = the whole circuit', r.compare.zoom?.zoomed && r.compare.zoom.x === '×5' && r.compare.zoom.follow === 'true' && r.compare.zoom.inset && r.compare.zoom.whole],
     ['lap compare 3D: the circuit behind, the other car tagged, the HUD out of the way', r.compare.chase.on && r.compare.chase.tag && r.compare.chase.hudHidden && r.compare.chase.vl.startsWith('VIRTUAL LAP')],
     ['lap compare: Done puts the pause menu and the HUD back', r.compare.after3d.pause && r.compare.after3d.hud && r.compare.after3d.plain],
     ...(r.compareMenu ? [['lap compare from the start menu: your best ever in 3D, back to the paddock', r.compareMenu.on && /best ever/.test(r.compareMenu.lap) && r.compareMenu.home]] : []),

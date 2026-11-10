@@ -283,7 +283,10 @@
     </section>
     <section class="ana-cmp" id="anaCmp" hidden>
       <div class="cmp-2d" id="cmp2d">
-        <div class="cmp-map"><canvas id="cmpMap" width="1440" height="780" aria-label="Circuit map: both laps replayed, each mini-sector coloured once both cars are through it"></canvas>
+        <div class="cmp-map"><canvas id="cmpMap" width="1440" height="780" aria-label="Circuit map: both laps replayed, each mini-sector coloured once both cars are through it. Double-click to zoom in there"></canvas>
+          <div class="cmp-zoom" id="cmpZoom"><button type="button" class="btn" id="cmpZoomOut" aria-label="Zoom out">−</button><button type="button" class="btn" id="cmpZoomIn" aria-label="Zoom in">+</button><button type="button" class="btn" id="cmpFollow" aria-pressed="true">FOLLOW</button><span id="cmpZoomX">×1</span></div>
+          <canvas class="cmp-zmini" id="cmpZoomMini" width="340" height="190" aria-hidden="true" hidden></canvas>
+          <span class="cmp-maphint" id="cmpMapHint">Double-click to zoom in there</span>
           <p class="gpu ana-key"><i class="g"></i>gained <i class="r"></i>lost <i class="w"></i>this mini-sector <i class="me"></i>you <i class="ref"></i><span id="cmpRefKey">compared</span></p></div>
         <div class="cmp-side">
           <div class="cmp-delta"><div><span class="lbl">Delta</span><b id="cmpDelta">–</b></div><div class="cmp-gap"><b id="cmpGap"></b><span id="cmpGapNote"></span></div></div>

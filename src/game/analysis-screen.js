@@ -33,11 +33,15 @@ const num = v => v === null || !Number.isFinite(v) ? '–' : Math.round(v);
 const COL = { me: '#ffc21a', ref: '#4fd1ff', gain: [54, 210, 127], lost: [255, 70, 60], now: '#e9ebe6', ahead: '#2a313b', base: 'rgba(255,255,255,.12)', sector: '#ffc21a' };
 const CAMS = { chase: ['CHASE', 'Behind your car'], tv: ['TV', 'Trackside cameras, cutting corner to corner'], heli: ['HELI', 'From above, both cars in view'], onboard: ['ONBOARD', 'Your cockpit'] };
 const U = 2;                     // canvas pixels per CSS pixel (every canvas here is drawn at twice its size)
+// the 2D map zoomed in (2026-11-10, the canvas mock-up "COMPARE · 2D zoomed"): × the whole circuit's scale
+export const MAP_ZOOM = Object.freeze({ start: 5, max: 12, wheel: 1.25, scales: [10, 25, 50, 100, 200, 500] });
 
 export function createAnalysis({ game, sectors, aiLapOf, track, models }) {
   let open = false, from = null, D = null, laps = [], refs = [], tab = 'over', view = '2d';
   // the comparison: { me, ref (replays), name, short, d (delta per sample), mc / rc (corner metrics) }, the replay's time
   // T (s into your lap), playing, rate, sync, camera
+  // the 2D map's zoom: k = × the whole circuit (1 = all of it), follow = centred on your car, else on x / z (m)
+  const Z = { k: 1, follow: true, x: 0, z: 0 };
   let C = null, T = 0, playing = false, rate = 1, sync = 'time', camera = 'chase', jump = true, dirty = true, hudWas = false;
   const R3 = createReplay3d();
 
@@ -185,7 +189,8 @@ export function createAnalysis({ game, sectors, aiLapOf, track, models }) {
     const { me, ref } = C, ds = D.track.ds, sMe = cmp.sMe;
     const pm = me.poseAt(T), pr = ref.poseAt(cmp.tRef), corner = k => D.L.minis.findIndex(m => m.corner === k);
     const gaps = miniGaps(picked().me.tr, picked().ref.trace);
-    drawCircuit($('cmpMap'), (m, k) => m.to <= sMe ? tone(gaps[k]) : m.from <= sMe ? COL.now : COL.ahead,
+    if (Z.k > 1) drawZoom($('cmpMap'), cmp, pm, pr, gaps);
+    else drawCircuit($('cmpMap'), (m, k) => m.to <= sMe ? tone(gaps[k]) : m.from <= sMe ? COL.now : COL.ahead,
       { dots: [{ x: pr.x, z: pr.z, col: COL.ref }, { x: pm.x, z: pm.z, col: COL.me }],
         cornerColour: k => { const m = D.L.minis[corner(k)]; return !m || m.to > sMe ? null : gaps[corner(k)] < 0 ? '#5ff0a0' : '#ff8a80'; } });
     readouts(cmp);
@@ -204,6 +209,118 @@ export function createAnalysis({ game, sectors, aiLapOf, track, models }) {
     if ($('cmpCorner').dataset.html !== html) { $('cmpCorner').innerHTML = html; $('cmpCorner').dataset.html = html; }
     drawGraph(sMe);
   }
+  // where a replayed lap went, at every track sample (its own positions, its ghost's or the racing line), once per lap
+  function lineOf(R) {
+    if (R.line) return R.line;
+    const n = D.track.N, x = new Float32Array(n), z = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const p = R.poseAt(R.ti[i]); x[i] = p.x; z[i] = p.z; }
+    return (R.line = { x, z });
+  }
+  // the zoomed map's view: canvas px per metre, the middle (m), metres ↔ canvas px
+  function zoomView(cv, pm) {
+    const k = fit(cv).s * Z.k;
+    if (Z.follow && pm) { Z.x = pm.x; Z.z = pm.z; }
+    return { k, X: x => (x - Z.x) * k + cv.width / 2, Y: z => (z - Z.z) * k + cv.height / 2 };
+  }
+  // the 2D map zoomed in: the road and its edges, each lap's own line across it (yours up to your car, the other's
+  // dashed), both cars, the gap between them, where each lap braked and went full gas for the next corner, a scale bar;
+  // the mini-sectors done as a tint on the road; the inset shows where on the circuit this is
+  function drawZoom(cv, cmp, pm, pr, gaps) {
+    const g = cv.getContext('2d'), T0 = D.track, { N, PX, PZ, NX, NZ, K, HW, ds } = T0, W = cv.width, H = cv.height, sMe = cmp.sMe;
+    const { k, X, Y } = zoomView(cv, pm);
+    g.clearRect(0, 0, W, H); g.lineJoin = g.lineCap = 'round';
+    const road = (a, b, off = 0) => { g.beginPath(); for (let i = a; i <= b; i++) { const j = i % N, x = X(PX[j] + NX[j] * off), y = Y(PZ[j] + NZ[j] * off); i === a ? g.moveTo(x, y) : g.lineTo(x, y); } };
+    const line = (L, a, b) => { g.beginPath(); for (let i = a; i <= b; i++) { const x = X(L.x[i]), y = Y(L.z[i]); i === a ? g.moveTo(x, y) : g.lineTo(x, y); } };
+    road(0, N); g.strokeStyle = '#262d36'; g.lineWidth = 2 * HW * k; g.stroke();
+    D.L.minis.forEach((m, i) => { if (m.to > sMe || !Number.isFinite(gaps[i])) return;
+      road(m.from, m.to); g.strokeStyle = gaps[i] < 0 ? 'rgba(54,210,127,.16)' : 'rgba(255,70,60,.16)'; g.stroke(); });
+    g.lineWidth = U; g.strokeStyle = '#5b6573'; road(0, N, HW); g.stroke(); road(0, N, -HW); g.stroke();
+    g.strokeStyle = COL.sector; g.lineWidth = 3 * U; g.beginPath(); g.moveTo(X(PX[0] + NX[0] * HW), Y(PZ[0] + NZ[0] * HW)); g.lineTo(X(PX[0] - NX[0] * HW), Y(PZ[0] - NZ[0] * HW)); g.stroke();
+    const lm = lineOf(C.me), lr = lineOf(C.ref), upTo = Math.min(N - 1, Math.floor(sMe));
+    g.lineWidth = 2 * U; g.setLineDash([6 * U, 4 * U]); g.strokeStyle = COL.ref; line(lr, 0, N - 1); g.stroke(); g.setLineDash([]);
+    g.strokeStyle = COL.me; line(lm, 0, upTo); g.lineTo(X(pm.x), Y(pm.z)); g.stroke();
+    // the corners in view
+    g.font = `600 ${13 * U}px "Saira Condensed", Arial, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (const c of D.L.corners) {
+      const out = K[c.apex] > 0 ? -1 : 1, d = HW + 26 * U / k, x = X(PX[c.apex] + NX[c.apex] * d * out), y = Y(PZ[c.apex] + NZ[c.apex] * d * out);
+      if (x < -40 || x > W + 40 || y < -40 || y > H + 40) continue;
+      g.fillStyle = 'rgba(10,13,17,.85)'; g.beginPath(); g.arc(x, y, 12 * U, 0, Math.PI * 2); g.fill(); g.fillStyle = '#e9ebe6'; g.fillText(c.name, x, y + U);
+    }
+    // the next corner: where each lap braked (red) and went full gas (green)
+    const label = (x, y, text, col) => {
+      g.font = `800 ${12 * U}px "DM Sans", Arial, sans-serif`; g.textAlign = 'left';
+      const w = g.measureText(text).width + 12 * U, lx = Math.min(W - w - 4 * U, Math.max(4 * U, x)), ly = Math.min(H - 14 * U, Math.max(14 * U, y));
+      g.fillStyle = 'rgba(10,13,17,.92)'; g.fillRect(lx, ly - 10 * U, w, 20 * U); g.fillStyle = col; g.fillText(text, lx + 6 * U, ly + U);
+    };
+    const kc = nextCorner(sMe), apex = D.L.corners[kc].apex;
+    [[C.mc[kc], lm, 'YOU', COL.me, -1], [C.rc[kc], lr, C.short, COL.ref, 1]].forEach(([mt, L, who, col, side]) => {
+      if (!mt) return;
+      const mark = (m, fill, text) => {
+        if (m === null || m === undefined) return;
+        const i = SIM.wrapIdx(Math.round(apex + m / ds), N), x = X(L.x[i]), y = Y(L.z[i]);
+        g.fillStyle = fill; g.strokeStyle = '#0f1318'; g.lineWidth = 2 * U; g.beginPath(); g.rect(x - 5 * U, y - 5 * U, 10 * U, 10 * U); g.fill(); g.stroke();
+        if (x > 0 && x < W && y > 0 && y < H) label(x + 10 * U, y + side * 16 * U, text, col);
+      };
+      mark(mt.brakeAt === null ? null : -mt.brakeAt, '#ff5a4e', `${who} brakes · ${Math.round(mt.brakeAt)} m`);
+      mark(mt.fullAt, '#36d27f', `${who} full gas`);
+    });
+    // the cars, and the gap between them (by time)
+    const gapM = Math.round(cmp.ahead * ds);
+    if (sync === 'time' && Math.abs(gapM) >= 2) { g.setLineDash([3 * U, 3 * U]); g.strokeStyle = '#f2f3f0'; g.lineWidth = 1.5 * U;
+      g.beginPath(); g.moveTo(X(pm.x), Y(pm.z)); g.lineTo(X(pr.x), Y(pr.z)); g.stroke(); g.setLineDash([]); }
+    for (const [p, col] of [[pr, COL.ref], [pm, COL.me]]) {
+      g.beginPath(); g.arc(X(p.x), Y(p.z), 8 * U, 0, Math.PI * 2); g.fillStyle = col; g.fill(); g.lineWidth = 3 * U; g.strokeStyle = '#0b0e12'; g.stroke();
+    }
+    // the scale
+    const sm = MAP_ZOOM.scales.find(m => m * k >= 50 * U) ?? MAP_ZOOM.scales.at(-1), bx = 14 * U, by = H - 14 * U;
+    g.strokeStyle = '#c4c9cf'; g.lineWidth = 1.5 * U; g.beginPath(); g.moveTo(bx, by - 6 * U); g.lineTo(bx, by); g.lineTo(bx + sm * k, by); g.lineTo(bx + sm * k, by - 6 * U); g.stroke();
+    g.font = `600 ${12 * U}px "DM Sans", Arial, sans-serif`; g.fillStyle = '#c4c9cf'; g.textAlign = 'left'; g.fillText(`${sm} m`, bx + sm * k + 8 * U, by - 3 * U);
+    // the inset: the whole circuit, this view's window on it, your car
+    const mini = $('cmpZoomMini'), M = drawCircuit(mini, () => null, { badges: false, width: 3, sectorsToo: false, dots: [{ x: pm.x, z: pm.z, col: COL.me, r: 4 }] });
+    const mg = mini.getContext('2d'), hw = W / 2 / k, hh = H / 2 / k;
+    mg.strokeStyle = COL.me; mg.lineWidth = 2 * U; mg.fillStyle = 'rgba(255,194,26,.12)';
+    mg.fillRect(M.x(Z.x - hw), M.z(Z.z - hh), 2 * hw * M.s, 2 * hh * M.s); mg.strokeRect(M.x(Z.x - hw), M.z(Z.z - hh), 2 * hw * M.s, 2 * hh * M.s);
+  }
+  // the zoom's buttons and inset follow the zoom
+  function zoomUi() {
+    const on = Z.k > 1;
+    $('cmpMap').parentElement.classList.toggle('zoomed', on);
+    $('cmpZoomMini').hidden = !on;
+    $('cmpZoomX').textContent = on ? `×${Math.round(Z.k * 10) / 10}` : '';
+    $('cmpFollow').setAttribute('aria-pressed', String(Z.follow));
+    $('cmpZoomIn').disabled = Z.k >= MAP_ZOOM.max;
+    $('cmpMapHint').textContent = on ? 'Double-click: the whole circuit · drag to look around' : 'Double-click to zoom in there';
+    dirty = true;
+  }
+  // zoom to k, keeping the spot under canvas point (px, py) where it is (no point: the middle)
+  function zoomTo(k, px, py) {
+    const cv = $('cmpMap'), was = Z.k;
+    k = Math.min(MAP_ZOOM.max, k);
+    if (k < 1.5) { Z.k = 1; zoomUi(); return; }
+    if (was <= 1) {                                   // (from the whole circuit: the spot clicked, else your car)
+      const M = fit(cv);
+      if (px === undefined) Z.follow = true;
+      else { Z.follow = false; Z.x = (px - M.x(0)) / M.s; Z.z = (py - M.z(0)) / M.s; }
+    } else if (px !== undefined && !Z.follow) {
+      const k0 = fit(cv).s * was, k1 = fit(cv).s * k, wx = Z.x + (px - cv.width / 2) / k0, wz = Z.z + (py - cv.height / 2) / k0;
+      Z.x = wx - (px - cv.width / 2) / k1; Z.z = wz - (py - cv.height / 2) / k1;
+    }
+    Z.k = k; zoomUi();
+  }
+  { const cv = $('cmpMap'), at = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * cv.width, (e.clientY - r.top) / r.height * cv.height]; };
+    let drag = null;
+    cv.ondblclick = e => { if (!C) return; if (Z.k > 1) zoomTo(1); else zoomTo(MAP_ZOOM.start, ...at(e)); };
+    cv.onwheel = e => { if (!C || (Z.k <= 1 && e.deltaY > 0)) return; e.preventDefault(); zoomTo(Math.max(1, Z.k) * (e.deltaY < 0 ? MAP_ZOOM.wheel : 1 / MAP_ZOOM.wheel), ...at(e)); };
+    cv.onpointerdown = e => { if (Z.k <= 1) return; drag = at(e); cv.setPointerCapture(e.pointerId); };
+    cv.onpointermove = e => { if (!drag) return; const p = at(e), k = fit(cv).s * Z.k;
+      if (Z.follow && Math.hypot(p[0] - drag[0], p[1] - drag[1]) < 6 * U) return;
+      Z.follow = false; Z.x -= (p[0] - drag[0]) / k; Z.z -= (p[1] - drag[1]) / k; drag = p; zoomUi(); };
+    cv.onpointerup = () => { drag = null; };
+    $('cmpZoomIn').onclick = () => C && zoomTo(Math.max(1, Z.k) < 1.5 ? MAP_ZOOM.start : Z.k + 1);
+    $('cmpZoomOut').onclick = () => zoomTo(Z.k - 1);
+    $('cmpFollow').onclick = () => { Z.follow = !Z.follow; zoomUi(); };
+    zoomUi(); }
+
   // the delta and both speeds over the lap, where the replay is
   function drawGraph(sMe) {
     const cv = $('cmpGraph'), g = cv.getContext('2d'), W = cv.width, H = cv.height, N = D.track.N, d = C.d, dh = H * 0.4, top = 14 * U;

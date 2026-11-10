@@ -564,6 +564,16 @@ table.res tr.me td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
 .cmp-map{position:relative}
 .cmp-map canvas{height:390px}
 .cmp-map .ana-key{margin-top:4px}
+.cmp-map canvas#cmpMap{cursor:zoom-in}
+.cmp-map.zoomed canvas#cmpMap{cursor:grab}
+.cmp-zoom{position:absolute;left:8px;top:8px;display:flex;align-items:center;gap:6px}
+.cmp-zoom .btn{min-width:44px;min-height:44px;padding:0 10px;background:rgba(11,14,18,.92);font-size:20px;font-weight:700}
+.cmp-zoom #cmpFollow{font-family:var(--display);font-size:15px;letter-spacing:.06em}
+.cmp-zoom #cmpFollow[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
+.cmp-zoom span{padding:0 6px;font-family:var(--display);font-size:17px;font-weight:700;color:#c4c9cf;text-shadow:0 1px 3px #000}
+.cmp-map:not(.zoomed) #cmpZoomOut,.cmp-map:not(.zoomed) #cmpFollow{display:none}
+.cmp-map canvas.cmp-zmini{position:absolute;right:8px;top:8px;width:170px;height:95px;border:1px solid var(--rule-strong);border-radius:4px;background:rgba(11,14,18,.92)}
+.cmp-maphint{position:absolute;right:10px;top:372px;font-size:12px;color:var(--muted);pointer-events:none}
 .cmp-side{min-height:0;display:flex;flex-direction:column;gap:10px}
 .cmp-delta{display:flex;align-items:flex-end;justify-content:space-between;padding:10px 14px;background:#12161c;border:1px solid var(--rule);border-radius:4px}
 .cmp-delta > div:first-child{display:flex;flex-direction:column}
