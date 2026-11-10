@@ -443,6 +443,20 @@ async function smokeTest(win) {
     await new Promise(r => setTimeout(r, 600));
     info.classRace.on = await win.webContents.executeJavaScript(hud);
     fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-class-attack.png'), (await win.webContents.capturePage()).toPNG());
+    // (the Blender car: the halo's attack-mode LEDs from the chase camera (C twice from the cockpit; once more = back):
+    // the pixels of their blue over the middle of the picture, where the car's halo is)
+    const cam = `dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyC', key: 'c' })); dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyC', key: 'c' }))`;
+    await win.webContents.executeJavaScript(`${cam}; ${cam}`);
+    await new Promise(r => setTimeout(r, 500));
+    const shot = await win.webContents.capturePage(), { width: W, height: H } = shot.getSize(), px = shot.toBitmap();
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-class-halo.png'), shot.toPNG());
+    let halo = 0;
+    for (let y = Math.floor(H * 0.35); y < H * 0.66; y++) for (let x = Math.floor(W * 0.3); x < W * 0.7; x++) {   // (above the HUD's dash: its ERS bar is a similar blue)
+      const i = (y * W + x) * 4, b = px[i], g = px[i + 1], r = px[i + 2];     // (BGRA)
+      if (b > 200 && r < 110 && g > 110 && g < 200) halo++;
+    }
+    info.classRace.halo = halo; info.classRace.model = await win.webContents.executeJavaScript(`gridlineDebug.carKind?.() ?? null`);
+    await win.webContents.executeJavaScript(cam);
     await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click()`);
     await new Promise(r => setTimeout(r, 400));
     await win.webContents.executeJavaScript(`document.getElementById('pauseSettingsBtn').click()`);

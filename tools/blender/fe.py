@@ -70,9 +70,9 @@ STEER = (0.519, 0.558, 0.0)
 SHIFT = tuple(a - b for a, b in zip(STEER, F1_STEER))
 EYE = tuple(a + b for a, b in zip(F1_EYE, SHIFT))
 
-ROLES = ['paint_main', 'paint_accent', 'carbon', 'rubber', 'metal', 'light', 'glass', 'dark']
+ROLES = ['paint_main', 'paint_accent', 'carbon', 'rubber', 'metal', 'light', 'glass', 'dark', 'halo']
 COLOURS = {'paint_main': (0.05, 0.16, 0.55), 'paint_accent': (1.0, 0.72, 0.05), 'carbon': (0.035, 0.035, 0.04), 'rubber': (0.02, 0.02, 0.022),
-           'metal': (0.55, 0.56, 0.58), 'light': (0.5, 0.03, 0.02), 'glass': (0.2, 0.25, 0.3), 'dark': (0.01, 0.01, 0.012)}
+           'metal': (0.55, 0.56, 0.58), 'light': (0.5, 0.03, 0.02), 'glass': (0.2, 0.25, 0.3), 'dark': (0.01, 0.01, 0.012), 'halo': (0.1, 0.45, 1.0)}
 # the download's materials → roles; None = left out (the team's and sponsors' logos, a stray cube in the nose, the
 # model's own steering wheel: the driver brings one, driver.glb)
 MAT_ROLE = {'Material.006': 'paint_main', 'Sidepod_Material': 'paint_main', 'Material.011': 'paint_main', 'Material.009': 'paint_main',
@@ -193,6 +193,12 @@ def build():
       gx, gy, gz = centres(g); origin_to(g, (float(gx.mean()), float(gy.mean()), float(gz.mean()))); set_role(g, 'glass')
   if glass.name in bpy.data.objects and not len(glass.data.polygons): bpy.data.objects.remove(glass, do_unlink=True)
   light = alive('light'); light.name = 'rain_light'; set_role(light, 'light'); decimate(light, 0.2)
+  # the halo's attack-mode LEDs (2026-11-10; the real Gen2 cars light the halo blue in attack mode): the halo's upward
+  # surface (faces whose normal points up, game frame) as its own `halo_led` in the `halo` role, which car-glb.js lights;
+  # the rest of the halo stays carbon in the body
+  halo = bpy.data.objects[HALO]; n = len(halo.data.polygons); nr = np.empty(n * 3); halo.data.polygons.foreach_get('normal', nr)
+  led = split_mask(halo, 'halo_led', nr.reshape(n, 3)[:, 2] > LED_UP)
+  set_role(led, 'halo'); decimate(led, 0.4); log('halo LEDs', len(led.data.polygons), 'faces')
   # the body: everything else, its role per part, cut down
   # (by name: the parts joined into the wheels no longer exist)
   body_parts = [bpy.data.objects[n] for n, r in names.items() if n in bpy.data.objects and r not in ('rubber', 'glass', 'light')
@@ -216,6 +222,7 @@ def build():
   for o in meshes: finish(o)
   return meshes
 
+HALO, LED_UP = 'Object_19', 0.55       # the download's halo; its faces turned up past this (normal's z) carry the LEDs
 WELD = 0.0002                 # m: vertices this close are one (before cutting down)
 RIM = 0.70                    # tyre faces nearer the axle than this share of the tyre's radius are the rim (metal)
 BODY_RATIO = {'Object_21': 0.12, 'Object_10': 0.18, 'Object_11': 0.18, 'Object_13': 0.25, 'Object_35': 0.2, 'Object_36': 0.2, 'Object_26': 0.3}

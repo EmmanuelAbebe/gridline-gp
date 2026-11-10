@@ -18,7 +18,9 @@ const checks = [
   ...(r.carClass ? [['race in the car class asked for', r.classRace?.start?.cls === r.carClass]] : []),
   ...(fe ? [['Formula E: the Energy row', r.classRace.start.fuelLbl === 'Energy' && / kWh · /.test(r.classRace.start.fuel)],
     ['Formula E: stock car, its own AI laps in the ghost list', (r.trial?.ghosts || []).some(g => /^Your best/.test(g) && !/modified/.test(g)) && (r.trial?.ghosts || []).some(g => /^ALIEN.*1:1\d\.\d{3}$/.test(g))],
-    ['Formula E: attack mode chip, then on with AWD', /^ATTACK × 2/.test(r.classRace.start.boost) && /^ATTACK 1:1\d · AWD$/.test(r.classRace.on.boost)]] : []),
+    ['Formula E: attack mode chip, then on with AWD', /^ATTACK × 2/.test(r.classRace.start.boost) && /^ATTACK 1:1\d · AWD$/.test(r.classRace.on.boost)],
+    // (the Blender car: its halo lit blue in attack mode, seen from the chase camera)
+    ...(r.classRace.model === '2026' ? [['Formula E: the halo\'s attack-mode LEDs lit', r.classRace.halo > 10]] : [])] : []),
   // the class picker: race weekend's CAR step (the picked car's numbers, COMPARE = both), the garage's Car tab
   ['race weekend: CAR is the first of five steps', r.menu?.steps?.length === 5 && r.menu.steps[0] === (fe ? 'GP ELECTRIC' : 'GP HYBRID')],
   ['CAR step: your car\'s numbers, COMPARE both', r.menu?.car?.one === '12 rows × 1' && r.menu.car.compare === '12 rows × 2' && r.menu.car.list.length === 2],

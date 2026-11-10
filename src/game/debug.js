@@ -8,10 +8,12 @@ import { Sound } from './sound.js';
 import { Input } from './input.js';
 import { benchCity, clearCity } from './bench.js';
 import { Design } from './design.js';
+import { CarModels } from './car-models.js';
 
 export function installDebug(setTrack, current, player = () => null, toMenu = () => {}, loadGhost = () => {}, autopilot = () => {}, showLine = () => {}, setPref = () => {}, spots = () => null, race = () => null) {
   window.gridlineDebug = { soundReady: () => Sound.ready,
     // setCamera('cockpit', { back, height, fov }): a camera's settings, as the design tools would (screenshots of a player's view)
+    carKind: () => CarModels.kind,   // 'classic' | '2026': the look every car has (garage Look → Car)
     setCamera: (id, fields) => { const c = Design.data.cameras.find(x => x.id === id); if (c) Object.assign(c, fields); return c; },
     autopilot,                                                         // autopilot(skill): the AI drives your car (0 = you)
     playerState: () => { const c = player(); return c && { slip: +c.slip.toFixed(2), slideR: +c.slideR.toFixed(2), lockF: c.lockF, kmh: Math.round(c.v * 3.6), idx: c.idx, lap: c.lap, ecuMode: c.ecuMode, ecuMap: c.ecuMap, padAssist: c.padAssist, steer: +c.steer.toFixed(3) }; },

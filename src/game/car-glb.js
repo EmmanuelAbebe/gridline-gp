@@ -8,10 +8,13 @@ import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 //   (brake lights), glass, dark; wheel_fl/fr/rl/rr = axle centres (spin about z, the fronts steer about y);
 //   fw_flap1, fw_flap2, rw_flap (extras.open = degrees in straight mode, turned about their hinge, z);
 //   steer (turns about x) with grip_l / grip_r / screen; mirror_glass_l / _r; extras.show 'outside' = hidden in the
-//   cockpit view (the helmet). The driver, helmet and steering wheel come from models/driver.glb (seatDriver), posed in the
+//   cockpit view (the helmet); material halo (fe.glb halo_led) = the halo's attack-mode LEDs, lit while car.attackOn.
+//   The driver, helmet and steering wheel come from models/driver.glb (seatDriver), posed in the
 //   F1's cockpit; driver_at (fe.glb) = where that driver goes in another model's.
 // Every mesh's COLOR_0 = Blender's baked ambient occlusion; the materials multiply it.
 const ROLE_COLOURS = { carbon: 0x101114, rubber: 0x0b0b0c, metal: 0x8a8d92, glass: 0x1a2128, dark: 0x050506 };
+// the halo's LEDs (Formula E's attack mode: the real Gen2 cars light the halo blue): off = like the carbon, on = this blue
+const HALO = { off: new THREE.Color(0x16181c), on: new THREE.Color(0x2f9bff), rise: 10, fall: 5 };
 const shared = { quality: {}, fast: {} };
 // the driver (models/driver.glb, tools/blender/cockpit.py): the clip's keys run from the wheel at −lock to +lock; the head
 // leans against the cornering (rad per m/s² of lateral g, at most, how fast it follows /s)
@@ -88,6 +91,7 @@ export function createGlbCar(scene, driverIn, design, ctx) {
 
   // per-car materials: the livery's paint, the rims, the brake lights; the rest shared per graphics profile
   const light = new THREE.MeshBasicMaterial({ color: ctx.LIGHT_OFF.clone() });
+  const halo = new THREE.MeshBasicMaterial({ color: HALO.off.clone() }); let haloLit = 0;
   const glowMat = new THREE.MeshBasicMaterial({ map: ctx.glow, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0, fog: true });
   let own = {};
   function paint(color) {
@@ -101,8 +105,8 @@ export function createGlbCar(scene, driverIn, design, ctx) {
       rim: profile === 'fast' ? new THREE.MeshLambertMaterial({ color: rims, vertexColors: true }) : new THREE.MeshStandardMaterial({ color: rims, vertexColors: true, roughness: 0.3, metalness: 0.8, envMap: ctx.env }) };
     for (const m of meshes) {
       const role = m.userData.role, rim = role === 'metal' && (m.name.startsWith('rim') || inWheel(m));
-      m.material = ghost ? (role === 'rubber' ? ghost.tyre : role.startsWith('paint') ? ghost.paint : ghost.carbon)
-        : role === 'light' ? light : rim ? own.rim : own[role] ?? sharedMat(profile, role, ctx.env);
+      m.material = ghost ? (role === 'rubber' ? ghost.tyre : role.startsWith('paint') ? ghost.paint : ghost.carbon)   // (the halo too: carbon)
+        : role === 'light' ? light : role === 'halo' ? halo : rim ? own.rim : own[role] ?? sharedMat(profile, role, ctx.env);
     }
   }
   materials();
@@ -201,6 +205,9 @@ export function createGlbCar(scene, driverIn, design, ctx) {
       lit += (want - lit) * Math.min(1, dt * (want > lit ? 30 : 12));
       light.color.copy(ctx.LIGHT_OFF).lerp(ctx.LIGHT_ON, lit);
       glowMat.opacity = lit * 0.9;
+      // the halo LEDs: up quickly when attack mode comes on, fading when it ends
+      const hw = car.attackOn ? 1 : 0;
+      if (hw || haloLit > 0.001) { haloLit += (hw - haloLit) * Math.min(1, dt * (hw > haloLit ? HALO.rise : HALO.fall)); halo.color.copy(HALO.off).lerp(HALO.on, haloLit); }
       for (const s of glows) s.visible = !cockpitView && lit > 0.02;
       if (seated) {
         const s = Math.max(-1, Math.min(1, car.steer * steerSpec.lock / DRIVER.lock));
@@ -223,7 +230,7 @@ export function createGlbCar(scene, driverIn, design, ctx) {
     dispose() {
       scene.remove(root);
       for (const m of Object.values(own)) m.dispose();
-      light.dispose(); glowMat.dispose(); driverBody?.dispose?.(); seated?.mixer.stopAllAction();
+      light.dispose(); halo.dispose(); glowMat.dispose(); driverBody?.dispose?.(); seated?.mixer.stopAllAction();
     },
   };
 }

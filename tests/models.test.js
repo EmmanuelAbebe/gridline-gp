@@ -97,7 +97,8 @@ test('car.glb: the 2026 car (Qvist_designs, CC-BY) on the physics\' wheelbase, t
 test('fe.glb: the electric car on its class\'s wheelbase, the parts the game moves, no team logos, within budget', () => {
   const j = glbJson('../src/game/models/fe.glb'), byName = new Map(j.nodes.map(n => [n.name, n])), FE = SIM.classOf('fe');
   for (const name of ['body', 'wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr', 'fw_main_l', 'fw_main_r', 'steer', 'grip_l', 'grip_r', 'screen', 'eye',
-    'driver_at', 'mirror_glass_l', 'mirror_glass_r', 'rain_light']) assert.ok(byName.has(name), `${name} is there`);
+    'driver_at', 'mirror_glass_l', 'mirror_glass_r', 'rain_light', 'halo_led']) assert.ok(byName.has(name), `${name} is there`);
+  assert.equal(j.materials[j.meshes[byName.get('halo_led').mesh].primitives[0].material].name, 'halo', 'the halo\'s attack-mode LEDs: their own role');
   const at = n => byName.get(n).translation ?? [0, 0, 0];
   assert.ok(Math.abs(at('wheel_fl')[0] - at('wheel_rl')[0] - FE.chassis.wheelbase) < 0.02, `wheelbase ${at('wheel_fl')[0] - at('wheel_rl')[0]}`);
   assert.ok(at('wheel_fr')[2] > 0 && at('wheel_fl')[2] < 0, 'right = +z');
