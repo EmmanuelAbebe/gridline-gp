@@ -1429,7 +1429,7 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   the ghost of a rolling start runs on one clock from the run's start (+ game.acc: between sim steps) instead of the time
   at your sample (it stepped ~2 m at a time); the racing line (pref racingLine) = the car you chase (an AI ghost's lap, your
   best run inside the ALIEN's lap, else the ALIEN's / LEGEND's; ctx.setRacingLine); the first run and MORE RUNS wait at
-  `#pracReady` READY WHEN YOU ARE until A / Enter / the gas (pressed after letting go), then go at once. Smoke: -ready.
+  `#pracReady` READY WHEN YOU ARE until A / Enter / the gas (pressed after letting go), then go at once. Since the same day every run waits there (after a finish or going off on BACK TO THE START, Y restart; DRIVE ON's runs still start as you come round), its line = LAST RUN · time + gap (purple = the session's best) / OFF AT T5 (`#prReadyLast`); the 1 s READY hold is gone. Smoke: -ready, readyAgain.
 
 ## Ideas not done yet
 - Online leaderboard with replay validation: `docs/leaderboard-plan.md`. Phase 0 done 2026-10-28: replays

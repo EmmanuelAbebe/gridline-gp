@@ -668,7 +668,11 @@ async function smokeTest(win) {
     info.practice.box = await js(`!document.getElementById('pracBox').hidden && document.getElementById('hud').classList.contains('practice')`);
     for (let i = 0; i < 160 && !(await js(`[...document.querySelectorAll('#prHRuns div')].some(d => !d.classList.contains('now'))`)); i++) await wait(500);
     info.practice.runs = await js(`[...document.querySelectorAll('#prHRuns div')].map(d => d.textContent)`);
-    await wait(6500);                                        // (the next run: your first one as its ghost, the braking marks)
+    // every run waits at READY (with the last run's time on it): Enter again for run 2 (your first one as its ghost, the braking marks)
+    for (let i = 0; i < 20 && (await js(`document.getElementById('pracReady').hidden`)); i++) await wait(250);
+    info.practice.readyAgain = await js(`!document.getElementById('pracReady').hidden && document.getElementById('prReadyLast').textContent`);
+    await js(`dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter' }))`);
+    await wait(6500);
     await shot('practice-run2');
     info.practice.ghost = await js(`!document.getElementById('prTagGhost').hidden && document.getElementById('prTagGhost').textContent`);
     for (let i = 0; i < 40 && !(await js(`!document.getElementById('prTagRef').hidden || !document.getElementById('prTagMine').hidden`)); i++) await wait(250);

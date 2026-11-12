@@ -52,6 +52,7 @@ const checks = [
   ['practice page: the car picker shows the car you race', r.practice?.car === (r.practice?.race === 'fe' ? 'GP ELECTRIC' : 'GP HYBRID')],
   ['practice by corner: a row per corner, the picked ones named', r.practice?.rows === r.practice?.corners && !!r.practice?.picked],
   ['practice: the first run waits for you (READY WHEN YOU ARE, rolling), Enter sets it off', r.practice?.ready && r.practice.went],
+  ['practice: every run waits at READY, with the last run on it (LAST RUN · time or OFF AT)', /^LAST RUN · /.test(r.practice?.readyAgain || '')],
   ['practice run: the practice HUD, a run timed (or off) by the autopilot', r.practice?.box && r.practice.runs?.some(t => /^\d+(\d+\.\d{3}|OFF)/.test(t))],
   ['practice run 2: your first run as the ghost, the next corner\'s braking marks', /^BEST RUN/.test(r.practice?.ghost || '') && r.practice.brakeTags?.length > 0],
   ['practice summary: a row per run, five tiles; DONE = the paddock', r.practice?.summary && r.practice.sumRows >= 1 && r.practice.sumTiles === 5 && r.practice.home],

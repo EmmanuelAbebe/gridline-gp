@@ -11,7 +11,6 @@ export const PRACTICE = Object.freeze({
   version: 1,
   lead: 300,          // m before the ring: where a rolling run starts (at your best lap's speed and gear there)
   standing: 6,        // m before the ring: a standing start, from rest
-  hold: 1.0,          // s the car is held at the start before a run (READY), so you can get your hands on
   resetAfter: 1.4,    // s after the square (BACK TO THE START) before the next run
   offReset: 0.8,      // s after going off before the next run
   weakest: 3,         // corners in "MY WEAKEST" (the stretch where you lose the most to the ALIEN)
