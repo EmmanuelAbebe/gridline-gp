@@ -152,9 +152,11 @@ const hitboxWidth = (parts, x) => { let w = 0; for (const { pts: P } of parts) f
   const [a0, b0] = P[i], [a1, b1] = P[(i + 1) % P.length];
   if (a0 !== a1 && (a0 - x) * (a1 - x) <= 0) w = Math.max(w, Math.abs(b0 + (b1 - b0) * (x - a0) / (a1 - a0)));
 } return w; };
+// (loops, not Math.max(...pts): a model's tens of thousands of points overflow the call stack on macOS / Windows)
+const lowest = a => a.reduce((m, v) => v < m ? v : m, Infinity), highest = a => a.reduce((m, v) => v > m ? v : m, -Infinity);
 function followsShape(parts, pts) {
-  const width = (x, d = 0.05) => Math.max(0, ...pts.filter(p => Math.abs(p[0] - x) < d).map(p => Math.abs(p[1])));
-  const xs = pts.map(p => p[0]), lo = Math.min(...xs), hi = Math.max(...xs);
+  const width = (x, d = 0.05) => { let w = 0; for (const p of pts) if (Math.abs(p[0] - x) < d) w = Math.max(w, Math.abs(p[1])); return w; };
+  const xs = pts.map(p => p[0]), lo = lowest(xs), hi = highest(xs);
   for (let x = lo + 0.05; x < hi - 0.05; x += 0.1) {
     const h = hitboxWidth(parts, x), near = [-0.1, 0, 0.1].map(d => width(x + d));   // (the model's width steps at its edges)
     assert.ok(h > Math.min(...near) - 0.12 && h < Math.max(...near) + 0.1, `x ${x.toFixed(2)}: hitbox ±${h.toFixed(2)} m, the car ±${near[1].toFixed(2)}`);
@@ -169,14 +171,14 @@ test('car.glb: the cars\' hitbox (SIM HITBOX) follows the body and tyres seen fr
 test('fe.glb: the electric car\'s hitbox (its class\'s HITBOX) follows its body and tyres seen from above, within ~10 cm', () => {
   const fe = '../src/game/models/fe.glb', parts = SIM.classOf('fe').hitbox.parts;
   followsShape(parts, planPoints(/^(body|tyre_|fw_main)/, fe));
-  const pts = parts.flatMap(p => p.pts), len = Math.max(...pts.map(p => p[0])) - Math.min(...pts.map(p => p[0]));
+  const pts = parts.flatMap(p => p.pts), len = highest(pts.map(p => p[0])) - lowest(pts.map(p => p[0]));
   assert.ok(Math.abs(len - 4.55) < 0.05 && parts.some(p => p.ramp) && parts.filter(p => p.kind === 'tyre').length === 2, `${len} m long, a ramp, two tyre parts (mirrored)`);
 });
 
 test('hitboxFrom: a hitbox made from a car\'s shape (the classic car\'s) follows it too: front wing halves, ramp, tyres', () => {
   const body = planPoints(/^(body|fw_flap|fw_main|rw_flap)/), wheels = ['fl', 'fr', 'rl', 'rr'].map(n => {
     const p = planPoints(new RegExp(`^tyre_${n}$`)), xs = p.map(q => q[0]), zs = p.map(q => q[1]);
-    return { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) };
+    return { x0: lowest(xs), x1: highest(xs), z0: lowest(zs), z1: highest(zs) };
   });
   const parts = SIM.hitboxFrom(body, wheels);
   followsShape(parts, planPoints(/^(body|tyre_|fw_flap|fw_main|rw_flap)/));

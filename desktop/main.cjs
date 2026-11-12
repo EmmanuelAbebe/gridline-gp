@@ -109,6 +109,14 @@ ipcMain.on('phone:ask-layout', () => phone.askLayout());           // the phone 
 ipcMain.on('phone:set-layout', (_e, l) => phone.setLayout(l));
 app.on('will-quit', () => { phone.close(); });
 
+// a screenshot, tried again a few times: in a virtual display (CI's xvfb, software GL) a capture right after the window
+// changes size (full screen) can fail with "UnknownVizError"
+async function capture(win) {
+  for (let k = 0; ; k++) {
+    try { return await win.webContents.capturePage(); } catch (e) { if (k >= 4) throw e; await new Promise(r => setTimeout(r, 500)); }
+  }
+}
+
 async function smokeTest(win) {
   const errors = [];
   // fail fast with a report rather than hang (a CI machine has no one to close it): any error in a step, or 8 minutes
@@ -123,10 +131,10 @@ async function smokeTest(win) {
     quitButtons: [...document.querySelectorAll('[data-quit]')].filter(b => !b.hidden).length,
     quitElsewhere: [...document.querySelectorAll('[data-quit]')].filter(b => !b.closest('#mnHome')).length,
     hudButtons: [...document.querySelectorAll('#hudBtns > *')].map(b => b.id) })`);
-  fs.writeFileSync(smokeOut, (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut, (await capture(win)).toPNG());
   // the garage: open, drag the view round (a real mouse drag), paint it red, Setup tab with its numbers, an open mod
   // (MODIFIED), mods reset, Done back to the start menu
-  const shot = name => win.webContents.capturePage().then(img => fs.writeFileSync(smokeOut.replace(/(\.png)?$/, `-${name}.png`), img.toPNG()));
+  const shot = name => capture(win).then(img => fs.writeFileSync(smokeOut.replace(/(\.png)?$/, `-${name}.png`), img.toPNG()));
   await win.webContents.executeJavaScript(`document.getElementById('garageBtn').click()`);
   await new Promise(r => setTimeout(r, 1200));
   const garTab = name => win.webContents.executeJavaScript(`[...document.querySelectorAll('#garTabs button')].find(b => b.textContent === ${JSON.stringify(name)}).click()`);
@@ -207,7 +215,7 @@ async function smokeTest(win) {
   await win.webContents.executeJavaScript(`document.querySelector('#trackStep [data-d="1"]').click()`);
   await new Promise(r => setTimeout(r, 1500));
   info.circuit = await win.webContents.executeJavaScript(`document.getElementById('eventLine').textContent`);
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-circuit.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-circuit.png'), (await capture(win)).toPNG());
   // Aero zones: drag zone 1's end 60 m further (screenshot), delete it, back to automatic, Done → the start menu
   info.zones = await win.webContents.executeJavaScript(`(async () => {
     const wait = ms => new Promise(r => setTimeout(r, ms)), E = window.__zoneEditor;
@@ -220,7 +228,7 @@ async function smokeTest(win) {
     const warn = [...document.querySelectorAll('#zoneList .warn')].map(e => e.textContent);
     return { count: before.length, mode0, mode1, grew: Math.round((dragged.to - dragged.from) - (z.to - z.from)), warn };
   })()`);
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-zones.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-zones.png'), (await capture(win)).toPNG());
   Object.assign(info.zones, await win.webContents.executeJavaScript(`(async () => {
     const wait = ms => new Promise(r => setTimeout(r, ms)), E = window.__zoneEditor, n = E.zones.length;
     [...document.querySelectorAll('#zoneList button')].find(b => b.textContent === 'Delete').click(); await wait(100);
@@ -248,7 +256,7 @@ async function smokeTest(win) {
     car.picked = document.querySelector('#carList [aria-checked=true]').dataset.id;
     return { home, car };
   })()`);
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-menu-car.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-menu-car.png'), (await capture(win)).toPNG());
   if (process.env.GRIDLINE_SMOKE_CLASS) info.carClass = info.menu.car.picked;
   Object.assign(info.menu, await win.webContents.executeJavaScript(`(async () => {
     const wait = ms => new Promise(r => setTimeout(r, ms)), $ = id => document.getElementById(id);
@@ -258,10 +266,10 @@ async function smokeTest(win) {
     for (let i = 0; i < 40 && /Timing/.test($('gridPreview').textContent); i++) await wait(250);
     return { steps, grid: $('gridPreview').children.length, start: !$('startBtn').hidden && $('startBtn').textContent, circuits: $('circuitList').children.length };
   })()`));
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-menu-grid.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-menu-grid.png'), (await capture(win)).toPNG());
   await win.webContents.executeJavaScript(`document.querySelector('#raceSteps [data-step="1"]').click()`);
   await new Promise(r => setTimeout(r, 300));
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-menu-circuit.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-menu-circuit.png'), (await capture(win)).toPNG());
   await win.webContents.executeJavaScript(`document.getElementById('raceBack').click()`);
   // start a race: lights take about 5-7 s, so after 9 s the race clock must be running; second screenshot in-race
   await win.webContents.executeJavaScript(`document.getElementById('startBtn').click()`);
@@ -271,7 +279,7 @@ async function smokeTest(win) {
   info.race = await win.webContents.executeJavaScript(`({ hud: !document.getElementById('hud').hidden,
     lapTime: document.getElementById('tCur').textContent, position: document.getElementById('pos').textContent,
     cars: document.querySelectorAll('#towerList > *').length, sound: window.gridlineDebug.soundReady() })`);
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-race.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-race.png'), (await capture(win)).toPNG());
   // (another car class: what its HUD shows a few seconds in (Formula E: the energy row, the battery, the power, the
   // attack mode chip); attack mode is staged on after the replay check below (it can't be replayed))
   if (info.carClass) {
@@ -280,7 +288,7 @@ async function smokeTest(win) {
       boost: document.getElementById('boostTag').classList.contains('on') ? document.getElementById('boostTag').textContent : '' })`;
     await new Promise(r => setTimeout(r, 4000));
     info.classRace = { start: await win.webContents.executeJavaScript(hud) };
-    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-class-hud.png'), (await win.webContents.capturePage()).toPNG());
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-class-hud.png'), (await capture(win)).toPNG());
     info.classRace.hud = hud;
   }
   // (GRIDLINE_SMOKE_CRASH=dv: a staged launch from behind the car: screenshots in the air and after the landing, the
@@ -290,7 +298,7 @@ async function smokeTest(win) {
     for (const [ms, name] of [[250, 'crash-1'], [250, 'crash-2'], [300, 'crash-3'], [2500, 'crash-4']]) {
       await new Promise(r => setTimeout(r, ms));
       info.crash.air.push(await win.webContents.executeJavaScript(`gridlineDebug.air()`));
-      fs.writeFileSync(smokeOut.replace(/(\.png)?$/, `-${name}.png`), (await win.webContents.capturePage()).toPNG());
+      fs.writeFileSync(smokeOut.replace(/(\.png)?$/, `-${name}.png`), (await capture(win)).toPNG());
     }
   }
   // BOX (B): the request shows in the HUD and the team answers on the radio
@@ -306,42 +314,42 @@ async function smokeTest(win) {
     const s = await win.webContents.executeJavaScript(`({ car: window.gridlineDebug.car(), chip: document.getElementById('aeroTag').classList.contains('on') })`);
     info.aero = { opened: s.car.aeroOpen > 0.99 && s.chip, kmh: s.car.kmh, chip: s.chip };
   }
-  if (info.aero.opened) fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-aero.png'), (await win.webContents.capturePage()).toPNG());
+  if (info.aero.opened) fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-aero.png'), (await capture(win)).toPNG());
   await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyW', key: 'w' }))`);
   // cockpit camera (C), steering held right for a moment: the driver's arms and the wheel screen
   await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyC', key: 'c' })); dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyC', key: 'c' }));
     addEventListener('keydown', () => {}); dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyD', key: 'd' }))`);
   await new Promise(r => setTimeout(r, 700));
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-cockpit.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-cockpit.png'), (await capture(win)).toPNG());
   await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyD', key: 'd' }))`);
   // (GRIDLINE_SMOKE_COCKPIT="back,height,fov": the cockpit camera set like a player's, then a screenshot of it)
   if (process.env.GRIDLINE_SMOKE_COCKPIT) {
     const [back, height, fov] = process.env.GRIDLINE_SMOKE_COCKPIT.split(',').map(Number);
     await win.webContents.executeJavaScript(`gridlineDebug.setCamera('cockpit', ${JSON.stringify({ back, height, fov })})`);
     await new Promise(r => setTimeout(r, 600));
-    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-cockpit-player.png'), (await win.webContents.capturePage()).toPNG());
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-cockpit-player.png'), (await capture(win)).toPNG());
     console.log("MIRRORS", await win.webContents.executeJavaScript(`JSON.stringify({ t: typeof window.__mirrors, n: window.__mirrors?.count, info: window.__mirrors?.info?.() })`));
   }
   // the rear-view mirror strip on the HUD (Settings → Driving), screenshot from the cockpit, then off again
   await win.webContents.executeJavaScript(`gridlineDebug.setPref('hudMirror', true)`);
   await new Promise(r => setTimeout(r, 300));
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-mirror.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-mirror.png'), (await capture(win)).toPNG());
   await win.webContents.executeJavaScript(`gridlineDebug.setPref('hudMirror', false)`);
   // look back (R held) from the cockpit: the rear view, then back to the cockpit
   await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyR', key: 'r' }))`);
   await new Promise(r => setTimeout(r, 300));
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-lookback.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-lookback.png'), (await capture(win)).toPNG());
   await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyR', key: 'r' }))`);
   await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click()`);
   // the pause menu's pit box (screenshot): the compound on the car and the next stop's plan
   await new Promise(r => setTimeout(r, 200));
   info.pitBox = await win.webContents.executeJavaScript(`(() => { const b = document.getElementById('pitBox'); return b.hidden ? 'hidden' : b.textContent; })()`);
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-pause.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-pause.png'), (await capture(win)).toPNG());
   // settings from the pause menu, Controller tab (screenshot), then Done returns to the pause menu
   await win.webContents.executeJavaScript(`document.getElementById('pauseSettingsBtn').click();
     [...document.querySelectorAll('#setTabs button')].find(b => b.textContent === 'Controller').click()`);
   await new Promise(r => setTimeout(r, 300));
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-settings.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-settings.png'), (await capture(win)).toPNG());
   info.settings = await win.webContents.executeJavaScript(`(() => { const shown = !document.getElementById('setOv').hidden;
     const smoothing = document.querySelector('#setBody output').textContent; document.getElementById('setClose').click();
     return { shown, smoothing, backToPause: !document.getElementById('pauseOv').hidden }; })()`);
@@ -351,7 +359,7 @@ async function smokeTest(win) {
     [...document.querySelectorAll('#setTabs button')].find(b => b.textContent === 'Controller').click();
     [...document.querySelectorAll('#setBody button')].find(b => b.textContent === 'Connect phone').click()`);
   await new Promise(r => setTimeout(r, 2500));
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-phone.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-phone.png'), (await capture(win)).toPNG());
   info.phone = await (async () => {
     const st = phone.status(), url = new URL(st.url);
     if (!st.running) return { error: st.error || 'not running' };
@@ -382,7 +390,7 @@ async function smokeTest(win) {
     let feedAway = setInterval(awaySend(1), 16);
     await new Promise(r => setTimeout(r, 400));
     const awayShown = await win.webContents.executeJavaScript(`({ shown: !document.getElementById('awayOv').hidden, title: document.getElementById('awayTitle').textContent })`);
-    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-away.png'), (await win.webContents.capturePage()).toPNG());
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-away.png'), (await capture(win)).toPNG());
     clearInterval(feedAway); feedAway = setInterval(awaySend(0), 16);
     await new Promise(r => setTimeout(r, 2800));
     clearInterval(feedAway);
@@ -400,7 +408,7 @@ async function smokeTest(win) {
     await press(1 << 8, 200); await press(0, 150);
     const buttonsBound = await win.webContents.executeJavaScript(`[...[...document.querySelectorAll('.bm-row')].find(r => r.querySelector('b').textContent.startsWith('Straight mode'))
       .querySelectorAll('.bm-chip > span')].map(e => e.textContent)`);
-    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-buttons.png'), (await win.webContents.capturePage()).toPNG());
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-buttons.png'), (await capture(win)).toPNG());
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('#setBody button')].find(b => b.textContent === 'Reset to default').click();
       document.getElementById('setClose').click(); document.getElementById('resumeBtn').click()`);
     await new Promise(r => setTimeout(r, 200));
@@ -420,7 +428,7 @@ async function smokeTest(win) {
     }
     await new Promise(r => setTimeout(r, 800));
     const designBoxes = designFrame ? await designFrame.executeJavaScript(`document.querySelectorAll('.ed-box').length`) : 0;
-    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-phone-design.png'), (await win.webContents.capturePage()).toPNG());
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-phone-design.png'), (await capture(win)).toPNG());
     if (designFrame) await designFrame.executeJavaScript(`[...document.querySelectorAll('.ed-tools button')].find(b => b.textContent === 'DONE').click()`);
     await new Promise(r => setTimeout(r, 500));
     const design = { frame: !!designFrame, boxes: designBoxes, sent: !!sentLayout?.free, closed: await win.webContents.executeJavaScript(`document.getElementById('phoneDesignOv').hidden`) };
@@ -442,14 +450,14 @@ async function smokeTest(win) {
     info.classRace.attack = await win.webContents.executeJavaScript(`gridlineDebug.attack(75)`);
     await new Promise(r => setTimeout(r, 600));
     info.classRace.on = await win.webContents.executeJavaScript(hud);
-    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-class-attack.png'), (await win.webContents.capturePage()).toPNG());
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-class-attack.png'), (await capture(win)).toPNG());
     // (the Blender car: the halo's attack-mode LEDs from the chase camera (C twice from the cockpit; once more = back):
     // the pixels of their purple over the middle of the picture, where the car's halo is; the HUD hidden meanwhile, its
     // attack chip is that purple too)
     const cam = `dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyC', key: 'c' })); dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyC', key: 'c' }))`;
     await win.webContents.executeJavaScript(`${cam}; ${cam}; document.getElementById('hud').style.visibility = 'hidden'`);
     await new Promise(r => setTimeout(r, 500));
-    const shot = await win.webContents.capturePage(), { width: W, height: H } = shot.getSize(), px = shot.toBitmap();
+    const shot = await capture(win), { width: W, height: H } = shot.getSize(), px = shot.toBitmap();
     fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-class-halo.png'), shot.toPNG());
     let halo = 0;
     for (let y = Math.floor(H * 0.35); y < H * 0.66; y++) for (let x = Math.floor(W * 0.3); x < W * 0.7; x++) {
@@ -469,7 +477,7 @@ async function smokeTest(win) {
     [...document.querySelectorAll('#setTabs button')].find(b => b.textContent === 'Sound').click();
     [...document.querySelectorAll('#setBody button')].find(b => b.textContent.startsWith('Sound studio')).click()`);
   await new Promise(r => setTimeout(r, 1500));
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-studio.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-studio.png'), (await capture(win)).toPNG());
   info.studio = await win.webContents.executeJavaScript(`(() => { const shown = !document.getElementById('studio').hidden;
     const sliders = document.querySelectorAll('#studio input[type=range]').length;
     [...document.querySelectorAll('#studio button')].find(b => b.textContent === 'CLOSE').click();
@@ -486,7 +494,7 @@ async function smokeTest(win) {
   await new Promise(r => setTimeout(r, 7000));
   Object.assign(info.quali, await win.webContents.executeJavaScript(`({ title: document.getElementById('towerLap').textContent, rows: document.querySelectorAll('#towerList > *').length,
     first: document.querySelector('#towerList li .g').textContent, timeLeft: document.getElementById('timeLeft').textContent, cars: gridlineDebug.playerState() && document.querySelectorAll('#towerList li.me').length })`));
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-quali.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-quali.png'), (await capture(win)).toPNG());
   if (process.env.GRIDLINE_SMOKE_LAP) {        // (GRIDLINE_SMOKE_LAP: the autopilot drives a lap in qualifying: a time on the timing screen)
     await win.webContents.executeJavaScript(`gridlineDebug.autopilot(0.9)`);
     for (let i = 0; i < 400 && !(await win.webContents.executeJavaScript(`gridlineDebug.playerState().lap >= 2`)); i++) await new Promise(r => setTimeout(r, 250));
@@ -498,7 +506,7 @@ async function smokeTest(win) {
   await new Promise(r => setTimeout(r, 500));
   Object.assign(info.quali, await win.webContents.executeJavaScript(`({ verdict: document.getElementById('verdict').textContent, next: document.getElementById('againTitle').textContent,
     requali: !document.getElementById('requaliBtn').hidden, table: document.querySelectorAll('#resBody tr').length, pole: document.querySelector('#resBody tr td.r').textContent })`));
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-quali-results.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-quali-results.png'), (await capture(win)).toPNG());
   await win.webContents.executeJavaScript(`document.getElementById('againBtn').click()`);
   await new Promise(r => setTimeout(r, 1500));
   Object.assign(info.quali, await win.webContents.executeJavaScript(`({ raceCars: document.querySelectorAll('#towerList > *').length, raceTitle: document.getElementById('towerLap').textContent,
@@ -516,14 +524,14 @@ async function smokeTest(win) {
     await wait(1500);                                    // (the lap's run is packed and kept)
     await js(`document.getElementById('pauseBtn').click()`); await wait(1500);
     const button = await js(`({ shown: !document.getElementById('lbPauseBtn').hidden, text: document.getElementById('lbPauseBtn').textContent })`);
-    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-submit.png'), (await win.webContents.capturePage()).toPNG());
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-submit.png'), (await capture(win)).toPNG());
     await js(`document.getElementById('lbPauseBtn').click()`);
     let toast = '';
     for (let i = 0; i < 50 && !/Leaderboard/.test(toast); i++) { await wait(200); toast = await js(`document.getElementById('toast').textContent`); }
     await js(`gridlineDebug.botDrive(false); gridlineDebug.toMenu(); document.getElementById('tileRace').click(); document.getElementById('raceBack').click(); document.getElementById('lbBtn').click()`);
     await wait(800);
     const screen = await js(`[...document.querySelectorAll('#lbList .lb-row')].map(r => r.textContent)`);
-    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-leaderboard.png'), (await win.webContents.capturePage()).toPNG());
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-leaderboard.png'), (await capture(win)).toPNG());
     await js(`document.getElementById('lbClose').click()`);
     info.onlineSend = { joined, button, toast, screen };
   }
@@ -533,7 +541,7 @@ async function smokeTest(win) {
   await new Promise(r => setTimeout(r, 2500));
   info.online = await win.webContents.executeJavaScript(`(() => { const c = [...document.querySelectorAll('#setBody .dev-card')].find(c => c.textContent.includes('Online leaderboard'));
     return { shown: !!c, state: c?.querySelector('.dev-state')?.textContent, join: !!c?.querySelector('.ol-name') }; })()`);
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-online.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-online.png'), (await capture(win)).toPNG());
   await win.webContents.executeJavaScript(`document.getElementById('setClose').click()`);
   await win.webContents.executeJavaScript(`document.getElementById('setClose')?.click(); gridlineDebug.toMenu();
     document.getElementById('tileTrial').click()`);
@@ -541,7 +549,7 @@ async function smokeTest(win) {
   if (process.env.GRIDLINE_SMOKE_GHOST) await win.webContents.executeJavaScript(`gridlineDebug.loadGhost(${JSON.stringify(fs.readFileSync(process.env.GRIDLINE_SMOKE_GHOST, 'utf8'))})`);
   // the ghost list: yours + every AI level timed (made in the background), then race the ALIEN's lap
   await new Promise(r => setTimeout(r, 1500));
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-trial-menu.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-trial-menu.png'), (await capture(win)).toPNG());
   info.trial = await win.webContents.executeJavaScript(`({ ghostRow: !document.getElementById('ghostRow').hidden,
     ghosts: [...document.querySelectorAll('#ghostList .ghost-pick')].map(b => b.textContent),
     carsHidden: document.getElementById('carsStep').closest('.row').hidden })`);
@@ -552,19 +560,19 @@ async function smokeTest(win) {
     // (the AI drives your car: beside the ghost's standing start)
     for (let i = 0; i < 40 && !(await win.webContents.executeJavaScript(`gridlineDebug.playerState().lap >= 1`)); i++) await new Promise(r => setTimeout(r, 250));
     await new Promise(r => setTimeout(r, 1200));
-    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-ghost.png'), (await win.webContents.capturePage()).toPNG());
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-ghost.png'), (await capture(win)).toPNG());
     await win.webContents.executeJavaScript(`gridlineDebug.autopilot(0)`);
   }
   await new Promise(r => setTimeout(r, 9000));
   Object.assign(info.trial, await win.webContents.executeJavaScript(`({ cars: document.querySelectorAll('#towerList > *').length,
     delta: !document.getElementById('tDelta').hidden, lapTime: document.getElementById('tCur').textContent })`));
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-trial.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-trial.png'), (await capture(win)).toPNG());
   // the sector panel, and the lap analysis from the pause menu (screenshot), Done = back to the pause menu
   info.sectors = await win.webContents.executeJavaScript(`({ cells: document.querySelectorAll('#secRow .sec').length, minis: document.querySelectorAll('#secMinis span').length,
     ref: document.getElementById('secRef').textContent })`);
   await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click(); document.getElementById('pauseAnaBtn').click()`);
   await new Promise(r => setTimeout(r, 800));
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-analysis.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-analysis.png'), (await capture(win)).toPNG());
   info.analysis = await win.webContents.executeJavaScript(`(() => { const shown = !document.getElementById('anaOv').hidden;
     const corners = document.querySelectorAll('#anaCorners tr').length, refs = document.querySelectorAll('#anaRef option').length;
     document.getElementById('anaClose').click(); return { shown, corners, refs, backToPause: !document.getElementById('pauseOv').hidden }; })()`);
@@ -573,13 +581,13 @@ async function smokeTest(win) {
     await win.webContents.executeJavaScript(`document.getElementById('resumeBtn').click(); gridlineDebug.autopilot(1)`);
     for (let i = 0; i < 400 && (await win.webContents.executeJavaScript(`gridlineDebug.playerState().lap`)) < 3; i++) await new Promise(r => setTimeout(r, 500));
     await new Promise(r => setTimeout(r, 9000));
-    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-sectors-lap.png'), (await win.webContents.capturePage()).toPNG());
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-sectors-lap.png'), (await capture(win)).toPNG());
     info.sectorsLap = await win.webContents.executeJavaScript(`[...document.querySelectorAll('#secRow .sec, #secMinis span')].map(e => e.className + ' ' + e.textContent.replace(/\s+/g, ' '))`);
     await win.webContents.executeJavaScript(`gridlineDebug.autopilot(0); document.getElementById('pauseBtn').click(); document.getElementById('pauseAnaBtn').click()`);
     await new Promise(r => setTimeout(r, 800));
-    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-analysis-lap.png'), (await win.webContents.capturePage()).toPNG());
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-analysis-lap.png'), (await capture(win)).toPNG());
     // COMPARE: the two laps replayed in 2D (play for a moment), then in 3D (chase, then the TV cameras), then Done
-    const shot = async name => fs.writeFileSync(smokeOut.replace(/(\.png)?$/, `-${name}.png`), (await win.webContents.capturePage()).toPNG());
+    const shot = async name => fs.writeFileSync(smokeOut.replace(/(\.png)?$/, `-${name}.png`), (await capture(win)).toPNG());
     const js = code => win.webContents.executeJavaScript(code);
     await js(`document.getElementById('anaTabCmp').click(); document.getElementById('cmpPos').value = 400; document.getElementById('cmpPos').dispatchEvent(new Event('input'))`);
     await new Promise(r => setTimeout(r, 600));
@@ -626,11 +634,11 @@ async function smokeTest(win) {
     await js(`document.getElementById('anaStartBtn').click(); document.getElementById('anaTabCmp').click(); document.querySelector('#anaView [data-v="3d"]').click();
       document.getElementById('cmpPos').value = 300; document.getElementById('cmpPos').dispatchEvent(new Event('input'))`);
     await new Promise(r => setTimeout(r, 1000));
-    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-analysis-menu3d.png'), (await win.webContents.capturePage()).toPNG());
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-analysis-menu3d.png'), (await capture(win)).toPNG());
     info.compareMenu = await js(`(() => { const on = document.getElementById('anaOv').classList.contains('ana-3d'), lap = document.getElementById('anaLap').selectedOptions[0]?.textContent ?? '';
       document.getElementById('anaClose').click(); return { on, lap, home: !document.getElementById('startOv').hidden }; })()`);
     await new Promise(r => setTimeout(r, 300));
-    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-analysis-menu-after.png'), (await win.webContents.capturePage()).toPNG());
+    fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-analysis-menu-after.png'), (await capture(win)).toPNG());
   }
   // exercise the bridge the way a player would: Settings → Graphics → Display FULL SCREEN, then the paddock's quit
   // button (which must end the app)
@@ -640,13 +648,15 @@ async function smokeTest(win) {
   await new Promise(r => setTimeout(r, 1500));
   info.fullscreenAfterClick = win.isFullScreen();
   info.fullPressed = await win.webContents.executeJavaScript(`${displayBtn('FULL SCREEN')}.getAttribute('aria-pressed')`);
-  await shot('graphics');
+  // (CI's virtual display can't capture a full-screen window at all: noted, not a failure; back to a window after)
+  try { await shot('graphics'); } catch (e) { info.graphicsShot = String(e); }
+  win.setFullScreen(false); await new Promise(r => setTimeout(r, 800));
   await win.webContents.executeJavaScript(`document.getElementById('setClose').click()`);
   // quit asks first: "Keep playing" closes the question, "Quit" ends the app
   const q = id => win.webContents.executeJavaScript(`document.getElementById('${id}')${id === 'quitOv' ? '.hidden' : '.click()'}`);
   await win.webContents.executeJavaScript(`document.querySelector('#startOv [data-quit]').click()`);
   await new Promise(r => setTimeout(r, 300));
-  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-quit.png'), (await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-quit.png'), (await capture(win)).toPNG());
   info.quitAsks = (await q('quitOv')) === false;
   await q('quitStayBtn'); info.quitStay = (await q('quitOv')) === true && !win.isDestroyed();
   info.logFile = fs.existsSync(log.file) && fs.readFileSync(log.file, 'utf8').startsWith(new Date().getFullYear() + '');
@@ -671,7 +681,7 @@ async function raceShots(win, js, wait) {
     for (let k = 0; k < 8; k++) {
       if (k === 5) await js(`dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyC', key: 'c' })); dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyC', key: 'c' }))`);
       await wait(k ? 4500 : 2000);
-      fs.writeFileSync(path.join(shotsDir, `${id}-race${k}.png`), (await win.webContents.capturePage()).toPNG());
+      fs.writeFileSync(path.join(shotsDir, `${id}-race${k}.png`), (await capture(win)).toPNG());
     }
     await js(`gridlineDebug.autopilot(0); gridlineDebug.toMenu()`); await wait(800);
   }
@@ -698,7 +708,7 @@ async function benchCityRun(win, js, wait) {
       for (let i = 0; i < b64.length; i += 4e6) await js(`gridlineDebug.benchPart(${JSON.stringify(b64.slice(i, i + 4e6))})`);
       const r = await js(`gridlineDebug.benchCity(${count})`), ms = await measure();
       await js(views[2][1]); await wait(200);
-      fs.writeFileSync(path.join(shotsDir, `${f.replace('.glb', '')}-${count}.png`), (await win.webContents.capturePage()).toPNG());
+      fs.writeFileSync(path.join(shotsDir, `${f.replace('.glb', '')}-${count}.png`), (await capture(win)).toPNG());
       rows.push({ set: f.replace(/^city-|\.glb$/g, ''), count, fileMB, ...r, ...ms }); console.log(JSON.stringify(rows.at(-1)));
     }
   }
@@ -760,7 +770,7 @@ async function trackShots(win) {
     for (const [name, code] of views) {
       await js(code); await wait(400);
       if (process.env.GRIDLINE_SHOT_TIMING) console.log(`${id}-${name}: ${(await js(`gridlineDebug.renderMs(${+process.env.GRIDLINE_SHOT_TIMING > 1 ? +process.env.GRIDLINE_SHOT_TIMING : 40})`)).toFixed(2)} ms per frame`);
-      fs.writeFileSync(path.join(shotsDir, `${id}-${name}.png`), (await win.webContents.capturePage()).toPNG());
+      fs.writeFileSync(path.join(shotsDir, `${id}-${name}.png`), (await capture(win)).toPNG());
     }
   }
   console.log('track shots in ' + shotsDir, JSON.stringify(await js(`gridlineDebug.shadows()`)));
