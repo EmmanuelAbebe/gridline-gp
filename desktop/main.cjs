@@ -652,11 +652,17 @@ async function smokeTest(win) {
     for (let i = 0; i < 40 && await js(`document.getElementById('prTiles').textContent.includes('…')`); i++) await wait(250);   // (the ALIEN's lap)
     await shot('practice-map');
     info.practice = await js(`({ page: !document.getElementById('pagePractice').hidden, name: document.getElementById('prName').textContent,
-      tiles: document.querySelectorAll('#prTiles .pr-tile').length, corners: document.querySelectorAll('#prMap text.cn').length, quick: document.querySelectorAll('#prQuick button').length })`);
+      car: document.querySelector('#prCar [aria-pressed=true]')?.textContent, race: gridlineDebug.raceClass(), tiles: document.querySelectorAll('#prTiles .pr-tile').length, corners: document.querySelectorAll('#prMap text.cn').length, quick: document.querySelectorAll('#prQuick button').length })`);
     await js(`document.getElementById('prTabCorners').click()`); await wait(200);
     await shot('practice-corners');
     Object.assign(info.practice, await js(`({ rows: document.querySelectorAll('#prRows .pr-crow').length, picked: document.getElementById('prPicked').textContent })`));
     await js(`document.getElementById('prGo2').click(); gridlineDebug.autopilot(1)`);
+    // the first run waits: READY WHEN YOU ARE, then Enter sets it off
+    await wait(800);
+    info.practice.ready = await js(`!document.getElementById('pracReady').hidden && gridlineDebug.playerState().kmh > 100`);
+    await shot('practice-ready');
+    await js(`dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter' }))`);
+    info.practice.went = await js(`document.getElementById('pracReady').hidden`);
     await wait(4000);
     await shot('practice-run');
     info.practice.box = await js(`!document.getElementById('pracBox').hidden && document.getElementById('hud').classList.contains('practice')`);

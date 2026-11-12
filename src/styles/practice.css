@@ -136,3 +136,9 @@
 .pr-tag{position:fixed;left:0;top:0;transform:translate(-50%,-100%);font-family:var(--display);font-size:14px;letter-spacing:.1em;color:var(--text);padding:2px 8px;background:rgba(11,14,18,.8);border-radius:3px;white-space:nowrap;pointer-events:none}
 .pr-tag.mine{background:none;color:var(--amber);transform:translate(0,-50%)}
 .pr-tag.ref{background:none;color:var(--purple);transform:translate(0,-50%)}
+.pr-ready{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:6px;padding:20px 34px;border:1px solid var(--amber)}
+.pr-ready>b{font-family:var(--display);font-weight:800;font-size:40px;letter-spacing:.04em}
+.pr-ready>span:last-child{font-size:16px;color:var(--muted)}
+.pr-ready>span:last-child b{color:var(--text)}
+/* the car picker in the practice page's top bar */
+#prCar{height:auto;padding:0;border:0;gap:6px}

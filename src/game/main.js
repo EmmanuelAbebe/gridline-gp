@@ -167,7 +167,9 @@ const practice = createPractice({ game, track: () => track, sectors, aiLapOf: (i
   startTrial: () => { toMenu(); game.setup.type = 'trial'; renderSetup(); saveSetup(); startFromMenu(); },
   compare: (tr, label) => analysis.show('pracSum', { tr, label }),
   setMinimapSection: sec => { minimap = createMinimap($('map'), track, sec); }, snap: c => { interpolatePoses([c], 1); CameraRig.snap(c); },
-  showMessage: m => showMessage(m) });
+  showMessage: m => showMessage(m), pickClass: id => pickClass(id),
+  // the racing line: a line given (practice: the car you chase), null = none, undefined = the race's own (the ALIEN's)
+  setRacingLine: line => racingLine.set(track, line !== undefined ? line : game.race ? trial.aiLapOf('alien', game.race.activeAero)?.line : null) });
 const practicing = () => game.session === 'practice' && practice.on;
 const qualifying = () => game.session === 'quali';
 
@@ -593,6 +595,7 @@ const ACTIONS = { camera: cycleCamera, mute: toggleMute, pause: escape, fps: () 
 Input.on('action', (name, src) => { if (practicing() && practice.action(name, src)) return; ACTIONS[name]?.(); });
 // pad A / B (phone buttons 1 / 2) in menus: confirm / back, whatever they do while racing (button-map.js)
 Input.on('menu', what => {
+  if (what === 'confirm' && practicing() && practice.ready()) return;   // (practice: A = ready, off you go)
   if (racing()) return;
   if (what === 'confirm') confirm();
   else if (SettingsScreen.open) SettingsScreen.close(); else if (game.paused) togglePause(); else if (subOpen() === 'results') toMenu(); else if (subOpen() === 'pracSum') practice.done(); else if (menuOpen()) menu.back();
@@ -756,7 +759,7 @@ function renderFrame(dt) {
   for (const c of race.cars) modelOf.get(c.code).sync(c, poseOf(c), dt);
   CameraRig.update(dt, player, !isRunning());
   trial.frame(race, player, dt);
-  if (practicing()) practice.frame(dt);
+  if (practicing()) practice.frame(dt, isRunning() ? game.acc : 0);   // (+ the part of a sim step since the last one: the ghost drawn smoothly)
   const eye = Design.data.cameras.find(c => c.id === 'cockpit') || cam;
   const es = CarModels.eyeShift;
   mirrors.update([-eye.back + es[0], eye.height + es[1], eye.side || 0], cockpit ? 'cockpit' : 'outside', Display.camera.position);

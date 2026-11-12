@@ -1424,6 +1424,12 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   the corner where your best run loses most: run 1 → best → AI, COMPARE BEST RUN = the lap comparison with your run inside
   the AI's lap (analysis.show(where, extra)), CHANGE SECTION, DRIVE A FULL LAP (a time trial), MORE RUNS). Laps, limits and
   records don't count in practice (onPlayerEvent). Smoke: out-practice-map / -corners / -run / -run2 / -brakes / -summary.
+- Round 2 (same day; user: "practice mode is only electric?", the rolling start's ghost "jittering", "the faster car
+  racing line", a "press a key when ready" prompt): the page's top bar has the car picker (every class, main.js pickClass);
+  the ghost of a rolling start runs on one clock from the run's start (+ game.acc: between sim steps) instead of the time
+  at your sample (it stepped ~2 m at a time); the racing line (pref racingLine) = the car you chase (an AI ghost's lap, your
+  best run inside the ALIEN's lap, else the ALIEN's / LEGEND's; ctx.setRacingLine); the first run and MORE RUNS wait at
+  `#pracReady` READY WHEN YOU ARE until A / Enter / the gas (pressed after letting go), then go at once. Smoke: -ready.
 
 ## Ideas not done yet
 - Online leaderboard with replay validation: `docs/leaderboard-plan.md`. Phase 0 done 2026-10-28: replays

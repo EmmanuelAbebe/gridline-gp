@@ -20,9 +20,10 @@ import { Design } from './design.js';
 import { CarModels } from './car-models.js';
 import { Hud } from './hud.js';
 import { Screens } from './screens.js';
+import { Input } from './input.js';
 import { roadPose, savePoses } from './pose.js';
 import { playerDriver } from './garage-store.js';
-import { playerClass, classUi } from './car-class.js';
+import { playerClass, classUi, allClasses } from './car-class.js';
 import { raceAero } from './setup-store.js';
 import { zoneTag, lapClass } from './aero-zones.js';
 import { traceFromAi, cornerMetrics } from './lap-analysis.js';
@@ -187,7 +188,8 @@ export function createPractice(ctx) {
     if ($('pagePractice').hidden) return;
     const D = menuData(), S = sectionNow(), T = D.T, cls = playerClass();
     $('prCirc').textContent = `${T.name} · ${(T.N * T.ds / 1000).toFixed(2)} km`;
-    $('prCar').textContent = classUi(cls).name;
+    // the car: every class, the picked one marked (main.js pickClass: its own setup, records and AI laps follow)
+    $('prCar').replaceChildren(...allClasses().map(c => chip(classUi(c).name, c === cls, () => { ctx.pickClass(c.id); render(); })));
     $('prTabMap').setAttribute('aria-pressed', String(view === 'map')); $('prTabCorners').setAttribute('aria-pressed', String(view === 'corners'));
     $('prMapView').hidden = view !== 'map'; $('prCornerView').hidden = view !== 'corners';
     const name = P.sectionName(D.L, S, T.ds), b = yourBest(D, S), parts = P.partsOf(D.L, S);
@@ -279,7 +281,10 @@ export function createPractice(ctx) {
     a.needsUpdate = true; m.geometry.computeBoundingSphere(); m.visible = true;
   }
   let R = null;                                  // the practice in progress (null = none)
-  const holding = () => !!R && R.state === 'hold';
+  const holding = () => !!R && (R.state === 'hold' || R.state === 'ready');
+  // off you go (from READY WHEN YOU ARE): the run starts at once
+  function go() { if (!R || R.state !== 'ready') return false; $('pracReady').hidden = true; R.state = 'lead'; R.t = 0; Hud.flash('GO', 0.6); return true; }
+  addEventListener('keydown', e => { if (e.code === 'Enter' && !e.repeat && R?.state === 'ready' && !game.paused && !game.ended && go()) e.preventDefault(); });
   const nearIdx = (T, x, z, guess) => { let bi = guess, bd = Infinity; for (let o = -40; o <= 40; o++) { const i = SIM.wrapIdx(guess + o, T.N), d = (T.PX[i] - x) ** 2 + (T.PZ[i] - z) ** 2; if (d < bd) { bd = d; bi = i; } } return bi; };
 
   // the reference for this run: times from the ring at every window sample (the live delta), its parts, the ghost
@@ -313,10 +318,25 @@ export function createPractice(ctx) {
     const mine = best ? P.runAsTrace(best.run, S) : R.bestLap, other = R.alien || R.legend;
     R.brakes = { mine: mine ? cornerMetrics(mine, R.L, T.ds) : null, other: other ? cornerMetrics(other, R.L, T.ds) : null, otherName: R.alien ? 'ALIEN' : 'LEGEND' };
     R.bestRun = best;
+    // the racing line on the road (pref racingLine): the car you chase. An AI ghost = its lap; your best run = that run on
+    // this stretch inside the ALIEN's lap; no ghost (or only a saved best, kept without its pedals) = the ALIEN's lap
+    const aiTr = against === 'legend' ? R.legend || R.alien : R.alien || R.legend;
+    const runFor = against === 'best' && best && (!R.saved || best.time <= R.saved.time + 1e-6) ? best : null;
+    ctx.setRacingLine(aiTr ? lineOf(aiTr, runFor) : null);
   }
 
+  // a racing line (racing-line.js: x, z, km/h, pedals at every sample) from an AI lap, with a run of yours over it
+  function lineOf(tr, run) {
+    const line = { x: Float32Array.from(tr.x), z: Float32Array.from(tr.z), kmh: Float32Array.from(tr.kmh), thr: Float32Array.from(tr.thr), brk: Float32Array.from(tr.brk) };
+    if (run) for (let w = 0; w < R.W; w++) {
+      const r = run.run; if (!Number.isFinite(r.x[w]) || !Number.isFinite(r.thr[w])) continue;
+      const i = SIM.wrapIdx(R.sec.from - R.lead + w, R.T.N);
+      line.x[i] = r.x[w]; line.z[i] = r.z[w]; line.kmh[i] = r.kmh[w]; line.thr[i] = r.thr[w]; line.brk[i] = r.brk[w];
+    }
+    return line;
+  }
   // the car to the start of a run: before the ring at your best lap's speed, gear and line there (rolling), or still
-  function place() {
+  function place(waitReady = false) {
     const c = game.player, race = game.race, { T, sec: S, lead } = R, N = T.N, i = SIM.wrapIdx(S.from - lead, N);
     const src = R.bestLap || R.alien || R.legend, standing = R.standing;
     const has = src && Number.isFinite(src.x?.[i]) && Number.isFinite(src.z?.[i]) && Number.isFinite(src.h?.[i]);
@@ -329,13 +349,15 @@ export function createPractice(ctx) {
       gear, shiftT: 0, downQueue: 0, drive: 0, thr: 0, brake: 0, movedOff: true, revT: 0, aeroOpen: 0, aeroWant: false, cutRun: 0, lapInvalid: false,
       wallHit: false, touching: false, offTrack: false, surface: 'track', boostOn: false, pit: null, pitRequest: false });
     c.soc = race.energy ? race.energy.perLap : c.spec.cls.ers.store * c.spec.cls.ers.start;
+    if (SIM.rpmAt) c.rpm = Math.min(c.spec.cls.car.engine.redline ?? Infinity, SIM.rpmAt(v, gear, c.spec));   // (the dash while held)
     if (race.tyreTemp) { const win = c.spec.cls.compounds[c.compound]?.window ?? [90, 110]; c.tyreT = SIM.tyreSet((win[0] + win[1]) / 2, c.compound, c.spec.cls); }
     let bi = i, bd = Infinity; for (let o = -30; o <= 30; o++) { const k = SIM.wrapIdx(i + o, N), d = (T.PX[k] - x) ** 2 + (T.PZ[k] - z) ** 2; if (d < bd) { bd = d; bi = k; } }
     c.idx = bi; c.lat = (x - T.PX[bi]) * T.NX[bi] + (z - T.PZ[bi]) * T.NZ[bi];
     savePoses([c]); ctx.snap(c);
-    R.rec = P.createRunRecorder(T, S, lead); R.state = 'hold'; R.hold = P.PRACTICE.hold; R.t = 0; R.off = false; R.still = 0;
+    R.rec = P.createRunRecorder(T, S, lead); R.state = waitReady ? 'ready' : 'hold'; R.hold = P.PRACTICE.hold; R.t = 0; R.off = false; R.still = 0; R.gasUp = false;
     refresh();
-    Hud.flash('READY', P.PRACTICE.hold * 0.9);
+    $('pracReady').hidden = !waitReady;
+    if (!waitReady) Hud.flash('READY', P.PRACTICE.hold * 0.9);
   }
   // DRIVE ON: a new run starts as the car comes round to the start of the window
   function startHere() { R.rec = P.createRunRecorder(R.T, R.sec, R.lead); R.state = 'lead'; R.t = 0; R.off = false; R.still = 0; refresh(); }
@@ -383,20 +405,22 @@ export function createPractice(ctx) {
     for (const id of ['pracBox', 'pracRuns', 'pracHint']) $(id).hidden = false;
     ctx.setMinimapSection(R.sec);
     $('prHName').textContent = `PRACTICE · ${R.name}`;
-    place();
+    place(true);                         // (the first run waits until you say you're ready)
   }
   function stop() {
     if (!R) return;
     R = null; ghost.setVisible(false); mineStrip.visible = refStrip.visible = false;
     $('hud').classList.remove('practice');
-    for (const id of ['pracBox', 'pracRuns', 'pracHint', 'prTagGhost', 'prTagMine', 'prTagRef']) $(id).hidden = true;
-    ctx.setMinimapSection(null);
+    for (const id of ['pracBox', 'pracRuns', 'pracHint', 'pracReady', 'prTagGhost', 'prTagMine', 'prTagRef']) $(id).hidden = true;
+    ctx.setMinimapSection(null); ctx.setRacingLine(undefined);
   }
   // every sim step (after the cars moved)
   function step(dt) {
     if (!R) return;
     const c = game.player;
     switch (R.state) {
+      // waiting for you: A / Enter (go()), or the gas pressed (after it was let go: a held pedal from before doesn't count)
+      case 'ready': if (Input.drive.thr < 0.2) R.gasUp = true; else if (R.gasUp && Input.drive.thr > 0.5) go(); return;
       case 'hold': R.hold -= dt; if (R.hold <= 0) { R.state = 'lead'; R.t = 0; Hud.flash('GO', 0.6); } return;
       case 'wait': R.wait -= dt; if (R.wait <= 0) place(); return;
       case 'free': { const w = R.rec.win(c.idx); if (w >= 0 && w < 8 && R.prevW !== w && (R.prevW < 0 || R.prevW > R.W - 20)) startHere(); R.prevW = w; return; }
@@ -431,22 +455,26 @@ export function createPractice(ctx) {
     e.style.left = ((v3.x + 1) / 2 * innerWidth).toFixed(0) + 'px'; e.style.top = ((1 - v3.y) / 2 * innerHeight).toFixed(0) + 'px';
     if (e.textContent !== text) e.textContent = text;
   }
-  function frame(dt) {
+  function frame(dt, sub = 0) {
     if (!R || !game.player) return;
-    const c = game.player, T = R.T, N = T.N, live = R.state === 'lead' || R.state === 'run' || R.state === 'hold';
+    const c = game.player, T = R.T, N = T.N, live = R.state === 'lead' || R.state === 'run' || R.state === 'hold' || R.state === 'ready';
     const w = R.rec.win(c.idx), ring = R.rec.run.ring, tau = Number.isFinite(ring) ? R.t - ring : NaN;
     const refTs = R.ref.ts, myTs = w >= 0 ? P.runTime(R.rec.run, w) : NaN, delta = live && R.state === 'run' && refTs && w >= R.lead ? myTs - refTs[w] : NaN;
     // the ghost: on the lead-in at your spot (by distance), from the ring on at your time
+    // the ghost: a rolling start runs on one clock from the start of the run (both cars set off together at the same
+    // speed: smooth; reading its time at your track sample stepped it ~2 m at a time), + the part of a sim step since the
+    // last one (as your car is drawn); a standing start from the ring on, at your time
     let gp = null;
-    if (R.ghostOf && live && w >= 0) {
-      const t = R.state === 'run' ? tau : refTs ? refTs[w] : NaN;
+    const tNow = R.state === 'hold' || R.state === 'ready' ? 0 : R.t + sub;
+    if (R.ghostOf && live && refTs) {
+      const t = !R.standing ? refTs[0] + tNow : Number.isFinite(ring) ? tNow - ring : NaN;
       gp = Number.isFinite(t) ? R.ghostOf(t) : null;
     }
     ghost.setVisible(!!gp);
     if (gp) {
       R.ghostIdx = Number.isFinite(gp.idx) ? Math.round(gp.idx) % N : nearIdx(T, gp.x, gp.z, R.ghostIdx);
       const pose = roadPose(gp.x, gp.z, gp.h, R.ghostIdx);
-      ghost.sync({ v: 0, roll: R.t * 50, steer: 0, brake: 0, aeroOpen: 0, attackOn: false, wingOff: null, ay: 0, air: null }, pose, dt);
+      ghost.sync({ v: 0, roll: tNow * 50, steer: 0, brake: 0, aeroOpen: 0, attackOn: false, wingOff: null, ay: 0, air: null }, pose, dt);
       const gap = !Number.isFinite(delta) ? '' : Math.abs(delta) < 0.005 ? 'LEVEL WITH YOU' : `${Math.abs(delta).toFixed(2)} S ${delta < 0 ? 'BEHIND' : 'AHEAD OF'} YOU`;
       project(gp.x, pose.y + 1.5, gp.z, 'prTagGhost', [R.ref.name === 'BEST' ? 'BEST RUN' : R.ref.name, gap].filter(Boolean).join(' · '));
     } else $('prTagGhost').hidden = true;
@@ -469,7 +497,7 @@ export function createPractice(ctx) {
     hud(w, tau, delta);
   }
   function hud(w, tau, delta) {
-    const live = R.state === 'run' || R.state === 'lead' || R.state === 'hold', last = R.runs[R.runs.length - 1];
+    const live = R.state === 'run' || R.state === 'lead' || R.state === 'hold' || R.state === 'ready', last = R.runs[R.runs.length - 1];
     $('prHRun').textContent = `RUN ${R.runs.length + (live ? 1 : 0)}`;
     const shown = R.state === 'run' ? tau.toFixed(2) : live ? '0.00' : last ? (Number.isFinite(last.time) ? s3(last.time) : 'OFF') : '0.00';
     $('prHTime').textContent = shown;
@@ -562,7 +590,7 @@ export function createPractice(ctx) {
     tr.time = ai.time + dT;
     return tr;
   }
-  $('prMore').onclick = () => { if (!R) return; Object.assign(game, { ended: false, resultsShown: false }); Screens.show(null); place(); };
+  $('prMore').onclick = () => { if (!R) return; Object.assign(game, { ended: false, resultsShown: false }); Screens.show(null); place(true); };
   $('prSumDone').onclick = () => done();
   $('prChange').onclick = () => { stop(); ctx.toMenu(); ctx.menuPage(); };
   $('prLap').onclick = () => { stop(); ctx.startTrial(); };
@@ -574,6 +602,7 @@ export function createPractice(ctx) {
     show() { view = view || 'map'; render(); },
     render,
     begin, stop, step, holding, onEvent, action, frame, summary, done,
+    ready: () => go(),                   // pad A while waiting: off you go (main.js, the 'menu' confirm)
     // the pause menu's RESUME tile while practising
     pauseInfo() {
       if (!R) return null;
