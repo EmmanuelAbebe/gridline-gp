@@ -414,8 +414,10 @@ async function smokeTest(win) {
     await new Promise(r => setTimeout(r, 200));
     // the race wheel's map row: a tap on ATTACK (2) switches the ECU to MANUAL and picks it (phone e / eq)
     const ecuFeed = setInterval(() => ws.send(JSON.stringify({ s: 0, g: 0, b: 0, k: 0, e: 2, eq: 4242 })), 16);
-    await new Promise(r => setTimeout(r, 400)); clearInterval(ecuFeed);
-    const ecu = await win.webContents.executeJavaScript(`gridlineDebug.playerState()`);
+    // (CI's software rendering runs the sim slowly: wait until it took the map, up to 5 s)
+    let ecu = null;
+    for (let i = 0; i < 25; i++) { await new Promise(r => setTimeout(r, 200)); ecu = await win.webContents.executeJavaScript(`gridlineDebug.playerState()`); if (i >= 1 && ecu?.ecuMode === 'manual' && ecu?.ecuMap === 2) break; }
+    clearInterval(ecuFeed);
     await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click(); document.getElementById('pauseSettingsBtn').click();
       [...document.querySelectorAll('#setTabs button')].find(b => b.textContent === 'Controller').click()`);
     await new Promise(r => setTimeout(r, 300));          // paused: the rumble's last message (all 0) arrives
@@ -489,8 +491,9 @@ async function smokeTest(win) {
   info.quali = { menu: await win.webContents.executeJavaScript(`document.getElementById('introText').textContent`) };
   await win.webContents.executeJavaScript(`document.querySelector('#qualiSeg [data-q="5"]').click(); document.getElementById('startBtn').click()`);
   // every start goes through the five lights, qualifying too (it used to say GO at once)
-  await new Promise(r => setTimeout(r, 1500));
-  info.quali.lights = await win.webContents.executeJavaScript(`!document.getElementById('lights').hidden && document.querySelectorAll('#lights .on').length`);
+  // (polled: on CI's software rendering building the session can take longer than the first light)
+  for (let i = 0; i < 40 && !info.quali.lights; i++) { await new Promise(r => setTimeout(r, 250));
+    info.quali.lights = await win.webContents.executeJavaScript(`!document.getElementById('lights').hidden && document.querySelectorAll('#lights .on').length`); }
   await new Promise(r => setTimeout(r, 7000));
   Object.assign(info.quali, await win.webContents.executeJavaScript(`({ title: document.getElementById('towerLap').textContent, rows: document.querySelectorAll('#towerList > *').length,
     first: document.querySelector('#towerList li .g').textContent, timeLeft: document.getElementById('timeLeft').textContent, cars: gridlineDebug.playerState() && document.querySelectorAll('#towerList li.me').length })`));

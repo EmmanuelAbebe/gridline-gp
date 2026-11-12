@@ -1,7 +1,7 @@
 {
   "name": "gridline-gp",
   "productName": "Gridline GP",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "description": "F1-style racing game, played with a phone tilt wheel.",
   "private": true,
   "main": "desktop/main.cjs",

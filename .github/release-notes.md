@@ -2,7 +2,7 @@
 [report what you find](https://github.com/EmmanuelAbebe/gridline-gp/issues/new?template=bug_report.yml).
 Your saved laps and settings carry over to later versions. The game tells you on its start menu when a new version is out.
 
-## New in alpha 2
+## New since alpha 1
 
 - **Two car classes**: GP HYBRID (the 2026-style F1) and GP ELECTRIC (a Formula E style car: one gear, regenerative
   braking, a race-long energy budget, attack mode with all-wheel drive, its own model and motor sound). Pick it in the
