@@ -12,8 +12,9 @@ export function drawOutline(canvas, track, color = '#e9ebe6') {
   g.fillStyle = '#ffc21a'; g.beginPath(); g.arc(x(PX[0]), z(PZ[0]), 3.5, 0, Math.PI*2); g.fill();
 }
 
-// Track outline drawn once to an offscreen canvas; each frame blits it and adds the car dots.
-export function createMinimap(canvas, track) {
+// Track outline drawn once to an offscreen canvas; each frame blits it and adds the car dots. section = { from, to }
+// (practice mode): that stretch in amber over the outline.
+export function createMinimap(canvas, track, section = null) {
   const SIZE = canvas.width, PAD = 26, inner = SIZE - PAD*2, { N, PX, PZ, NX, NZ } = track, { minX, maxX, minZ, maxZ } = track.bounds;
   const scale = Math.min(inner / (maxX - minX), inner / (maxZ - minZ));
   const mx = x => PAD + (x - minX) * scale + (inner - (maxX - minX) * scale) / 2;
@@ -28,6 +29,12 @@ export function createMinimap(canvas, track) {
     for (const zn of track.aeroZones || []) {
       const len = (zn.to - zn.from + N) % N || N;
       x.beginPath(); for (let o = 0; o <= len; o += 3) { const k = (zn.from + Math.min(o, len - 1)) % N; o ? x.lineTo(mx(PX[k]), mz(PZ[k])) : x.moveTo(mx(PX[k]), mz(PZ[k])); }
+      x.stroke();
+    }
+    if (section) {
+      const len = (section.to - section.from + N) % N || N;
+      x.strokeStyle = '#ffc21a'; x.lineWidth = 8;
+      x.beginPath(); for (let o = 0; o <= len; o += 2) { const k = (section.from + Math.min(o, len)) % N; o ? x.lineTo(mx(PX[k]), mz(PZ[k])) : x.moveTo(mx(PX[k]), mz(PZ[k])); }
       x.stroke();
     }
     x.save(); x.translate(mx(PX[0]), mz(PZ[0])); x.rotate(Math.atan2(NZ[0], NX[0]));

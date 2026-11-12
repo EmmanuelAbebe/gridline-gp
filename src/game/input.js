@@ -12,7 +12,7 @@ import { DEFAULT_MAP, PEDALS, HELD, mapFor, actionOf } from './button-map.js';
 export const Input = (() => {
   const KEY_DRIVE = { ArrowUp:'up', KeyW:'up', ArrowDown:'down', KeyS:'down', ArrowLeft:'left', KeyA:'left', ArrowRight:'right', KeyD:'right', KeyR:'back', Space:'hb' };
   const KEY_ACTIONS = { KeyC:'camera', KeyM:'mute', KeyP:'pause', Escape:'pause', KeyF:'fps', KeyG:'graphics', KeyT:'tweak', KeyL:'layout', KeyV:'fullscreen', KeyI:'inputs', KeyO:'settings',
-    KeyQ:'shiftDown', KeyE:'shiftUp', KeyB:'box', KeyX:'boost', KeyZ:'aero', KeyN:'limiter', Comma:'mapDown', Period:'mapUp' };
+    KeyQ:'shiftDown', KeyE:'shiftUp', KeyB:'box', KeyX:'boost', KeyZ:'aero', KeyN:'limiter', Comma:'mapDown', Period:'mapUp', KeyY:'restartRun' };   // (Y: practice mode's restart)
   const PAD = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, BACK: 8, START: 9, LS: 10, RS: 11, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
   const TOUCH = { tLeft: 'left', tRight: 'right', tBrake: 'down', tGas: 'up' };
 
@@ -42,7 +42,7 @@ export const Input = (() => {
     const k = KEY_DRIVE[e.code];
     // (Space on a menu's focused button still presses it; while driving it is only the handbrake)
     if (k) { held[k] = true; if (!(e.code === 'Space' && e.target instanceof Element && e.target.closest('.overlay'))) e.preventDefault(); }
-    if (!e.repeat && KEY_ACTIONS[e.code]) events.emit('action', KEY_ACTIONS[e.code]);
+    if (!e.repeat && KEY_ACTIONS[e.code]) events.emit('action', KEY_ACTIONS[e.code], 'key');   // (+ where from: practice mode reads Y / X its own way)
   });
   addEventListener('keyup', e => { const k = KEY_DRIVE[e.code]; if (k) { held[k] = false; e.preventDefault(); } });
   addEventListener('blur', () => { for (const k in held) held[k] = false; });
@@ -91,7 +91,7 @@ export const Input = (() => {
         if (i === PAD.B) events.emit('menu', 'back');
         if (i >= PAD.UP && i <= PAD.RIGHT) events.emit('nav', ['up', 'down', 'left', 'right'][i - PAD.UP]);   // (menus: move the focus)
         const action = actionOf(map, i);
-        if (action && !HELD.has(action)) events.emit('action', action);
+        if (action && !HELD.has(action)) events.emit('action', action, 'pad');
       }
       padPrev = down;
     }

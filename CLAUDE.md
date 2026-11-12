@@ -1401,6 +1401,30 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
 - Smoke (GRIDLINE_SMOKE_LAP=1): out-analysis-cmp.png (2D, played), -3d, -tv, -onboard, and from the start menu your best
   ever in 3D (-analysis-menu3d.png); check-smoke checks them.
 
+## Practice mode (2026-11-12; user: "practise specific turns and sections of a circuit, timed, against the AI or yourself",
+## then "i love all the moc practice screens implement them as is": the canvas "Gridline practice mode", screens A–D)
+- `practice-core.js` (pure, tests/practice.test.js): a section {from, to} (track samples; over the line: to < from), its parts
+  (split where SIM.buildSectors' mini-sectors start, named by their corner), `sectionFromCorners`, `cornersIn`, `lapParts` /
+  `lapSpan` / `lapTimeFromRing` (a full-lap trace over it), `createRunRecorder` (a run per window sample: lead-in + section,
+  time from the ring, pedals, x / z / h, ghost frames at 20 Hz), `sessionStats` / `partColour` (purple = the session's best
+  part, green = quicker than the run before), `cornerTable` / `weakestStretch` / `cornerWords` / `changeSentence`, saved in
+  localStorage `gridline.practice` {opts {start, against, after}, last section per circuit, best run per circuit × lapClass ×
+  section × split key × start}.
+- `practice.js`: A = the start menu page `#pagePractice` (paddock tools row PRACTICE): ON THE MAP (drag the ring / square,
+  click a corner name to snap, quick picks SECTOR 1–3 / WHOLE LAP / MY WEAKEST (the 3 corners in a row where your best lap
+  loses most to the ALIEN, else LEGEND when the ALIEN has no clean lap), YOUR BEST / ALIEN / GAP, START rolling / standing,
+  AGAINST your best run / ALIEN / LEGEND / nobody, AFTER back to the start / drive on) and BY CORNER (tick corners). A run
+  (game.session 'practice': you alone, unlimited, no wear, no lights, no replay): the car is written to PRACTICE.lead 300 m
+  before the ring at your best lap's speed / gear / line there (else the ALIEN's), tyres in their window, held 1 s (READY),
+  timed ring → square; off (centre on grass / gravel, a cut, a wall, stopped 6 s) or finished = back by itself (or drive on
+  round). C = HUD `#pracBox` / `#pracRuns` / `#pracHint` (#hud.practice hides the race panels), the ghost (on the lead-in
+  at your spot, from the ring at your time), braking bands across the road for the next corner (yours amber, the AI's
+  purple) with projected tags, the section on the minimap (createMinimap section). Pad Y (the camera's button) / key Y =
+  restart, pad X (box) / key X = next ghost. Pause: Change section / End practice → D = `#pracSumOv` (tiles, runs × parts,
+  the corner where your best run loses most: run 1 → best → AI, COMPARE BEST RUN = the lap comparison with your run inside
+  the AI's lap (analysis.show(where, extra)), CHANGE SECTION, DRIVE A FULL LAP (a time trial), MORE RUNS). Laps, limits and
+  records don't count in practice (onPlayerEvent). Smoke: out-practice-map / -corners / -run / -run2 / -brakes / -summary.
+
 ## Ideas not done yet
 - Online leaderboard with replay validation: `docs/leaderboard-plan.md`. Phase 0 done 2026-10-28: replays
   (`src/sim/replay.js`: the game records the player's quantised inputs + settings changes from lights out; replayRun
@@ -1448,7 +1472,5 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   lap times stay put unless the user says otherwise), (2) an "ALIEN" level above LEGEND = theoretical max, no
   mistakes, (3) rivals that learn from the player: record the player's line/speed per corner on valid laps, adopt it
   where the player is faster (blended), saved per circuit, toggle + reset in settings.
-- Practice mode (asked 2026-10-28, details to come): practise specific turns and sections of a circuit, timed, against the
-  AI or yourself.
 - Tyre wear + pit stops, more circuits (only CTRL needs changing), halo pillar/mirrors
   as an optional cockpit detail, force feedback via phone vibration.

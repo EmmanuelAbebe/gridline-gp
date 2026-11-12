@@ -8,6 +8,7 @@ import '../styles/base.css';
 import '../styles/hud.css';
 import '../styles/menus.css';
 import '../styles/tools.css';
+import '../styles/practice.css';
 import { SIM } from '../sim/index.js';
 import { CONFIG, SFX, GFX_PROFILES, RACE_SETUP, PHASE } from './config.js';
 import { $, fmtTime, fmtClock, createTimers } from './util.js';
@@ -52,6 +53,7 @@ import { createOnline, loadAccount, boardOf, gzipBase64 } from './online.js';
 import { loadRuns, runsJson, keepRun, sendable, settle } from './lap-runs.js';
 import { createLeaderboardScreen } from './leaderboard-screen.js';
 import { createStartMenu, moveFocus } from './start-menu.js';
+import { createPractice } from './practice.js';
 import { createZoneEditor } from './zone-editor.js';
 import { bindSettings } from './settings-binding.js';
 import { installDebug } from './debug.js';
@@ -159,6 +161,14 @@ const analysis = createAnalysis({ game, sectors, aiLapOf: (id, aero) => trial.ai
 
 // ---- the starting grid by lap time and qualifying (starting-grid.js, grid.js) ----
 const grid = createStartingGrid({ game, track: () => track, onReady: () => describeEvent() });
+// practice mode (practice.js): one stretch of the circuit again and again, timed, against your best or the AI
+const practice = createPractice({ game, track: () => track, sectors, aiLapOf: (id, aero) => trial.aiLapOf(id, aero),
+  start: () => { Sound.init(); game.session = 'practice'; newRace(); }, toMenu: () => toMenu(), menuPage: () => menu.show('practice'),
+  startTrial: () => { toMenu(); game.setup.type = 'trial'; renderSetup(); saveSetup(); startFromMenu(); },
+  compare: (tr, label) => analysis.show('pracSum', { tr, label }),
+  setMinimapSection: sec => { minimap = createMinimap($('map'), track, sec); }, snap: c => { interpolatePoses([c], 1); CameraRig.snap(c); },
+  showMessage: m => showMessage(m) });
+const practicing = () => game.session === 'practice' && practice.on;
 const qualifying = () => game.session === 'quali';
 
 // ---- race setup and prefs (setup-store.js: loading, validation, what they mean for a race) ----
@@ -192,17 +202,18 @@ function setStartLights(n) { Hud.setStartLamps(n); world.setStartLights(n); }
 // The field in grid order: a time trial or qualifying is you alone; a race with rivals = qualifying's grid, else your best
 // lap here against the rivals' times (starting-grid.js)
 function fieldOf(s) {
-  if (s.type === 'trial' || s.cars === 1 || qualifying()) return buildField(1, true);
+  if (s.type === 'trial' || s.cars === 1 || qualifying() || game.session === 'practice') return buildField(1, true);
   const q = game.qualiGrid;
   return q && q.circuit === track.id && q.order.length === s.cars ? q.order : grid.forRace({ sync: true }).order;
 }
 function newRace() {
   timers.clear();
   const s = game.setup, quali = qualifying(), field = fieldOf(s).map(d => d.player ? playerDriver(game.garage) : d);   // your livery in the tower, map, results
-  const format = quali ? { type: 'timed', minutes: +s.quali } : raceFormat(s);
+  const practiceRun = game.session === 'practice';              // (practice mode: you alone, no limit, nothing wears)
+  const format = quali ? { type: 'timed', minutes: +s.quali } : practiceRun ? { type: 'unlimited' } : raceFormat(s);
   // (raceOpts: what the replay keeps of them, SIM replay.js: the same options + seed + your inputs = the same race)
-  const raceOpts = { wear: quali ? {} : raceWear(s), aiAssists: aiAssistsOf(s),
-    compound: s.type === 'trial' || quali ? game.garage.tyres.start : 'auto',      // (the rivals' teams pick their tyres: SIM bestCompound)
+  const raceOpts = { wear: quali || practiceRun ? {} : raceWear(s), aiAssists: aiAssistsOf(s),
+    compound: s.type === 'trial' || quali || practiceRun ? game.garage.tyres.start : 'auto',      // (the rivals' teams pick their tyres: SIM bestCompound)
     hitbox: CarModels.hitbox(Design.data.car) };                         // (the shape of the cars in the race: 2026 or classic)
   const cls = garageClass(game.garage), race = SIM.createRace(format, { carClass: cls, track, drivers: field, aiPace: RACE_SETUP.aiLevels[s.ai].pace, aiFollow: RACE_SETUP.aiLevels[s.ai].follow || 1, aiAlien: !!RACE_SETUP.aiLevels[s.ai].alien, ...raceAero(s, cls), tyreTemp: s.tyreTemp === 'on', ...raceOpts });
   game.raceOpts = { format, ...raceOpts, finishedAiSkill: CONFIG.finishedAiSkill }; game.replayRec = null;
@@ -226,6 +237,7 @@ function newRace() {
   Screens.show(null); Screens.hud(true);
   snapCamera();
   if (quali) grid.startQuali(race);
+  if (practiceRun) practice.begin(race, player); else practice.stop();   // (practice: no lights, the car at the section's start)
   // every start goes through the five lights, qualifying too (newRace is the only way into a race: lights → lightsOut)
 }
 
@@ -255,9 +267,11 @@ const showMessage = m => { if (!m) return; if (m.radio) Hud.radio(m.radio, m.sec
 function onPlayerEvent(c, e) {
   const race = game.race;
   haptics.event(e);
-  showMessage(messageFor(e, c, race));
+  if (practicing()) practice.onEvent(e);            // (practice: going off ends the run; laps, limits and records don't count)
+  else showMessage(messageFor(e, c, race));
   switch (e.type) {
     case EV.LAP: {
+      if (practicing()) break;
       Hud.setLapTimes(e.time, c.bestLap, e.invalid);
       trial.onLap(race, c, e);                // the ghost: a new best lap becomes yours
       keepLap(race, c, e);                    // the online leaderboard: your best lap there kept (and sent, if joined)
@@ -348,7 +362,9 @@ function simStep(dt) {
   if (game.phase === PHASE.LIGHTS) { stepStartLights(dt); return; }
   race.t += dt;
   trial.stepRival(dt);                       // the AI ghost's own race, in step with yours from lights out
+  const held = practicing() && practice.holding();     // (practice: the car held at the start of a run, READY)
   for (const c of race.cars) {
+    if (c.player && held) continue;
     if (c.player && !c.finished && game.autopilot) { SIM.driveAI(race, c, dt, game.autopilot); game.replayRec?.taint('autopilot'); }   // (gridlineDebug.autopilot: screenshots)
     else if (c.player && !c.finished) {
       // (quantised before the car gets them, and recorded: the replay feeds the car the very same numbers)
@@ -360,8 +376,8 @@ function simStep(dt) {
     else SIM.driveAI(race, c, dt, c.finished ? CONFIG.finishedAiSkill : 0);
   }
   SIM.collide(race);
-  trial.step(dt, game.player, race.t);
-  sectors.step(game.player, race);
+  if (practicing()) practice.step(dt);
+  else { trial.step(dt, game.player, race.t); sectors.step(game.player, race); }
   for (const c of race.cars) drainEvents(c);
   watchRace(race);
   if (game.resultsAt > 0 && race.t >= game.resultsAt && !game.resultsShown) showResults();
@@ -398,12 +414,18 @@ function drawPause() {
     $('pauseGaps').textContent = rows ? `P${at} of ${rows.length} on the grid so far` : game.trial ? 'Valid laps count for your ghost and records' : '';
   }
   $('pauseSetup').textContent = $('setupSummary').textContent;
+  // practice: your best run, the section; the tiles change section / end it (the summary)
+  const pr = practicing() ? practice.pauseInfo() : null;
+  if (pr) { $('pauseCtx').textContent = `${SIM.CIRCUITS[race.track.id].name} · ${pr.ctx}`; $('pauseKick').textContent = pr.kick; $('pausePos').textContent = pr.pos; $('pauseGaps').textContent = pr.gaps; $('pauseClock').innerHTML = `SESSION <b>${fmtTime(race.t)}</b>`; }
+  const tile = (id, kick, title, sub) => { const b = $(id); b.querySelector('.mn-kick').textContent = kick; b.querySelector('.mn-title').textContent = title; b.querySelector('.mn-sub').textContent = sub; };
+  if (pr) { tile('restartBtn', 'ANOTHER STRETCH', 'Change section', 'Back to the practice page'); tile('endBtn', 'STOP HERE', 'End practice', 'Your runs, what changed'); }
+  else { tile('restartBtn', 'FROM THE GRID', 'Restart race', 'Same circuit, same field'); tile('endBtn', 'STOP HERE', 'End race', 'Results as they stand'); }
   drawPitBox();
 }
 // the pause menu's pit box (a race, not a time trial): your next stop's tyres, front wing and repairs (SIM pitPlan), for
 // this race only (the garage's Tyres & pit tab sets what every race starts with)
 function drawPitBox() {
-  const box = $('pitBox'), c = game.player, on = !!(c && game.race && !game.trial && c.pitPlan);
+  const box = $('pitBox'), c = game.player, on = !!(c && game.race && !game.trial && !practicing() && c.pitPlan);
   box.hidden = !on; if (!on) return;
   const P = c.pitPlan, seg = (label, list, value, set) => {
     const row = document.createElement('div'), s = document.createElement('div'), l = document.createElement('span');
@@ -436,7 +458,7 @@ function startFromMenu() {
   game.session = s.quali !== 'off' && s.cars > 1 && s.type !== 'trial' ? 'quali' : 'race'; game.qualiGrid = null;
   newRace();
 }
-function toMenu() { game.phase = PHASE.MENU; game.resultsShown = false; Screens.hud(false); Screens.show('start'); menu.home(); }
+function toMenu() { practice.stop(); game.phase = PHASE.MENU; game.resultsShown = false; Screens.hud(false); Screens.show('start'); menu.home(); }
 // auto: the car shifts; semi: you shift up, the car shifts down (you may click down too); manual: you shift.
 function setGearbox(car, mode) { car.autoShift = mode === 'auto'; car.autoDown = mode === 'semi'; car.downQueue = 0; }
 // Paddles (Q/E, phone buttons 1/2, LB/RB). With the automatic gearbox they do nothing; say so once per race.
@@ -447,18 +469,19 @@ function shift(dir) {
   if (!game.autoShiftHinted) { game.autoShiftHinted = true; showMessage(SAY.autoShift); }
 }
 // the pause menu or the results on screen, nothing over them
-const overlayOf = name => $(name === 'pause' ? 'pauseOv' : 'resOv');
-const subOpen = () => { const s = Screens.current(); return (s === 'pause' || s === 'results') && !SettingsScreen.open && !InputMonitor.open && !analysis.open && !AppShell.quitOpen ? s : null; };
+const overlayOf = name => $(name === 'pause' ? 'pauseOv' : name === 'pracSum' ? 'pracSumOv' : 'resOv');
+const subOpen = () => { const s = Screens.current(); return (s === 'pause' || s === 'results' || s === 'pracSum') && !SettingsScreen.open && !InputMonitor.open && !analysis.open && !AppShell.quitOpen ? s : null; };
 // pad A there: the button in focus (nothing focused: RESUME / RACE AGAIN)
 function pressFocused(name) {
   const f = document.activeElement;
-  if (overlayOf(name).contains(f) && f.tagName === 'BUTTON') f.click(); else $(name === 'pause' ? 'resumeBtn' : 'againBtn').click();
+  if (overlayOf(name).contains(f) && f.tagName === 'BUTTON') f.click(); else $(name === 'pause' ? 'resumeBtn' : name === 'pracSum' ? 'prMore' : 'againBtn').click();
 }
 function confirm() {                                   // pad A
   if (AppShell.quitOpen) { AppShell.cancelQuit(); return; }   // (A never quits: the safe answer)
   if (SettingsScreen.open || InputMonitor.open || analysis.open || zoneEditor.open || Garage.open) return;
   if (away.open) { away.confirm(); return; }
   if (game.phase === PHASE.MENU) menu.confirm();     // (the start menu: press the button in focus)
+  else if (subOpen() === 'pracSum') pressFocused('pracSum');
   else if (game.resultsShown || game.paused) pressFocused(game.resultsShown ? 'results' : 'pause');
 }
 function onCameraChanged() {
@@ -476,7 +499,7 @@ function toggleLayout() {
 const away = createAway({ game, racing: () => racing(), togglePause: () => togglePause() });
 
 const escape = () => away.open ? away.toPauseMenu() : AppShell.quitOpen ? AppShell.cancelQuit() : PhoneDesigner.isOpen ? PhoneDesigner.close() : analysis.open ? analysis.close() : zoneEditor.open ? zoneEditor.close() : Garage.open ? Garage.close() : InputMonitor.open ? InputMonitor.toggle(false) : SoundStudio.open ? SoundStudio.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
-  : LayoutEditor.active ? LayoutEditor.exit() : menuOpen() && menu.back() ? null : togglePause();
+  : LayoutEditor.active ? LayoutEditor.exit() : menuOpen() && menu.back() ? null : Screens.current() === 'pracSum' ? practice.done() : togglePause();
 // "Quit the game?" (Alt+F4 mid-race too): the race pauses behind it
 AppShell.onAskQuit(() => { if (isRunning() && !game.paused) togglePause(); });
 function setPref(key, value) {
@@ -567,12 +590,12 @@ const ACTIONS = { camera: cycleCamera, mute: toggleMute, pause: escape, fps: () 
   // (LB / RB in the start menu: the circuit)
   shiftUp: () => menuOpen() ? menu.circuit(1) : shift(+1), shiftDown: () => menuOpen() ? menu.circuit(-1) : shift(-1),
   box: requestBox, boost: requestBoost, aero: requestAero, limiter: requestLimiter, mapUp: () => requestMap(+1), mapDown: () => requestMap(-1) };
-Input.on('action', name => ACTIONS[name]?.());
+Input.on('action', (name, src) => { if (practicing() && practice.action(name, src)) return; ACTIONS[name]?.(); });
 // pad A / B (phone buttons 1 / 2) in menus: confirm / back, whatever they do while racing (button-map.js)
 Input.on('menu', what => {
   if (racing()) return;
   if (what === 'confirm') confirm();
-  else if (SettingsScreen.open) SettingsScreen.close(); else if (game.paused) togglePause(); else if (subOpen() === 'results') toMenu(); else if (menuOpen()) menu.back();
+  else if (SettingsScreen.open) SettingsScreen.close(); else if (game.paused) togglePause(); else if (subOpen() === 'results') toMenu(); else if (subOpen() === 'pracSum') practice.done(); else if (menuOpen()) menu.back();
 });
 // the D-pad (arrow keys too) in the start menu, the pause menu and the results: move the focus
 Input.on('nav', dir => { if (menuOpen()) menu.nav(dir); else if (subOpen()) moveFocus(overlayOf(subOpen()), dir); });
@@ -631,10 +654,10 @@ Input.on('padchange', (on, label) => { Hud.setPad(on, Input.gamepadAllowed); if 
 $('settingsBtn').onclick = $('pauseSettingsBtn').onclick = () => openSettings();
 $('pauseBtn').onclick = togglePause;
 $('resumeBtn').onclick = togglePause;
-$('restartBtn').onclick = () => newRace();
+$('restartBtn').onclick = () => { if (practicing()) { practice.stop(); toMenu(); menu.show('practice'); } else newRace(); };
 $('againBtn').onclick = again;
 $('requaliBtn').onclick = () => { game.session = 'quali'; newRace(); };
-$('endBtn').onclick = endRace;
+$('endBtn').onclick = () => { if (practicing()) practice.summary(); else endRace(); };
 $('pauseAnaBtn').onclick = () => analysis.show('pause');
 $('resAnaBtn').onclick = () => analysis.show('results');
 $('anaStartBtn').onclick = () => { if (game.phase === PHASE.MENU) analysis.show('start'); };
@@ -656,7 +679,7 @@ $('zonesBtn').onclick = openZones;
 // ---- the online leaderboard: the start menu's screen (your kept laps, SUBMIT) and the pause / results SUBMIT ----
 const leaderboardScreen = createLeaderboardScreen({ online, runs: () => game.runs, send: sendRun });
 // ---- the start menu (start-menu.js): home tiles, a rail in the sections, Race weekend in steps ----
-menu = createStartMenu({ game, online, leaderboard: leaderboardScreen, track: () => track,
+menu = createStartMenu({ game, online, leaderboard: leaderboardScreen, track: () => track, practice: () => practice,
   setType: t => { game.setup.type = t; renderSetup(); saveSetup(); },
   switchTrack: id => { game.setup.track = id; setTrack(id); renderSetup(); saveSetup(); }, pickClass,
   setDriving, start: startFromMenu, openGarage, openSettings, gridNow: () => grid.forRace(),
@@ -733,6 +756,7 @@ function renderFrame(dt) {
   for (const c of race.cars) modelOf.get(c.code).sync(c, poseOf(c), dt);
   CameraRig.update(dt, player, !isRunning());
   trial.frame(race, player, dt);
+  if (practicing()) practice.frame(dt);
   const eye = Design.data.cameras.find(c => c.id === 'cockpit') || cam;
   const es = CarModels.eyeShift;
   mirrors.update([-eye.back + es[0], eye.height + es[1], eye.side || 0], cockpit ? 'cockpit' : 'outside', Display.camera.position);

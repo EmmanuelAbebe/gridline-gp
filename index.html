@@ -35,6 +35,15 @@
     </div>
     <div id="pitState" hidden></div>
   </div>
+  <div id="pracBox" class="panel pr-hbox" hidden>
+    <div class="pr-hhead"><span id="prHName"></span><span id="prHRun"></span></div>
+    <div class="pr-hmain"><b class="num" id="prHTime">0.00</b><b class="num" id="prHDelta"></b></div>
+    <div class="pr-hbars" id="prHBars"></div>
+    <div class="pr-hlabels" id="prHLabels"></div>
+  </div>
+  <div id="pracRuns" class="panel pr-hruns" hidden><span class="lbl">RUNS</span><div id="prHRuns"></div></div>
+  <div id="pracHint" class="panel pr-hint" hidden></div>
+  <div class="pr-tag" id="prTagGhost" hidden></div><div class="pr-tag mine" id="prTagMine" hidden></div><div class="pr-tag ref" id="prTagRef" hidden></div>
   <div id="tower" class="panel tr"><div class="th"><span class="lbl">Running order</span><span class="lbl num" id="towerLap"></span></div><ol id="towerList"></ol></div>
   <div id="teleBox" class="panel" hidden aria-hidden="true">
     <div class="tele-head"><span class="lbl" id="teleName">VOS</span><span class="tele-key"><i class="g"></i>ghost <i class="y"></i>you</span></div>
@@ -106,7 +115,7 @@
         <button class="mn-tile padrow" id="padStatus" type="button"><span class="mn-kick">CONTROLLER</span><span class="mn-title" id="tileCtlTitle">CONTROLLER</span><span class="mn-sub"><span class="dot"></span><span id="padText">Phone wheel: press gas on your phone once so the browser sees it.</span></span></button>
         <button class="mn-tile" id="settingsBtn" type="button"><span class="mn-kick">EVERYTHING ELSE</span><span class="mn-title">SETTINGS</span><span class="mn-sub">Driving · controller · sound</span></button>
       </div>
-      <div class="mn-tools" role="group" aria-label="Tools"><button class="iconbtn" id="anaStartBtn" type="button" title="Your best lap here by sector and corner">LAP ANALYSIS</button><button class="iconbtn" id="zonesBtn" type="button" title="Where the cars may open their wings">AERO ZONES</button><button class="iconbtn" id="testCtlBtn" type="button" title="The input monitor (I)">TEST CONTROLS</button></div>
+      <div class="mn-tools" role="group" aria-label="Tools"><button class="iconbtn mn-hot" id="practiceBtn" type="button" title="Drive one stretch of the circuit again and again">PRACTICE</button><button class="iconbtn" id="anaStartBtn" type="button" title="Your best lap here by sector and corner">LAP ANALYSIS</button><button class="iconbtn" id="zonesBtn" type="button" title="Where the cars may open their wings">AERO ZONES</button><button class="iconbtn" id="testCtlBtn" type="button" title="The input monitor (I)">TEST CONTROLS</button></div>
       <footer class="mn-foot"><span><b>A</b> open</span><span><b>B</b> back</span><span><b>LB / RB</b> circuit</span><span><b>✥</b> move</span><p class="gpu" id="setupSummary"></p></footer>
     </section>
 
@@ -182,6 +191,49 @@
       <div class="ghost-list" id="ghostList" role="radiogroup" aria-label="Ghost to race"></div>
     </div>
           <footer class="mn-actions"><button class="btn ghost" id="trialBack" type="button">Paddock</button><span class="mn-hint"><b>A</b> pick · <b>B</b> back</span><button class="btn" id="trialGo" type="button">Drive</button></footer>
+        </div>
+        <!-- practice (2026-11-12, the user's pick of the canvas "Gridline practice mode": A on the map, B by corner) -->
+        <div class="pr-page" id="pagePractice" hidden>
+          <header class="pr-top">
+            <button class="pr-chip" id="prBack" type="button">‹ PADDOCK</button>
+            <h2 class="pr-title">PRACTICE</h2>
+            <div class="pr-tabs" role="group" aria-label="Pick the section"><button class="pr-chip" id="prTabMap" type="button">ON THE MAP</button><button class="pr-chip" id="prTabCorners" type="button">BY CORNER</button></div>
+            <span class="pr-grow"></span>
+            <button class="mn-arrow" type="button" data-circ="-1" aria-label="Previous circuit">‹</button><span class="pr-circ" id="prCirc"></span><button class="mn-arrow" type="button" data-circ="1" aria-label="Next circuit">›</button>
+            <span class="pr-car" id="prCar"></span>
+          </header>
+          <div class="pr-body" id="prMapView">
+            <div class="pr-left">
+              <div class="pr-quick" id="prQuick"><span class="lbl">QUICK PICK</span></div>
+              <div class="pr-mapbox"><svg id="prMap" role="img" aria-label="The circuit with your section"></svg></div>
+              <div class="pr-legend"><span><i class="ring"></i>Drag the ring: where the timing starts</span><span><i class="sq"></i>Drag the square: where it stops</span><span>Click a corner's name to snap to it</span></div>
+            </div>
+            <aside class="pr-side">
+              <div><span class="lbl">YOUR SECTION</span><p class="pr-name" id="prName"></p><p class="pr-sub" id="prSub"></p></div>
+              <div class="pr-tiles3" id="prTiles"></div>
+              <div class="pr-opt"><span class="lbl">START</span><div class="pr-row" id="prStart"></div><p class="pr-note" id="prStartNote"></p></div>
+              <div class="pr-opt"><span class="lbl">AGAINST</span><div class="pr-grid2" id="prAgainst"></div></div>
+              <div class="pr-opt"><span class="lbl">AFTER A RUN, OR OFF TRACK</span><div class="pr-row" id="prAfter"></div></div>
+              <span class="pr-grow"></span>
+              <button class="pr-go" id="prGo" type="button">START PRACTICE</button>
+            </aside>
+          </div>
+          <div class="pr-body" id="prCornerView" hidden>
+            <div class="pr-left">
+              <div class="pr-th"><b>WHERE YOU LOSE TIME</b><span id="prVsNote"></span></div>
+              <div class="pr-crow pr-chead"><span></span><span>CORNER</span><span id="prSlowHead">SLOWEST · YOU / ALIEN</span><span class="r">YOU</span><span class="r" id="prRefHead">ALIEN</span><span class="r">GAP</span><span class="pl">LOSS</span></div>
+              <div class="pr-crows" id="prRows"></div>
+              <p class="pr-note">Tick neighbouring corners to join them into one stretch. A stretch must be in lap order (the last corner + T1 runs over the line).</p>
+            </div>
+            <aside class="pr-side">
+              <svg id="prMapSmall" class="pr-small" role="img" aria-label="Your section on the circuit"></svg>
+              <div><span class="lbl">PICKED</span><p class="pr-name small" id="prPicked"></p><p class="pr-sub" id="prPickedSub"></p></div>
+              <div class="pr-box" id="prCornerBox"></div>
+              <div class="pr-row" id="prQuickOpts"></div>
+              <span class="pr-grow"></span>
+              <button class="pr-go" id="prGo2" type="button">PRACTISE</button>
+            </aside>
+          </div>
         </div>
         <!-- leaderboard -->
         <div class="mn-board" id="lbOv" hidden>
@@ -332,6 +384,23 @@
   </div>
 </div>
 
+<div id="pracSumOv" class="overlay sub" hidden>
+  <div class="mn sub-panel pr-sum" role="dialog" aria-labelledby="prSumTitle">
+    <header class="sub-top"><h1 class="sub-title" id="prSumTitle">Practice</h1><span class="sub-ctx" id="prSumCtx"></span><button class="pr-chip pr-done" id="prSumDone" type="button">DONE</button></header>
+    <div class="pr-tiles5" id="prSumTiles"></div>
+    <div class="pr-sumbody">
+      <div class="pr-runtable"><div class="pr-rrow pr-rhead" id="prSumHead"></div><div class="pr-rrows" id="prSumRows"></div><p class="pr-key"><span><i class="purple"></i>best this session</span><span><i class="green"></i>better than the run before</span><span><i class="yellow"></i>slower</span></p></div>
+      <div class="pr-what">
+        <span class="lbl" id="prWhatHead"></span>
+        <div class="pr-wtable" id="prWhat"></div>
+        <p class="pr-wtext" id="prWhatText"></p>
+        <span class="pr-grow"></span>
+        <div class="pr-sumbtns"><button class="pr-chip" id="prCompare" type="button">COMPARE BEST RUN</button><button class="pr-chip" id="prChange" type="button">CHANGE SECTION</button><button class="pr-chip" id="prLap" type="button">DRIVE A FULL LAP</button><button class="pr-go" id="prMore" type="button">MORE RUNS</button></div>
+      </div>
+    </div>
+    <footer class="mn-foot"><span><b>A</b> open</span><span><b>B</b> done</span><span>✥ move</span></footer>
+  </div>
+</div>
 <div id="resOv" class="overlay sub" hidden>
   <div class="mn sub-panel" role="dialog" aria-labelledby="verdict">
     <header class="sub-top"><h1 class="verdict" id="verdict"></h1><span class="sub-ctx" id="resCtx"></span><span class="sub-tag" id="resTag"></span></header>

@@ -413,18 +413,20 @@ export function createAnalysis({ game, sectors, aiLapOf, track, models }) {
   $('anaTabCmp').onclick = () => { tab = 'cmp'; showTab(); };
   for (const b of $('anaView').querySelectorAll('button')) b.onclick = () => { view = b.dataset.v; showTab(); };
 
-  function show(where) {
+  // extra = { tr, label }: a lap to show first, on COMPARE (practice mode's best run inside the AI's lap)
+  function show(where, extra = null) {
     const modified = SIM.isModified(game.garage.mods, playerClass());
     if (where === 'start') D = sectors.menuData(track(), modified, raceAero(game.setup).activeAero);
     else D = sectors.data || sectors.menuData(track(), modified, raceAero(game.setup).activeAero);
     if (!D) return;
     from = Screens.current(); Screens.show(null);
-    const lc = lapChoices(); laps = lc.list; refs = refChoices();
+    const lc = lapChoices(); laps = extra ? [extra, ...lc.list] : lc.list; refs = refChoices();
     $('anaLap').replaceChildren(...laps.map((o, k) => new Option(o.label, String(k))));
     $('anaRef').replaceChildren(...refs.map((o, k) => new Option(o.label, String(k))));
-    $('anaLap').value = String(Math.max(0, lc.pick)); $('anaRef').value = '0';
+    $('anaLap').value = String(extra ? 0 : Math.max(0, lc.pick)); $('anaRef').value = '0';
     $('anaCtx').textContent = D.track.name;
     $('anaOv').hidden = false; open = true; T = 0; setPlaying(false); $('anaClose').focus();
+    if (extra) { tab = 'cmp'; showTab(); }
     render();
   }
   function close() {

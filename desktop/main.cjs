@@ -119,10 +119,11 @@ async function capture(win) {
 
 async function smokeTest(win) {
   const errors = [];
-  // fail fast with a report rather than hang (a CI machine has no one to close it): any error in a step, or 8 minutes
+  // fail fast with a report rather than hang (a CI machine has no one to close it): any error in a step, or 15 minutes
+  // (8 until 2026-11-12: Windows' software rendering on CI ran out of time; practice mode added a minute more)
   const bail = why => { console.log(JSON.stringify({ smokeFailed: String(why && why.stack || why), errors })); app.exit(1); };
   process.on('unhandledRejection', bail);
-  setTimeout(() => bail('timed out after 8 minutes'), 8 * 60000).unref();
+  setTimeout(() => bail('timed out after 15 minutes'), 15 * 60000).unref();
   win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) errors.push(message); });
   await new Promise(r => win.webContents.once('did-finish-load', r));
   await new Promise(r => setTimeout(r, 6000));
@@ -642,6 +643,38 @@ async function smokeTest(win) {
       document.getElementById('anaClose').click(); return { on, lap, home: !document.getElementById('startOv').hidden }; })()`);
     await new Promise(r => setTimeout(r, 300));
     fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-analysis-menu-after.png'), (await capture(win)).toPNG());
+  }
+  // practice mode (practice.js): the page on the map and by corner, a run driven by the autopilot (the HUD's practice box,
+  // the runs), then End practice → the summary, DONE back to the paddock
+  {
+    const js = code => win.webContents.executeJavaScript(code), wait = ms => new Promise(r => setTimeout(r, ms));
+    await js(`gridlineDebug.toMenu(); document.getElementById('practiceBtn').click()`);
+    for (let i = 0; i < 40 && await js(`document.getElementById('prTiles').textContent.includes('…')`); i++) await wait(250);   // (the ALIEN's lap)
+    await shot('practice-map');
+    info.practice = await js(`({ page: !document.getElementById('pagePractice').hidden, name: document.getElementById('prName').textContent,
+      tiles: document.querySelectorAll('#prTiles .pr-tile').length, corners: document.querySelectorAll('#prMap text.cn').length, quick: document.querySelectorAll('#prQuick button').length })`);
+    await js(`document.getElementById('prTabCorners').click()`); await wait(200);
+    await shot('practice-corners');
+    Object.assign(info.practice, await js(`({ rows: document.querySelectorAll('#prRows .pr-crow').length, picked: document.getElementById('prPicked').textContent })`));
+    await js(`document.getElementById('prGo2').click(); gridlineDebug.autopilot(1)`);
+    await wait(4000);
+    await shot('practice-run');
+    info.practice.box = await js(`!document.getElementById('pracBox').hidden && document.getElementById('hud').classList.contains('practice')`);
+    for (let i = 0; i < 160 && !(await js(`[...document.querySelectorAll('#prHRuns div')].some(d => !d.classList.contains('now'))`)); i++) await wait(500);
+    info.practice.runs = await js(`[...document.querySelectorAll('#prHRuns div')].map(d => d.textContent)`);
+    await wait(6500);                                        // (the next run: your first one as its ghost, the braking marks)
+    await shot('practice-run2');
+    info.practice.ghost = await js(`!document.getElementById('prTagGhost').hidden && document.getElementById('prTagGhost').textContent`);
+    for (let i = 0; i < 40 && !(await js(`!document.getElementById('prTagRef').hidden || !document.getElementById('prTagMine').hidden`)); i++) await wait(250);
+    await shot('practice-brakes');
+    info.practice.brakeTags = await js(`[document.getElementById('prTagMine'), document.getElementById('prTagRef')].filter(e => !e.hidden).map(e => e.textContent)`);
+    await js(`gridlineDebug.autopilot(0); document.getElementById('pauseBtn').click(); document.getElementById('endBtn').click()`);
+    await wait(400);
+    await shot('practice-summary');
+    Object.assign(info.practice, await js(`({ summary: !document.getElementById('pracSumOv').hidden, sumRows: document.querySelectorAll('#prSumRows .pr-rrow').length,
+      sumTiles: document.querySelectorAll('#prSumTiles .pr-tile').length })`));
+    await js(`document.getElementById('prSumDone').click()`); await wait(300);
+    info.practice.home = await js(`!document.getElementById('startOv').hidden && !document.getElementById('mnHome').hidden && !document.getElementById('hud').classList.contains('practice')`);
   }
   // exercise the bridge the way a player would: Settings → Graphics → Display FULL SCREEN, then the paddock's quit
   // button (which must end the app)
