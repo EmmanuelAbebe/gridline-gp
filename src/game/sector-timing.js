@@ -11,14 +11,20 @@ import { Hud } from './hud.js';
 import { ghostOf } from './ghost.js';
 import { ghostDriver } from './ai-ghosts.js';
 import { createTraceRecorder, traceFromAi, traceFromGhost, miniTimes, sectorTimes, countsMini, countsSector, colourOf, emptyBests,
-  keepBests, referenceOf, bestsOf, putBests, loadSectorStore, storeSectorsJson, timeAt } from './lap-analysis.js';
+  keepBests, referenceOf, bestsOf, putBests, loadSectorStore, storeSectorsJson, timeAt, dropTelemetry } from './lap-analysis.js';
 import { zoneTag, lapClass } from './aero-zones.js';
 import { playerClass } from './car-class.js';
 
 export function createSectorTiming({ game, aiLapOf }) {
   const store = loadSectorStore(Settings.get(CONFIG.storageKeys.sectors));
-  const save = () => Settings.set(CONFIG.storageKeys.sectors, storeSectorsJson(store));
-  let S = null;              // this race: { track, L, cls, bests, candidates, ref, laps, session, rec, mini }
+  let S = null;
+  // (if storage is full, the telemetry of the other circuits' best laps goes first, then this one's)
+  const save = () => {
+    const put = () => Settings.set(CONFIG.storageKeys.sectors, storeSectorsJson(store));
+    if (put()) return;
+    dropTelemetry(store, S?.track.id ?? null); if (put()) return;
+    dropTelemetry(store); put();
+  };              // this race: { track, L, cls, bests, candidates, ref, laps, session, rec, mini }
 
   // your all-time bests here (per car class and straight-mode zone layout: zones = zoneTag), with your saved ghost laps in
   // them (car: the car class's id). The ghosts always count (2026-11-10): a ghost faster than the saved best (a lap the

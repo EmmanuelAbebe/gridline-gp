@@ -105,7 +105,7 @@ test('saved: the bests survive a save and load; another layout or physics starts
   assert.deepEqual(back.sec.map(t => t.toFixed(3)), b.sec.map(t => t.toFixed(3)));
   assert.ok(Math.abs(back.best.time - b.best.time) < 1e-9);
   for (let i = 0; i < T.N; i += 53) assert.ok(Math.abs(back.best.t[i] - b.best.t[i]) < 0.001 && Math.abs(back.best.kmh[i] - b.best.kmh[i]) <= 0.5);
-  assert.ok(json.length < 40000, `${json.length} bytes`);
+  assert.ok(json.length < 90000, `${json.length} bytes`);   // (since 2026-11-12 with the car's telemetry: ~60 KB here, 40 before)
   assert.equal(A.bestsOf(A.loadSectorStore(json), T.id, 'stock', { ...L, key: 'other' }), null);
   assert.deepEqual(A.loadSectorStore(json.replace(`"physics":${SIM.TUNING.PHYSICS}`, '"physics":1')), {});
 });

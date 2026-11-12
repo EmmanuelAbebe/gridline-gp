@@ -1401,6 +1401,25 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
 - Smoke (GRIDLINE_SMOKE_LAP=1): out-analysis-cmp.png (2D, played), -3d, -tv, -onboard, and from the start menu your best
   ever in 3D (-analysis-menu3d.png); check-smoke checks them.
 
+## Telemetry and the speed-coloured lines (2026-11-12; user: laps and practice runs should record "car properties state such
+## as tyres, fuel, steering angles, gas and brake pedals, downforce … all the information that a car would need to drive it")
+- `telemetry.js` (pure, tests/telemetry.test.js): CHANNELS = 32 per track sample: steering input %, road-wheel angle °
+  (steer × SIM.steerLock at that speed / assists), rpm, lateral / longitudinal g, yaw rate, slip angle, downforce kN
+  (`downforceOf`: chassis.js's terms worked out in the game: speed², dfK, dirty air, the wings stalling, damage, straight mode;
+  an off-stock suspension's floor height left out: src/sim untouched, SIM_VERSION the same), tyre surface + core °C × 4,
+  wear %, fuel kg, battery MJ, ERS kW, straight mode, slipstream, metres across the road, sliding / lock-ups / wheelspin,
+  surface, overtake / attack, ECU map. Recorded by createTraceRecorder (your laps: `tr.tel`), ai-ghosts.js aiLapRun (the AI's
+  laps), practice-core createRunRecorder (`run.tel`). Saved: per channel quantised deltas as zigzag varints in base64 +
+  NaN runs (`packTelemetry` / `unpackTelemetry`, `packSeries`): a saved best lap ~108 KB (was ~47), its telemetry ~61. The
+  practice best run now keeps the whole run too (packRun `s`: kmh / pedals / x / z / h / gear, + `tel`; unpackRun → `run`;
+  runAsTrace carries x / z / h / gear / tel). Storage full (Settings.set returns false): the other circuits' best-lap
+  telemetry goes first (lap-analysis.js dropTelemetry), then this one's; practice drops its runs' tel, then `s`. Laps saved
+  before have none (kept).
+- Lap comparison 2D: LINE GAINED / LOST | SPEED (`#cmpLine`, analysis-screen.js lineMode): SPEED colours your lap's line on the
+  whole circuit, zoomed both lines (yours solid, the other dashed) by their own speed (`SPEED_RAMP`, plasma-like violet →
+  yellow, 24 steps, `strokeBySpeed`), the key `#cmpSpeedKey` = both laps' range rounded to 10 km/h. Smoke:
+  out-analysis-speed.png, -speed-zoom.png.
+
 ## Practice mode (2026-11-12; user: "practise specific turns and sections of a circuit, timed, against the AI or yourself",
 ## then "i love all the moc practice screens implement them as is": the canvas "Gridline practice mode", screens A–D)
 - `practice-core.js` (pure, tests/practice.test.js): a section {from, to} (track samples; over the line: to < from), its parts

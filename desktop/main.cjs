@@ -615,6 +615,15 @@ async function smokeTest(win) {
       follow: document.getElementById('cmpFollow').getAttribute('aria-pressed'), inset: !document.getElementById('cmpZoomMini').hidden })`);
     await js(`(() => { const cv = document.getElementById('cmpMap'); cv.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); })()`);
     info.compare.zoom.whole = await js(`!document.querySelector('.cmp-map').classList.contains('zoomed')`);
+    // the lines by speed: the whole circuit (your lap), then zoomed (both lines), back to gained / lost
+    await js(`document.querySelector('#cmpLine [data-l="speed"]').click()`);
+    await new Promise(r => setTimeout(r, 300));
+    await shot('analysis-speed');
+    await js(`document.getElementById('cmpZoomIn').click()`);
+    await new Promise(r => setTimeout(r, 300));
+    await shot('analysis-speed-zoom');
+    info.compare.speed = await js(`({ key: !document.getElementById('cmpSpeedKey').hidden, lo: +document.getElementById('cmpSpdLo').textContent, hi: +document.getElementById('cmpSpdHi').textContent })`);
+    await js(`document.querySelector('#cmpLine [data-l="gap"]').click(); document.getElementById('cmpZoomOut').click()`);
     await js(`document.querySelector('#anaView [data-v="3d"]').click()`);
     await new Promise(r => setTimeout(r, 1000));
     await shot('analysis-3d');

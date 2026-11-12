@@ -6,6 +6,7 @@
 // braking point to the next one's), each part named by its corner. A run starts PRACTICE.lead m before the ring.
 import { SIM } from '../sim/index.js';
 import { miniTimes, cornerMetrics } from './lap-analysis.js';
+import { createTelemetry, writeTelemetry, packTelemetry, unpackTelemetry, packSeries, unpackSeries, CHANNELS } from './telemetry.js';
 
 export const PRACTICE = Object.freeze({
   version: 1,
@@ -105,7 +106,7 @@ export function lapTimeFromRing(tr, sec, i, N) {
 export function createRunRecorder(track, sec, lead) {
   const N = track.N, len = lengthOf(sec, N), W = lead + len + 1;
   const arr = () => new Float32Array(W).fill(NaN);
-  const run = { t: arr(), kmh: arr(), thr: arr(), brk: arr(), x: arr(), z: arr(), h: arr(), gear: arr(), frames: [], ring: NaN, lead, len, N };
+  const run = { t: arr(), kmh: arr(), thr: arr(), brk: arr(), x: arr(), z: arr(), h: arr(), gear: arr(), tel: createTelemetry(W), frames: [], ring: NaN, lead, len, N };
   let last = -1, nextFrame = 0;
   // window index of sample i: 0 = the start, lead = the ring, lead + len = the square; −1 outside
   const win = i => { const r = relOf(sec, i, N), w = r >= N - lead ? r - (N - lead) : r + lead; return w >= 0 && w < W ? w : -1; };
@@ -116,7 +117,7 @@ export function createRunRecorder(track, sec, lead) {
       if (w < 0 || w < last) return;                   // (outside the window, or gone backwards)
       for (let k = Math.max(0, last + 1); k <= w; k++) {
         run.t[k] = t; run.kmh[k] = SIM.speedOf(c) * 3.6; run.thr[k] = c.thr; run.brk[k] = c.brake; run.gear[k] = c.gear;
-        run.x[k] = c.x; run.z[k] = c.z; run.h[k] = c.h;
+        run.x[k] = c.x; run.z[k] = c.z; run.h[k] = c.h; writeTelemetry(run.tel, k, c);
       }
       if (last < lead && w >= lead) run.ring = t;
       last = w;
@@ -141,13 +142,19 @@ export function framePose(F, t) {
 }
 // a run as a full-lap trace (NaN outside its window), for corner metrics (lap-analysis.js cornerMetrics): the times from
 // the ring, shifted so every one is ≥ 0 (only differences are used)
-export function runAsTrace(run, sec) {
-  const N = run.N, f = k => new Float32Array(N).fill(NaN), tr = { time: NaN, t: f(), kmh: f(), thr: f(), brk: f() };
+// (and where it went, its gear and its telemetry when the run has them: the practice analysis)
+export function runAsTrace(run, sec, n = run.N) {
+  const N = n, f = () => new Float32Array(N).fill(NaN), tr = { time: NaN, t: f(), kmh: f(), thr: f(), brk: f() };
+  const more = ['x', 'z', 'h', 'gear'].filter(k => run[k]);
+  for (const k of more) tr[k] = f();
+  if (run.tel) tr.tel = Object.fromEntries(CHANNELS.map(([id]) => [id, f()]));
   const t0 = run.t[0];
   for (let w = 0; w < run.t.length; w++) {
     if (!Number.isFinite(run.t[w])) continue;
     const i = wrap(sec.from - run.lead + w, N);
     tr.t[i] = run.t[w] - t0; tr.kmh[i] = run.kmh[w]; tr.thr[i] = run.thr[w]; tr.brk[i] = run.brk[w];
+    for (const k of more) tr[k][i] = run[k][w];
+    if (run.tel) for (const [id] of CHANNELS) tr.tel[id][i] = run.tel[id][w];
   }
   return tr;
 }
@@ -250,13 +257,25 @@ export const bestKey = (circuit, cls, sec, L) => `${circuit}|${cls}|${sectionKey
 export function packRun(r) {
   const run = r.run, t0 = run.t[0], q = (v, k) => Number.isFinite(v) ? Math.round(v * k) : null;
   return { time: r.time, parts: r.parts, ring: q(run.ring - t0, 1000), lead: run.lead, ts: Array.from(run.t, v => q(v - t0, 1000)),
-    frames: run.frames.map((v, i) => q(i % 4 === 0 ? v - t0 : v, i % 4 === 3 ? 1000 : i % 4 === 0 ? 1000 : 100)) };
+    frames: run.frames.map((v, i) => q(i % 4 === 0 ? v - t0 : v, i % 4 === 3 ? 1000 : i % 4 === 0 ? 1000 : 100)),
+    // (2026-11-12: the whole run per sample, for its analysis: speed, pedals, where it went, gear, the car's state)
+    s: Object.fromEntries(Object.entries(RUN_SERIES).map(([k, qq]) => [k, packSeries(run[k], qq)])), tel: packTelemetry(run.tel) };
 }
+const RUN_SERIES = { kmh: 0.1, thr: 0.01, brk: 0.01, x: 0.01, z: 0.01, h: 0.001, gear: 1 };
 // back: { time, parts, lead, ts (s from the ring per window sample), frames (t from the ring) }; null if it doesn't fit
 export function unpackRun(b, lead, len) {
   if (!b || !(b.time > 0) || !Array.isArray(b.ts) || b.ts.length !== lead + len + 1 || b.lead !== lead || !Array.isArray(b.frames) || b.frames.length % 4) return null;
   const ring = b.ring / 1000;
   const ts = Float32Array.from(b.ts, v => v === null ? NaN : v / 1000 - ring);
   const frames = b.frames.map((v, i) => i % 4 === 0 ? v / 1000 - ring : i % 4 === 3 ? v / 1000 : v / 100);
-  return { time: b.time, parts: b.parts, lead, ts, frames };
+  const out = { time: b.time, parts: b.parts, lead, ts, frames };
+  // its run per sample (runs saved before 2026-11-12: only the times and the ghost): t from the ring, as recorded
+  const W = lead + len + 1;
+  if (b.s && typeof b.s === 'object') {
+    const run = { t: ts, lead, len, ring: 0, frames };
+    for (const [k, qq] of Object.entries(RUN_SERIES)) run[k] = unpackSeries(b.s[k], qq, W) ?? new Float32Array(W).fill(NaN);
+    run.tel = unpackTelemetry(b.tel, W);
+    out.run = run;
+  }
+  return out;
 }

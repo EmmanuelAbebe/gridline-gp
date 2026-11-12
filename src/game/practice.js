@@ -45,7 +45,15 @@ const chip = (text, on, onclick) => { const b = el('button', 'pr-chip', text); b
 export function createPractice(ctx) {
   const { game } = ctx;
   const store = P.loadPractice(Settings.get(KEY));
-  const save = () => Settings.set(KEY, P.practiceJson(store));
+  // (storage full: the best runs' telemetry goes, then their per-sample runs; the times and ghosts stay)
+  const save = () => {
+    const put = () => Settings.set(KEY, P.practiceJson(store));
+    if (put()) return;
+    for (const b of Object.values(store.best)) if (b) delete b.tel;
+    if (put()) return;
+    for (const b of Object.values(store.best)) if (b) delete b.s;
+    put();
+  };
   let view = 'map', sec = null, data = null, dataFor = '', aiTimer = 0;
 
   // ---- the menu's data for its circuit: the split, your best lap, the ALIEN's (else LEGEND's), corner by corner ----

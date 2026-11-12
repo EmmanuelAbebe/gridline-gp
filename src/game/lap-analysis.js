@@ -9,6 +9,7 @@
 // (a corner's braking point to the next one's), three sectors.
 import { SIM } from '../sim/index.js';
 import { ghostPose, ghostPedals } from './ghost.js';
+import { createTelemetry, writeTelemetry, packTelemetry, unpackTelemetry } from './telemetry.js';
 
 export const ANALYSIS = Object.freeze({
   version: 1,
@@ -37,7 +38,7 @@ export function createTraceRecorder(N) {
     for (let k = 0; k < passed; k++) {
       const i = c.idx - k; if (i < 0) break;
       tr.t[i] = lapT; tr.kmh[i] = SIM.speedOf(c) * 3.6; tr.thr[i] = c.thr; tr.brk[i] = c.brake;
-      tr.x[i] = c.x; tr.z[i] = c.z; tr.h[i] = c.h; tr.gear[i] = c.gear;
+      tr.x[i] = c.x; tr.z[i] = c.z; tr.h[i] = c.h; tr.gear[i] = c.gear; writeTelemetry(tr.tel, i, c);
     }
     last = c.idx;
   };
@@ -45,7 +46,7 @@ export function createTraceRecorder(N) {
     get on() { return !!tr; },
     get current() { return tr; },
     start(lapNo, c, lapT) {
-      tr = { time: 0, t: nanArray(N), kmh: nanArray(N), thr: nanArray(N), brk: nanArray(N), x: nanArray(N), z: nanArray(N), h: nanArray(N), gear: nanArray(N), start: lapNo === 1 && lapT < 0.5, pit: false };
+      tr = { time: 0, t: nanArray(N), kmh: nanArray(N), thr: nanArray(N), brk: nanArray(N), x: nanArray(N), z: nanArray(N), h: nanArray(N), gear: nanArray(N), tel: createTelemetry(N), start: lapNo === 1 && lapT < 0.5, pit: false };
       lap = lapNo; last = c.lap === lapNo ? -1 : c.idx;          // (-1: from the line, sample 0 included)
       if (c.lap === lapNo) fill(c, lapT);
     },
@@ -60,7 +61,7 @@ export function createTraceRecorder(N) {
   };
 }
 // an AI ghost lap (ai-ghosts.js aiLap: { time, line })
-export const traceFromAi = lap => lap && lap.line?.t ? { time: lap.time, t: lap.line.t, kmh: lap.line.kmh, thr: lap.line.thr, brk: lap.line.brk, x: lap.line.x, z: lap.line.z, h: lap.line.h, gear: lap.line.gear } : null;
+export const traceFromAi = lap => lap && lap.line?.t ? { time: lap.time, t: lap.line.t, kmh: lap.line.kmh, thr: lap.line.thr, brk: lap.line.brk, x: lap.line.x, z: lap.line.z, h: lap.line.h, gear: lap.line.gear, tel: lap.line.tel } : null;
 // a recorded ghost (ghost.js): the splits interpolated to every sample, the speed from its pose
 export function traceFromGhost(g, N) {
   if (!g || !Array.isArray(g.splits)) return null;
@@ -163,7 +164,7 @@ const enc = (arr, k) => { let last = 0; return Array.from(arr, v => { if (!Numbe
 const dec = (arr, k, N) => { const out = nanArray(N); let q = 0; arr.forEach((d, i) => { if (d === null) return; q += d; out[i] = q / k; }); return out; };
 // (2026-11-10: where the car was too, in cm / mrad, and its gear: the lap comparison replays your best ever from it)
 export const compactTrace = tr => tr && { time: tr.time, start: !!tr.start, t: enc(tr.t, 1000), kmh: enc(tr.kmh, 1), thr: tr.thr && enc(tr.thr, 20), brk: tr.brk && enc(tr.brk, 20),
-  ...(tr.x && tr.z && tr.h ? { x: enc(tr.x, 100), z: enc(tr.z, 100), h: enc(tr.h, 1000) } : {}), ...(tr.gear ? { gear: enc(tr.gear, 1) } : {}) };
+  ...(tr.x && tr.z && tr.h ? { x: enc(tr.x, 100), z: enc(tr.z, 100), h: enc(tr.h, 1000) } : {}), ...(tr.gear ? { gear: enc(tr.gear, 1) } : {}), ...(tr.tel ? { tel: packTelemetry(tr.tel) } : {}) };
 // (null when it doesn't decode to a lap: every time within the lap, every speed a car's. Until 2026-11-05 each save
 // compacted the saved bests of circuits not driven since the start once more, so those decode to huge numbers)
 export function expandTrace(c, N) {
@@ -174,6 +175,7 @@ export function expandTrace(c, N) {
   const x = arr(c.x, 100), z = arr(c.z, 100), h = arr(c.h, 1000), gear = arr(c.gear, 1);
   if (x && z && h) Object.assign(tr, { x, z, h });
   if (gear) tr.gear = gear;
+  const tel = unpackTelemetry(c.tel, N); if (tel) tr.tel = tel;          // (the car's state: telemetry.js; laps from before 2026-11-12 have none)
   const within = (a, lo, hi) => a.every(v => !(v < lo || v > hi));          // (NaN = a sample not reached: fine)
   // (2026-11-10, user: "delete any records that do not have those data": a best lap saved without where the car went or
   // without the pedals is dropped; the sector and mini-sector times stay)
@@ -197,5 +199,10 @@ export function bestsOf(store, id, cls, L) {
     Object.assign(b, { sec: b.sec.map(num), mini: b.mini.map(num), best: expandTrace(b.best, L.N) });
   } else if (!b.best) { b.sec = b.sec.map(v => v ?? Infinity); b.mini = b.mini.map(v => v ?? Infinity); }
   return b;
+}
+// storage full: the saved best laps' telemetry goes (the times, speeds, pedals and positions stay), first on every circuit
+// but `keep`, then there too
+export function dropTelemetry(store, keep = null) {
+  for (const [id, byCls] of Object.entries(store)) if (id !== keep) for (const b of Object.values(byCls || {})) if (b?.best) delete b.best.tel;
 }
 export const putBests = (store, id, cls, b) => { (store[id] ||= {})[cls] = b; };
