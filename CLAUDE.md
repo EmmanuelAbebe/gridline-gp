@@ -1415,7 +1415,11 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   runAsTrace carries x / z / h / gear / tel). Storage full (Settings.set returns false): the other circuits' best-lap
   telemetry goes first (lap-analysis.js dropTelemetry), then this one's; practice drops its runs' tel, then `s`. Laps saved
   before have none (kept).
-- Lap comparison 2D: LINE GAINED / LOST | SPEED (`#cmpLine`, analysis-screen.js lineMode): SPEED colours your lap's line on the
+- Lap comparison 2D, LINE (`#cmpLine`, analysis-screen.js lineMode; user's follow-up: the path behind the moving car should
+  change colour with its speed, the whole-lap overlay kept as an option): SPEED TRACE (default) = each car's path so far by
+  speed as it goes (whole circuit: yours on the road, the corner badges still green / red; zoomed: yours solid, the other's
+  dashed, the rest of its lap faint), GAINED / LOST = as before, WHOLE LAP = the old SPEED. `speed-colour.js` SPEED_RAMP /
+  speedColour / strokeBySpeed (shared with the practice analysis). Before that:
   whole circuit, zoomed both lines (yours solid, the other dashed) by their own speed (`SPEED_RAMP`, plasma-like violet →
   yellow, 24 steps, `strokeBySpeed`), the key `#cmpSpeedKey` = both laps' range rounded to 10 km/h. Smoke:
   out-analysis-speed.png, -speed-zoom.png.
@@ -1449,6 +1453,21 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   at your sample (it stepped ~2 m at a time); the racing line (pref racingLine) = the car you chase (an AI ghost's lap, your
   best run inside the ALIEN's lap, else the ALIEN's / LEGEND's; ctx.setRacingLine); the first run and MORE RUNS wait at
   `#pracReady` READY WHEN YOU ARE until A / Enter / the gas (pressed after letting go), then go at once. Since the same day every run waits there (after a finish or going off on BACK TO THE START, Y restart; DRIVE ON's runs still start as you come round), its line = LAST RUN · time + gap (purple = the session's best) / OFF AT T5 (`#prReadyLast`); the 1 s READY hold is gone. Smoke: -ready, readyAgain.
+
+## Practice analysis (2026-11-12; user, of the canvas mock-ups E, F, G: "implement all of them having 3 different views")
+- The practice summary (`#pracSumOv`) has tabs RUNS (as before) · COMPARE · TELEMETRY · CORNER (`#prSumTabs`; disabled without
+  a drive); `practice-analysis.js` createPracticeAnalysis({ getR }) builds the drives once per summary: each run this session
+  with its recording, your best saved before (when not one of this session's), the ALIEN's and LEGEND's laps cut to the run's
+  window (practice-core.js `seriesOfRun`, `traceWindow` (times from the ring, over the line too), `seriesAt`, `seriesValue`,
+  `windowOf`: tests/practice.test.js). COMPARE (`#paCmp`, E): two pickers, LINE GAINED / LOST · SPEED TRACE · WHOLE RUN on the
+  section's map (ring, square, corners, both braking points), delta + gap in m, parts, the car now (km/h · gear, wheel °,
+  lateral g, downforce, tyres F / R), speed / pedals / steering chart (click = go there), play 0.5–2×. TELEMETRY (`#paTel`, F):
+  tick drives (best amber, run 1 light, others grey, ALIEN cyan, LEGEND lilac, best before orange), channel chips (speed,
+  pedals, steering, gear · rpm, g lat + long, downforce, tyres front / rear, battery, slides), stacked charts, the cursor's
+  values, a mini map. CORNER (`#paCor`, G): a chip per corner in the section (starts on the one your best loses most to the
+  AI), the corner close up (every run's line, the best by speed, the AI dashed, braking squares), its traces, run by run
+  (brake, min, full gas, part time), what moved (spread of braking point / slowest speed) + changeSentence. Smoke:
+  out-practice-compare / -telemetry / -corner.
 
 ## Ideas not done yet
 - Online leaderboard with replay validation: `docs/leaderboard-plan.md`. Phase 0 done 2026-10-28: replays

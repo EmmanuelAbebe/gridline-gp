@@ -337,7 +337,7 @@
     <section class="ana-cmp" id="anaCmp" hidden>
       <div class="cmp-2d" id="cmp2d">
         <div class="cmp-map"><canvas id="cmpMap" width="1440" height="780" aria-label="Circuit map: both laps replayed, each mini-sector coloured once both cars are through it. Double-click to zoom in there"></canvas>
-          <div class="cmp-zoom" id="cmpZoom"><button type="button" class="btn" id="cmpZoomOut" aria-label="Zoom out">−</button><button type="button" class="btn" id="cmpZoomIn" aria-label="Zoom in">+</button><button type="button" class="btn" id="cmpFollow" aria-pressed="true">FOLLOW</button><span id="cmpZoomX">×1</span><div class="seg cmp-lmode" id="cmpLine" role="group" aria-label="Colour the lines by"><button type="button" data-l="gap" aria-pressed="true">GAINED / LOST</button><button type="button" data-l="speed" aria-pressed="false">SPEED</button></div></div>
+          <div class="cmp-zoom" id="cmpZoom"><button type="button" class="btn" id="cmpZoomOut" aria-label="Zoom out">−</button><button type="button" class="btn" id="cmpZoomIn" aria-label="Zoom in">+</button><button type="button" class="btn" id="cmpFollow" aria-pressed="true">FOLLOW</button><span id="cmpZoomX">×1</span><div class="seg cmp-lmode" id="cmpLine" role="group" aria-label="Colour the lines by"><button type="button" data-l="gap" aria-pressed="false">GAINED / LOST</button><button type="button" data-l="trace" aria-pressed="true">SPEED TRACE</button><button type="button" data-l="speed" aria-pressed="false">WHOLE LAP</button></div></div>
           <canvas class="cmp-zmini" id="cmpZoomMini" width="340" height="190" aria-hidden="true" hidden></canvas>
           <span class="cmp-maphint" id="cmpMapHint">Double-click to zoom in there</span>
           <p class="gpu ana-key" id="cmpGapKey"><i class="g"></i>gained <i class="r"></i>lost <i class="w"></i>this mini-sector <i class="me"></i>you <i class="ref"></i><span id="cmpRefKey">compared</span></p>
@@ -388,7 +388,10 @@
 
 <div id="pracSumOv" class="overlay sub" hidden>
   <div class="mn sub-panel pr-sum" role="dialog" aria-labelledby="prSumTitle">
-    <header class="sub-top"><h1 class="sub-title" id="prSumTitle">Practice</h1><span class="sub-ctx" id="prSumCtx"></span><button class="pr-chip pr-done" id="prSumDone" type="button">DONE</button></header>
+    <header class="sub-top"><h1 class="sub-title" id="prSumTitle">Practice</h1><span class="sub-ctx" id="prSumCtx"></span>
+      <div class="pr-tabs" id="prSumTabs" role="group" aria-label="View"><button class="pr-chip" type="button" data-t="runs" aria-pressed="true">RUNS</button><button class="pr-chip" type="button" data-t="compare" aria-pressed="false">COMPARE</button><button class="pr-chip" type="button" data-t="telemetry" aria-pressed="false">TELEMETRY</button><button class="pr-chip" type="button" data-t="corner" aria-pressed="false">CORNER</button></div>
+      <button class="pr-chip pr-done" id="prSumDone" type="button">DONE</button></header>
+    <div class="pr-sumruns" id="prSumRuns">
     <div class="pr-tiles5" id="prSumTiles"></div>
     <div class="pr-sumbody">
       <div class="pr-runtable"><div class="pr-rrow pr-rhead" id="prSumHead"></div><div class="pr-rrows" id="prSumRows"></div><p class="pr-key"><span><i class="purple"></i>best this session</span><span><i class="green"></i>better than the run before</span><span><i class="yellow"></i>slower</span></p></div>
@@ -400,6 +403,35 @@
         <div class="pr-sumbtns"><button class="pr-chip" id="prCompare" type="button">COMPARE BEST RUN</button><button class="pr-chip" id="prChange" type="button">CHANGE SECTION</button><button class="pr-chip" id="prLap" type="button">DRIVE A FULL LAP</button><button class="pr-go" id="prMore" type="button">MORE RUNS</button></div>
       </div>
     </div>
+    </div>
+    <!-- the practice analysis (practice-analysis.js): a run against another or the AI; the runs' telemetry overlaid; one corner, every run -->
+    <section class="pa-view pa-cmp" id="paCmp" hidden>
+      <div class="pa-pick"><label class="pa-sel"><i class="me"></i><span class="lbl">YOUR RUN</span><select id="paMe"></select></label><label class="pa-sel"><i class="ref"></i><span class="lbl">COMPARED WITH</span><select id="paRef"></select></label><span class="pr-grow"></span><span class="lbl">LINE</span><div class="pa-seg" id="paLine" role="group" aria-label="Colour the lines by"><button class="pr-chip" type="button" data-l="gap" aria-pressed="false">GAINED / LOST</button><button class="pr-chip" type="button" data-l="trace" aria-pressed="true">SPEED TRACE</button><button class="pr-chip" type="button" data-l="speed" aria-pressed="false">WHOLE RUN</button></div></div>
+      <div class="pa-mid">
+        <div class="pa-mapbox"><canvas class="pa-map" id="paMap" aria-label="The section: both drives, coloured by the line setting, both cars where they are"></canvas><p class="pa-key" id="paKey"></p></div>
+        <div class="pa-side">
+          <div class="pa-delta"><div><span class="lbl">DELTA</span><b id="paDelta">–</b></div><div class="r"><b id="paGap"></b><small>at the same time from the ring</small></div></div>
+          <div class="pa-parts" id="paParts"></div>
+          <div class="pa-now" id="paNow"></div>
+        </div>
+      </div>
+      <canvas class="pa-chart pa-cchart" id="paCmpChart" aria-label="Speed, gas and brake, steering over the section; click to go there"></canvas>
+      <div class="pa-bar"><button class="cmp-play" id="paPlay" type="button" aria-label="Play"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="paPlayIcon" d="M7 4l13 8-13 8z"></path></svg></button>
+        <label class="pa-pos"><span class="sr">Where in the run</span><input type="range" id="paPos" min="0" max="1000" value="0"></label><span class="pa-clock" id="paClock"></span>
+        <div class="pa-seg" id="paRate" role="group" aria-label="Speed"><button class="pr-chip" type="button" data-r="0.5" aria-pressed="false">0.5×</button><button class="pr-chip" type="button" data-r="1" aria-pressed="true">1×</button><button class="pr-chip" type="button" data-r="2" aria-pressed="false">2×</button></div></div>
+    </section>
+    <section class="pa-view pa-tel" id="paTel" hidden>
+      <div class="pa-left"><span class="lbl">SHOWN</span><div class="pa-runs" id="paRuns"></div><canvas class="pa-mini" id="paTelMap" aria-label="The section: your best run by speed, the cursor's place"></canvas><p class="pa-note">Click a chart to move the cursor</p></div>
+      <div class="pa-right"><div class="pa-chips" id="paChans" role="group" aria-label="Channels"></div>
+        <canvas class="pa-chart pa-tchart" id="paTelChart" aria-label="The chosen channels over the section, the runs ticked overlaid; click to move the cursor"></canvas>
+        <div class="pa-tiles" id="paTelTiles"></div></div>
+    </section>
+    <section class="pa-view pa-cor" id="paCor" hidden>
+      <div class="pa-pick"><span class="lbl">CORNER</span><div class="pa-seg" id="paCorners" role="group" aria-label="Corner"></div><span class="pr-grow"></span><span class="pa-note" id="paCorNote"></span></div>
+      <div class="pa-mid"><canvas class="pa-map pa-cmap" id="paCorMap" aria-label="The corner close up: every run's line, the best by speed, the AI dashed, where each braked"></canvas>
+        <div class="pa-side"><canvas class="pa-chart pa-kchart" id="paCorChart" aria-label="Speed, gas and brake, steering through the corner, every run"></canvas><div class="pa-ctable" id="paCorTable"></div></div></div>
+      <p class="pa-text" id="paCorText"></p>
+    </section>
     <footer class="mn-foot"><span><b>A</b> open</span><span><b>B</b> done</span><span>✥ move</span></footer>
   </div>
 </div>

@@ -692,6 +692,20 @@ async function smokeTest(win) {
     await shot('practice-summary');
     Object.assign(info.practice, await js(`({ summary: !document.getElementById('pracSumOv').hidden, sumRows: document.querySelectorAll('#prSumRows .pr-rrow').length,
       sumTiles: document.querySelectorAll('#prSumTiles .pr-tile').length })`));
+    // the analysis: COMPARE (played a moment, then the speed trace), TELEMETRY, CORNER
+    const tab = t => js(`document.querySelector('#prSumTabs [data-t="${t}"]').click()`);
+    await tab('compare'); await wait(400);
+    await js(`document.getElementById('paPlay').click()`); await wait(1500); await js(`document.getElementById('paPlay').click()`); await wait(200);
+    await shot('practice-compare');
+    info.practice.ana = await js(`({ cmp: !document.getElementById('paCmp').hidden && document.getElementById('paMe').options.length, delta: document.getElementById('paDelta').textContent,
+      parts: document.querySelectorAll('#paParts span').length, now: document.getElementById('paNow').textContent.includes('Downforce') })`);
+    await tab('telemetry'); await wait(400);
+    await shot('practice-telemetry');
+    Object.assign(info.practice.ana, await js(`({ tel: !document.getElementById('paTel').hidden, runs: document.querySelectorAll('#paRuns input').length, chans: document.querySelectorAll('#paChans [aria-pressed="true"]').length })`));
+    await tab('corner'); await wait(400);
+    await shot('practice-corner');
+    Object.assign(info.practice.ana, await js(`({ cor: !document.getElementById('paCor').hidden, corners: document.querySelectorAll('#paCorners button').length, rows: document.querySelectorAll('#paCorTable span.n').length - 1 })`));
+    await tab('runs');
     await js(`document.getElementById('prSumDone').click()`); await wait(300);
     info.practice.home = await js(`!document.getElementById('startOv').hidden && !document.getElementById('mnHome').hidden && !document.getElementById('hud').classList.contains('practice')`);
   }

@@ -30,6 +30,7 @@ import { traceFromAi, cornerMetrics } from './lap-analysis.js';
 import { replayOf } from './lap-replay.js';
 import { ghostDriver } from './ai-ghosts.js';
 import * as P from './practice-core.js';
+import { createPracticeAnalysis } from './practice-analysis.js';
 
 const { EV } = SIM;
 const KEY = CONFIG.storageKeys.practice;
@@ -591,6 +592,8 @@ export function createPractice(ctx) {
     $('prWhat').replaceChildren(...(k >= 0 ? [headRow, line('Brakes before the apex', m => m.brakeAt, ' m'), line('Slowest', m => m.min, ''), line('Full gas after the apex', m => m.fullAt, ' m'), line('Exit, 100 m on (km/h)', m => m.exit, '')] : []));
     $('prWhatText').textContent = k >= 0 ? P.changeSentence(name, m1, mb, ma, aiName === 'ALIEN' ? 'The ALIEN' : 'LEGEND') : R.runs.length ? '' : 'No runs yet: MORE RUNS to drive the section.';
     $('prCompare').disabled = !bestRun || !ai || !(R.sec.from > 0 && R.sec.to > R.sec.from);
+    ana.reset();
+    for (const b of $('prSumTabs').children) b.disabled = b.dataset.t !== 'runs' && !ana.has();
     Screens.show('pracSum', 'prMore');
   }
   // your best run inside the AI's lap (the rest of the lap is the AI's, shifted): the lap comparison can show it
@@ -609,6 +612,9 @@ export function createPractice(ctx) {
   }
   $('prMore').onclick = () => { if (!R) return; Object.assign(game, { ended: false, resultsShown: false }); Screens.show(null); place(); };
   $('prSumDone').onclick = () => done();
+  // the summary's views: RUNS, and the analysis's COMPARE / TELEMETRY / CORNER (practice-analysis.js)
+  const ana = createPracticeAnalysis({ getR: () => R });
+  for (const b of $('prSumTabs').children) b.onclick = () => ana.show(b.dataset.t);
   $('prChange').onclick = () => { stop(); ctx.toMenu(); ctx.menuPage(); };
   $('prLap').onclick = () => { stop(); ctx.startTrial(); };
   $('prCompare').onclick = () => { const tr = R && spliced(); if (tr) ctx.compare(tr, `Best run ${R.name} ${s3(P.sessionStats(R.runs).best)} (rest of the lap: ${R.alien ? 'ALIEN' : 'LEGEND'})`); };

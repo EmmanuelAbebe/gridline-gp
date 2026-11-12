@@ -54,6 +54,9 @@ const checks = [
   ['practice by corner: a row per corner, the picked ones named', r.practice?.rows === r.practice?.corners && !!r.practice?.picked],
   ['practice: the first run waits for you (READY WHEN YOU ARE, rolling), Enter sets it off', r.practice?.ready && r.practice.went],
   ['practice: every run waits at READY, with the last run on it (LAST RUN · time or OFF AT)', /^LAST RUN · /.test(r.practice?.readyAgain || '')],
+  ['practice analysis: COMPARE (a run against the AI, delta, parts, the car now), TELEMETRY (drives to tick, channels), CORNER (every run through it)',
+    r.practice?.ana?.cmp >= 2 && /^[+−±]\d/.test(r.practice.ana.delta) && r.practice.ana.parts >= 8 && r.practice.ana.now && r.practice.ana.tel && r.practice.ana.runs >= 2
+    && r.practice.ana.chans === 4 && r.practice.ana.cor && r.practice.ana.corners >= 1 && r.practice.ana.rows >= 2],
   ['practice run: the practice HUD, a run timed (or off) by the autopilot', r.practice?.box && r.practice.runs?.some(t => /^\d+(\d+\.\d{3}|OFF)/.test(t))],
   ['practice run 2: your first run as the ghost, the next corner\'s braking marks', /^BEST RUN/.test(r.practice?.ghost || '') && r.practice.brakeTags?.length > 0],
   ['practice summary: a row per run, five tiles; DONE = the paddock', r.practice?.summary && r.practice.sumRows >= 1 && r.practice.sumTiles === 5 && r.practice.home],

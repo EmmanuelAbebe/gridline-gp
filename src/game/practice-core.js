@@ -279,3 +279,48 @@ export function unpackRun(b, lead, len) {
   }
   return out;
 }
+
+// ---- the practice analysis (practice-analysis.js): every run, your saved best and the AI's lap as the same thing ----
+// A series = one drive over the run's window (lead-in + section): per window sample w the time from the ring (t, s; − on
+// the lead-in), km/h, pedals, x / z / h, gear and the car's telemetry (telemetry.js; null where none was recorded).
+const SERIES_KEYS = ['kmh', 'thr', 'brk', 'x', 'z', 'h', 'gear'];
+// a run (createRunRecorder's, or a saved best's unpacked run) as a series
+export function seriesOfRun(run) {
+  const W = run.t.length, t = new Float32Array(W);
+  for (let w = 0; w < W; w++) t[w] = run.t[w] - run.ring;
+  const s = { t, tel: run.tel ?? null };
+  for (const k of SERIES_KEYS) s[k] = run[k] ?? new Float32Array(W).fill(NaN);
+  return s;
+}
+// a full-lap trace (the AI's, lap-analysis.js) cut to a run's window, its times from the ring (over the line: + the lap)
+export function traceWindow(tr, sec, lead, len, N) {
+  const W = lead + len + 1, f = () => new Float32Array(W).fill(NaN), t0 = tr.t[sec.from] ?? 0;
+  const s = { t: f(), tel: tr.tel ? createTelemetry(W) : null };
+  for (const k of SERIES_KEYS) s[k] = f();
+  for (let w = 0; w < W; w++) {
+    const i = wrap(sec.from - lead + w, N);
+    let t = (i === 0 && w > lead ? tr.time : tr.t[i]) - t0;
+    if (w > lead && t < 0) t += tr.time; else if (w < lead && t > 0) t -= tr.time;
+    s.t[w] = t;
+    for (const k of SERIES_KEYS) if (tr[k]) s[k][w] = tr[k][i];
+    if (s.tel) for (const [id] of CHANNELS) s.tel[id][w] = tr.tel[id][i];
+  }
+  return s;
+}
+// the window sample of track sample i (−1 outside the window)
+export const windowOf = (sec, lead, len, i, N) => { const w = wrap(i - (sec.from - lead), N); return w <= lead + len ? w : -1; };
+// where a series is T s from the ring: the window sample (fractional, s) and the car's place (x, z, h), null where not driven
+export function seriesAt(S, T) {
+  const t = S.t, W = t.length;
+  let lo = -1, hi = -1;
+  for (let w = 0; w < W; w++) if (Number.isFinite(t[w])) { if (lo < 0) lo = w; hi = w; }
+  if (lo < 0) return null;
+  T = Math.max(t[lo], Math.min(t[hi], T));
+  let a = lo; while (a < hi && !(t[a + 1] > T)) a++;
+  const b = Math.min(hi, a + 1), u = b > a && t[b] > t[a] ? (T - t[a]) / (t[b] - t[a]) : 0;
+  const L = (arr) => Number.isFinite(arr[a]) && Number.isFinite(arr[b]) ? arr[a] + (arr[b] - arr[a]) * u : arr[a];
+  return { s: a + u, x: L(S.x), z: L(S.z), h: S.h[a] };
+}
+// a value of a series at a fractional window sample (NaN where none)
+export const seriesValue = (arr, s) => { if (!arr) return NaN; const a = Math.floor(s), b = Math.min(arr.length - 1, a + 1), u = s - a;
+  return Number.isFinite(arr[a]) && Number.isFinite(arr[b]) ? arr[a] + (arr[b] - arr[a]) * u : arr[a]; };

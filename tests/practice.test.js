@@ -105,3 +105,18 @@ test('saved: the choices checked, bests only for this physics', () => {
   const old = JSON.parse(P.practiceJson(back)); old.physics = -1;
   assert.deepEqual(P.loadPractice(JSON.stringify(old)).best, {});
 });
+
+test('the analysis: a run and the AI lap as series over the window, where each is at a time, the times line up at the ring', () => {
+  const sec = P.sectionFromCorners(L, 2, 4), lead = P.leadSamples(T), len = P.lengthOf(sec, N), W = lead + len + 1;
+  const ai = P.traceWindow(alien, sec, lead, len, N);
+  assert.equal(ai.t.length, W);
+  assert.ok(Math.abs(ai.t[lead]) < 1e-6 && ai.t[0] < 0 && ai.t[W - 1] > 0);
+  assert.ok(Math.abs(ai.t[lead + len] - P.lapSpan(alien, sec.from, sec.to, N)) < 1e-4);
+  // over the line too
+  const over = P.sectionFromCorners(L, L.corners.length - 1, 0), lo = P.lengthOf(over, N), aw = P.traceWindow(alien, over, lead, lo, N);
+  for (let w = 1; w <= lead + lo; w++) assert.ok(aw.t[w] >= aw.t[w - 1], `w ${w}: ${aw.t[w - 1]} → ${aw.t[w]}`);
+  const at = P.seriesAt(ai, ai.t[lead + 40] + 0.001);
+  assert.ok(Math.abs(at.s - (lead + 40)) < 1 && Math.hypot(at.x - ai.x[lead + 40], at.z - ai.z[lead + 40]) < 3);
+  assert.equal(P.windowOf(sec, lead, len, sec.from, N), lead);
+  assert.equal(P.windowOf(sec, lead, len, SIM.wrapIdx(sec.to + 5, N), N), -1);
+});

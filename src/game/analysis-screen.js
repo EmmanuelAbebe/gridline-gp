@@ -21,6 +21,8 @@ import { ANALYSIS, traceFromAi, miniTimes, sectorTimes, cornerMetrics, sessionPa
 import { REPLAY, replayOf, compareAt, deltaSeries } from './lap-replay.js';
 import { createReplay3d } from './analysis-3d.js';
 import { playerClass } from './car-class.js';
+import { strokeBySpeed } from './speed-colour.js';
+export { SPEED_RAMP, speedColour } from './speed-colour.js';
 
 const gapText = d => !Number.isFinite(d) ? '–' : (d > ANALYSIS.tie ? '+' : d < -ANALYSIS.tie ? '−' : '±') + Math.abs(d).toFixed(3);
 const gapCls = d => !Number.isFinite(d) ? '' : d < -ANALYSIS.tie ? 'faster' : d > ANALYSIS.tie ? 'slower' : '';
@@ -35,12 +37,6 @@ const CAMS = { chase: ['CHASE', 'Behind your car'], tv: ['TV', 'Trackside camera
 const U = 2;                     // canvas pixels per CSS pixel (every canvas here is drawn at twice its size)
 // the 2D map zoomed in (2026-11-10, the canvas mock-up "COMPARE · 2D zoomed"): × the whole circuit's scale
 // the lines coloured by speed: slow → fast, lightness rising (perceptual, plasma-like; not the laps' amber / cyan)
-export const SPEED_RAMP = Object.freeze([[123, 77, 255], [196, 69, 201], [242, 97, 90], [249, 162, 60], [246, 230, 91]]);
-export function speedColour(kmh, lo, hi) {
-  const u = Math.max(0, Math.min(1, (kmh - lo) / ((hi - lo) || 1))) * (SPEED_RAMP.length - 1), k = Math.min(SPEED_RAMP.length - 2, Math.floor(u)), f = u - k;
-  const a = SPEED_RAMP[k], b = SPEED_RAMP[k + 1];
-  return `rgb(${Math.round(a[0] + (b[0] - a[0]) * f)},${Math.round(a[1] + (b[1] - a[1]) * f)},${Math.round(a[2] + (b[2] - a[2]) * f)})`;
-}
 export const MAP_ZOOM = Object.freeze({ start: 5, max: 12, wheel: 1.25, scales: [10, 25, 50, 100, 200, 500] });
 
 export function createAnalysis({ game, sectors, aiLapOf, track, models }) {
@@ -49,7 +45,7 @@ export function createAnalysis({ game, sectors, aiLapOf, track, models }) {
   // T (s into your lap), playing, rate, sync, camera
   // the 2D map's zoom: k = × the whole circuit (1 = all of it), follow = centred on your car, else on x / z (m)
   const Z = { k: 1, follow: true, x: 0, z: 0 };
-  let C = null, T = 0, playing = false, rate = 1, sync = 'time', camera = 'chase', jump = true, dirty = true, hudWas = false, lineMode = 'gap';
+  let C = null, T = 0, playing = false, rate = 1, sync = 'time', camera = 'chase', jump = true, dirty = true, hudWas = false, lineMode = 'trace';
   const R3 = createReplay3d();
 
   // the laps you can look at: this session's (newest first, the fastest valid one picked) and your all-time best
@@ -199,12 +195,14 @@ export function createAnalysis({ game, sectors, aiLapOf, track, models }) {
     const { me, ref } = C, ds = D.track.ds, sMe = cmp.sMe;
     const pm = me.poseAt(T), pr = ref.poseAt(cmp.tRef), corner = k => D.L.minis.findIndex(m => m.corner === k);
     const gaps = miniGaps(picked().me.tr, picked().ref.trace);
-    const spd = lineMode === 'speed';
+    // (TRACE: the path your car leaves behind changes colour with its speed as it goes round; SPEED: the whole lap by speed)
+    const spd = lineMode === 'speed', trace = lineMode === 'trace';
     if (Z.k > 1) drawZoom($('cmpMap'), cmp, pm, pr, gaps);
-    else drawCircuit($('cmpMap'), spd ? () => null : (m, k) => m.to <= sMe ? tone(gaps[k]) : m.from <= sMe ? COL.now : COL.ahead,
+    else drawCircuit($('cmpMap'), spd || trace ? () => null : (m, k) => m.to <= sMe ? tone(gaps[k]) : m.from <= sMe ? COL.now : COL.ahead,
       { dots: [{ x: pr.x, z: pr.z, col: COL.ref }, { x: pm.x, z: pm.z, col: COL.me }],
-        paint: spd ? (g, M) => { const { PX, PZ, N } = D.track; g.lineWidth = 7 * U;
-          strokeBySpeed(g, i => [M.x(PX[i % N]), M.z(PZ[i % N])], 0, N, i => me.kmh(i % N), C.spd.lo, C.spd.hi); } : null,
+        paint: spd || trace ? (g, M) => { const { PX, PZ, N } = D.track; g.lineWidth = 7 * U;
+          strokeBySpeed(g, i => [M.x(PX[i % N]), M.z(PZ[i % N])], 0, spd ? N : Math.min(N - 1, Math.floor(sMe)), i => me.kmh(i % N), C.spd.lo, C.spd.hi);
+          if (trace) { g.lineTo(M.x(pm.x), M.z(pm.z)); g.stroke(); } } : null,
         cornerColour: k => { const m = D.L.minis[corner(k)]; return !m || m.to > sMe ? null : gaps[corner(k)] < 0 ? '#5ff0a0' : '#ff8a80'; } });
     readouts(cmp);
     tele('kmhMe').textContent = num(me.kmh(sMe)); tele('kmhRef').textContent = num(ref.kmh(cmp.sRef));
@@ -230,29 +228,13 @@ export function createAnalysis({ game, sectors, aiLapOf, track, models }) {
     return Number.isFinite(lo) ? { lo: Math.floor(lo / 10) * 10, hi: Math.ceil(hi / 10) * 10 } : { lo: 0, hi: 350 };
   }
   function speedKey() {
-    const on = lineMode === 'speed' && !!C;
+    const on = lineMode !== 'gap' && !!C;
     $('cmpGapKey').hidden = on; $('cmpSpeedKey').hidden = !on;
     for (const b of $('cmpLine').children) b.setAttribute('aria-pressed', String(b.dataset.l === lineMode));
     if (!on) return;
     $('cmpSpdLo').textContent = C.spd.lo; $('cmpSpdHi').textContent = C.spd.hi;
-    $('cmpSpdNote').textContent = Z.k > 1 ? `you solid, ${C.short} dashed` : 'your lap · zoom in for both lines';
-  }
-  const SPEED_BINS = 24;
-  // a line through samples a..b (pt(i) = canvas [x, y] or null), its colour changing with kmhAt(i): one path per colour step
-  function strokeBySpeed(g, pt, a, b, kmhAt, lo, hi) {
-    let bin = -1, prev = null;
-    for (let i = a; i <= b; i++) {
-      const p = pt(i);
-      if (!p) { if (bin !== -1) g.stroke(); bin = -1; prev = null; continue; }
-      const v = kmhAt(i), nb = Number.isFinite(v) ? Math.round(Math.max(0, Math.min(1, (v - lo) / ((hi - lo) || 1))) * SPEED_BINS) : -2;
-      if (nb !== bin) {
-        if (bin !== -1) g.stroke();
-        g.beginPath(); g.strokeStyle = nb === -2 ? '#5b6573' : speedColour(lo + nb / SPEED_BINS * (hi - lo), lo, hi);
-        g.moveTo(...(prev ?? p)); bin = nb;
-      }
-      g.lineTo(p[0], p[1]); prev = p;
-    }
-    if (bin !== -1) g.stroke();
+    $('cmpSpdNote').textContent = lineMode === 'trace' ? (Z.k > 1 ? `each car's path so far · you solid, ${C.short} dashed` : 'your path so far · corners: green gained, red lost')
+      : Z.k > 1 ? `you solid, ${C.short} dashed` : 'your lap · zoom in for both lines';
   }
   for (const b of $('cmpLine').children) b.onclick = () => { lineMode = b.dataset.l; speedKey(); dirty = true; };
   // where a replayed lap went, at every track sample (its own positions, its ghost's or the racing line), once per lap
@@ -278,7 +260,7 @@ export function createAnalysis({ game, sectors, aiLapOf, track, models }) {
     const road = (a, b, off = 0) => { g.beginPath(); for (let i = a; i <= b; i++) { const j = i % N, x = X(PX[j] + NX[j] * off), y = Y(PZ[j] + NZ[j] * off); i === a ? g.moveTo(x, y) : g.lineTo(x, y); } };
     const line = (L, a, b) => { g.beginPath(); for (let i = a; i <= b; i++) { const x = X(L.x[i]), y = Y(L.z[i]); i === a ? g.moveTo(x, y) : g.lineTo(x, y); } };
     road(0, N); g.strokeStyle = '#262d36'; g.lineWidth = 2 * HW * k; g.stroke();
-    const spd = lineMode === 'speed';
+    const spd = lineMode === 'speed', trace = lineMode === 'trace';
     if (!spd) D.L.minis.forEach((m, i) => { if (m.to > sMe || !Number.isFinite(gaps[i])) return;
       road(m.from, m.to); g.strokeStyle = gaps[i] < 0 ? 'rgba(54,210,127,.16)' : 'rgba(255,70,60,.16)'; g.stroke(); });
     g.lineWidth = U; g.strokeStyle = '#5b6573'; road(0, N, HW); g.stroke(); road(0, N, -HW); g.stroke();
@@ -288,6 +270,12 @@ export function createAnalysis({ game, sectors, aiLapOf, track, models }) {
       const pt = Lx => i => Number.isFinite(Lx.x[i]) && Number.isFinite(Lx.z[i]) ? [X(Lx.x[i]), Y(Lx.z[i])] : null, { lo, hi } = C.spd;
       g.lineWidth = 2 * U; g.setLineDash([6 * U, 4 * U]); strokeBySpeed(g, pt(lr), 0, N - 1, i => C.ref.kmh(i), lo, hi); g.setLineDash([]);
       g.lineWidth = 4 * U; strokeBySpeed(g, pt(lm), 0, upTo, i => C.me.kmh(i), lo, hi);
+    } else if (trace) {                              // (each car's path so far in its speeds, the rest of the other's faint)
+      const pt = Lx => i => Number.isFinite(Lx.x[i]) && Number.isFinite(Lx.z[i]) ? [X(Lx.x[i]), Y(Lx.z[i])] : null, { lo, hi } = C.spd;
+      const upRef = Math.min(N - 1, Math.floor(cmp.sRef));
+      g.lineWidth = 1.5 * U; g.setLineDash([6 * U, 4 * U]); g.strokeStyle = 'rgba(79,209,255,.35)'; line(lr, upRef, N - 1); g.stroke();
+      g.lineWidth = 2.5 * U; strokeBySpeed(g, pt(lr), 0, upRef, i => C.ref.kmh(i), lo, hi); g.lineTo(X(pr.x), Y(pr.z)); g.stroke(); g.setLineDash([]);
+      g.lineWidth = 4 * U; strokeBySpeed(g, pt(lm), 0, upTo, i => C.me.kmh(i), lo, hi); g.lineTo(X(pm.x), Y(pm.z)); g.stroke();
     } else {
       g.lineWidth = 2 * U; g.setLineDash([6 * U, 4 * U]); g.strokeStyle = COL.ref; line(lr, 0, N - 1); g.stroke(); g.setLineDash([]);
       g.strokeStyle = COL.me; line(lm, 0, upTo); g.lineTo(X(pm.x), Y(pm.z)); g.stroke();
