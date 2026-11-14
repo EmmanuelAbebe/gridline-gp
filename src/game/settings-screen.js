@@ -61,9 +61,9 @@ const TABS = [
     seg('tyreTemp', 'Tyre temperature', C.tyreTemp, v => v === 'on'
       ? 'Tyres grip best at 90–110 °C. Off the blankets (70 °C) at the start and after a pit stop they grip less until you warm them up; sliding and wheelspin overheat them. Every car, the AI too.'
       : 'Tyres always grip as if at their best temperature.'),
-    seg('damage', 'Damage', C.damage, v => v === 'on'
-      ? 'Hits break the front wing (understeer), the floor (less downforce) or the suspension (the car pulls). Repaired in the pits.'
-      : 'Hits never damage the car.'),
+    seg('damage', 'Damage', C.damage, v => v === 'realistic'
+      ? 'Light touches cost nothing. A nose-on hit breaks the front wing (understeer: a quarter of it ~1 s a lap, all of it ~4 s), big hits and landings the floor (up to ~1 s), a wheel hit the suspension (the car pulls). Repaired in the pits.'
+      : v === 'light' ? 'The same damage, a third of the cost: you see it, it hardly slows you.' : 'Hits never damage the car.'),
     // active aero and overtake mode (applies from the next race; the overtake trigger at once)
     // driving aids on screen (prefs: at once)
     seg('racingLine', 'Racing line', [['full', 'FULL'], ['braking', 'BRAKING'], ['off', 'OFF']], v => ({

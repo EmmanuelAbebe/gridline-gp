@@ -12,7 +12,7 @@ import { batteryFull, liftNow, lapEnergy } from './energy.js';
 import { attackZone } from './attack.js';
 import { specStats, balanceAt } from './spec-stats.js';
 import { surfaceAt } from './runoff.js';
-import { fuelLaps, lapsToGo, fitTyres, bestCompound, carCondition, laneCentre, laneOuter, alongLane, serviceSteps } from './pit.js';
+import { fuelLaps, lapsToGo, fitTyres, bestCompound, carCondition, addDamage, damageGripK, laneCentre, laneOuter, alongLane, serviceSteps } from './pit.js';
 import { steerLock, tyreCurve, driftAngle } from './chassis.js';
 import { CIRCUITS } from './circuits.js';
 import { DRIVERS } from './drivers.js';
@@ -32,7 +32,7 @@ import { REPLAY, quantizeInput, createReplayRecorder, replayRun } from './replay
 import { SIM_VERSION } from './sim-version.js';
 import { ecuMapOf, gapBehind } from './ecu.js';
 export const SIM = Object.freeze({ SIM_VERSION, ECU, ecuMapOf, gapBehind, REPLAY, quantizeInput, createReplayRecorder, replayRun, TYRE_TEMP, COMPOUNDS, STRATEGY, AIR, hitboxFrom, HITBOX_FIT, fitTyres, bestCompound, tyreSet, tempGrip, axleTempGrip, gripTemp, TUNING, AI, CONTACT, HITBOX, LIMITS, CAR, SLIP, ASSISTS, CHASSIS, HANDBRAKE, SPEED_STEER, STEER_ASSIST, CIRCUITS,
-  SURFACES, OFFTRACK, WALLS, RUNOFF, BARRIER, BARRIERS, ZONE, surfaceAt, PIT, WEAR, fuelLaps, lapsToGo, carCondition, laneCentre, laneOuter, alongLane, serviceSteps,
+  SURFACES, OFFTRACK, WALLS, RUNOFF, BARRIER, BARRIERS, ZONE, surfaceAt, PIT, WEAR, fuelLaps, lapsToGo, carCondition, addDamage, damageGripK, laneCentre, laneOuter, alongLane, serviceSteps,
   steerLock, tyreCurve, driftAngle, DRIVERS, EV, track: DEFAULT_TRACK,
   SETUP, MODS, ACTIVE_AERO, OVERTAKE, ERS, gapAhead, setAeroZones, aeroZonesInMetres, zoneRisk, aeroSafeOf, aiAeroPlan, carSpec, STOCK, stockOf, CLASSES, DEFAULT_CLASS, classOf, aiOf, batteryFull, liftNow, lapEnergy, attackZone, validSetup, validMods, isModified, specStats, balanceAt,
   rpmAt, cornerSpeed, lateralGrip, brakeLimit, brakeMax, tyreGrip, wakeHalfWidth, VEHICLE: VEHICLE_INFO, vehicleInfo, regenRear,

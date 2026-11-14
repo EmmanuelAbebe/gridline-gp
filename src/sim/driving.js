@@ -1,6 +1,7 @@
 // The player's and the AI's driving. Every car is the same car (vehicle.js engine/gearbox/aero, chassis.js tyres);
 // the player and the AI only decide steering, throttle, brake and shifts.
 import { axleTempGrip } from './tyre-temp.js';
+import { damageGripK } from './pit.js';
 import { AI, ASSISTS, TUNING, SPEED_STEER } from './tuning.js';
 import { STOCK, stockOf } from './spec.js';
 import { aiOf } from './ai-profile.js';
@@ -188,7 +189,9 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   c.dirtyK += (wantDirty - c.dirtyK) * Math.min(1, dt / AI.dirtyTime);
   // tyre temperatures (tyre-temp.js) and the compound (COMPOUNDS): it feels its tyres like a driver, cornering on the
   // grip they have now
-  const tempK = race.tyreTemp && c.tyreT ? Math.min(...Object.values(axleTempGrip(c.tyreT))) : 1, compK = c.spec.cls.compounds[c.compound].grip, tyreK = tempK * compK;
+  // (damage: it drives to the grip it has left, like cold tyres: damageGripK is exactly 1 undamaged, 2026-11-14)
+  const tempK = race.tyreTemp && c.tyreT ? Math.min(...Object.values(axleTempGrip(c.tyreT))) : 1, compK = c.spec.cls.compounds[c.compound].grip;
+  const dmgK = race.wear?.damage ? damageGripK(c) : 1, tyreK = dmgK !== 1 ? tempK * compK * dmgK : tempK * compK;
   const dirty = tyreK !== 1 ? c.dirtyK * Math.sqrt(tyreK) : c.dirtyK;
   // (attack mode armed: through the activation zone off its line, at most its cap there: attack.js)
   const zoneLine = attackLine(race, c), zoneK = j => zoneLine && wrapIdx(j - zoneLine.from, N) <= zoneLine.span ? zoneLine.v : Infinity;

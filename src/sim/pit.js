@@ -27,7 +27,7 @@ import { M as FM } from './fmath.js';   // (deterministic sin, cos, atan2, hypot
 /** roadIn / roadOut = the pit roads' outer barrier where the lane starts / ends (m from the centre line)
  * @typedef {{ entry: number, from: number, to: number, exit: number, wallLat: number, lane: number, boxLat: number,
  *   garageLat: number, roadIn: number, roadOut: number, boxes: number[] }} PitLane */
-/** @typedef {{ fuelLaps: number, tyreLaps: number, damage: boolean, burnLap: number }} Wear */
+/** @typedef {{ fuelLaps: number, tyreLaps: number, damage: false | 'light' | 'realistic', burnLap: number }} Wear */
 /** @typedef {{ wing: number, floor: number, susp: number }} Damage */   // each 0..1
 /** @typedef {{ fuel: number, fuelTo: number, wing: boolean, repair: boolean, tyres: boolean, compound: string, keep: { wing: boolean, repair: boolean }, time: number }} Service */
 /** What the crew does at the next stop (the pit box options): tyres = a COMPOUNDS name, 'same' (the compound on the
@@ -53,7 +53,7 @@ export function buildPitLane(track) {
 
 // A car's fuel, tyres, damage and pit-stop state (part of createCar; setupWear fills the tank for the race).
 export const pitState = slot => ({
-  fuel: Infinity, tyreWear: 0, tyreT: /** @type {TyreSet} */ (null), damage: /** @type {Damage} */ ({ wing: 0, floor: 0, susp: 0 }), wingOff: [false, false], pullSide: slot % 2 ? 1 : -1,   // pullSide: where damaged suspension pulls
+  fuel: Infinity, tyreWear: 0, tyreT: /** @type {TyreSet} */ (null), damage: /** @type {Damage} */ ({ wing: 0, floor: 0, susp: 0 }), wingOff: [false, false], dmgK: 1, pullSide: slot % 2 ? 1 : -1,   // pullSide: where damaged suspension pulls
   pit: /** @type {PitStop} */ (null), pitRequest: false, pitLimiter: false, pitStops: 0,
   // the pit limiter by the driver's button (PIT.speeding): limiterAuto false = it is on only while limiterOn
   limiterAuto: true, limiterOn: false,
@@ -68,9 +68,11 @@ export const pitState = slot => ({
 export function setupWear(race, opts = {}) {
   const WEAR = race.carClass.wear;
   const fuelLaps = WEAR.fuel[opts.fuel] ?? 0, tyreLaps = WEAR.tyres[opts.tyres] ?? 0;
-  race.wear = { fuelLaps, tyreLaps, damage: !!opts.damage, burnLap: fuelLaps ? WEAR.tank / fuelLaps : 0 };
+  // damage: false / 'light' / 'realistic' (true = realistic, as before 2026-11-14)
+  race.wear = { fuelLaps, tyreLaps, damage: opts.damage === true ? 'realistic' : opts.damage === 'light' || opts.damage === 'realistic' ? opts.damage : false, burnLap: fuelLaps ? WEAR.tank / fuelLaps : 0 };
   for (const c of race.cars) {
     Object.assign(c, pitState(c.slot));
+    if (race.wear.damage === 'light') c.dmgK = WEAR.damage.light;
     c.fuel = fuelLaps ? Math.min(WEAR.tank, (lapsToGo(race, c) + WEAR.reserve) * race.wear.burnLap) : Infinity;
   }
 }
@@ -119,8 +121,9 @@ export function updateWear(race, c, thr, dt) {
 export function addDamage(race, c, impact, front, hard = 1, wheel = 0) {
   if (!race.wear?.damage || impact * hard < c.spec.cls.wear.damage.min) return;
   const D = c.spec.cls.wear.damage, d = c.damage, e = impact * hard, before = { ...d };
-  d.wing = Math.min(1, d.wing + e * front / D.wing);
-  d.floor = Math.min(1, d.floor + e / D.floor);
+  // (each part only past its own threshold: the wing from the nose's share, the floor from big hits, the suspension a wheel)
+  d.wing = Math.min(1, d.wing + Math.max(0, e * front - D.wingFrom) / D.wing);
+  d.floor = Math.min(1, d.floor + Math.max(0, e - D.floorFrom) / D.floor);
   d.susp = Math.min(1, d.susp + Math.max(0, e - (wheel || D.suspFrom)) / D.susp);
   // a message when a part gets noticeably worse (crossing a quarter step)
   const worst = ['wing', 'floor', 'susp'].find(k => Math.floor(d[k] * D.steps) > Math.floor(before[k] * D.steps));
@@ -131,8 +134,20 @@ export function addDamage(race, c, impact, front, hard = 1, wheel = 0) {
 export function carCondition(c) {
   const { wear: WEAR, compounds: COMPOUNDS } = c.spec.cls, d = c.damage, D = WEAR.damage, w = c.tyreWear || 0, k = COMPOUNDS[c.compound].grip;
   if (!d) return { grip: k, front: 1, aero: 1, drag: 1, pull: 0, power: 1 };
-  return { grip: (1 - WEAR.drop * w * w) * (1 - D.suspGrip * d.susp) * k, front: 1 - D.wingLoss * d.wing, aero: 1 - D.floorLoss * d.floor,
-    drag: 1 + D.floorDrag * d.floor, pull: D.suspPull * d.susp * c.pullSide, power: c.fuel > 0 ? 1 : WEAR.limp };
+  const s = c.dmgK ?? 1;                    // (the race's damage level: LIGHT = D.light of each cost; createCar / setupWear)
+  return { grip: (1 - WEAR.drop * w * w) * (1 - D.suspGrip * s * d.susp) * k, front: 1 - D.wingLoss * s * d.wing, aero: 1 - D.floorLoss * s * d.floor,
+    drag: 1 + D.floorDrag * s * d.floor, pull: D.suspPull * s * d.susp * c.pullSide, power: c.fuel > 0 ? 1 : WEAR.limp };
+}
+
+// how much of its cornering grip a damaged car still has (driving.js: the AI drives to it, like cold tyres; exactly 1 undamaged):
+// the suspension's grip × the floor's downforce left (downforce ≈ `aeroShare` of the grip) × the front's: a broken wing makes
+// the car front-limited, its front axle's grip down by `frontShare` of the wing's loss (its downforce is most of the
+// front's load at speed)
+/** @param {Car} c */
+export function damageGripK(c) {
+  const D = c.spec.cls.wear.damage, d = c.damage, s = c.dmgK ?? 1;
+  if (!d || (!d.wing && !d.floor && !d.susp)) return 1;
+  return (1 - D.suspGrip * s * d.susp) * (1 - D.aeroShare * D.floorLoss * s * d.floor) * (1 - D.frontShare * D.wingLoss * s * d.wing);
 }
 
 // ---------- the AI's decision (made each lap before the entry) ----------

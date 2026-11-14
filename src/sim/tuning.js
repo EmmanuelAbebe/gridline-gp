@@ -32,7 +32,7 @@ export const AIR = Object.freeze({ min: 1.0, climb: 0.35, pitchK: 1.3, rollK: 0.
 // The contact solver: `iterations` passes of impulses over a pair's contact points; positions pushed apart along the
 // deepest overlap (+ `slop` m), at most `pushes` times while parts still overlap. Real yaw inertia (CHASSIS.gyration). damageHard = how hard a car feels to hit (walls 1);
 // a tyre hit above `wheelFrom` m/s also bends the suspension (WEAR.damage.susp per m/s over it).
-export const CONTACT = Object.freeze({ iterations: 4, pushes: 3, slop: 0.001, damageHard: 0.8, wheelFrom: 4 });
+export const CONTACT = Object.freeze({ iterations: 4, pushes: 3, slop: 0.001, damageHard: 0.8, wheelFrom: 8 });   // (wheelFrom 4 until 2026-11-14: wheels rubbing bent it)
 
 // The AI drivers (driving.js): they drive the same car as the player, through steering, throttle and brake.
 // (the car's side of the AI: its grip and braking margins, its feel without ABS / traction control, the ALIEN's paces

@@ -238,3 +238,23 @@ test('AI strategy: on a long race with thirsty cars every AI car stops once and 
   const walls = race.cars.reduce((n, c) => n + (seen.get(c)[S.EV.WALL] || 0), 0);
   assert.ok(walls <= 2, `${walls} wall hits`);
 }));
+
+test('damage, realistic and fair (2026-11-14): light touches cost nothing, each part from its own threshold, LIGHT a third of the cost, the AI drives to what is left', () => {
+  const hit = (lvl, impact, front, wheel = 0) => { const race = S.createRace(1, { drivers: S.DRIVERS.slice(0, 1), wear: { damage: lvl } }), c = race.cars[0];
+    S.addDamage(race, c, impact, front, 1, wheel); return { c, cond: S.carCondition(c) }; };
+  // a light nose tap and a side scrape: nothing
+  for (const [i, f] of [[3, 1], [6, 0]]) { const { c } = hit(true, i, f); assert.deepEqual({ ...c.damage }, { wing: 0, floor: 0, susp: 0 }, `${i} m/s, nose ${f}`); }
+  // a nose-on hit at 10 m/s: the wing, a little floor, no suspension
+  const nose = hit('realistic', 10, 1).c.damage;
+  assert.ok(nose.wing > 0.25 && nose.wing < 0.4 && nose.floor < 0.1 && nose.susp === 0, JSON.stringify(nose));
+  // a side hit at 15 m/s: no wing, some floor, the suspension past its threshold
+  const side = hit('realistic', 15, 0).c.damage;
+  assert.ok(side.wing === 0 && side.floor > 0.1 && side.susp > 0, JSON.stringify(side));
+  // LIGHT: the same damage, a third of the cost
+  const real = hit('realistic', 20, 1), light = hit('light', 20, 1);
+  assert.deepEqual({ ...light.c.damage }, { ...real.c.damage });
+  assert.ok(1 - light.cond.front < 0.35 * (1 - real.cond.front) + 1e-9, `${light.cond.front} vs ${real.cond.front}`);
+  // the AI's grip estimate: 1 undamaged, less with a broken wing
+  assert.equal(S.damageGripK(hit('realistic', 0, 0).c), 1);
+  assert.ok(S.damageGripK(real.c) < 0.95);
+});

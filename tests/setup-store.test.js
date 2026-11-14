@@ -53,7 +53,9 @@ test('race from the setup: format, wear, grid, assists, summary', () => {
   assert.deepEqual(raceFormat({ type: 'laps', laps: 5 }), { type: 'laps', laps: 5 });
   assert.deepEqual(raceFormat({ type: 'timed', minutes: 15 }), { type: 'timed', minutes: 15 });
   assert.deepEqual(raceFormat({ type: 'unlimited', laps: 5 }), { type: 'unlimited' });
-  assert.deepEqual(raceWear({ fuel: 'high', tyres: 'off', damage: 'on' }), { fuel: 'high', tyres: 'off', damage: true });
+  assert.deepEqual(raceWear({ fuel: 'high', tyres: 'off', damage: 'realistic' }), { fuel: 'high', tyres: 'off', damage: 'realistic' });
+  assert.equal(raceWear({ damage: 'light' }).damage, 'light'); assert.equal(raceWear({ damage: 'off' }).damage, false);
+  assert.equal(loadSetup(JSON.stringify({ damage: 'on' })).damage, 'realistic', 'the old ON = REALISTIC');
   for (let n = 1; n <= S.DRIVERS.length; n++) {
     const field = buildField(n);
     assert.equal(field.length, n);

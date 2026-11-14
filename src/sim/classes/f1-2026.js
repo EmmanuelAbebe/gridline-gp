@@ -26,9 +26,10 @@ export const HITBOX = Object.freeze({
   mu: Object.freeze({ body: 0.3, wing: 0.3, tyre: 0.8 }),
   restitution: Object.freeze({ body: 0.1, wing: 0.05, tyre: 0.3 }),
   // a front wing is built to break: per touch each half pushes the other car by at most this (m/s, per unit mass), then
-  // it gives way: with damage on it breaks off (c.wingOff; a new nose at the pit stop), else it passes through; the nose
-  // and tyres behind it take the hit
-  wingStrength: 0.8,
+  // it gives way (flexes, passes through); the nose and tyres behind it take the hit. With damage on a half breaks off
+  // (c.wingOff; a new nose at the pit stop) only past `wingBreak` (2026-11-14, user: damage "quite harsh": 0.8 broke it
+  // on a nudge; endplates and flaps take light touches, a whole half goes in a proper hit)
+  wingStrength: 0.8, wingBreak: 4,
 });
 
 // The car: one performance model for every car (player and AI). Accelerations are m/s² per unit mass.
@@ -334,8 +335,14 @@ export const WEAR = Object.freeze({
   fuel: Object.freeze({ off: 0, normal: 8, high: 4 }),            // laps a full tank lasts (0 = no fuel use)
   tyres: Object.freeze({ off: 0, normal: 10, high: 5 }),          // laps until worn out
   drop: 0.18,
-  damage: Object.freeze({ min: 2, wing: 22, floor: 45, susp: 30, suspFrom: 12, wingLoss: 0.6, floorLoss: 0.3, floorDrag: 0.2,
-    suspPull: 0.02, suspGrip: 0.06, steps: 4 }),               // steps: a message each time a part crosses a 1/steps mark
+  // damage (2026-11-14, user: "quite harsh", realistic and fair: a small mistake, a small cost): each part from its own
+  // threshold (m/s of the hit beyond it per whole part): the wing from nose-on hits past wingFrom, the floor only from big
+  // hits / landings past floorFrom (a side scrape costs nothing), the suspension from a wheel hit past suspFrom (walls) or
+  // the contact's own (CONTACT.wheelFrom). Costs: wingLoss of the front downforce (the wing's ~27 % of the car's: heavy
+  // understeer), floorLoss of the downforce + floorDrag, suspension grip + a pull. `light` = the LIGHT level's share of
+  // those costs (you see the damage, it hardly costs).
+  damage: Object.freeze({ min: 3, wing: 22, wingFrom: 3, floor: 40, floorFrom: 8, susp: 30, suspFrom: 12, wingLoss: 0.6, floorLoss: 0.08, floorDrag: 0.03,
+    suspPull: 0.02, suspGrip: 0.06, steps: 4, light: 0.3, aeroShare: 0.6, frontShare: 0.4 }),   // steps: a message each time a part crosses a 1/steps mark
 });
 
 // Tyre temperatures (2026-10-27, tyre-temp.js; user: "tyre temperature vs grip"). Off unless a race asks for it

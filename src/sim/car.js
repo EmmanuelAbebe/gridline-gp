@@ -33,7 +33,7 @@ export function createCar(track, driver, slot, rng, spec = STOCK) {
     // pedals as applied this step (driving.js / pit.js: brake lights, HUD, sound)
     thr: 0, brake: 0,
     // walls and contact (car.js resolveWalls, collide.js); surface under the car (updateSurface)
-    wallHit: false, touching: false, wasTouching: false, wingLoad: [0, 0], climbed: 0,   // collide.js, this touch: each front wing half's push (left, right), how far a wheel has climbed (m/s up)
+    wallHit: false, touching: false, wasTouching: false, wingLoad: [0, 0], wingHit: [0, 0], climbed: 0,   // collide.js, this touch: each front wing half's push (left, right), how far a wheel has climbed (m/s up)
      onKerb: false, offTrack: false, surface: 'track',
     // off track: tyre dirt 0..1, depth in a gravel trap, beached (stuck in gravel, waiting for the marshals);
     // beachClock = race time of the last updateBeached (null before the first)

@@ -135,7 +135,7 @@ function effMass(a, b, mx, mz, ux, uz) {
 /** @param {Race} race */
 export function collide(race) {
   const cars = race.cars, elev = race.track.elev, C = CONTACT, H = race.carClass.hitbox, HB = prepareHitbox(race.hitbox);
-  for (const c of cars) { c.wasTouching = c.touching; if (!c.wasTouching) { c.wingLoad = [0, 0]; c.climbed = 0; } c.touching = false; }
+  for (const c of cars) { c.wasTouching = c.touching; if (!c.wasTouching) { c.wingLoad = [0, 0]; c.wingHit = [0, 0]; c.climbed = 0; } c.touching = false; }
   for (let i = 0; i < cars.length; i++) for (let j = i+1; j < cars.length; j++) {
     const a = cars[i], b = cars[j];
     if ((a.pit && !a.pit.drive) || (b.pit && !b.pit.drive)) continue;   // AI cars on their pit-lane path (pit.js) don't touch
@@ -153,6 +153,8 @@ export function collide(race) {
       t.e = Math.max(H.restitution[t.a.kind], H.restitution[t.b.kind]); t.mu = Math.sqrt(H.mu[t.a.kind] * H.mu[t.b.kind]);
       t.mn = effMass(a, b, t.mx, t.mz, t.nx, t.nz); t.mt = effMass(a, b, t.mx, t.mz, -t.nz, t.nx);
       t.jn = 0; t.jt = 0;
+      // (how hard each front wing half was hit this touch: it breaks off past HITBOX.wingBreak)
+      for (const [c, p] of [[a, t.a], [b, t.b]]) if (p.kind === 'wing') c.wingHit[wingIdx(p)] = Math.max(c.wingHit[wingIdx(p)], t.closing);
     }
     const impact = Math.max(0, ...touch.map(t => t.closing));
     for (const c of [a, b]) { if (!c.wasTouching && !c.touching) emit(c, EV.CONTACT, { impact, with: c === a ? b.code : a.code }); c.touching = true; }
@@ -181,8 +183,8 @@ export function collide(race) {
       const rx = t.mx - c.x, rz = t.mz - c.z, up = Math.min(t.mu * t.jn, Math.max(0, AIR.climb * t.closing - c.climbed));
       if (up > 0) { c.climbed += up; lift(c, up, rx * fx + rz * fz, -rx * fz + rz * fx); }
     }
-    // front wing halves that gave way break off (with damage on: a new nose at the pit stop)
-    if (race.wear?.damage) for (const c of [a, b]) for (const k of [0, 1]) if (!c.wingOff[k] && c.wingLoad[k] >= H.wingStrength) {
+    // front wing halves that gave way in a hit past wingBreak break off (with damage on: a new nose at the pit stop)
+    if (race.wear?.damage) for (const c of [a, b]) for (const k of [0, 1]) if (!c.wingOff[k] && c.wingLoad[k] >= H.wingStrength && c.wingHit[k] >= (H.wingBreak ?? 0)) {
       c.wingOff[k] = true; c.damage.wing = Math.max(c.damage.wing, 0.5 * c.wingOff.filter(Boolean).length);
       emit(c, EV.WING_OFF, { side: k ? 'right' : 'left' });
     }

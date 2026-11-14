@@ -59,7 +59,7 @@ export const raceFormat = s => s.type === 'timed' ? { type: 'timed', minutes: s.
 
 // fuel / tyre / damage choices → createRace's wear option
 // (time trial: none, so every lap is comparable)
-export const raceWear = s => s.type === 'trial' ? {} : { fuel: s.fuel, tyres: s.tyres, damage: s.damage === 'on' };
+export const raceWear = s => s.type === 'trial' ? {} : { fuel: s.fuel, tyres: s.tyres, damage: s.damage === 'off' ? false : s.damage === 'light' ? 'light' : 'realistic' };
 // active aero / overtake mode choices → createRace's options (a class with attack mode, Formula E: the overtake setting
 // is its attack mode, with or without active aero)
 export const raceAero = (s, cls = null) => ({ activeAero: s.aero === 'on', overtake: (s.aero === 'on' || !!cls?.attack) && s.overtake !== 'off' });

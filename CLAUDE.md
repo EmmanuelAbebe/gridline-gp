@@ -1493,6 +1493,25 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   / -last; check-smoke: the screen from the paddock, paused on RUNS (not the pause menu), START / RESUME with another section,
   EXIT PRACTICE and the last session kept.
 
+## Damage, realistic and fair (2026-11-14; user: damage "seems quite harsh … modify it according to reality and game design
+## principles"; agreed: all five points, REALISTIC by default; the HUD display waits for their pick on the canvas "Gridline damage display")
+- Measured before (Harrow, VOS solo, laps with damage set): every hit ≥ 2 m/s damaged the floor wherever it landed (a 6 m/s side
+  scrape = 11 % floor ≈ +0.3 s a lap for the rest of the race; floor 100 % +3 s, mostly drag), a front wing half broke off at
+  0.8 m/s, and front-wing damage cost the AI nothing (it drives under its limit, so lost front grip never slowed it: damaged
+  rivals lapped as fast).
+- Now (pit.js addDamage, the class's WEAR.damage): each part from its own threshold (min 3; wing past `wingFrom` 3 m/s of the
+  nose's share, floor past `floorFrom` 8 (big hits, landings: a side scrape costs nothing), suspension past `suspFrom` 12 on
+  walls / CONTACT.wheelFrom 8 (was 4) on a wheel); a wing half breaks off only in a hit past HITBOX.wingBreak 4 m/s (collide.js
+  c.wingHit; it still gives way at wingStrength 0.8); costs floorLoss 0.08 / floorDrag 0.03 (were 0.3 / 0.2), wing 0.6 of the
+  front downforce, suspension as before. The AI drives to the grip it has left (pit.js `damageGripK`: suspension × floor ×
+  front-limited wing (`frontShare` 0.4), into driving.js tyreK; exactly 1 undamaged). Measured (VOS, no pit): wing 25 % +0.9,
+  50 % +1.8, 100 % +4.5 s; floor 25 % +0.26, 100 % +1.0; suspension 50 % +0.6, 100 % +1.3 s.
+- Levels: createRace wear.damage false / 'light' / 'realistic' (true = realistic); LIGHT = the same damage at `light` 0.3 of
+  each cost (car `dmgK`). Game: Settings → Driving Damage OFF / LIGHT / REALISTIC (default; a saved ON loads as REALISTIC).
+- sim-trace: only the damage race (`pits`) changed. SIM_VERSION changed: the live leaderboard must be redeployed (the game shows
+  OTHER VERSION until then; ranked time trials run without damage, so no lap's time changes). tests/pit.test.js "damage,
+  realistic and fair".
+
 ## Ideas not done yet
 - Online leaderboard with replay validation: `docs/leaderboard-plan.md`. Phase 0 done 2026-10-28: replays
   (`src/sim/replay.js`: the game records the player's quantised inputs + settings changes from lights out; replayRun
