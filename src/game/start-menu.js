@@ -28,7 +28,7 @@ const choiceLabel = (key, v) => RACE_SETUP.choices[key]?.find(c => c[0] === v)?.
 
 export function createStartMenu(ctx) {
   const { game } = ctx, root = $('startOv');
-  let page = null, step = 0, compare = false;    // page: null = home, 'race' | 'trial' | 'board' | 'practice'; compare: the CAR step's
+  let page = null, step = 0, compare = false;    // page: null = home, 'race' | 'trial' | 'board'; compare: the CAR step's
   const ids = Object.keys(SIM.CIRCUITS);
 
   // ---- the circuit list (step 1) and the rules (step 3): built once ----
@@ -79,7 +79,7 @@ export function createStartMenu(ctx) {
     if (page === 'board' && next !== 'board') ctx.leaderboard.hide();
     page = next; step = next === 'race' ? at : 0;
     $('mnHome').hidden = !!page; $('mnSection').hidden = !page;
-    $('pageRace').hidden = page !== 'race'; $('pageTrial').hidden = page !== 'trial'; $('lbOv').hidden = page !== 'board'; $('pagePractice').hidden = page !== 'practice';
+    $('pageRace').hidden = page !== 'race'; $('pageTrial').hidden = page !== 'trial'; $('lbOv').hidden = page !== 'board';
     if (page === 'race' && game.setup.type === 'trial') ctx.setType('laps');
     if (page === 'trial' && game.setup.type !== 'trial') ctx.setType('trial');
     if (page === 'board') ctx.leaderboard.show(() => show(null));
@@ -88,7 +88,7 @@ export function createStartMenu(ctx) {
   }
   function goStep(k) { step = Math.max(0, Math.min(STEPS - 1, k)); refresh(); focusFirst(); }
   const focusFirst = () => requestAnimationFrame(() => {
-    const target = !page ? $('contGo') : page === 'race' ? document.querySelector(`#raceSteps [data-step="${step}"]`) : page === 'trial' ? $('trialGo') : page === 'practice' ? $('prGo').offsetParent ? $('prGo') : $('prGo2') : $('lbClose');
+    const target = !page ? $('contGo') : page === 'race' ? document.querySelector(`#raceSteps [data-step="${step}"]`) : page === 'trial' ? $('trialGo') : $('lbClose');
     if (root.hidden) return;
     target?.focus({ preventScroll: true });
   });
@@ -134,7 +134,6 @@ export function createStartMenu(ctx) {
     // time trial
     $('trialTitle').textContent = `Time trial · ${name}`;
     $('trialGo').textContent = `Drive · chase ${ctx.ghostName()}`;
-    if (page === 'practice') ctx.practice().render();
   }
   // the Continue tile's map: slides in from the side of the circuit picked (the shorter way round), the old one out
   function showMap(id) {
@@ -193,8 +192,7 @@ export function createStartMenu(ctx) {
   $('tileTrial').onclick = () => show('trial');
   $('padStatus').onclick = () => ctx.openSettings('controller');
   $('trialBack').onclick = () => show(null);
-  $('prBack').onclick = () => show(null);
-  $('practiceBtn').onclick = () => show('practice');
+  $('practiceBtn').onclick = () => ctx.openPractice();     // (practice: its own screen, practice.js)
   for (const b of document.querySelectorAll('#raceSteps button')) b.onclick = () => goStep(+b.dataset.step);
   $('raceNext').onclick = () => goStep(step + 1);
   $('raceBack').onclick = () => back();

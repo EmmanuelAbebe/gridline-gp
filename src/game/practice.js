@@ -1,15 +1,16 @@
-// Practice mode (2026-11-12; user: "practise specific turns and sections of a circuit, timed, against the AI or yourself";
-// then, of the canvas mock-ups "Gridline practice mode": "i love all the moc practice screens implement them as is").
-// The four screens: A = the start menu's practice page ON THE MAP (drag the ring / square, quick picks, the choices),
-// B = BY CORNER (where your best lap loses time to the ALIEN, tick corners to join them), C = on track (a run's clock,
-// its parts, the runs so far, where your best and the ALIEN brake, the ghost), D = the summary after the runs.
-// A run: your car is put PRACTICE.lead m before the ring at your best lap's speed and gear there (or from rest just
-// before it), held a moment, then timed from the ring to the square; it goes back by itself when you finish or go off
+// Practice mode (2026-11-12; user: "practise specific turns and sections of a circuit, timed, against the AI or yourself").
+// 2026-11-14 (the user's pick of the canvas "Gridline analysis & practice screens", H1–H3): one practice screen
+// (#pracHubOv) is the page from the paddock, the pause screen while practising and the runs' analysis: tabs SECTION (the
+// map with the ring / square, quick picks, the corners where you lose time to tick, the choices), RUNS, COMPARE, TELEMETRY,
+// CORNER (practice-analysis.js); a strip with the session's numbers; the actions for the state it is in. The session (your
+// runs per section and start) is saved and kept until START PRACTICE from the paddock starts a new one.
+// On track: your car is put PRACTICE.lead m before the ring at your best lap's speed and gear there (or from rest just
+// before it), waits at READY, then is timed from the ring to the square; it goes back by itself when you finish or go off
 // (or you drive on round to the next one). Nothing of it counts for lap records, ghosts or the leaderboard.
 // The pure part (sections, parts, runs, numbers, saving): practice-core.js.
-// ctx: { game, track() (the menu's circuit), sectors (sector-timing.js), aiLapOf(id, aero), start() (a practice race:
-//   main.js newRace), toMenu(), menuPage() (the start menu's practice page), startTrial(), compare(trace, label),
-//   setMinimapSection(sec | null), snap(c) (the camera on the car at once), showMessage(m) }
+// ctx: { game, track() (the circuit), sectors (sector-timing.js), aiLapOf(id, aero), start() (a practice race: main.js
+//   newRace), toMenu(), startTrial(), resume() / unpause() (leave the pause), openSettings(), circuit(d), pickClass(id),
+//   setMinimapSection(sec | null), snap(c), showMessage(m), setRacingLine(line) }
 import * as THREE from 'three';
 import { SIM } from '../sim/index.js';
 import { CONFIG, PHASE } from './config.js';
@@ -19,7 +20,6 @@ import { Display } from './display.js';
 import { Design } from './design.js';
 import { CarModels } from './car-models.js';
 import { Hud } from './hud.js';
-import { Screens } from './screens.js';
 import { Input } from './input.js';
 import { roadPose, savePoses } from './pose.js';
 import { playerDriver } from './garage-store.js';
@@ -35,7 +35,6 @@ import { createPracticeAnalysis } from './practice-analysis.js';
 const { EV } = SIM;
 const KEY = CONFIG.storageKeys.practice;
 const MAP = { w: 720, h: 560, pad: 34 };              // the map's drawing box (A), scaled to fit
-const SMALL = { w: 356, h: 240, pad: 14 };            // B's map
 const AGAINST = { best: 'YOUR BEST RUN', alien: 'ALIEN GHOST', legend: 'LEGEND GHOST', none: 'NOBODY' };
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 const svgEl = (tag, attrs = {}) => { const e = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
@@ -55,7 +54,7 @@ export function createPractice(ctx) {
     for (const b of Object.values(store.best)) if (b) delete b.s;
     put();
   };
-  let view = 'map', sec = null, data = null, dataFor = '', aiTimer = 0;
+  let sec = null, data = null, dataFor = '', aiTimer = 0;
 
   // ---- the menu's data for its circuit: the split, your best lap, the ALIEN's (else LEGEND's), corner by corner ----
   function menuData() {
@@ -194,13 +193,12 @@ export function createPractice(ctx) {
     return words.join(' · ');
   }
   function render() {
-    if ($('pagePractice').hidden) return;
-    const D = menuData(), S = sectionNow(), T = D.T, cls = playerClass();
-    $('prCirc').textContent = `${T.name} · ${(T.N * T.ds / 1000).toFixed(2)} km`;
-    // the car: every class, the picked one marked (main.js pickClass: its own setup, records and AI laps follow)
-    $('prCar').replaceChildren(...allClasses().map(c => chip(classUi(c).name, c === cls, () => { ctx.pickClass(c.id); render(); })));
-    $('prTabMap').setAttribute('aria-pressed', String(view === 'map')); $('prTabCorners').setAttribute('aria-pressed', String(view === 'corners'));
-    $('prMapView').hidden = view !== 'map'; $('prCornerView').hidden = view !== 'corners';
+    if ($('pracHubOv').hidden) return;
+    renderHub();
+  }
+  // the SECTION tab: the map, your section, the corner list to tick, the choices
+  function renderSection() {
+    const D = menuData(), S = sectionNow(), T = D.T;
     const name = P.sectionName(D.L, S, T.ds), b = yourBest(D, S), parts = P.partsOf(D.L, S);
     const ref = D.ref ? P.lapParts(D.ref, S, parts, T.N) : null, refT = ref && Number.isFinite(ref.time) ? ref.time : null;
     // the quick picks: the three sectors, the whole lap, the stretch you lose most on
@@ -212,51 +210,35 @@ export function createPractice(ctx) {
       chip('WHOLE LAP', S.from === 0 && S.to === 0, () => setSection(0, 0)),
       ...(weak ? [chip(`MY WEAKEST: ${P.sectionName(D.L, weak, T.ds)}`, same(weak), () => setSection(weak.from, weak.to))] : []));
     drawMap($('prMap'), MAP, true);
+    $('prSecLbl').textContent = mode === 'paused' && !sameAsRun() ? 'NEW SECTION' : 'YOUR SECTION';
     $('prName').textContent = name; $('prSub').textContent = sectionWords(D, S);
     const tile = (label, value, cls2 = '') => { const t = el('div', 'pr-tile'); t.append(el('span', 'lbl', label), el('b', cls2, value)); return t; };
     const gap = b.time !== null && refT !== null ? b.time - refT : NaN;
     $('prTiles').replaceChildren(tile('YOUR BEST', b.time === null ? '—' : s3(b.time)), tile(refLabel(), refT === null ? (D.aiDone ? '—' : '…') : s3(refT), 'purple'),
       tile('GAP', Number.isFinite(gap) ? sign(gap) : '—', gap > 0 ? 'red' : gap < 0 ? 'green' : ''));
     $('prStart').replaceChildren(chip('ROLLING', opts.start === 'rolling', () => setOpt('start', 'rolling')), chip('STANDING', opts.start === 'standing', () => setOpt('start', 'standing')));
-    $('prStartNote').textContent = opts.start === 'rolling' ? `You join ${P.PRACTICE.lead} m before the ring at your best lap's speed and gear, tyres warm.` : 'From rest just before the ring, tyres warm.';
-    $('prAgainst').replaceChildren(...Object.entries(AGAINST).map(([k, t]) => chip(t, opts.against === k, () => setOpt('against', k))));
-    $('prAfter').replaceChildren(chip('BACK TO THE START', opts.after === 'reset', () => setOpt('after', 'reset')), chip('DRIVE ON', opts.after === 'drive', () => setOpt('after', 'drive')));
-    // B: corner by corner
-    renderCorners(D, S, name);
-    $('prGo').textContent = 'START PRACTICE';
-    $('prGo2').textContent = `PRACTISE ${name}`;
+    $('prAgainst').replaceChildren(...Object.entries(AGAINST).map(([k, t]) => chip(t.replace(' GHOST', '').replace('YOUR ', ''), opts.against === k, () => setOpt('against', k))));
+    $('prAfter').replaceChildren(chip('BACK TO START', opts.after === 'reset', () => setOpt('after', 'reset')), chip('DRIVE ON', opts.after === 'drive', () => setOpt('after', 'drive')));
+    renderCorners(D, S);
   }
-  function renderCorners(D, S, name) {
-    const T = D.T, rows = D.rows, picked = new Set(P.cornersIn(D.L, S)), rn = refLabel();
-    $('prRefHead').textContent = rn; $('prSlowHead').textContent = `SLOWEST · YOU / ${rn}`;
-    $('prVsNote').textContent = D.best ? `your best lap vs the ${rn}, corner by corner (braking point to the next one) · in lap order` : `no lap of yours here yet: the ${rn}'s times`;
+  // the corner list (where your best lap loses time to the AI, in lap order): tick corners to join them into a section
+  function renderCorners(D, S) {
+    const rows = D.rows, picked = new Set(P.cornersIn(D.L, S)), rn = refLabel();
+    $('prSlowHead').textContent = `SLOWEST · YOU / ${rn}`;
     const gaps = rows.map(r => r.gap).filter(Number.isFinite), most = Math.max(0.001, ...gaps), worst = rows.filter(r => r.gap > 0).reduce((a, r) => !a || r.gap > a.gap ? r : a, null);
     $('prRows').replaceChildren(...rows.map(r => {
       const b = el('button', 'pr-crow'); b.type = 'button'; b.setAttribute('aria-pressed', String(picked.has(r.k)));
       const kmh = v => Number.isFinite(v) ? Math.round(v) : '—';
       const loss = el('span', 'loss');
-      if (r.gap > 0) { const bar = el('i', 'bar'); bar.style.width = Math.max(4, r.gap / most * 70) + 'px'; loss.append(bar); if (r === worst) loss.append(el('span', 'tagw', 'WEAKEST')); }
+      if (r.gap > 0) { const bar = el('i', 'bar'); bar.style.width = Math.max(4, r.gap / most * 60) + 'px'; loss.append(bar); if (r === worst) loss.append(el('span', 'tagw', 'WEAKEST')); }
       else if (r.gap <= 0) loss.append(el('span', 'fast', 'FASTER'));
-      b.append(el('span', 'tick', picked.has(r.k) ? '✓' : ''), el('span', 'nm', r.name), el('span', 'slow', `${kmh(r.youMin)} / ${kmh(r.refMin)} km/h`),
-        el('span', 'r', s3(r.you)), el('span', 'r', s3(r.ref)), el('span', 'r ' + (r.gap > 0 ? 'red' : r.gap < 0 ? 'green' : ''), Number.isFinite(r.gap) ? sign(r.gap) : '—'), loss);
+      b.append(el('span', 'tick', picked.has(r.k) ? '✓' : ''), el('span', 'nm', r.name), el('span', 'slow', `${kmh(r.youMin)} / ${kmh(r.refMin)}`),
+        el('span', 'r ' + (r.gap > 0 ? 'red' : r.gap < 0 ? 'green' : ''), Number.isFinite(r.gap) ? sign(r.gap) : '—'), loss);
       b.onclick = () => tick(r.k);
       return b;
     }));
-    drawMap($('prMapSmall'), SMALL, false);
-    const ks = P.cornersIn(D.L, S);
-    $('prPicked').textContent = ks.length ? ks.map(k => D.L.corners[k].name).join(' · ') : name;
-    const m = Math.round(P.lengthOf(S, T.N) * T.ds), lose = ks.reduce((a, k) => a + (Number.isFinite(rows[k].gap) ? rows[k].gap : 0), 0);
-    const total = rows.reduce((a, r) => a + (Number.isFinite(r.gap) ? r.gap : 0), 0);
-    $('prPickedSub').textContent = D.best && D.ref ? `${m} m · you ${lose >= 0 ? 'lose' : 'gain'} ${Math.abs(lose).toFixed(3)} s here${lose > 0 && total > 0 ? `: ${Math.round(lose / total * 100)} % of your gap to the ${rn}` : ''}` : `${m} m`;
-    const wk = P.weakestOf(rows, ks), words = wk === null ? [] : P.cornerWords(rows[wk].me, rows[wk].other);
-    const box = $('prCornerBox');
-    box.replaceChildren(...(words.length ? [el('span', 'lbl', `IN ${rows[wk].name}, AGAINST THE ${rn}`), ...words.map(([a, v]) => { const d = el('div'); d.append(el('span', '', a), el('b', '', v)); return d; })] : []));
-    const order = Object.keys(AGAINST), next = order[(order.indexOf(opts.against) + 1) % order.length];
-    $('prQuickOpts').replaceChildren(chip(opts.start === 'rolling' ? 'ROLLING' : 'STANDING', true, () => setOpt('start', opts.start === 'rolling' ? 'standing' : 'rolling')),
-      chip(opts.against === 'none' ? 'NO GHOST' : `VS ${({ best: 'BEST RUN', alien: 'ALIEN', legend: 'LEGEND' })[opts.against]}`, opts.against !== 'none', () => setOpt('against', next)),
-      chip('MORE ›', false, () => { view = 'map'; render(); }));
   }
-  // B's ticks: a corner next to the picked ones joins them, an end one drops off, any other starts afresh
+  // the corner list's ticks: a corner next to the picked ones joins them, an end one drops off, any other starts afresh
   function tick(k) {
     const D = menuData(), C = D.L.corners.length, ks = P.cornersIn(D.L, sectionNow());
     let a = ks[0], b = ks[ks.length - 1];
@@ -268,10 +250,6 @@ export function createPractice(ctx) {
     else a = b = k;
     const S = P.sectionFromCorners(D.L, a, b); setSection(S.from, S.to);
   }
-  $('prTabMap').onclick = () => { view = 'map'; render(); };
-  $('prTabCorners').onclick = () => { view = 'corners'; render(); };
-  $('prGo').onclick = $('prGo2').onclick = () => { sectionNow(); ctx.start(); };
-
   // ---- C: on track ----
   const ghost = CarModels.create(Display.scene, playerDriver(game.garage), Design.data.car);
   ghost.setMaterials(CarModels.ghostMaterials()); ghost.setShadows(false); ghost.setVisible(false);
@@ -324,7 +302,7 @@ export function createPractice(ctx) {
     R.ghostOf = ghostOf; R.ghostIdx = SIM.wrapIdx(S.from - lead, N);
     if (livery) ghost.setLivery(livery);
     // where your best (this session's best run, else your best lap) and the AI brake for each corner
-    const mine = best ? P.runAsTrace(best.run, S) : R.bestLap, other = R.alien || R.legend;
+    const mine = best ? P.runAsTrace(best.run, S, N) : R.bestLap, other = R.alien || R.legend;
     R.brakes = { mine: mine ? cornerMetrics(mine, R.L, T.ds) : null, other: other ? cornerMetrics(other, R.L, T.ds) : null, otherName: R.alien ? 'ALIEN' : 'LEGEND' };
     R.bestRun = best;
     // the racing line on the road (pref racingLine): the car you chase. An AI ghost = its lap; your best run = that run on
@@ -384,7 +362,7 @@ export function createPractice(ctx) {
   function finish() {
     const run = R.rec.run, time = P.runTime(run, R.lead + R.len), parts = P.runParts(run, R.parts), r = { time, parts, off: null, run };
     const d = time - R.ref.total;
-    R.runs.push(r); R.last = r;
+    R.runs.push(r); R.last = r; saveSession();
     if (!R.saved || time < R.saved.time) {
       const before = R.saved?.time ?? null;
       store.best[R.key] = P.packRun(r); save();
@@ -397,7 +375,7 @@ export function createPractice(ctx) {
     const run = R.rec.run;
     if (Number.isFinite(run.ring)) {
       const parts = P.runParts(run, R.parts), at = R.rec.last - R.lead, p = R.parts.find(q => at >= q.a && at < q.b) ?? R.parts[R.parts.length - 1];
-      R.runs.push({ time: null, parts, off: why || p.name, run });
+      R.runs.push({ time: null, parts, off: why || p.name, run }); saveSession();
       ctx.showMessage({ toast: `Off at ${why || p.name}`, kind: 'warn', secs: 1.2 });
     }
     next(P.PRACTICE.offReset);
@@ -416,6 +394,14 @@ export function createPractice(ctx) {
       alien: traceFromAi(ctx.aiLapOf('alien', race.activeAero)), legend: traceFromAi(ctx.aiLapOf('legend', race.activeAero)),
       against: opts.against, after: opts.after, runs: [], startT: performance.now(), savedBefore: null, state: 'ready', shown: -1, hudT: 0 };
     R.savedBefore = R.saved?.time ?? null;
+    // the session: START PRACTICE from the paddock starts a new one (the last one is kept until then); a section picked
+    // while paused joins this one (its runs kept apart, per section and start)
+    if (fresh || !session || session.circuit !== T.id || session.car !== race.carClass.id) session = { v: 1, circuit: T.id, car: race.carClass.id, at: Date.now(), entries: [] };
+    fresh = false;
+    let e = entryOf(S, opts.start);
+    if (!e) { e = { from: S.from, to: S.to, start: opts.start, runs: [] }; session.entries.push(e); }
+    R.entry = e; R.runs = runsOf(e, T); viewCache = null;
+    saveSession();
     R.lapBefore = R.bestLap ? P.lapParts(R.bestLap, R.sec, R.parts, T.N).time : null;
     // no lights, no rival, no recorded ghost of a lap: practice is yours alone
     Object.assign(game, { phase: PHASE.RACE, trial: false, rival: null, ghost: null, ghostStart: null });
@@ -515,123 +501,216 @@ export function createPractice(ctx) {
     hud(w, tau, delta);
   }
   function hud(w, tau, delta) {
-    const live = R.state === 'run' || R.state === 'lead' || R.state === 'ready', last = R.runs[R.runs.length - 1];
-    $('prHRun').textContent = `RUN ${R.runs.length + (live ? 1 : 0)}`;
+    const last = R.runs[R.runs.length - 1];
+    // between runs (READY after a run: the canvas H4a): the box keeps the last run, each part against the run before
+    const between = R.state === 'ready' && !!last;
+    const live = !between && (R.state === 'run' || R.state === 'lead' || R.state === 'ready');
+    const S = P.sessionStats(R.runs), n = R.runs.length;
+    const prevOf = j => { for (let k = n - 2; k >= 0; k--) if (Number.isFinite(R.runs[k].parts[j])) return R.runs[k].parts[j]; return NaN; };
+    const before = Math.min(R.savedBefore ?? Infinity, ...R.runs.slice(0, -1).map(r => r.time).filter(Number.isFinite));
+    $('prHRun').textContent = between ? `LAST RUN · ${n}` : `RUN ${n + (live ? 1 : 0)}`;
     const shown = R.state === 'run' ? tau.toFixed(2) : live ? '0.00' : last ? (Number.isFinite(last.time) ? s3(last.time) : 'OFF') : '0.00';
     $('prHTime').textContent = shown;
-    const d = R.state === 'run' ? delta : !live && last && Number.isFinite(last.time) ? last.time - R.ref.total : NaN;
+    $('prHTime').className = 'num' + (between && Number.isFinite(last.time) && n - 1 === S.bestIndex ? ' purple' : '');
+    const d = R.state === 'run' ? delta : between ? (Number.isFinite(last.time) && Number.isFinite(before) ? last.time - before : NaN)
+      : !live && last && Number.isFinite(last.time) ? last.time - R.ref.total : NaN;
     $('prHDelta').textContent = Number.isFinite(d) ? sign(d, 2) : '';
     $('prHDelta').className = 'num ' + (d < 0 ? 'green' : d > 0 ? 'red' : '');
     // the parts: done = coloured, the one you are in = how far through, still to come = grey; their times under them
     const runs = live ? [...R.runs, { parts: R.parts.map((p, k) => P.runTime(R.rec.run, R.lead + p.b) - P.runTime(R.rec.run, R.lead + p.a)), time: null, off: null }] : R.runs;
     const k = runs.length - 1, cur = runs[k], at = w - R.lead;
+    const vsBefore = j => { const t = cur?.parts[j], p0 = prevOf(j); return Number.isFinite(t) && Number.isFinite(p0) ? t - p0 : NaN; };
     const bars = R.parts.map((p, j) => {
       const i = el('i'), t = cur?.parts[j]; i.style.flex = String(Number.isFinite(R.ref.parts[j]) ? R.ref.parts[j] : p.b - p.a);
-      if (Number.isFinite(t)) i.className = P.partColour(runs, k, j);
+      if (between && Number.isFinite(vsBefore(j))) i.className = vsBefore(j) <= 0 ? 'green' : 'red';
+      else if (Number.isFinite(t)) i.className = P.partColour(runs, k, j);
       else if (cur?.off && !live) i.className = 'off';
       else if (live && at >= p.a && at < p.b) { const u = el('u'); u.style.width = ((at - p.a) / (p.b - p.a) * 100).toFixed(0) + '%'; i.append(u); }
       return i;
     });
     $('prHBars').replaceChildren(...bars);
-    $('prHLabels').replaceChildren(...R.parts.map((p, j) => { const t = cur?.parts[j]; return el('span', Number.isFinite(t) ? P.partColour(runs, k, j) : '', `${p.name} ${Number.isFinite(t) ? s3(t) : '…'}`); }),
-      el('span', '', Number.isFinite(R.ref.total) ? `vs ${R.ref.name === 'BEST' ? 'best' : R.ref.name} ${s3(R.ref.total)}` : 'first run sets your best'));
-    // the runs so far (the last few) and the one going on
-    if (R.shown !== R.runs.length + (live ? 0.5 : 0)) {
-      R.shown = R.runs.length + (live ? 0.5 : 0);
-      const S = P.sessionStats(R.runs), from = Math.max(0, R.runs.length - P.PRACTICE.listed + (live ? 1 : 0));
+    $('prHLabels').replaceChildren(...R.parts.map((p, j) => {
+      const t = cur?.parts[j], dv = vsBefore(j);
+      if (between && Number.isFinite(dv)) return el('span', dv <= 0 ? 'green' : 'red', `${p.name} ${sign(dv, 2)}`);
+      return el('span', Number.isFinite(t) ? P.partColour(runs, k, j) : '', `${p.name} ${Number.isFinite(t) ? s3(t) : '…'}`);
+    }), el('span', '', between ? (Number.isFinite(before) ? `vs best ${s3(before)}` : 'your first run here') : Number.isFinite(R.ref.total) ? `vs ${R.ref.name === 'BEST' ? 'best' : R.ref.name} ${s3(R.ref.total)}` : 'first run sets your best'));
+    // the runs so far (the last few) and the one going on; between runs the last one opened into its parts (the side list)
+    const mark = n + (live ? 0.5 : 0) + (between ? 0.25 : 0);
+    if (R.shown !== mark) {
+      R.shown = mark;
+      const from = Math.max(0, n - P.PRACTICE.listed + (live ? 1 : 0));
       const rows = R.runs.slice(from).map((r, j) => {
-        const n = from + j, d2 = el('div', n === S.bestIndex ? 'best' : '');
-        d2.append(el('span', '', String(n + 1)), Number.isFinite(r.time) ? el('span', '', s3(r.time) + (n === S.bestIndex ? ' ★' : '')) : el('s', '', `OFF · ${r.off}`));
+        const m = from + j, d2 = el('div', m === S.bestIndex ? 'best' : '');
+        d2.append(el('span', '', String(m + 1)), Number.isFinite(r.time) ? el('span', '', s3(r.time) + (m === S.bestIndex ? ' ★' : '')) : el('s', '', `OFF · ${r.off}`));
         return d2;
       });
-      if (live) { const d2 = el('div', 'now'); d2.append(el('span', '', String(R.runs.length + 1)), el('span', '', 'running')); rows.push(d2); }
+      if (live) { const d2 = el('div', 'now'); d2.append(el('span', '', String(n + 1)), el('span', '', 'running')); rows.push(d2); }
+      if (between) {
+        const sp = el('div', 'pr-hsplit');
+        sp.append(el('span', 'lbl', `RUN ${n}`), el('span', 'lbl r', 'TIME'), el('span', 'lbl r', n > 1 ? `VS RUN ${n - 1}` : ''));
+        R.parts.forEach((p, j) => { const t = last.parts[j], dv = vsBefore(j);
+          sp.append(el('span', '', p.name), el('span', 'r', Number.isFinite(t) ? s3(t) : last.off === p.name ? 'off' : '—'), el('span', 'r ' + (dv < 0 ? 'green' : dv > 0 ? 'red' : ''), Number.isFinite(dv) ? sign(dv, 2) : '')); });
+        rows.push(sp);
+      }
       $('prHRuns').replaceChildren(...rows);
-      $('pracHint').innerHTML = `<span><b>Y</b> RESTART RUN</span><span><b>X</b> SWITCH GHOST</span><span><b>≡</b> PAUSE · CHANGE SECTION</span><span>${R.after === 'reset' ? 'back to the start by itself when you finish or go off' : 'drive on round for the next run'}</span>`;
+      $('pracHint').innerHTML = `<span><b>Y</b> RESTART RUN</span><span><b>X</b> SWITCH GHOST</span><span><b>≡</b> PAUSE · PRACTICE SCREEN</span><span>${R.after === 'reset' ? 'back to the start by itself when you finish or go off' : 'drive on round for the next run'}</span>`;
     }
   }
 
-  // ---- D: the summary ----
-  function summary() {
-    if (!R) return;
-    Object.assign(game, { paused: false, ended: true, resultsShown: true });
-    ghost.setVisible(false); mineStrip.visible = refStrip.visible = false;
-    for (const id of ['prTagGhost', 'prTagMine', 'prTagRef']) $(id).hidden = true;
-    const S = P.sessionStats(R.runs), T = R.T, mins = Math.max(1, Math.round((performance.now() - R.startT) / 60000));
-    $('prSumTitle').textContent = `Practice · ${R.name}`;
-    $('prSumCtx').textContent = `${T.name} · ${R.runs.length} run${R.runs.length === 1 ? '' : 's'} · ${mins} min`.toUpperCase();
-    const tile = (label, value, sub, cls = '') => { const t = el('div', 'pr-tile'); t.append(el('span', 'lbl', label), el('b', cls, value), el('small', '', sub)); return t; };
-    const ai = R.alien || R.legend, aiName = R.alien ? 'ALIEN' : 'LEGEND', aiT = ai ? P.lapParts(ai, R.sec, R.parts, T.N).time : NaN;
-    const before = [R.savedBefore, R.lapBefore].filter(Number.isFinite), was = before.length ? Math.min(...before) : null;
-    const now = S.best !== null ? Math.min(S.best, was ?? Infinity) : was;
-    const runsOf = S.ofEachRuns.map((k, p) => k >= 0 ? `${R.parts[p].name} run ${k + 1}` : '').filter(Boolean).join(', ');
-    $('prSumTiles').replaceChildren(
-      tile('BEST RUN', S.best === null ? '—' : s3(S.best), S.best === null ? 'no clean run yet' : was === null ? 'your first best here' : `${sign(S.best - was)} on your old best`, 'purple'),
-      tile('AVERAGE', S.avg === null ? '—' : s3(S.avg), `${S.clean} clean run${S.clean === 1 ? '' : 's'} of ${S.runs}`),
-      tile('SPREAD', S.spread === null ? '—' : S.spread.toFixed(2), S.last3 === null ? 'fastest to slowest' : `last 3 runs within ${S.last3.toFixed(2)}`),
-      tile('BEST OF EACH CORNER', S.ofEach === null ? '—' : s3(S.ofEach), runsOf || '—'),
-      tile(aiName, Number.isFinite(aiT) ? s3(aiT) : '—', Number.isFinite(aiT) && was !== null ? `${sign(was - aiT)} → ${sign(now - aiT)} now` : Number.isFinite(aiT) && now !== null ? `${sign(now - aiT)} now` : ''));
-    const cols = `50px repeat(${R.parts.length}, minmax(0, 1fr)) 110px`;
+  // ---- the session: your runs per section, saved, kept until you start a new practice (2026-11-14, user) ----
+  // { v, circuit, car (class id), at (ms), entries: [{ from, to, start, runs }] }; a run as saved = packRun + off. In memory
+  // each entry's runs are { time, parts, off, run } once read (unpacked when first used on its circuit)
+  const SKEY = CONFIG.storageKeys.practiceSession;
+  let session = (() => { try { const s = JSON.parse(Settings.get(SKEY)); return s && s.v === 1 && Array.isArray(s.entries) ? s : null; } catch (e) { return null; } })();
+  const packR = r => ({ ...P.packRun({ time: r.time, parts: r.parts, run: r.run }), off: r.off || null });
+  function runsOf(e, T) {
+    if (!e.packed) return e.runs;
+    const standing = e.start === 'standing', lead = P.leadSamples(T, standing), len = P.lengthOf(e, T.N);
+    e.runs = e.packed.map(b => { const u = P.unpackRun({ ...b, time: b.time ?? 1 }, lead, len);
+      return u && u.run ? { time: b.time ?? null, parts: (b.parts || []).map(v => v ?? NaN), off: b.off || null, run: u.run } : null; }).filter(Boolean);
+    delete e.packed;
+    return e.runs;
+  }
+  function saveSession() {
+    if (!session) return;
+    const json = drop => JSON.stringify({ ...session, entries: session.entries.map(e => ({ from: e.from, to: e.to, start: e.start,
+      packed: e.packed ?? e.runs.map(r => { const b = packR(r); if (drop > 0) delete b.tel; if (drop > 1) delete b.s; return b; }) })) });
+    // (storage full: the runs' telemetry goes, then their per-sample runs; the times and ghosts stay)
+    for (const drop of [0, 1, 2]) if (Settings.set(SKEY, json(drop))) return;
+  }
+  const sessionHere = () => !!session && session.circuit === ctx.track().id && session.car === playerClass().id;
+  const entryKey = (S, start) => `${S.from}-${S.to}-${start}`;
+  const entryOf = (S, start) => session?.entries.find(e => entryKey(e, e.start) === entryKey(S, start)) ?? null;
+
+  // ---- the practice screen (#pracHubOv): from the paddock (mode 'menu') and as the pause screen while practising ('paused') ----
+  let mode = 'menu', tab = 'section', runsAt = -1, fresh = false, viewCache = null, anaFor = null;
+  const TABS = ['section', 'runs', 'compare', 'telemetry', 'corner'];
+  const sameAsRun = () => !!R && sectionNow().from === R.sec.from && sectionNow().to === R.sec.to && (opts.start === 'standing') === R.standing;
+  // the drives the RUNS / COMPARE / TELEMETRY / CORNER tabs show: one section of the session (the chips); the run in
+  // progress when it is that one
+  function viewNow() {
+    if (!sessionHere()) return null;
+    const e = session.entries[runsAt] ?? session.entries[session.entries.length - 1];
+    if (!e) return null;
+    if (R && R.entry === e) return R;
+    const T = ctx.track(), key = entryKey(e, e.start) + '|' + T.id + '|' + playerClass().id;
+    if (viewCache?.key === key) { viewCache.v.runs = runsOf(e, T); return viewCache.v; }
+    const L = SIM.buildSectors(T), sec = { from: e.from, to: e.to }, standing = e.start === 'standing', lead = P.leadSamples(T, standing), len = P.lengthOf(sec, T.N);
+    const D = menuData(), aero = raceAero(game.setup).activeAero, bkey = P.bestKey(T.id, D.cls, sec, L) + '|' + e.start;
+    const v = { T, L, sec, lead, len, W: lead + len + 1, standing, name: P.sectionName(L, sec, T.ds), parts: P.partsOf(L, sec), runs: runsOf(e, T),
+      saved: P.unpackRun(store.best[bkey], lead, len), alien: traceFromAi(ctx.aiLapOf('alien', aero)), legend: traceFromAi(ctx.aiLapOf('legend', aero)) };
+    v.savedBefore = v.saved?.time ?? null;
+    viewCache = { key, v };
+    return v;
+  }
+  function openHub(m) {
+    mode = m; tab = m === 'paused' ? 'runs' : 'section'; viewCache = null;
+    runsAt = R && session ? session.entries.indexOf(R.entry) : session ? session.entries.length - 1 : -1;
+    if (m === 'paused') { ghost.setVisible(false); for (const id of ['prTagGhost', 'prTagMine', 'prTagRef']) $(id).hidden = true; }
+    anaFor = null;
+    renderHub();
+  }
+  function setTab(t) { tab = t; renderHub(); }
+  function renderHub() {
+    const paused = mode === 'paused', V = viewNow(), has = !!(V && V.runs.length);
+    // (the analysis's drives afresh only when they change: its picks stay while you switch tabs)
+    const sig = V ? `${V.name}|${V.runs.length}|${V === R}|${V.T.id}` : '';
+    if (sig !== anaFor) { anaFor = sig; ana.reset(); }
+    for (const b of $('prHubTabs').children) { b.setAttribute('aria-pressed', String(b.dataset.t === tab)); b.disabled = b.dataset.t !== 'section' && !has; }
+    if (tab !== 'section' && !has) tab = 'section';
+    $('prWhere').hidden = paused; $('prPaused').hidden = !paused;
+    if (paused) $('prFixed').textContent = `${game.race.track.name} · ${classUi(playerClass()).name}`.toUpperCase();
+    else {
+      const T = ctx.track(), cls = playerClass();
+      $('prCirc').textContent = `${T.name} · ${(T.N * T.ds / 1000).toFixed(2)} km`;
+      // the car: every class, the picked one marked (main.js pickClass: its own setup, records and AI laps follow)
+      $('prCar').replaceChildren(...allClasses().map(c => chip(classUi(c).name, c === cls, () => { ctx.pickClass(c.id); viewCache = null; renderHub(); })));
+    }
+    renderStrip(V);
+    $('prSecView').hidden = tab !== 'section'; $('prSumRuns').hidden = tab !== 'runs';
+    if (tab === 'section') renderSection(); else if (tab === 'runs') renderRuns(V);
+    ana.show(tab);
+    renderAct();
+  }
+  // the strip: the session (this one while practising, else your last one here), its numbers
+  function renderStrip(V) {
+    const box = $('prStrip'), cell = (label, value, cls2 = '', small = '') => { const d = el('div'); d.append(el('span', 'lbl', label)); const b = el('b', cls2, value); if (small) b.append(el('small', '', small)); d.append(b); return d; };
+    if (!V) { box.replaceChildren(cell(sessionHere() || !session ? 'NO SESSION HERE YET' : 'LAST SESSION: ANOTHER CIRCUIT OR CAR', 'START PRACTICE to drive your section')); return; }
+    const S = P.sessionStats(V.runs), ai = V.alien || V.legend, aiName = V.alien ? 'ALIEN' : 'LEGEND';
+    const aiT = ai ? P.lapParts(ai, V.sec, V.parts, V.T.N).time : NaN, now = S.best ?? V.savedBefore ?? null;
+    const n = session.entries.reduce((a, e) => a + (e.runs?.length ?? e.packed?.length ?? 0), 0);
+    const when = mode === 'paused' ? `THIS SESSION · ${Math.max(1, Math.round((Date.now() - session.at) / 60000))} MIN`
+      : `LAST SESSION · ${new Date(session.at).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' }).toUpperCase()}`;
+    box.replaceChildren(cell(when, `${V.name} · ${V.runs.length} run${V.runs.length === 1 ? '' : 's'}`, '', n > V.runs.length ? ` (${n} in all)` : ''),
+      cell('BEST RUN', S.best === null ? '—' : s3(S.best), 'purple', S.best !== null && V === R && R.savedBefore !== null ? ` ${sign(S.best - R.savedBefore)}` : ''),
+      cell('AVERAGE', S.avg === null ? '—' : s3(S.avg)), cell('SPREAD', S.spread === null ? '—' : S.spread.toFixed(2)),
+      cell(aiName, Number.isFinite(aiT) ? s3(aiT) : '—', '', Number.isFinite(aiT) && now !== null ? ` ${sign(now - aiT)}` : ''));
+  }
+  // the RUNS tab: the section chips (runs kept per section), the runs × parts, what changed in the corner you lose most
+  function renderRuns(V) {
+    const T = V.T, chips = $('prSecChips');
+    chips.replaceChildren(el('span', 'lbl', 'SECTION'), ...session.entries.map((e, i) => {
+      const n = e.runs?.length ?? e.packed?.length ?? 0, L = SIM.buildSectors(T);
+      return chip(`${P.sectionName(L, e, T.ds)}${e.start === 'standing' ? ' · STANDING' : ''} · ${n} RUN${n === 1 ? '' : 'S'}`, session.entries[runsAt] === e || (runsAt < 0 && i === session.entries.length - 1),
+        () => { runsAt = i; viewCache = null; renderHub(); });
+    }));
+    const S = P.sessionStats(V.runs), ai = V.alien || V.legend, aiName = V.alien ? 'ALIEN' : 'LEGEND';
+    const cols = `50px repeat(${V.parts.length}, minmax(0, 1fr)) 110px`;
     const head = $('prSumHead'); head.style.gridTemplateColumns = cols;
-    head.replaceChildren(el('span', '', 'RUN'), ...R.parts.map(p => el('span', '', p.name)), el('span', 'r', 'TIME'));
-    $('prSumRows').replaceChildren(...R.runs.map((r, k) => {
+    head.replaceChildren(el('span', '', 'RUN'), ...V.parts.map(p => el('span', '', p.name)), el('span', 'r', 'TIME'));
+    $('prSumRows').replaceChildren(...V.runs.map((r, k) => {
       const row = el('div', 'pr-rrow' + (k === S.bestIndex ? ' best' : '')); row.style.gridTemplateColumns = cols;
-      row.append(el('span', 'n', String(k + 1)), ...R.parts.map((p, j) => { const c = P.partColour(R.runs, k, j); return el('span', c, Number.isFinite(r.parts[j]) ? s3(r.parts[j]) : c === 'off' && r.off === p.name ? 'off' : ''); }),
+      row.append(el('span', 'n', String(k + 1)), ...V.parts.map((p, j) => { const c = P.partColour(V.runs, k, j); return el('span', c, Number.isFinite(r.parts[j]) ? s3(r.parts[j]) : c === 'off' && r.off === p.name ? 'off' : ''); }),
         el('span', 'r' + (Number.isFinite(r.time) ? (k === S.bestIndex ? ' purple' : '') : ' off'), Number.isFinite(r.time) ? s3(r.time) : '—'));
       return row;
     }));
     // the corner where your best run loses the most to the AI: run 1 → your best → the AI
-    const bestRun = R.runs[S.bestIndex] ?? null, first = R.runs.find(r => Number.isFinite(r.parts[0])) ?? null;
-    const aiParts = ai ? P.lapParts(ai, R.sec, R.parts, T.N).parts : null;
-    let p = -1; if (bestRun && aiParts) bestRun.parts.forEach((t, j) => { if (R.parts[j].corner >= 0 && (p < 0 || t - aiParts[j] > bestRun.parts[p] - aiParts[p])) p = j; });
-    const k = p >= 0 ? R.parts[p].corner : -1, name = p >= 0 ? R.parts[p].name : '';
-    const mOf = r => r ? cornerMetrics(P.runAsTrace(r.run, R.sec), R.L, T.ds)[k] : null;
-    const m1 = k >= 0 ? mOf(first) : null, mb = k >= 0 ? mOf(bestRun) : null, ma = k >= 0 && ai ? cornerMetrics(ai, R.L, T.ds)[k] : null;
+    const bestRun = V.runs[S.bestIndex] ?? null, first = V.runs.find(r => Number.isFinite(r.parts[0])) ?? null;
+    const aiParts = ai ? P.lapParts(ai, V.sec, V.parts, T.N).parts : null;
+    let p = -1; if (bestRun && aiParts) bestRun.parts.forEach((t, j) => { if (V.parts[j].corner >= 0 && (p < 0 || t - aiParts[j] > bestRun.parts[p] - aiParts[p])) p = j; });
+    const k = p >= 0 ? V.parts[p].corner : -1, name = p >= 0 ? V.parts[p].name : '';
+    const mOf = r => r ? cornerMetrics(P.runAsTrace(r.run, V.sec, T.N), V.L, T.ds)[k] : null;
+    const m1 = k >= 0 ? mOf(first) : null, mb = k >= 0 ? mOf(bestRun) : null, ma = k >= 0 && ai ? cornerMetrics(ai, V.L, T.ds)[k] : null;
     $('prWhatHead').textContent = k >= 0 ? `${name}: WHAT CHANGED · RUN 1 → BEST → ${aiName}` : 'WHAT CHANGED';
     const line = (label, f, unit) => { const d = el('div'); d.append(el('span', '', label), ...[[m1, 'was'], [mb, ''], [ma, 'ref']].map(([m, c]) => el('span', c, m && f(m) !== null && Number.isFinite(f(m)) ? Math.round(f(m)) + unit : '—'))); return d; };
     const headRow = el('div'); headRow.append(el('span', '', ''), el('span', '', 'RUN 1'), el('span', '', 'BEST'), el('span', '', aiName));
     $('prWhat').replaceChildren(...(k >= 0 ? [headRow, line('Brakes before the apex', m => m.brakeAt, ' m'), line('Slowest', m => m.min, ''), line('Full gas after the apex', m => m.fullAt, ' m'), line('Exit, 100 m on (km/h)', m => m.exit, '')] : []));
-    $('prWhatText').textContent = k >= 0 ? P.changeSentence(name, m1, mb, ma, aiName === 'ALIEN' ? 'The ALIEN' : 'LEGEND') : R.runs.length ? '' : 'No runs yet: MORE RUNS to drive the section.';
-    $('prCompare').disabled = !bestRun || !ai || !(R.sec.from > 0 && R.sec.to > R.sec.from);
-    ana.reset();
-    for (const b of $('prSumTabs').children) b.disabled = b.dataset.t !== 'runs' && !ana.has();
-    Screens.show('pracSum', 'prMore');
+    $('prWhatText').textContent = k >= 0 ? P.changeSentence(name, m1, mb, ma, aiName === 'ALIEN' ? 'The ALIEN' : 'LEGEND') : '';
   }
-  // your best run inside the AI's lap (the rest of the lap is the AI's, shifted): the lap comparison can show it
-  function spliced() {
-    const S = P.sessionStats(R.runs), r = R.runs[S.bestIndex], ai = R.alien || R.legend; if (!r || !ai) return null;
-    const N = R.T.N, { from, to } = R.sec, run = r.run, tr = { time: 0, t: Float32Array.from(ai.t), kmh: Float32Array.from(ai.kmh), thr: ai.thr && Float32Array.from(ai.thr), brk: ai.brk && Float32Array.from(ai.brk),
-      x: ai.x && Float32Array.from(ai.x), z: ai.z && Float32Array.from(ai.z), h: ai.h && Float32Array.from(ai.h), gear: ai.gear && Float32Array.from(ai.gear) };
-    const dT = r.time - (ai.t[to] - ai.t[from]);
-    for (let i = from; i <= to; i++) {
-      const w = R.lead + (i - from); tr.t[i] = ai.t[from] + run.t[w] - run.ring; tr.kmh[i] = run.kmh[w];
-      for (const k of ['thr', 'brk', 'x', 'z', 'h', 'gear']) if (tr[k]) tr[k][i] = run[k][w];
+  // the actions: from the paddock / paused / paused with another section picked
+  function renderAct() {
+    const btn = (text, fn, cls2 = 'pr-chip', id = '') => { const b = el('button', cls2, text); b.type = 'button'; b.onclick = fn; if (id) b.id = id; return b; };
+    const grow = el('span', 'pr-grow'), hint = el('span', 'pr-keys');
+    const D = menuData(), name = P.sectionName(D.L, sectionNow(), D.T.ds);
+    let kids;
+    if (mode === 'menu') {
+      hint.innerHTML = '<b>LB / RB</b> tabs · <b>A</b> press';
+      kids = [btn('‹ PADDOCK', () => ctx.toMenu()), btn('DRIVE A FULL LAP', () => ctx.startTrial()), grow, hint,
+        btn('START PRACTICE', () => { sectionNow(); fresh = true; ctx.start(); }, 'pr-go', 'prActGo')];
+    } else if (sameAsRun()) {
+      hint.innerHTML = '<b>LB / RB</b> tabs · <b>B</b> resume';
+      kids = [btn('RESTART RUN', () => { ctx.resume(); place(); }), btn('SETTINGS', () => ctx.openSettings()), btn('DRIVE A FULL LAP', () => { ctx.unpause(); stop(); ctx.startTrial(); }),
+        btn('EXIT PRACTICE', () => { ctx.unpause(); stop(); ctx.toMenu(); }, 'pr-chip pr-exit'), grow, hint, btn('RESUME', () => ctx.resume(), 'pr-go', 'prActGo')];
+    } else {
+      hint.innerHTML = '<b>B</b> resume';
+      kids = [btn('SETTINGS', () => ctx.openSettings()), btn('EXIT PRACTICE', () => { ctx.unpause(); stop(); ctx.toMenu(); }, 'pr-chip pr-exit'), grow, hint,
+        btn(`RESUME ${R.name.toUpperCase()}`, () => { const s = R.sec; sec = { ...s, N: R.T.N, circuit: R.T.id }; opts.start = R.standing ? 'standing' : 'rolling'; ctx.resume(); }, 'pr-chip pr-back'),
+        btn(`START ${name.toUpperCase()}`, () => { ctx.unpause(); fresh = false; ctx.start(); }, 'pr-go', 'prActGo')];
     }
-    for (let i = to + 1; i < N; i++) tr.t[i] = ai.t[i] + dT;
-    tr.time = ai.time + dT;
-    return tr;
+    $('prAct').replaceChildren(...kids);
   }
-  $('prMore').onclick = () => { if (!R) return; Object.assign(game, { ended: false, resultsShown: false }); Screens.show(null); place(); };
-  $('prSumDone').onclick = () => done();
-  // the summary's views: RUNS, and the analysis's COMPARE / TELEMETRY / CORNER (practice-analysis.js)
-  const ana = createPracticeAnalysis({ getR: () => R });
-  for (const b of $('prSumTabs').children) b.onclick = () => ana.show(b.dataset.t);
-  $('prChange').onclick = () => { stop(); ctx.toMenu(); ctx.menuPage(); };
-  $('prLap').onclick = () => { stop(); ctx.startTrial(); };
-  $('prCompare').onclick = () => { const tr = R && spliced(); if (tr) ctx.compare(tr, `Best run ${R.name} ${s3(P.sessionStats(R.runs).best)} (rest of the lap: ${R.alien ? 'ALIEN' : 'LEGEND'})`); };
-  function done() { stop(); ctx.toMenu(); }
+  for (const b of $('prHubTabs').children) b.onclick = () => setTab(b.dataset.t);
+  for (const b of document.querySelectorAll('[data-pcirc]')) b.onclick = () => { ctx.circuit(+b.dataset.pcirc); viewCache = null; renderHub(); };
+  // the analysis tabs (practice-analysis.js) on the drives viewNow() gives
+  const ana = createPracticeAnalysis({ getR: () => viewNow() });
 
   return {
     get on() { return !!R; },
-    show() { view = view || 'map'; render(); },
-    render,
-    begin, stop, step, holding, onEvent, action, frame, summary, done,
-    ready: () => go(),                   // pad A while waiting: off you go (main.js, the 'menu' confirm)
-    // the pause menu's RESUME tile while practising
-    pauseInfo() {
-      if (!R) return null;
-      const S = P.sessionStats(R.runs);
-      return { kick: 'YOUR BEST RUN', pos: S.best === null ? 'No run yet' : s3(S.best), gaps: `${R.runs.length} run${R.runs.length === 1 ? '' : 's'} · ${R.name}`, ctx: `Practice · ${R.name}` };
-    },
+    openHub, render,
+    get hubMode() { return mode; },
+    tab(d) { const live = TABS.filter(t => t === 'section' || !$('prHubTabs').querySelector(`[data-t="${t}"]`).disabled); setTab(live[(live.indexOf(tab) + d + live.length) % live.length]); },
+    begin, stop, step, holding, onEvent, action, frame,
+    ready: () => !game.paused && go(),   // pad A while waiting: off you go (main.js, the 'menu' confirm)
   };
 }
 

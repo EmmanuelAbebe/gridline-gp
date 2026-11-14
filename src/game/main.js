@@ -163,9 +163,11 @@ const analysis = createAnalysis({ game, sectors, aiLapOf: (id, aero) => trial.ai
 const grid = createStartingGrid({ game, track: () => track, onReady: () => describeEvent() });
 // practice mode (practice.js): one stretch of the circuit again and again, timed, against your best or the AI
 const practice = createPractice({ game, track: () => track, sectors, aiLapOf: (id, aero) => trial.aiLapOf(id, aero),
-  start: () => { Sound.init(); game.session = 'practice'; newRace(); }, toMenu: () => toMenu(), menuPage: () => menu.show('practice'),
+  start: () => { Sound.init(); game.session = 'practice'; newRace(); }, toMenu: () => toMenu(),
   startTrial: () => { toMenu(); game.setup.type = 'trial'; renderSetup(); saveSetup(); startFromMenu(); },
-  compare: (tr, label) => analysis.show('pracSum', { tr, label }),
+  // the practice screen as the pause screen: RESUME, leaving the pause for something else, Settings over it; the circuit
+  resume: () => { if (game.paused) togglePause(); }, unpause: () => { game.paused = false; Screens.show(null); },
+  openSettings: () => openSettings(), circuit: d => menu.circuit(d),
   setMinimapSection: sec => { minimap = createMinimap($('map'), track, sec); }, snap: c => { interpolatePoses([c], 1); CameraRig.snap(c); },
   showMessage: m => showMessage(m), pickClass: id => pickClass(id),
   // the racing line: a line given (practice: the car you chase), null = none, undefined = the race's own (the ALIEN's)
@@ -389,6 +391,8 @@ function simStep(dt) {
 function togglePause() {
   if (game.phase === PHASE.MENU || !game.race || game.resultsShown) return;
   game.paused = !game.paused;
+  // (practising: the practice screen is the pause screen, on your runs)
+  if (practicing()) { if (game.paused) practice.openHub('paused'); Screens.show(game.paused ? 'pracHub' : null, game.paused ? 'prActGo' : null); return; }
   Screens.show(game.paused ? 'pause' : null, game.paused ? 'resumeBtn' : null);
 }
 // the pause menu (2026-11-01, the user's edit of the mock-up): where you are, RESUME with the circuit and your place,
@@ -416,12 +420,6 @@ function drawPause() {
     $('pauseGaps').textContent = rows ? `P${at} of ${rows.length} on the grid so far` : game.trial ? 'Valid laps count for your ghost and records' : '';
   }
   $('pauseSetup').textContent = $('setupSummary').textContent;
-  // practice: your best run, the section; the tiles change section / end it (the summary)
-  const pr = practicing() ? practice.pauseInfo() : null;
-  if (pr) { $('pauseCtx').textContent = `${SIM.CIRCUITS[race.track.id].name} · ${pr.ctx}`; $('pauseKick').textContent = pr.kick; $('pausePos').textContent = pr.pos; $('pauseGaps').textContent = pr.gaps; $('pauseClock').innerHTML = `SESSION <b>${fmtTime(race.t)}</b>`; }
-  const tile = (id, kick, title, sub) => { const b = $(id); b.querySelector('.mn-kick').textContent = kick; b.querySelector('.mn-title').textContent = title; b.querySelector('.mn-sub').textContent = sub; };
-  if (pr) { tile('restartBtn', 'ANOTHER STRETCH', 'Change section', 'Back to the practice page'); tile('endBtn', 'STOP HERE', 'End practice', 'Your runs, what changed'); }
-  else { tile('restartBtn', 'FROM THE GRID', 'Restart race', 'Same circuit, same field'); tile('endBtn', 'STOP HERE', 'End race', 'Results as they stand'); }
   drawPitBox();
 }
 // the pause menu's pit box (a race, not a time trial): your next stop's tyres, front wing and repairs (SIM pitPlan), for
@@ -471,19 +469,19 @@ function shift(dir) {
   if (!game.autoShiftHinted) { game.autoShiftHinted = true; showMessage(SAY.autoShift); }
 }
 // the pause menu or the results on screen, nothing over them
-const overlayOf = name => $(name === 'pause' ? 'pauseOv' : name === 'pracSum' ? 'pracSumOv' : 'resOv');
-const subOpen = () => { const s = Screens.current(); return (s === 'pause' || s === 'results' || s === 'pracSum') && !SettingsScreen.open && !InputMonitor.open && !analysis.open && !AppShell.quitOpen ? s : null; };
+const overlayOf = name => $(name === 'pause' ? 'pauseOv' : name === 'pracHub' ? 'pracHubOv' : 'resOv');
+const subOpen = () => { const s = Screens.current(); return (s === 'pause' || s === 'results' || s === 'pracHub') && !SettingsScreen.open && !InputMonitor.open && !analysis.open && !AppShell.quitOpen ? s : null; };
 // pad A there: the button in focus (nothing focused: RESUME / RACE AGAIN)
 function pressFocused(name) {
   const f = document.activeElement;
-  if (overlayOf(name).contains(f) && f.tagName === 'BUTTON') f.click(); else $(name === 'pause' ? 'resumeBtn' : name === 'pracSum' ? 'prMore' : 'againBtn').click();
+  if (overlayOf(name).contains(f) && f.tagName === 'BUTTON') f.click(); else $(name === 'pause' ? 'resumeBtn' : name === 'pracHub' ? 'prActGo' : 'againBtn').click();
 }
 function confirm() {                                   // pad A
   if (AppShell.quitOpen) { AppShell.cancelQuit(); return; }   // (A never quits: the safe answer)
   if (SettingsScreen.open || InputMonitor.open || analysis.open || zoneEditor.open || Garage.open) return;
   if (away.open) { away.confirm(); return; }
   if (game.phase === PHASE.MENU) menu.confirm();     // (the start menu: press the button in focus)
-  else if (subOpen() === 'pracSum') pressFocused('pracSum');
+  else if (subOpen() === 'pracHub') pressFocused('pracHub');
   else if (game.resultsShown || game.paused) pressFocused(game.resultsShown ? 'results' : 'pause');
 }
 function onCameraChanged() {
@@ -501,7 +499,7 @@ function toggleLayout() {
 const away = createAway({ game, racing: () => racing(), togglePause: () => togglePause() });
 
 const escape = () => away.open ? away.toPauseMenu() : AppShell.quitOpen ? AppShell.cancelQuit() : PhoneDesigner.isOpen ? PhoneDesigner.close() : analysis.open ? analysis.close() : zoneEditor.open ? zoneEditor.close() : Garage.open ? Garage.close() : InputMonitor.open ? InputMonitor.toggle(false) : SoundStudio.open ? SoundStudio.toggle(false) : SettingsScreen.open ? SettingsScreen.close()
-  : LayoutEditor.active ? LayoutEditor.exit() : menuOpen() && menu.back() ? null : Screens.current() === 'pracSum' ? practice.done() : togglePause();
+  : LayoutEditor.active ? LayoutEditor.exit() : menuOpen() && menu.back() ? null : Screens.current() === 'pracHub' && !game.paused ? toMenu() : togglePause();
 // "Quit the game?" (Alt+F4 mid-race too): the race pauses behind it
 AppShell.onAskQuit(() => { if (isRunning() && !game.paused) togglePause(); });
 function setPref(key, value) {
@@ -590,7 +588,7 @@ const ACTIONS = { camera: cycleCamera, mute: toggleMute, pause: escape, fps: () 
   tweak: () => TweakPanel.toggle(), layout: toggleLayout, fullscreen: () => AppShell.toggleFullscreen(),
   inputs: () => InputMonitor.toggle(),
   // (LB / RB in the start menu: the circuit)
-  shiftUp: () => menuOpen() ? menu.circuit(1) : shift(+1), shiftDown: () => menuOpen() ? menu.circuit(-1) : shift(-1),
+  shiftUp: () => menuOpen() ? menu.circuit(1) : subOpen() === 'pracHub' ? practice.tab(1) : shift(+1), shiftDown: () => menuOpen() ? menu.circuit(-1) : subOpen() === 'pracHub' ? practice.tab(-1) : shift(-1),
   box: requestBox, boost: requestBoost, aero: requestAero, limiter: requestLimiter, mapUp: () => requestMap(+1), mapDown: () => requestMap(-1) };
 Input.on('action', (name, src) => { if (practicing() && practice.action(name, src)) return; ACTIONS[name]?.(); });
 // pad A / B (phone buttons 1 / 2) in menus: confirm / back, whatever they do while racing (button-map.js)
@@ -598,7 +596,7 @@ Input.on('menu', what => {
   if (what === 'confirm' && practicing() && practice.ready()) return;   // (practice: A = ready, off you go)
   if (racing()) return;
   if (what === 'confirm') confirm();
-  else if (SettingsScreen.open) SettingsScreen.close(); else if (game.paused) togglePause(); else if (subOpen() === 'results') toMenu(); else if (subOpen() === 'pracSum') practice.done(); else if (menuOpen()) menu.back();
+  else if (SettingsScreen.open) SettingsScreen.close(); else if (game.paused) togglePause(); else if (subOpen() === 'results') toMenu(); else if (subOpen() === 'pracHub') toMenu(); else if (menuOpen()) menu.back();
 });
 // the D-pad (arrow keys too) in the start menu, the pause menu and the results: move the focus
 Input.on('nav', dir => { if (menuOpen()) menu.nav(dir); else if (subOpen()) moveFocus(overlayOf(subOpen()), dir); });
@@ -657,10 +655,10 @@ Input.on('padchange', (on, label) => { Hud.setPad(on, Input.gamepadAllowed); if 
 $('settingsBtn').onclick = $('pauseSettingsBtn').onclick = () => openSettings();
 $('pauseBtn').onclick = togglePause;
 $('resumeBtn').onclick = togglePause;
-$('restartBtn').onclick = () => { if (practicing()) { practice.stop(); toMenu(); menu.show('practice'); } else newRace(); };
+$('restartBtn').onclick = () => newRace();
 $('againBtn').onclick = again;
 $('requaliBtn').onclick = () => { game.session = 'quali'; newRace(); };
-$('endBtn').onclick = () => { if (practicing()) practice.summary(); else endRace(); };
+$('endBtn').onclick = () => endRace();
 $('pauseAnaBtn').onclick = () => analysis.show('pause');
 $('resAnaBtn').onclick = () => analysis.show('results');
 $('anaStartBtn').onclick = () => { if (game.phase === PHASE.MENU) analysis.show('start'); };
@@ -683,6 +681,7 @@ $('zonesBtn').onclick = openZones;
 const leaderboardScreen = createLeaderboardScreen({ online, runs: () => game.runs, send: sendRun });
 // ---- the start menu (start-menu.js): home tiles, a rail in the sections, Race weekend in steps ----
 menu = createStartMenu({ game, online, leaderboard: leaderboardScreen, track: () => track, practice: () => practice,
+  openPractice: () => { practice.openHub('menu'); Screens.show('pracHub', 'prActGo'); },
   setType: t => { game.setup.type = t; renderSetup(); saveSetup(); },
   switchTrack: id => { game.setup.track = id; setTrack(id); renderSetup(); saveSetup(); }, pickClass,
   setDriving, start: startFromMenu, openGarage, openSettings, gridNow: () => grid.forRace(),

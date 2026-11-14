@@ -341,12 +341,13 @@ export function createPracticeAnalysis({ getR }) {
   }
   return {
     // the summary opened: the drives afresh, back to RUNS
-    reset() { playing = false; build(); if (D) fillPickers(); $('paRuns').dataset.for = ''; $('paCorners').dataset.for = ''; this.show('runs'); },
+    // the drives afresh (the practice screen opened, another section picked)
+    reset() { playing = false; build(); if (D) fillPickers(); $('paRuns').dataset.for = ''; $('paCorners').dataset.for = ''; },
+    // the tab shown (practice.js shows the SECTION and RUNS views itself)
     show(v) {
       view = v; playing = false;
-      for (const b of $('prSumTabs').children) b.setAttribute('aria-pressed', String(b.dataset.t === v));
-      $('prSumRuns').hidden = v !== 'runs'; $('paCmp').hidden = v !== 'compare'; $('paTel').hidden = v !== 'telemetry'; $('paCor').hidden = v !== 'corner';
-      requestAnimationFrame(render);          // (after layout: the canvases take their size)
+      $('paCmp').hidden = v !== 'compare'; $('paTel').hidden = v !== 'telemetry'; $('paCor').hidden = v !== 'corner';
+      if (v === 'compare' || v === 'telemetry' || v === 'corner') requestAnimationFrame(render);          // (after layout: the canvases take their size)
     },
     get view() { return view; },
     has: () => !!(D && me),

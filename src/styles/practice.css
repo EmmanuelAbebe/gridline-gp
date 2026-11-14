@@ -50,10 +50,10 @@
 .mn .pr-opt .pr-chip,.mn .pr-row .pr-chip{min-height:44px;font-size:16px}
 .mn .pr-go{min-height:56px;background:var(--amber);border:0;border-radius:3px;color:#0b0e12;font-weight:800;font-size:22px;letter-spacing:.1em;text-transform:uppercase}
 .mn .pr-go:disabled{opacity:.45;cursor:default}
-:is(.pr-page,.pr-sum,.pr-hbox,.pr-hruns) :is(b,span,s).purple{color:var(--purple)}
-:is(.pr-page,.pr-sum,.pr-hbox,.pr-hruns) :is(b,span,s).green{color:var(--green)}
-:is(.pr-page,.pr-sum,.pr-hbox,.pr-hruns) :is(b,span,s).red{color:var(--red)}
-:is(.pr-page,.pr-sum,.pr-hbox,.pr-hruns) :is(b,span,s).yellow{color:var(--amber)}
+:is(.pr-page,.pr-sum,.pr-hub,.pr-hbox,.pr-hruns) :is(b,span,s).purple{color:var(--purple)}
+:is(.pr-page,.pr-sum,.pr-hub,.pr-hbox,.pr-hruns) :is(b,span,s).green{color:var(--green)}
+:is(.pr-page,.pr-sum,.pr-hub,.pr-hbox,.pr-hruns) :is(b,span,s).red{color:var(--red)}
+:is(.pr-page,.pr-sum,.pr-hub,.pr-hbox,.pr-hruns) :is(b,span,s).yellow{color:var(--amber)}
 /* by corner */
 .pr-th{display:flex;align-items:baseline;gap:14px}
 .pr-th b{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.04em}
@@ -208,3 +208,65 @@ canvas.pa-kchart{height:270px}
 .mn .pa-text{margin:0;padding:10px 14px;border:1px solid var(--rule);border-radius:4px;font-size:14px;line-height:1.5}
 .mn .pa-text:empty{display:none}
 .pa-tile b span{margin-right:10px}
+/* the practice screen (2026-11-14, canvas H1–H3): the paddock's page, the pause screen and the runs in one */
+.mn.pr-hub{gap:12px}
+.pr-htop{display:flex;align-items:center;gap:10px;min-height:44px}
+.pr-htop .sub-title{margin-right:12px}
+.mn .pr-htop .pr-tabs .pr-chip{min-height:40px}
+.pr-where{display:flex;align-items:center;gap:8px}
+.pr-where[hidden],.pr-paused[hidden]{display:none}
+.pr-where .mn-arrow{width:40px;height:40px}
+.pr-where .pr-car{height:auto;padding:0;border:0;gap:6px}
+.pr-paused{display:flex;align-items:center;gap:12px;font-family:var(--display);font-size:14px;letter-spacing:.12em;color:var(--muted)}
+.pr-paused b{padding:6px 12px;border:1px solid var(--amber);border-radius:3px;color:var(--amber);font-size:15px}
+.pr-strip{display:grid;grid-template-columns:320px repeat(4,minmax(0,1fr));gap:12px;align-items:center;min-height:58px;padding:6px 16px;box-sizing:border-box;background:#0f1318;border:1px solid var(--rule);border-radius:4px}
+.pr-strip .lbl{display:block;font-size:11px}
+.pr-strip b{font-family:var(--display);font-weight:800;font-size:21px}
+.pr-strip div:first-child b{font-weight:700;font-size:17px}
+.pr-strip b.purple{color:var(--purple)}
+.pr-strip small{font-size:13px;font-weight:600;color:var(--muted)}
+.pr-hbody{flex:1;min-height:0;display:flex;gap:20px}
+.pr-hbody[hidden],.pr-runsv[hidden]{display:none}
+.pr-hub .pr-left{padding:0;border:0;gap:10px}
+.pr-hub .pr-mapbox{background:#0f1318;border-radius:4px;padding:8px}
+.pr-hub .pr-legend{font-size:12px;gap:18px}
+.pr-hub .pr-side{width:430px;padding:0;gap:10px}
+.mn .pr-hub .pr-name{font-size:32px}
+.pr-hub .pr-tile{padding:6px 10px}.pr-hub .pr-tile b{font-size:20px}
+.pr-clist{display:flex;flex-direction:column;gap:3px;min-height:0;flex:1}
+.pr-hub .pr-crow{grid-template-columns:26px 40px minmax(0,1fr) 64px 92px;padding:0 8px}
+.pr-hub .pr-chead{height:22px;font-size:11px}
+.mn .pr-hub button.pr-crow{height:30px;flex:0 0 30px;font-size:15px}
+.pr-hub .pr-crow .tick{width:16px;height:16px;line-height:14px;font-size:12px}
+.pr-hub .pr-crow .loss{padding-left:10px}
+.pr-hub .pr-crow .bar{height:6px}
+.pr-hub .pr-crow .tagw{font-size:10px}
+.pr-opts{display:grid;grid-template-columns:70px minmax(0,1fr);gap:6px;align-items:center}
+.pr-opts .lbl{font-size:11px}
+.mn .pr-opts .pr-chip{min-height:36px;font-size:13px;padding:0 8px}
+.pr-runsv{flex:1;min-height:0;display:flex;flex-direction:column;gap:12px}
+.pr-runsv .pr-sumbody{flex:1}
+.pr-act{display:flex;align-items:center;gap:10px;min-height:56px;padding-top:10px;border-top:1px solid var(--rule)}
+.mn .pr-act .pr-chip{min-height:48px;font-size:15px}
+.mn .pr-act .pr-exit{border-color:var(--red);color:#ff8a80}
+.mn .pr-act .pr-back{border-color:var(--amber);color:var(--amber)}
+.mn .pr-act .pr-go{min-height:52px;min-width:300px;padding:0 24px;font-size:21px}
+.pr-keys{font-size:13px;color:var(--muted)}.pr-keys b{color:var(--text)}
+.pr-hub canvas.pa-map{height:250px}
+.pr-hub canvas.pa-cchart{height:124px}
+.pr-hub canvas.pa-cmap{height:340px}
+.pr-hub canvas.pa-kchart{height:200px}
+.pr-hub .pa-mid{min-height:0}
+/* between runs (2026-11-14, canvas H4a + the side list): the practice box keeps the last run, the runs list opens it */
+#prHRuns div.pr-hsplit{display:grid;justify-content:stretch;color:var(--text);grid-template-columns:minmax(0,1fr) 62px 62px;row-gap:3px;margin-top:6px;padding:8px 0 0 12px;border-top:1px solid #2a313b;font-size:15px}
+.pr-hsplit .lbl{font-size:10px;margin:0}.pr-hsplit .r{text-align:right}
+.pr-hsplit .green{color:var(--green)}.pr-hsplit .red{color:#ff6a5f}
+.pr-hbars i.red{background:var(--red)}
+/* the comparison inside the practice screen: the delta across, the parts and the car now side by side */
+.pr-hub .pa-side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:8px}
+.pr-hub .pa-delta{grid-column:1 / 3;padding:6px 12px}
+.pr-hub .pa-delta b{font-size:32px}
+.pr-hub .pa-parts,.pr-hub .pa-now{padding:6px 10px;font-size:14px;row-gap:2px}
+.pr-hub .pa-parts{grid-template-columns:minmax(0,1fr) 52px 52px 56px}
+.pr-hub .pa-now{grid-template-columns:minmax(0,1fr) 58px 58px}
+.pr-hub .pa-now .k{font-size:12px}

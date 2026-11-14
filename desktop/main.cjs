@@ -653,19 +653,20 @@ async function smokeTest(win) {
     await new Promise(r => setTimeout(r, 300));
     fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-analysis-menu-after.png'), (await capture(win)).toPNG());
   }
-  // practice mode (practice.js): the page on the map and by corner, a run driven by the autopilot (the HUD's practice box,
-  // the runs), then End practice → the summary, DONE back to the paddock
+  // practice mode (practice.js, one practice screen since 2026-11-14): from the paddock (SECTION: the map, the corners to
+  // tick), a run driven by the autopilot, pause = the same screen on RUNS (COMPARE / TELEMETRY / CORNER), another section
+  // picked (START it / RESUME), EXIT PRACTICE, and back from the paddock: the last session kept
   {
     const js = code => win.webContents.executeJavaScript(code), wait = ms => new Promise(r => setTimeout(r, ms));
+    const hub = () => js(`({ open: !document.getElementById('pracHubOv').hidden, tab: document.querySelector('#prHubTabs [aria-pressed=true]')?.dataset.t,
+      paused: !document.getElementById('prPaused').hidden, go: document.getElementById('prActGo')?.textContent, strip: document.getElementById('prStrip').textContent })`);
     await js(`gridlineDebug.toMenu(); document.getElementById('practiceBtn').click()`);
     for (let i = 0; i < 40 && await js(`document.getElementById('prTiles').textContent.includes('…')`); i++) await wait(250);   // (the ALIEN's lap)
-    await shot('practice-map');
-    info.practice = await js(`({ page: !document.getElementById('pagePractice').hidden, name: document.getElementById('prName').textContent,
-      car: document.querySelector('#prCar [aria-pressed=true]')?.textContent, race: gridlineDebug.raceClass(), tiles: document.querySelectorAll('#prTiles .pr-tile').length, corners: document.querySelectorAll('#prMap text.cn').length, quick: document.querySelectorAll('#prQuick button').length })`);
-    await js(`document.getElementById('prTabCorners').click()`); await wait(200);
-    await shot('practice-corners');
-    Object.assign(info.practice, await js(`({ rows: document.querySelectorAll('#prRows .pr-crow').length, picked: document.getElementById('prPicked').textContent })`));
-    await js(`document.getElementById('prGo2').click(); gridlineDebug.autopilot(1)`);
+    await shot('practice-hub');
+    info.practice = { menu: await hub(), ...await js(`({ name: document.getElementById('prName').textContent,
+      car: document.querySelector('#prCar [aria-pressed=true]')?.textContent, race: gridlineDebug.raceClass(), tiles: document.querySelectorAll('#prTiles .pr-tile').length,
+      corners: document.querySelectorAll('#prMap text.cn').length, quick: document.querySelectorAll('#prQuick button').length, rows: document.querySelectorAll('#prRows .pr-crow').length })`) };
+    await js(`document.getElementById('prActGo').click(); gridlineDebug.autopilot(1)`);
     // the first run waits: READY WHEN YOU ARE, then Enter sets it off
     await wait(800);
     info.practice.ready = await js(`!document.getElementById('pracReady').hidden && gridlineDebug.playerState().kmh > 100`);
@@ -680,6 +681,7 @@ async function smokeTest(win) {
     // every run waits at READY (with the last run's time on it): Enter again for run 2 (your first one as its ghost, the braking marks)
     for (let i = 0; i < 20 && (await js(`document.getElementById('pracReady').hidden`)); i++) await wait(250);
     info.practice.readyAgain = await js(`!document.getElementById('pracReady').hidden && document.getElementById('prReadyLast').textContent`);
+    await shot('practice-ready2');
     await js(`dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter' }))`);
     await wait(6500);
     await shot('practice-run2');
@@ -687,13 +689,13 @@ async function smokeTest(win) {
     for (let i = 0; i < 40 && !(await js(`!document.getElementById('prTagRef').hidden || !document.getElementById('prTagMine').hidden`)); i++) await wait(250);
     await shot('practice-brakes');
     info.practice.brakeTags = await js(`[document.getElementById('prTagMine'), document.getElementById('prTagRef')].filter(e => !e.hidden).map(e => e.textContent)`);
-    await js(`gridlineDebug.autopilot(0); document.getElementById('pauseBtn').click(); document.getElementById('endBtn').click()`);
-    await wait(400);
-    await shot('practice-summary');
-    Object.assign(info.practice, await js(`({ summary: !document.getElementById('pracSumOv').hidden, sumRows: document.querySelectorAll('#prSumRows .pr-rrow').length,
-      sumTiles: document.querySelectorAll('#prSumTiles .pr-tile').length })`));
-    // the analysis: COMPARE (played a moment, then the speed trace), TELEMETRY, CORNER
-    const tab = t => js(`document.querySelector('#prSumTabs [data-t="${t}"]').click()`);
+    // pause: the practice screen on RUNS
+    await js(`gridlineDebug.autopilot(0); document.getElementById('pauseBtn').click()`); await wait(400);
+    await shot('practice-paused');
+    info.practice.paused = { ...await hub(), rows: await js(`document.querySelectorAll('#prSumRows .pr-rrow').length`), chips: await js(`document.querySelectorAll('#prSecChips button').length`),
+      pauseMenu: await js(`!document.getElementById('pauseOv').hidden`) };
+    // the analysis tabs: COMPARE (played a moment), TELEMETRY, CORNER
+    const tab = t => js(`document.querySelector('#prHubTabs [data-t="${t}"]').click()`);
     await tab('compare'); await wait(400);
     await js(`document.getElementById('paPlay').click()`); await wait(1500); await js(`document.getElementById('paPlay').click()`); await wait(200);
     await shot('practice-compare');
@@ -705,10 +707,23 @@ async function smokeTest(win) {
     await tab('corner'); await wait(400);
     await shot('practice-corner');
     Object.assign(info.practice.ana, await js(`({ cor: !document.getElementById('paCor').hidden, corners: document.querySelectorAll('#paCorners button').length, rows: document.querySelectorAll('#paCorTable span.n').length - 1 })`));
-    await tab('runs');
-    await js(`document.getElementById('prSumDone').click()`); await wait(300);
+    // another section picked while paused: START it / RESUME the old one
+    await tab('section'); await wait(200);
+    await js(`[...document.querySelectorAll('#prQuick button')].find(b => b.getAttribute('aria-pressed') !== 'true' && /^SECTOR/.test(b.textContent)).click()`); await wait(300);
+    await shot('practice-newsection');
+    info.practice.newSection = { ...await hub(), back: await js(`document.querySelector('#prAct .pr-back')?.textContent || ''`) };
+    await js(`document.querySelector('#prAct .pr-back').click()`); await wait(300);
+    info.practice.resumed = await js(`document.getElementById('pracHubOv').hidden && !document.getElementById('hud').hidden`);
+    // EXIT PRACTICE, then the practice screen from the paddock again: the last session
+    await js(`document.getElementById('pauseBtn').click()`); await wait(300);
+    await js(`[...document.querySelectorAll('#prAct button')].find(b => b.textContent === 'EXIT PRACTICE').click()`); await wait(300);
     info.practice.home = await js(`!document.getElementById('startOv').hidden && !document.getElementById('mnHome').hidden && !document.getElementById('hud').classList.contains('practice')`);
+    await js(`document.getElementById('practiceBtn').click()`); await wait(300);
+    info.practice.again = await hub();
+    await shot('practice-last');
+    await js(`[...document.querySelectorAll('#prAct button')].find(b => b.textContent === '‹ PADDOCK').click()`); await wait(200);
   }
+
   // exercise the bridge the way a player would: Settings → Graphics → Display FULL SCREEN, then the paddock's quit
   // button (which must end the app)
   const displayBtn = text => `[...document.querySelectorAll('#setBody .seg button')].find(b => b.textContent === '${text}')`;

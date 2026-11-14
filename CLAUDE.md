@@ -1469,6 +1469,30 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   (brake, min, full gas, part time), what moved (spread of braking point / slowest speed) + changeSentence. Smoke:
   out-practice-compare / -telemetry / -corner.
 
+## One practice screen (2026-11-14; user: the after-the-runs screens shouldn't be apart from the practice menu, and "the pause
+## screen for the practice should be the practice menu itself"; built from the canvas "Gridline analysis & practice screens", H1–H3, H4a)
+- `#pracHubOv` (`.mn.sub-panel pr-hub`, Screens 'pracHub') replaces the start menu's `#pagePractice` and the summary `#pracSumOv`:
+  tabs SECTION (the map with ring / square + quick picks; your section, tiles, the corner list to tick (the old BY CORNER, compact),
+  START / AGAINST / AFTER) · RUNS (section chips, runs × parts, what changed) · COMPARE · TELEMETRY · CORNER (practice-analysis.js,
+  sized down inside); `#prStrip` = the session's numbers; `#prAct` the actions. practice.js `openHub('menu' | 'paused')`, `mode`,
+  `tab(d)` (LB / RB). From the paddock (`#practiceBtn` → menu ctx openPractice): circuit arrows (`[data-pcirc]` → menu.circuit),
+  the car chips, ‹ PADDOCK, DRIVE A FULL LAP, START PRACTICE (a new session). Paused (main.js togglePause while practising shows it
+  instead of #pauseOv, on RUNS): PAUSED + circuit · car (fixed while practising), RESTART RUN, SETTINGS (returns to it),
+  DRIVE A FULL LAP, EXIT PRACTICE (the paddock), RESUME; another section picked (`sameAsRun()` false): START <it> (same session)
+  and RESUME <the old one>. B / Escape = resume (paused) or the paddock. No END PRACTICE, no summary screen; the pause menu's
+  practice tiles are gone.
+- The session (practice.js, localStorage `gridline.practice-session`): { v 1, circuit, car, at, entries [{ from, to, start, runs }] },
+  runs saved as packRun + off (unpacked on first use: `runsOf`), kept until START PRACTICE from the paddock starts a new one;
+  a section picked while paused joins it (runs per section × start). `viewNow()` = the drives the RUNS / analysis tabs show (R when
+  it is that section, else built from the entry: its runs, your saved best, the ALIEN / LEGEND laps). Storage full: the runs'
+  telemetry goes, then their per-sample runs.
+- Between runs (canvas H4a + the side list): at READY after a run the practice box keeps the last run (LAST RUN · n, its time,
+  purple when the session's best, the gap to the best before it, each part's bar and label green / red against the run before),
+  and the runs list opens the last run into its parts (`.pr-hsplit`: time, vs the run before). The READY prompt is as it was.
+- Smoke: out-practice-hub / -ready / -ready2 / -run / -run2 / -brakes / -paused / -compare / -telemetry / -corner / -newsection
+  / -last; check-smoke: the screen from the paddock, paused on RUNS (not the pause menu), START / RESUME with another section,
+  EXIT PRACTICE and the last session kept.
+
 ## Ideas not done yet
 - Online leaderboard with replay validation: `docs/leaderboard-plan.md`. Phase 0 done 2026-10-28: replays
   (`src/sim/replay.js`: the game records the player's quantised inputs + settings changes from lights out; replayRun

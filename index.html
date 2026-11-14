@@ -194,48 +194,6 @@
           <footer class="mn-actions"><button class="btn ghost" id="trialBack" type="button">Paddock</button><span class="mn-hint"><b>A</b> pick · <b>B</b> back</span><button class="btn" id="trialGo" type="button">Drive</button></footer>
         </div>
         <!-- practice (2026-11-12, the user's pick of the canvas "Gridline practice mode": A on the map, B by corner) -->
-        <div class="pr-page" id="pagePractice" hidden>
-          <header class="pr-top">
-            <button class="pr-chip" id="prBack" type="button">‹ PADDOCK</button>
-            <h2 class="pr-title">PRACTICE</h2>
-            <div class="pr-tabs" role="group" aria-label="Pick the section"><button class="pr-chip" id="prTabMap" type="button">ON THE MAP</button><button class="pr-chip" id="prTabCorners" type="button">BY CORNER</button></div>
-            <span class="pr-grow"></span>
-            <button class="mn-arrow" type="button" data-circ="-1" aria-label="Previous circuit">‹</button><span class="pr-circ" id="prCirc"></span><button class="mn-arrow" type="button" data-circ="1" aria-label="Next circuit">›</button>
-            <span class="pr-car" id="prCar"></span>
-          </header>
-          <div class="pr-body" id="prMapView">
-            <div class="pr-left">
-              <div class="pr-quick" id="prQuick"><span class="lbl">QUICK PICK</span></div>
-              <div class="pr-mapbox"><svg id="prMap" role="img" aria-label="The circuit with your section"></svg></div>
-              <div class="pr-legend"><span><i class="ring"></i>Drag the ring: where the timing starts</span><span><i class="sq"></i>Drag the square: where it stops</span><span>Click a corner's name to snap to it</span></div>
-            </div>
-            <aside class="pr-side">
-              <div><span class="lbl">YOUR SECTION</span><p class="pr-name" id="prName"></p><p class="pr-sub" id="prSub"></p></div>
-              <div class="pr-tiles3" id="prTiles"></div>
-              <div class="pr-opt"><span class="lbl">START</span><div class="pr-row" id="prStart"></div><p class="pr-note" id="prStartNote"></p></div>
-              <div class="pr-opt"><span class="lbl">AGAINST</span><div class="pr-grid2" id="prAgainst"></div></div>
-              <div class="pr-opt"><span class="lbl">AFTER A RUN, OR OFF TRACK</span><div class="pr-row" id="prAfter"></div></div>
-              <span class="pr-grow"></span>
-              <button class="pr-go" id="prGo" type="button">START PRACTICE</button>
-            </aside>
-          </div>
-          <div class="pr-body" id="prCornerView" hidden>
-            <div class="pr-left">
-              <div class="pr-th"><b>WHERE YOU LOSE TIME</b><span id="prVsNote"></span></div>
-              <div class="pr-crow pr-chead"><span></span><span>CORNER</span><span id="prSlowHead">SLOWEST · YOU / ALIEN</span><span class="r">YOU</span><span class="r" id="prRefHead">ALIEN</span><span class="r">GAP</span><span class="pl">LOSS</span></div>
-              <div class="pr-crows" id="prRows"></div>
-              <p class="pr-note">Tick neighbouring corners to join them into one stretch. A stretch must be in lap order (the last corner + T1 runs over the line).</p>
-            </div>
-            <aside class="pr-side">
-              <svg id="prMapSmall" class="pr-small" role="img" aria-label="Your section on the circuit"></svg>
-              <div><span class="lbl">PICKED</span><p class="pr-name small" id="prPicked"></p><p class="pr-sub" id="prPickedSub"></p></div>
-              <div class="pr-box" id="prCornerBox"></div>
-              <div class="pr-row" id="prQuickOpts"></div>
-              <span class="pr-grow"></span>
-              <button class="pr-go" id="prGo2" type="button">PRACTISE</button>
-            </aside>
-          </div>
-        </div>
         <!-- leaderboard -->
         <div class="mn-board" id="lbOv" hidden>
           <h2 id="lbTitle">Leaderboard</h2>
@@ -386,24 +344,41 @@
   </div>
 </div>
 
-<div id="pracSumOv" class="overlay sub" hidden>
-  <div class="mn sub-panel pr-sum" role="dialog" aria-labelledby="prSumTitle">
-    <header class="sub-top"><h1 class="sub-title" id="prSumTitle">Practice</h1><span class="sub-ctx" id="prSumCtx"></span>
-      <div class="pr-tabs" id="prSumTabs" role="group" aria-label="View"><button class="pr-chip" type="button" data-t="runs" aria-pressed="true">RUNS</button><button class="pr-chip" type="button" data-t="compare" aria-pressed="false">COMPARE</button><button class="pr-chip" type="button" data-t="telemetry" aria-pressed="false">TELEMETRY</button><button class="pr-chip" type="button" data-t="corner" aria-pressed="false">CORNER</button></div>
-      <button class="pr-chip pr-done" id="prSumDone" type="button">DONE</button></header>
-    <div class="pr-sumruns" id="prSumRuns">
-    <div class="pr-tiles5" id="prSumTiles"></div>
-    <div class="pr-sumbody">
+<!-- practice (practice.js, 2026-11-14: one screen = the menu page, the pause screen, the runs and their analysis) -->
+<div id="pracHubOv" class="overlay sub" hidden>
+  <div class="mn sub-panel pr-hub" role="dialog" aria-labelledby="prHubTitle">
+    <header class="pr-htop">
+      <h1 class="sub-title" id="prHubTitle">Practice</h1>
+      <div class="pr-tabs" id="prHubTabs" role="group" aria-label="View"><button class="pr-chip" type="button" data-t="section" aria-pressed="true">SECTION</button><button class="pr-chip" type="button" data-t="runs" aria-pressed="false">RUNS</button><button class="pr-chip" type="button" data-t="compare" aria-pressed="false">COMPARE</button><button class="pr-chip" type="button" data-t="telemetry" aria-pressed="false">TELEMETRY</button><button class="pr-chip" type="button" data-t="corner" aria-pressed="false">CORNER</button></div>
+      <span class="pr-grow"></span>
+      <span class="pr-where" id="prWhere"><button class="mn-arrow" type="button" data-pcirc="-1" aria-label="Previous circuit">‹</button><span class="pr-circ" id="prCirc"></span><button class="mn-arrow" type="button" data-pcirc="1" aria-label="Next circuit">›</button><span class="pr-car" id="prCar"></span></span>
+      <span class="pr-paused" id="prPaused" hidden><b>PAUSED</b><span id="prFixed"></span></span>
+    </header>
+    <div class="pr-strip" id="prStrip"></div>
+    <section class="pr-hbody" id="prSecView">
+      <div class="pr-left">
+        <div class="pr-quick" id="prQuick"><span class="lbl">QUICK PICK</span></div>
+        <div class="pr-mapbox"><svg id="prMap" role="img" aria-label="The circuit with your section"></svg></div>
+        <div class="pr-legend"><span><i class="ring"></i>Drag the ring: where the timing starts</span><span><i class="sq"></i>Drag the square: where it stops</span><span>Click a corner to snap</span></div>
+      </div>
+      <aside class="pr-side">
+        <div><span class="lbl" id="prSecLbl">YOUR SECTION</span><p class="pr-name" id="prName"></p><p class="pr-sub" id="prSub"></p></div>
+        <div class="pr-tiles3" id="prTiles"></div>
+        <div class="pr-clist"><div class="pr-crow pr-chead"><span></span><span>TURN</span><span id="prSlowHead">SLOWEST · YOU / ALIEN</span><span class="r">GAP</span><span class="pl">LOSS</span></div><div class="pr-crows" id="prRows"></div></div>
+        <div class="pr-opts"><span class="lbl">START</span><div class="pr-row" id="prStart"></div><span class="lbl">AGAINST</span><div class="pr-row" id="prAgainst"></div><span class="lbl">AFTER</span><div class="pr-row" id="prAfter"></div></div>
+      </aside>
+    </section>
+    <section class="pr-runsv" id="prSumRuns" hidden>
+      <div class="pr-quick" id="prSecChips"></div>
+      <div class="pr-sumbody">
       <div class="pr-runtable"><div class="pr-rrow pr-rhead" id="prSumHead"></div><div class="pr-rrows" id="prSumRows"></div><p class="pr-key"><span><i class="purple"></i>best this session</span><span><i class="green"></i>better than the run before</span><span><i class="yellow"></i>slower</span></p></div>
       <div class="pr-what">
         <span class="lbl" id="prWhatHead"></span>
         <div class="pr-wtable" id="prWhat"></div>
         <p class="pr-wtext" id="prWhatText"></p>
-        <span class="pr-grow"></span>
-        <div class="pr-sumbtns"><button class="pr-chip" id="prCompare" type="button">COMPARE BEST RUN</button><button class="pr-chip" id="prChange" type="button">CHANGE SECTION</button><button class="pr-chip" id="prLap" type="button">DRIVE A FULL LAP</button><button class="pr-go" id="prMore" type="button">MORE RUNS</button></div>
       </div>
-    </div>
-    </div>
+      </div>
+    </section>
     <!-- the practice analysis (practice-analysis.js): a run against another or the AI; the runs' telemetry overlaid; one corner, every run -->
     <section class="pa-view pa-cmp" id="paCmp" hidden>
       <div class="pa-pick"><label class="pa-sel"><i class="me"></i><span class="lbl">YOUR RUN</span><select id="paMe"></select></label><label class="pa-sel"><i class="ref"></i><span class="lbl">COMPARED WITH</span><select id="paRef"></select></label><span class="pr-grow"></span><span class="lbl">LINE</span><div class="pa-seg" id="paLine" role="group" aria-label="Colour the lines by"><button class="pr-chip" type="button" data-l="gap" aria-pressed="false">GAINED / LOST</button><button class="pr-chip" type="button" data-l="trace" aria-pressed="true">SPEED TRACE</button><button class="pr-chip" type="button" data-l="speed" aria-pressed="false">WHOLE RUN</button></div></div>
@@ -432,7 +407,7 @@
         <div class="pa-side"><canvas class="pa-chart pa-kchart" id="paCorChart" aria-label="Speed, gas and brake, steering through the corner, every run"></canvas><div class="pa-ctable" id="paCorTable"></div></div></div>
       <p class="pa-text" id="paCorText"></p>
     </section>
-    <footer class="mn-foot"><span><b>A</b> open</span><span><b>B</b> done</span><span>✥ move</span></footer>
+    <footer class="pr-act" id="prAct"></footer>
   </div>
 </div>
 <div id="resOv" class="overlay sub" hidden>

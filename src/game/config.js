@@ -10,6 +10,7 @@ export const CONFIG = Object.freeze({
     ghosts: 'gridline.ghosts.2', ghostsLoaded: 'gridline.ghosts-loaded.2',
     sectors: 'gridline.sectors.2',   // best sectors / mini-sectors and the best lap's trace (sector-timing.js)
     practice: 'gridline.practice',   // your best run per practice section, the choices, the last section per circuit (practice-core.js)
+    practiceSession: 'gridline.practice-session',   // your last practice session: the runs per section (practice.js), kept until a new one
     buttons: 'gridline.buttons',     // what each controller button does, per device (button-map.js)
     aeroZones: 'gridline.aeroZones',   // your own straight-mode zones per circuit (aero-zones.js)
     online: 'gridline.online',         // the online leaderboard account: name + token, what was sent (online.js)
