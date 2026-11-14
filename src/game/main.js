@@ -54,6 +54,7 @@ import { loadRuns, runsJson, keepRun, sendable, settle } from './lap-runs.js';
 import { createLeaderboardScreen } from './leaderboard-screen.js';
 import { createStartMenu, moveFocus } from './start-menu.js';
 import { createPractice } from './practice.js';
+import { damageInfo, repairTimes, payback, DAMAGE_UI } from './damage-info.js';
 import { createZoneEditor } from './zone-editor.js';
 import { bindSettings } from './settings-binding.js';
 import { installDebug } from './debug.js';
@@ -211,7 +212,7 @@ function fieldOf(s) {
   return q && q.circuit === track.id && q.order.length === s.cars ? q.order : grid.forRace({ sync: true }).order;
 }
 function newRace() {
-  timers.clear();
+  timers.clear(); Hud.damageClear();
   const s = game.setup, quali = qualifying(), field = fieldOf(s).map(d => d.player ? playerDriver(game.garage) : d);   // your livery in the tower, map, results
   const practiceRun = game.session === 'practice';              // (practice mode: you alone, no limit, nothing wears)
   const format = quali ? { type: 'timed', minutes: +s.quali } : practiceRun ? { type: 'unlimited' } : raceFormat(s);
@@ -271,6 +272,7 @@ const showMessage = m => { if (!m) return; if (m.radio) Hud.radio(m.radio, m.sec
 function onPlayerEvent(c, e) {
   const race = game.race;
   haptics.event(e);
+  if (e.type === EV.DAMAGE) Hud.damageHit(e.part); else if (e.type === EV.WING_OFF) Hud.damageHit('wing');   // (the damage card, E1)
   if (practicing()) practice.onEvent(e);            // (practice: going off ends the run; laps, limits and records don't count)
   else showMessage(messageFor(e, c, race));
   switch (e.type) {
@@ -446,10 +448,29 @@ function drawPitBox() {
   call.textContent = c.pit ? 'IN THE PIT LANE' : c.pitRequest ? 'BOXING THIS LAP · STAY OUT' : 'BOX THIS LAP';
   call.disabled = !!c.pit || c.finished || !game.race.track.pit;
   call.onclick = () => { requestBox(true); drawPitBox(); };
+  // the damage (canvas D, 2026-11-14): each part, what it costs a lap, the repair at the stop and its time; whether a stop
+  // pays back before the flag. Undamaged: the plan for if it happens.
+  const I = damageInfo(game.race, c), el = (t, cls, text) => { const e = document.createElement(t); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  const parts = [];
+  if (I.any) {
+    const r = repairTimes(c), tbl = el('div', 'pit-dmg');
+    tbl.append(el('span', 'lbl', 'PART'), el('span', 'lbl r', 'NOW'), el('span', 'lbl r', 'COSTS'), el('span', 'lbl r', 'AT THE STOP'));
+    const two = (a, b, on, set) => { const s2 = el('div', 'seg'); for (const [v, t] of [[true, a], [false, b]]) { const x = el('button', '', t); x.type = 'button'; x.setAttribute('aria-pressed', String(on === v)); x.onclick = () => { set(v); drawPitBox(); }; s2.append(x); } return s2; };
+    for (const k of ['wing', 'floor', 'susp']) {
+      const p = I.parts.find(q => q.key === k), name = { wing: 'Front wing', floor: 'Floor', susp: 'Suspension' }[k];
+      if (!p) { tbl.append(el('span', 'ok', name), el('span', 'r ok', 'OK'), el('span'), el('span')); continue; }
+      tbl.append(el('span', '', name), el('span', 'r ' + p.level, `${p.pct} %`), el('span', 'r', `~${p.cost.toFixed(1)} s/lap`),
+        k === 'wing' ? two(`NEW NOSE +${r.wing.toFixed(1)} S`, 'KEEP', P.wing, v => { P.wing = v; }) : two(`FIX +${r.repair.toFixed(1)} S`, 'SKIP', P.repair, v => { P.repair = v; }));
+    }
+    const pb = payback(game.race, c, I), work = SIM.PIT.base + (P.wing ? r.wing : 0) + (P.repair ? r.repair : 0), stop = DAMAGE_UI.laneLoss + work;
+    const laps = I.total > 0.05 ? stop / I.total : null;
+    const line = el('p', 'pit-pay', `A stop: tyres ${SIM.PIT.base.toFixed(1)} s${P.wing && r.wing ? ` + new nose ${r.wing.toFixed(1)} s` : ''}${P.repair && r.repair ? ` + repairs ${r.repair.toFixed(1)} s` : ''}, about ${Math.round(stop)} s with the pit lane. `
+      + (laps === null ? '' : laps < pb.togo ? `The damage costs ~${I.total.toFixed(1)} s a lap: fixing it pays back after ~${Math.ceil(laps)} laps (${Math.ceil(pb.togo)} to go).` : `It doesn't pay back before the flag (${Math.ceil(pb.togo)} laps to go): only with a tyre stop.`));
+    parts.push(el('span', 'lbl pit-dlbl', 'DAMAGE · WHAT A REPAIR TAKES'), tbl, line);
+  } else parts.push(seg('Front wing', [[true, 'CHANGE IF DAMAGED'], [false, 'KEEP']], P.wing, v => { P.wing = v; }), seg('Repairs', [[true, 'FIX'], [false, 'SKIP']], P.repair, v => { P.repair = v; }));
   box.replaceChildren(kick, head,
     seg('Next tyres', [['auto', 'AUTO'], ...Object.keys(c.spec.cls.compounds).map(k => [k, compoundLabel(c.spec.cls, k)])], P.tyres, v => { P.tyres = v; }),
-    seg('Front wing', [[true, 'CHANGE IF DAMAGED'], [false, 'KEEP']], P.wing, v => { P.wing = v; }),
-    seg('Repairs', [[true, 'FIX'], [false, 'SKIP']], P.repair, v => { P.repair = v; }), call);
+    ...(game.race.wear?.damage ? parts : []), call);
 }
 Screens.onShow(name => { if (name === 'pause') drawPause(); if (name === 'pause' || name === 'results') drawSubmit(); });
 function startFromMenu() {

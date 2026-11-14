@@ -1512,6 +1512,22 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   OTHER VERSION until then; ranked time trials run without damage, so no lap's time changes). tests/pit.test.js "damage,
   realistic and fair".
 
+## Damage on the HUD and in the pit box (2026-11-14; the user's pick of the canvas "Gridline damage display": E1 + E2 + D)
+- `damage-info.js` (pure, tests/damage-info.test.js): `damageInfo(race, c)` = the parts shown (≥ 2 %): name, %, cost a lap (share
+  of the lap from the measured AI costs × your lap time × the car's dmgK; `DAMAGE_UI.cost`), what it does, level minor / bad
+  (≥ 0.5 s), the total, minor (< 0.2 s), advice (BOX FOR A NEW NOSE / BOX TO FIX IT); `repairTimes(c)` (PIT.wing, PIT.repair ×
+  floor + suspension), `payback` (+ DAMAGE_UI.laneLoss 18 s: after how many laps a stop for it pays back).
+- HUD (hud.js drawDamage, from updateCar; the position panel's Damage row is gone): E1 `#dmgCard` (top centre, under the radio)
+  for DAMAGE_UI.card 4 s after a hit (main.js onPlayerEvent EV.DAMAGE / WING_OFF → Hud.damageHit): the part + %, what it does,
+  about how much a lap, what to do + the repair time; E2 `#dmgPanel` (right, above the sectors) for the rest of the race while
+  anything is damaged: a car outline (wing / floor / the four corners = suspension, amber / red), the parts (NEW on the one just
+  hit while the card shows, a red edge), the total a lap, the advice; under 0.2 s a lap a slim strip. Both are layout panels
+  ('Damage', 'Damage card': move / hide them with the layout editor, L). Hud.damageClear at newRace.
+- Pause pit box (main.js drawPitBox; damage on): with damage, DAMAGE · WHAT A REPAIR TAKES = each part's %, cost a lap and
+  NEW NOSE +3.0 S / KEEP, FIX +x S / SKIP (the pit plan), a line on the stop (tyres + nose + repairs, ~s with the lane) and
+  whether it pays back before the flag; undamaged the plan rows as before. Debug gridlineDebug.damage(parts, part). Smoke:
+  out-damage-hit.png, out-damage-after.png, out-pause.png (the pit box with repairs).
+
 ## Ideas not done yet
 - Online leaderboard with replay validation: `docs/leaderboard-plan.md`. Phase 0 done 2026-10-28: replays
   (`src/sim/replay.js`: the game records the player's quantised inputs + settings changes from lights out; replayRun

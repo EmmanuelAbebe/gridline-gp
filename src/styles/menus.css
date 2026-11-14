@@ -463,6 +463,22 @@ table.res small{color:var(--muted);font-weight:500}
 #pitBox .seg button{min-height:40px;font-size:14px}
 #pitBox .pit-call{margin-top:auto;min-height:48px;background:transparent;border:1px solid var(--amber);border-radius:3px;color:var(--amber);font-weight:800;font-size:17px;letter-spacing:.08em}
 #pitBox .pit-call.on{background:var(--amber);color:#111}
+/* the pit box's damage (2026-11-14, canvas D): each part, its cost a lap, the repair and its time, whether a stop pays back */
+#pitBox .pit-dlbl{display:block;padding-top:10px;border-top:1px solid var(--rule);font-size:11px}
+#pitBox .pit-dmg{display:grid;grid-template-columns:minmax(0,1fr) 48px 74px auto;gap:6px 8px;align-items:center;padding:8px 0;font-family:var(--display);font-size:15px}
+#pitBox .pit-dmg .lbl{font-size:10px}#pitBox .pit-dmg .r{text-align:right}
+#pitBox .pit-dmg .ok{color:var(--muted)}#pitBox .pit-dmg .bad{color:#ff6a5f}#pitBox .pit-dmg .minor{color:var(--amber)}
+#pitBox .pit-dmg .seg{display:flex;gap:4px;justify-content:flex-end}
+#pitBox .pit-dmg .seg button{min-height:34px;padding:0 8px;font-size:12px}
+#pitBox .pit-pay{margin:2px 0 8px;padding:6px 10px;border:1px solid var(--rule);border-radius:3px;font-size:12px;line-height:1.4;color:#c4c9cf}
+/* (with the damage listed the box is fuller: tighter rows so BOX THIS LAP stays inside) */
+#pitBox:has(.pit-dmg){padding:16px 20px}
+#pitBox:has(.pit-dmg) .pit-head{font-size:20px;margin:2px 0 4px}
+#pitBox:has(.pit-dmg) .row{padding:6px 0}
+#pitBox:has(.pit-dmg) .seg button{min-height:34px}
+#pitBox:has(.pit-dmg) .pit-dmg{gap:3px 8px;padding:4px 0}
+#pitBox:has(.pit-dmg) .pit-dmg .seg button{min-height:30px}
+#pitBox:has(.pit-dmg) .pit-call{min-height:42px}
 .pause-grid > .mn-tile:not(.pause-resume) .mn-title{font-size:28px}
 /* results: the classification on the left, your race and what next on the right */
 .res-grid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px}

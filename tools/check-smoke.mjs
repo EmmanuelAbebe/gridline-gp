@@ -49,6 +49,9 @@ const checks = [
   ['quit only on the paddock', r.quitElsewhere === 0],
   ['HUD bar: FPS + PAUSE only', Array.isArray(r.hudButtons) && r.hudButtons.join() === 'fpsChip,pauseBtn'],
   ['full screen from Settings → Graphics', r.fullPressed === 'true'],
+  ['damage on the HUD: a hit = the card + the panel (NEW); 4 s later the panel alone; the pit box lists the repairs',
+    /^Front wing 40/.test(r.damage?.hit?.card || '') && r.damage.hit.panel && r.damage.hit.fresh && /Front wing 40 %/.test(r.damage.hit.rows) && /s a lap/.test(r.damage.hit.total)
+    && r.damage.after?.card === false && r.damage.after.panel && !r.damage.after.fresh && /NEW NOSE \+3\.0 S/.test(r.pitBox || '') && /pays back|doesn't pay back/.test(r.pitBox || '')],
   ['practice screen from the paddock: SECTION, the map with corners, quick picks, three tiles, a corner row each, START PRACTICE', r.practice?.menu?.open && r.practice.menu.tab === 'section' && !r.practice.menu.paused && r.practice.menu.go === 'START PRACTICE' && r.practice.corners > 4 && r.practice.quick >= 4 && r.practice.tiles === 3 && r.practice.rows === r.practice.corners],
   ['practice screen: the car picker shows the car you race', r.practice?.car === (r.practice?.race === 'fe' ? 'GP ELECTRIC' : 'GP HYBRID')],
   ['practice: the first run waits for you (READY WHEN YOU ARE, rolling), Enter sets it off', r.practice?.ready && r.practice.went],

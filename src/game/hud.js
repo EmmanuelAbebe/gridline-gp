@@ -1,6 +1,7 @@
 import { SIM } from '../sim/index.js';
 import { CONFIG } from './config.js';
 import { $, fmtTime, fmtClock, ordinal, hexCss } from './util.js';
+import { damageInfo, repairTimes, DAMAGE_UI } from './damage-info.js';
 
 // All DOM writes for the in-race graphics. Writes are cached so unchanged values don't touch the DOM.
 export const Hud = (() => {
@@ -14,6 +15,41 @@ export const Hud = (() => {
   const cache = {}, els = {};
   function setText(id, v) { v = String(v); if (cache[id] === v) return; cache[id] = v; (els[id] ||= $(id)).textContent = v; }
   function setOnce(key, v, apply) { if (cache[key] === v) return; cache[key] = v; apply(v); }
+  // damage (2026-11-14, canvas E1 + E2): the part just hit and when (the card shows DAMAGE_UI.card s, the panel marks it NEW)
+  let hitPart = null, hitAt = -Infinity;
+  const secs = v => v < 0.1 ? '0.1' : v.toFixed(1);
+  function drawDamage(race, c) {
+    const I = damageInfo(race, c), fresh = performance.now() - hitAt < DAMAGE_UI.card * 1000 && I.parts.some(p => p.key === hitPart) ? hitPart : null;
+    const sig = JSON.stringify([I.parts.map(p => [p.key, p.pct, p.level, secs(p.cost)]), I.advice, I.minor, fresh, secs(I.total)]);
+    setOnce('dmgSig', sig, () => {
+      const panel = $('dmgPanel'); panel.hidden = !I.any; if (!I.any) return;
+      panel.classList.toggle('slim', I.minor && !fresh); panel.classList.toggle('new', !!fresh);
+      const lvl = k => I.parts.find(p => p.key === k)?.level ?? '', hit = k => fresh === k ? ' hit' : '';
+      $('dmgPw').setAttribute('class', lvl('wing') + hit('wing')); $('dmgPf').setAttribute('class', lvl('floor') + hit('floor'));
+      for (const w of panel.querySelectorAll('.dmg-car .s, .dmg-car .susp')) w.setAttribute('class', 'susp ' + lvl('susp') + hit('susp'));
+      const rows = ['wing', 'floor', 'susp'].map(k => {
+        const p = I.parts.find(q => q.key === k), d = document.createElement('div');
+        if (!p) { d.className = 'ok'; d.textContent = `${{ wing: 'Front wing', floor: 'Floor', susp: 'Suspension' }[k]} OK`; return d; }
+        const i = document.createElement('i'); i.className = p.level; d.append(i, `${p.name} ${p.pct} %`);
+        if (fresh === k) { const e = document.createElement('em'); e.textContent = 'NEW'; d.append(e); }
+        return d;
+      });
+      $('dmgList').replaceChildren(...rows);
+      $('dmgTotal').textContent = `~${secs(I.total)} s a lap${I.parts.length > 1 ? ' in all' : ''}`;
+      $('dmgTotal').className = 'dmg-total ' + (I.total >= DAMAGE_UI.bad ? 'bad' : 'minor');
+      $('dmgDo').textContent = I.advice;
+      // the card (E1): the part just hit, what it does, what it costs, what to do and what the repair takes
+      const p = I.parts.find(q => q.key === fresh);
+      if (p) {
+        const r = repairTimes(c), fix = p.key === 'wing' ? r.wing : r.repair;
+        $('dmgCardTitle').textContent = `${p.name} ${p.pct} %`;
+        $('dmgCardWhat').innerHTML = `${p.what[0].toUpperCase() + p.what.slice(1)} · about <em>${secs(p.cost)} s a lap</em>`;
+        $('dmgCardDo').textContent = p.cost < DAMAGE_UI.minor ? 'KEEP GOING · IT HARDLY COSTS'
+          : `${p.key === 'wing' ? 'BOX FOR A NEW NOSE' : 'CAN BE FIXED IN THE PITS'}${fix ? ` · ${fix.toFixed(1)} S IN THE PITS` : ''}`;
+      }
+    });
+    setOnce('dmgCardOn', !!fresh, v => { $('dmgCard').hidden = !v; });
+  }
 
   let msgTimer = 0, toastTimer = 0, padLabel = '';
   function flash(text, dur = 1) { $('msg').textContent = text; $('msg').classList.add('show'); msgTimer = dur; }
@@ -107,8 +143,13 @@ export const Hud = (() => {
       i.textContent = delta === null ? '' : (delta > 0 ? '+' : delta < 0 ? '−' : '±') + Math.abs(delta).toFixed(3);
       i.className = 'num ' + (delta === null ? '' : delta < -0.0005 ? 'faster' : delta > 0.0005 ? 'slower' : '');
     },
+    // a hit that damaged your car (main.js: EV.DAMAGE / WING_OFF): the card and the NEW mark
+    damageHit(part) { hitPart = part; hitAt = performance.now(); },
+    // the damage card and panel off (a new race, the menu)
+    damageClear() { hitPart = null; hitAt = -Infinity; delete cache.dmgSig; delete cache.dmgCardOn; $('dmgPanel').hidden = $('dmgCard').hidden = true; },
     // car condition rows (only what the race uses) and the pit status line
     updateCar(race, c) {
+      if (race.wear?.damage) drawDamage(race, c); else setOnce('dmgSig', 'off', () => { $('dmgPanel').hidden = $('dmgCard').hidden = true; });
       // (an electric car's race energy, SIM energy.js: the Fuel row is its Energy row)
       const W = race.wear, tt = !!(race.tyreTemp && c.tyreT), E = race.energy?.total ? race.energy : null;
       const on = !!(W && (W.fuelLaps || W.tyreLaps || W.damage)) || tt || !!E;
@@ -122,7 +163,7 @@ export const Hud = (() => {
         }
       }
       const showRow = (id, v) => { $(id).hidden = !v; $(id + 'Lbl').hidden = !v; };   // (fuelLbl, tyresLbl, dmgLbl)
-      setOnce('fuelOn', !!W?.fuelLaps || !!E, v => showRow('fuel', v)); setOnce('fuelName', E ? 'Energy' : 'Fuel', t => { $('fuelLbl').textContent = t; }); setOnce('tyresOn', true, v => showRow('tyres', v)); setOnce('dmgOn', !!W?.damage, v => showRow('dmg', v));
+      setOnce('fuelOn', !!W?.fuelLaps || !!E, v => showRow('fuel', v)); setOnce('fuelName', E ? 'Energy' : 'Fuel', t => { $('fuelLbl').textContent = t; }); setOnce('tyresOn', true, v => showRow('tyres', v)); setOnce('dmgOn', false, v => showRow('dmg', v));
       // the compound on the car (S / M / H in Pirelli's colours) and, with tyre wear, how much is left
       const q = W?.tyreLaps ? Math.round((1 - c.tyreWear) * 100) : null;
       setOnce('tyreTxt', `${c.compound}:${q}`, () => {
@@ -141,12 +182,7 @@ export const Hud = (() => {
           setOnce('fuelCls', c.fuel <= 0 || (short && left < 1) ? 'bad' : short ? 'warn' : '', k => { $('fuel').className = k; });
         }
         if (W.tyreLaps) setOnce('tyreCls', q < 25 ? 'bad' : q < 45 ? 'warn' : '', k => { $('tyres').className = k; });
-        if (W.damage) {
-          const d = c.damage, parts = [['wing', 'WING'], ['floor', 'FLOOR'], ['susp', 'SUSP']].filter(([k]) => d[k] > 0.08);
-          const worst = Math.max(d.wing, d.floor, d.susp);
-          setOnce('dmgTxt', parts.length ? parts.map(([k, n]) => `${n} ${Math.round(d[k] * 100)}%`).join(' ') : 'none', t => { $('dmg').textContent = t; });
-          setOnce('dmgCls', worst > 0.5 ? 'bad' : worst > 0.08 ? 'warn' : '', k => { $('dmg').className = k; });
-        }
+        // (damage: its own card and panel since 2026-11-14, drawDamage; not a row here)
       }
       // the power unit's battery (its class's ers; an electric car's: of the race's allowance): charge, and whether it is
       // deploying (yellow) or harvesting (blue)

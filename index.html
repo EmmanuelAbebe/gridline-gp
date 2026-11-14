@@ -51,6 +51,12 @@
     <canvas id="teleChart" width="560" height="228"></canvas>
     <div class="tele-foot"><span id="teleSpd">–</span><span id="teleYou">–</span></div>
   </div>
+  <!-- damage (hud.js updateCar, damage-info.js): a card at the hit (E1), then a panel for the rest of the race (E2) -->
+  <div id="dmgCard" class="panel dmg-card" hidden><div class="dmg-chead"><span class="lbl">DAMAGE · JUST NOW</span></div><b id="dmgCardTitle"></b><span class="dmg-cwhat" id="dmgCardWhat"></span><span class="dmg-cdo" id="dmgCardDo"></span></div>
+  <div id="dmgPanel" class="panel dmg-panel" hidden>
+    <svg class="dmg-car" viewBox="0 0 70 140" aria-hidden="true"><rect id="dmgPw" x="4" y="6" width="62" height="10" rx="2"></rect><rect class="n" x="31" y="16" width="8" height="24"></rect><rect class="s" x="6" y="26" width="10" height="20" rx="3"></rect><rect class="s" x="54" y="26" width="10" height="20" rx="3"></rect><path id="dmgPf" d="M22 40 L48 40 L54 100 L16 100 Z"></path><rect class="c" x="27" y="44" width="16" height="22" rx="6"></rect><rect class="s" x="4" y="96" width="12" height="24" rx="3"></rect><rect class="s" x="54" y="96" width="12" height="24" rx="3"></rect><rect class="n" x="12" y="124" width="46" height="9" rx="2"></rect></svg>
+    <div class="dmg-list"><span class="lbl">DAMAGE</span><div id="dmgList"></div><span class="dmg-total" id="dmgTotal"></span><span class="dmg-do" id="dmgDo"></span></div>
+  </div>
   <div id="sectorBox" class="panel" aria-hidden="true">
     <div class="sec-head"><span class="lbl">Sectors</span><span class="lbl num" id="secRef"></span></div>
     <div class="sec-row" id="secRow"></div>

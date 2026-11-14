@@ -9,6 +9,7 @@ import { Input } from './input.js';
 import { benchCity, clearCity } from './bench.js';
 import { Design } from './design.js';
 import { CarModels } from './car-models.js';
+import { Hud } from './hud.js';
 
 export function installDebug(setTrack, current, player = () => null, toMenu = () => {}, loadGhost = () => {}, autopilot = () => {}, showLine = () => {}, setPref = () => {}, spots = () => null, race = () => null) {
   window.gridlineDebug = { soundReady: () => Sound.ready,
@@ -46,6 +47,13 @@ export function installDebug(setTrack, current, player = () => null, toMenu = ()
       Object.assign(c, { idx: i, lat: L.lane, x: track.PX[i] + track.NX[i] * L.lane, z: track.PZ[i] + track.NZ[i] * L.lane,
         h: Math.atan2(track.TZ[i], track.TX[i]), v: 60 / 3.6, vy: 0, yawRate: 0, pit: null, pitRequest: true });
       if (c.damage) Object.assign(c.damage, { wing: 0.5, floor: 0.2 });
+      return true;
+    },
+    // damage(parts, part): your car's damage set ({ wing, floor, susp } 0..1) and `part` shown as just hit (the HUD's
+    // card and panel, the pit box's repairs); damage() = none
+    damage(parts = {}, part = null) {
+      const c = player(); if (!c?.damage) return false;
+      Object.assign(c.damage, { wing: 0, floor: 0, susp: 0, ...parts }); if (part) Hud.damageHit(part); else Hud.damageClear();
       return true;
     },
     // crash(dv): stage a launch: your car on the track at 216 km/h, another car 9 m ahead in your path dv m/s slower, your

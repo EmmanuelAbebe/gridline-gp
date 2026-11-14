@@ -341,11 +341,23 @@ async function smokeTest(win) {
   await new Promise(r => setTimeout(r, 300));
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-lookback.png'), (await capture(win)).toPNG());
   await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyR', key: 'r' }))`);
+  // damage on the HUD (canvas E1 + E2): a hit on the wing → the card and the panel (the part marked NEW), 4 s later the panel alone
+  const dmgState = () => win.webContents.executeJavaScript(`({ card: !document.getElementById('dmgCard').hidden && document.getElementById('dmgCardTitle').textContent,
+    panel: !document.getElementById('dmgPanel').hidden, rows: document.getElementById('dmgList').textContent, fresh: !!document.querySelector('#dmgList em'),
+    total: document.getElementById('dmgTotal').textContent, advice: document.getElementById('dmgDo').textContent })`);
+  info.damage = { set: await win.webContents.executeJavaScript(`gridlineDebug.damage({ wing: 0.4, floor: 0.12 }, 'wing')`) };
+  await new Promise(r => setTimeout(r, 400));
+  info.damage.hit = await dmgState();
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-damage-hit.png'), (await capture(win)).toPNG());
+  await new Promise(r => setTimeout(r, 4300));
+  info.damage.after = await dmgState();
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-damage-after.png'), (await capture(win)).toPNG());
   await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click()`);
-  // the pause menu's pit box (screenshot): the compound on the car and the next stop's plan
+  // the pause menu's pit box (screenshot): the compound on the car, the damage with its repairs, the next stop's plan
   await new Promise(r => setTimeout(r, 200));
   info.pitBox = await win.webContents.executeJavaScript(`(() => { const b = document.getElementById('pitBox'); return b.hidden ? 'hidden' : b.textContent; })()`);
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-pause.png'), (await capture(win)).toPNG());
+  await win.webContents.executeJavaScript(`gridlineDebug.damage()`);
   // settings from the pause menu, Controller tab (screenshot), then Done returns to the pause menu
   await win.webContents.executeJavaScript(`document.getElementById('pauseSettingsBtn').click();
     [...document.querySelectorAll('#setTabs button')].find(b => b.textContent === 'Controller').click()`);

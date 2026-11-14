@@ -169,3 +169,34 @@
 /* tyre compounds (S / M / H): a ring in the compound's colour, as on the sidewall */
 .cmp{display:inline-grid;place-items:center;width:1.45em;height:1.45em;border-radius:50%;border:2px solid currentColor;font-family:var(--display);font-weight:800;font-size:.78em;line-height:1;vertical-align:middle}
 .cmp.soft{color:#ff3b3b} .cmp.medium{color:#ffd21e} .cmp.hard{color:#f2f3f0}
+/* damage (2026-11-14, canvas "Gridline damage display" E1 + E2): a card at the hit, then a panel on the right for the race */
+.dmg-card{position:fixed;left:50%;top:150px;transform:translateX(-50%);width:400px;box-sizing:border-box;padding:12px 16px;display:flex;flex-direction:column;gap:4px;border:1px solid var(--red,#ff463c);font-family:var(--display)}
+.dmg-card[hidden],.dmg-panel[hidden]{display:none}
+.dmg-card .lbl{color:#ff6a5f}
+.dmg-card b{font-size:28px;font-weight:800;letter-spacing:.02em;text-transform:uppercase}
+.dmg-cwhat{font-family:var(--body,inherit);font-size:15px;color:#c4c9cf}
+.dmg-cwhat em{font-style:normal;font-weight:700;color:#ff6a5f}
+.dmg-cdo{font-size:15px;font-weight:700;letter-spacing:.08em;color:var(--amber)}
+.dmg-panel{position:fixed;right:12px;bottom:calc(150px + env(safe-area-inset-bottom,0px));width:250px;box-sizing:border-box;padding:10px 12px;display:flex;gap:10px;font-family:var(--display);font-size:14px}
+.dmg-panel.new{border:1px solid #ff6a5f}
+.dmg-car{width:56px;height:112px;flex:none}
+.dmg-car rect,.dmg-car path{fill:#3a414b}
+.dmg-car .c{fill:#1b2028}
+.dmg-car .minor{fill:var(--amber)}.dmg-car .bad{fill:#ff6a5f}
+.dmg-car .hit{stroke:#f2f3f0;stroke-width:2}
+.dmg-list{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.dmg-list .lbl{font-size:11px}
+#dmgList div{display:flex;align-items:center;gap:6px;font-weight:600}
+#dmgList i{width:9px;height:9px;flex:none}
+#dmgList i.minor{background:var(--amber)}#dmgList i.bad{background:#ff6a5f}
+#dmgList em{font-style:normal;margin-left:auto;padding:0 4px;border-radius:2px;background:#ff6a5f;color:#0b0e12;font-size:11px;font-weight:700}
+#dmgList .ok{color:var(--muted)}
+.dmg-total{margin-top:auto;font-weight:600}.dmg-total.bad{color:#ff6a5f}.dmg-total.minor{color:var(--amber)}
+.dmg-do{font-weight:700;letter-spacing:.06em;color:#ff6a5f}
+.dmg-do:empty{display:none}
+/* minor (under DAMAGE_UI.minor s a lap): a slim strip */
+.dmg-panel.slim{width:200px;padding:6px 10px;align-items:center}
+.dmg-panel.slim .dmg-car{width:15px;height:30px}
+.dmg-panel.slim .lbl,.dmg-panel.slim .dmg-do,.dmg-panel.slim #dmgList .ok{display:none}
+.dmg-panel.slim .dmg-list{flex-direction:row;align-items:center;gap:8px}
+.dmg-panel.slim .dmg-total{margin:0 0 0 auto}
