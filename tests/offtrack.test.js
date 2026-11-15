@@ -150,3 +150,13 @@ test('track limits: running wide at speed counts, a slow car rejoining does not'
   assert.equal(fast.cuts, 1); assert.ok(fast.lapInvalid && fast.events.some(e => e.type === S.EV.CUT && e.wide));
   assert.equal(run(5).cuts, 0);
 });
+
+test('rolling backwards in a forward gear (after a spin): the brakes stop it, they never push it forwards', () => {
+  // (2026-11-15, user: going backwards the brakes did nothing: below CHASSIS.lowSpeed they only acted on a car going forwards)
+  const T = S.track, race = S.createRace({ type: 'unlimited' }, { track: T, drivers: S.DRIVERS.slice(0, 1), seed: 1 }), c = race.cars[0];
+  c.player = true; c.assists = S.ASSISTS.off; c.movedOff = true;
+  let i0 = 0; for (let i = 0, run = 0; i < T.N; i++) { run = Math.abs(T.K[i]) < 0.001 ? run + 1 : 0; if (run > 80) { i0 = i - 60; break; } }
+  Object.assign(c, { idx: i0, lat: 0, x: T.PX[i0], z: T.PZ[i0], h: Math.atan2(T.TZ[i0], T.TX[i0]), v: -10 / 3.6, vy: 0, yawRate: 0, gear: 1, lap: 1 });
+  for (let k = 0; k < 120; k++) { race.t += 1 / 120; S.drivePlayer(race, c, { steer: 0, thr: 0, brk: 1, analog: true, steerRate: Infinity }, 1 / 120); }
+  assert.equal(c.v, 0, `${(c.v * 3.6).toFixed(1)} km/h after 1 s on the brakes`);
+});

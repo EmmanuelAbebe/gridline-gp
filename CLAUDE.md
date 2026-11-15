@@ -207,6 +207,12 @@ mode to 337 km/h, −30 % downforce, 3.4 m wheelbase, ~770 kg), Mercedes (downfo
   (4) lifting: `coastMax` 2.0 → 1.0 (100 km/h lift 0.39 → 0.28 g, 320 km/h 1.01 → 0.93 g), torque map 1.6 → 1.5
   (1.4 and engineBrake 1.0 were tried: ALIEN without assists hit walls / spun at Marrow, Hautvale, Saltcross);
   ALIEN paceOff marrow 1.16 → 1.14. tests/offtrack.test.js "stopped: the brake holds …".
+  Brakes going backwards (2026-11-15; user: "my brakes … completely ineffective … going backwards or on the grass"): below
+  CHASSIS.lowSpeed (2 m/s, the kinematic branch) the brakes only acted on a car going forwards, so a car rolling backwards in
+  a forward gear after a spin got none (it coasted on at ~7 km/h); now they act against the motion either way and stop it at 0
+  (sim-trace identical: the AI never brakes there). Measured on grass (assists off, 2 s): from 150 km/h coasting → 118, braking
+  → 95 (ABS 89); sliding sideways the brakes change nothing (the tyres already slide): the grass is as designed (grip 0.35).
+  tests/offtrack.test.js "rolling backwards in a forward gear".
 
 ## Wheelspin and the AI's throttle (2026-10-28; user: no AI skid marks or slipping when accelerating, yet it pulls away
 ## faster "in the exact same situation")

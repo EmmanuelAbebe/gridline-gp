@@ -235,13 +235,19 @@ export function stepChassis(race, c, inp, dt) {
         // brake against the motion; gas backwards (asking more than the tyres give spins them, as forwards)
         const ask = TUNING.REVERSE_ACC * inp.thr;
         a += (v > 0 ? -20 : 20) * inp.brk * surf.grip - (ask > push ? push * CH.slideLong : ask) * dug;
-      } else { a += Math.min(d.drive, push) * dug; if (v > 0) a -= 20 * inp.brk * surf.grip; }
+      } else {
+        a += Math.min(d.drive, push) * dug;
+        // the brakes against the motion either way (2026-11-15, user: "my brakes … completely ineffective" going backwards:
+        // a car rolling backwards in a forward gear below lowSpeed, after a spin, used to get no brakes at all)
+        if (v > 0) a -= 20 * inp.brk * surf.grip; else if (v < 0) a += 20 * inp.brk * surf.grip;
+      }
       // a wheelspin from (near) rest: the rears spin on the spot, the friction heats them (tyre-temp.js)
       if (TT && d.drive > push) heatR += S.mass * push * Math.min(TTC.spinSlip.max, TTC.spinSlip.base + TTC.spinSlip.per * (d.drive / push - 1)) * h;
       if (E) a -= G * gx;
       if (inp.hb && v > 0) a -= HANDBRAKE.crawl * inp.hb;
       const v0 = c.v; c.v = clamp(c.v + a * h, -TUNING.REVERSE_MAX, TUNING.V_CAP);
       if (!d.reverse && v0 >= 0 && c.v < 0) c.v = 0;
+      if (!d.reverse && v0 < 0 && c.v > 0 && !(inp.thr > 0)) c.v = 0;   // (braking a car rolling backwards stops it, not more)
       if (d.reverse && v0 <= 0 && c.v > 0 && !(inp.thr > 0)) c.v = 0;   // braking a reversing car stops it, not more
       // the rear axle rolls straight: sideways speed at the centre of mass is B_REAR × yaw rate (no tyre slip)
       c.yawRate = c.v * FM.tan(delta) / L; c.vy = B_REAR * c.yawRate;
