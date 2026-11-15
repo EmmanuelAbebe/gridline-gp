@@ -65,6 +65,7 @@ export function createCar(track, driver, slot, rng, spec = STOCK) {
     soc: spec.cls.ers.store * spec.cls.ers.start, harvested: 0, ersLap: 0, ersKw: 0, deploy: 1,
     // the ECU (ecu.js): mode '' (none: ERS.map, every AI car) / 'auto' / 'manual', the map (ECU.maps index), the braking
     // points learnt from this car's driving (metres to the next per sample; null = the track's), this lap's starts
+    biasAdj: 0,   // chassis.js: the brake bias moved on the wheel during the race (front share, + = forward)
     ecuMode: '', ecuMap: Number(spec.cls.ecu.start), ecuBrk: /** @type {Float32Array} */ (null), ecuStarts: /** @type {number[]} */ ([]), ecuLap: 0, ecuBraking: false,
     // chassis (chassis.js): lateral speed (m/s, + = right), yaw rate (rad/s), last longitudinal accel,
     // how saturated each axle is (0..1), lock-up / wheel spin flags; assists (ASSISTS levels, set by createRace / the game)

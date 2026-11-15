@@ -6,7 +6,8 @@
 //
 // State on the car: v (forward speed), vy (sideways speed, + = right), yawRate (rad/s, + = turning right), ax.
 // Everything is per unit mass, so forces read as accelerations (m/s²).
-import { TUNING, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT } from './tuning.js';
+import { TUNING, SURFACES, ASSISTS, ROUGH, OFFTRACK as OT, EV } from './tuning.js';
+import { emit } from './events.js';
 import { F1_2026 } from './classes/f1-2026.js';
 import { updateEcu, brakeAhead } from './ecu.js';
 import { axleTempGrip, stepTyreTemps, tyreEvents } from './tyre-temp.js';
@@ -180,6 +181,13 @@ export function stepChassis(race, c, inp, dt) {
   let regenJ = 0;                       // an electric car (M: its motor): J the motors regenerated over the step
   // the deployment map (as the real cars' ECU, by where the car is): no electrical power in the last metres before a
   // braking zone (the energy would only go into the brakes), stopping earlier the emptier the battery (ERS.map)
+  // the brake bias on the wheel (2026-11-15, user: real drivers move it during a race; inp.bias ±1 = one SETUP.brakes step
+  // forward / back of the garage's, within its range; the player's only, recorded in the replay)
+  if (inp.bias) {
+    const B = S.cls.setup.brakes, was = c.biasAdj, base = S.brakeBias;
+    c.biasAdj = clamp(c.biasAdj + Math.sign(inp.bias) * B.step / 100, B.min / 100 - base, B.max / 100 - base);
+    emit(c, EV.BIAS, { bias: Math.round((base + c.biasAdj) * 1000) / 10, moved: c.biasAdj !== was });
+  }
   if (c.ecuMode) {
     // a car with an ECU mode (ecu.js: the player's): its map, by the braking points learnt from its own driving
     updateEcu(race, c, inp);
@@ -314,7 +322,7 @@ export function stepChassis(race, c, inp, dt) {
     // brakes split by axle load (+ a front bias), drive on the rear
     const brake = brakeMax(sp, S) * inp.brk;
     // (brake-by-wire keeps the rear share with the MGU-K harvesting; it moves forward as the pedal comes off: migration)
-    const bias = Math.min(1, S.brakeBias + S.brakeMigration * (1 - inp.brk));
+    const bias = Math.min(1, S.brakeBias + c.biasAdj + S.brakeMigration * (1 - inp.brk));   // (biasAdj 0: the same floats)
     // ABS / traction control hold the tyres at `limit` × what they can give: medium / high 0.97, low 0.985 (2026-10-24: low
     // used to allow 1.045 / 1.095, past the grip, so its wheels locked and spun as with none)
     const absLimit = A.abs > 0 ? 0.97 + 0.03 * (1 - A.abs) : null, tcLimit = A.tc > 0 ? 0.97 + 0.03 * (1 - A.tc) : null;

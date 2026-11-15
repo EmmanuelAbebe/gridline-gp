@@ -1534,6 +1534,16 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   whether it pays back before the flag; undamaged the plan rows as before. Debug gridlineDebug.damage(parts, part). Smoke:
   out-damage-hit.png, out-damage-after.png, out-pause.png (the pit box with repairs).
 
+## Brake bias on the wheel (2026-11-15; user: does the physics account for weight transfer and brake bias changes? (yes:
+## chassis.js axle loads ± c.ax × cgHeight / wheelbase, the garage's Brakes group) then "add it for dedicated controllers")
+- SIM: car `biasAdj` (front share moved during the race), chassis.js: `inp.bias` ±1 = one SETUP.brakes step (0.5 %) within the
+  garage range (51–63 %), EV.BIAS {bias %, moved}; the split = brakeBias + biasAdj + migration (biasAdj 0: the same floats,
+  sim-trace identical). Replays: quantizeInput `bias`, flags 128 / 256 (tests/replay.test.js moves it mid-race).
+- Game: button actions `biasFwd` / `biasBack` (button-map.js; DEFAULT_MAP for pads and wheels = D-pad → / ←, the D-pad still
+  moves menu focus; not on the phone: PHONE_MAP leaves them unbound), keys [ / ], main.js requestBias → game.pendingBias (one
+  step per sim step, racing only); toast "Brake bias 57.5 % front" / "at its limit"; HUD `#bbNum` "BB 57.0" under the ECU line
+  (amber once moved; in the speedo panel, so hidden with it in the cockpit view). Settings → Keys lists it. Smoke: out-bias.png.
+
 ## Ideas not done yet
 - Online leaderboard with replay validation: `docs/leaderboard-plan.md`. Phase 0 done 2026-10-28: replays
   (`src/sim/replay.js`: the game records the player's quantised inputs + settings changes from lights out; replayRun

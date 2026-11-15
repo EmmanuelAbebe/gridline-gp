@@ -102,7 +102,7 @@ const game = {
   ghost: null, ghostStart: null, trial: false, rival: null,   // rival: a live AI ghost (ai-ghosts.js createRival)
   lights: { t: 0, lit: 0, hold: 0 }, resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
   towerT: 0, mapT: 0, slowWindows: 0, acc: 0, carsDirty: false,
-  pendingShift: 0, pendingAero: false, pendingLimiter: false, pendingMap: 0, autoShiftHinted: false, queueHinted: false, steerRate: Infinity,   // paddle press waiting for the next sim step
+  pendingShift: 0, pendingAero: false, pendingLimiter: false, pendingMap: 0, pendingBias: 0, autoShiftHinted: false, queueHinted: false, steerRate: Infinity,   // paddle press waiting for the next sim step
 };
 setPlayerClass(garageClass(game.garage));             // the car class you race (car-class.js): the garage's
 CarModels.classChanged();                              // (its 3D model: fe.glb for the electric car)
@@ -235,7 +235,7 @@ function newRace() {
   sectors.start(race, player);
   racingLine.set(track, trial.aiLapOf('alien', race.activeAero)?.line);
   crews.build(race, Design.data.car); marks.clear(); Debris.clear();
-  Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, pendingBoost: false, pendingAero: false, pendingLimiter: false, pendingMap: 0, autoShiftHinted: false, queueHinted: false,
+  Object.assign(game, { race, player, phase: PHASE.LIGHTS, paused: false, pendingShift: 0, pendingBoost: false, pendingAero: false, pendingLimiter: false, pendingMap: 0, pendingBias: 0, autoShiftHinted: false, queueHinted: false,
     resultsAt: -1, resultsShown: false, ended: false, finalLapShown: false, timeUpShown: false,
     lights: { t: 0, lit: 0, hold: L.holdMin + Math.random() * L.holdRand } });
   setStartLights(0); Hud.showLights(true); Hud.setLapTimes(0, 0); raceAudio.reset();
@@ -375,10 +375,10 @@ function simStep(dt) {
     else if (c.player && !c.finished) {
       // (quantised before the car gets them, and recorded: the replay feeds the car the very same numbers)
       const drive = game.botInput ? game.botInput(c) : Input.drive;          // (gridlineDebug.botDrive: a test driver on your controls)
-      const inp = SIM.quantizeInput({ ...drive, brk: drive.brk * game.prefs.brakeForce / 100, steerRate: game.steerRate, calm: game.prefs.calm / 100, speedSteer: game.prefs.speedSteer === 'on' ? SIM.ASSISTS.medium.steer : 0, padAssist: padAssistNow(), shift: game.pendingShift, boost: game.pendingBoost, aero: game.pendingAero, limiter: game.pendingLimiter, map: Math.sign(game.pendingMap) });
+      const inp = SIM.quantizeInput({ ...drive, brk: drive.brk * game.prefs.brakeForce / 100, steerRate: game.steerRate, calm: game.prefs.calm / 100, speedSteer: game.prefs.speedSteer === 'on' ? SIM.ASSISTS.medium.steer : 0, padAssist: padAssistNow(), shift: game.pendingShift, boost: game.pendingBoost, aero: game.pendingAero, limiter: game.pendingLimiter, map: Math.sign(game.pendingMap), bias: Math.sign(game.pendingBias) });
       game.replayRec?.step(c, inp);
       SIM.drivePlayer(race, c, inp, dt);
-      game.pendingShift = 0; game.pendingMap -= Math.sign(game.pendingMap); game.pendingBoost = game.pendingAero = game.pendingLimiter = false; }
+      game.pendingShift = 0; game.pendingMap -= Math.sign(game.pendingMap); game.pendingBias -= Math.sign(game.pendingBias); game.pendingBoost = game.pendingAero = game.pendingLimiter = false; }
     else SIM.driveAI(race, c, dt, c.finished ? CONFIG.finishedAiSkill : 0);
   }
   SIM.collide(race);
@@ -610,7 +610,7 @@ const ACTIONS = { camera: cycleCamera, mute: toggleMute, pause: escape, fps: () 
   inputs: () => InputMonitor.toggle(),
   // (LB / RB in the start menu: the circuit)
   shiftUp: () => menuOpen() ? menu.circuit(1) : subOpen() === 'pracHub' ? practice.tab(1) : shift(+1), shiftDown: () => menuOpen() ? menu.circuit(-1) : subOpen() === 'pracHub' ? practice.tab(-1) : shift(-1),
-  box: requestBox, boost: requestBoost, aero: requestAero, limiter: requestLimiter, mapUp: () => requestMap(+1), mapDown: () => requestMap(-1) };
+  box: requestBox, boost: requestBoost, aero: requestAero, limiter: requestLimiter, mapUp: () => requestMap(+1), mapDown: () => requestMap(-1), biasFwd: () => requestBias(+1), biasBack: () => requestBias(-1) };
 Input.on('action', (name, src) => { if (practicing() && practice.action(name, src)) return; ACTIONS[name]?.(); });
 // pad A / B (phone buttons 1 / 2) in menus: confirm / back, whatever they do while racing (button-map.js)
 Input.on('menu', what => {
@@ -660,6 +660,12 @@ function requestMap(d) {
   const p = game.player;
   if (!racing() || !p || p.finished) return;
   if (p.ecuMode !== 'manual') showMessage(SAY.ecuAuto); else game.pendingMap = d;
+}
+// the brake bias ([ / ] or a controller button, D-pad ← / → on a pad or wheel by default): one step back / forward, next sim step
+function requestBias(d) {
+  const p = game.player;
+  if (!racing() || !p || p.finished || game.paused) return;
+  game.pendingBias += d;
 }
 // the phone wheel's map row (PhoneWheel 'ecu'): 0..3 = that map (a tap while on AUTO switches to MANUAL), 'auto' / 'manual'
 PhoneWheel.on('ecu', cmd => {

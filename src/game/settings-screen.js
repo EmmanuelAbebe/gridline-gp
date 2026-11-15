@@ -29,6 +29,7 @@ const KEYS = `<div class="keys">
   <span><kbd>B</kbd> <kbd>X</kbd></span><span>Box this lap, overtake mode (when set to BUTTON)</span>
   <span><kbd>Z</kbd> <kbd>N</kbd></span><span>Straight mode, pit limiter (when set to BUTTON in Settings → Driving)</span>
   <span><kbd>,</kbd> <kbd>.</kbd></span><span>ECU map down / up (ECU maps on MANUAL in Settings → Driving)</span>
+  <span><kbd>[</kbd> <kbd>]</kbd></span><span>Brake bias back / forward, 0.5 % a press (pads and wheels: D-pad ← / →; Settings → Buttons)</span>
   <span><kbd>C</kbd></span><span>Camera</span>
   <span><kbd>R</kbd></span><span>Look back (hold)</span>
   <span><kbd>Space</kbd></span><span>Handbrake (hold): locks the rear wheels, for hairpins</span>

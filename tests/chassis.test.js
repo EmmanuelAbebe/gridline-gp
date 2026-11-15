@@ -321,3 +321,17 @@ test('dampers: stock is the stock car; a stiffer rear livens a quick change of d
   const soft = stop({ bumpF: 1, reboundR: 1 }), stiff = stop({ bumpF: 11, reboundR: 11 });
   assert.ok(stiff < soft - 0.3, `low car, 300 → 80 km/h: soft dive ${soft.toFixed(1)} m, stiff ${stiff.toFixed(1)} m`);
 });
+
+test('the brake bias on the wheel: a step per press within the garage range, it moves the braking forward, nothing without presses', () => {
+  // (2026-11-15: drivers move it during a race; the car's biasAdj, chassis.js; recorded in replays: tests/replay.test.js)
+  const race = S.createRace(1, { drivers: S.DRIVERS.slice(0, 1) }), c = race.cars[0], B = S.CLASSES?.f1?.setup?.brakes ?? { min: 51, max: 63, step: 0.5 };
+  c.player = true;
+  const press = d => { S.drivePlayer(race, c, { steer: 0, thr: 0, brk: 0, analog: true, steerRate: Infinity, bias: d }, 1 / 120); return c.events.splice(0).filter(e => e.type === S.EV.BIAS); };
+  const e1 = press(+1);
+  assert.ok(e1.length === 1 && e1[0].moved && Math.abs(e1[0].bias - (c.spec.brakeBias * 100 + B.step)) < 1e-9, JSON.stringify(e1));
+  for (let k = 0; k < 40; k++) press(+1);
+  assert.ok(Math.abs(c.spec.brakeBias + c.biasAdj - B.max / 100) < 1e-12, 'held at the top of the range');
+  assert.equal(press(+1)[0].moved, false, 'at its limit');
+  for (let k = 0; k < 80; k++) press(-1);
+  assert.ok(Math.abs(c.spec.brakeBias + c.biasAdj - B.min / 100) < 1e-12, 'and at the bottom');
+});

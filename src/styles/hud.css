@@ -161,6 +161,8 @@
 #ers .num{min-width:3.2em;text-align:right;font-size:12px}
 /* the ECU map under the battery (SIM ecu.js) and the engine's rpm under the speed */
 #ecuMap{grid-column:1/-1;margin:-4px 0 6px;font-family:var(--display);font-weight:700;font-size:12px;letter-spacing:.12em;color:var(--muted)}
+#bbNum{grid-column:1/-1;margin:-4px 0 6px;font-family:var(--display);font-weight:700;font-size:12px;letter-spacing:.12em;color:var(--muted)}
+#bbNum.moved{color:var(--amber)}
 #ecuMap[data-map="harvest"]{color:#3fa9ff}
 #ecuMap[data-map="attack"]{color:#ffd21f}
 #ecuMap[data-map="quali"]{color:var(--purple)}

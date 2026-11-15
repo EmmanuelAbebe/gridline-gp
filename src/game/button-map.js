@@ -22,6 +22,8 @@ export const ACTIONS = [
   ['box', 'Box this lap', 'Tells the team you are coming in.'],
   ['mapUp', 'ECU map up', 'With ECU maps on MANUAL (Settings → Driving): HARVEST → BALANCED → ATTACK → QUALI → HARVEST …'],
   ['mapDown', 'ECU map down', 'With ECU maps on MANUAL: the other way round.'],
+  ['biasFwd', 'Brake bias forward', 'More of the braking on the front (0.5 % a press): more stable, more understeer, the fronts lock first.'],
+  ['biasBack', 'Brake bias back', 'More on the rear (0.5 % a press): the car turns in better on the brakes, the rears lock sooner.'],
   ['pause', 'Menu / pause', ''],
   ['camera', 'Camera', ''],
   ['lookBack', 'Look back', 'While held.', true],
@@ -30,7 +32,7 @@ export const ACTIONS = [
 export const HELD = new Set(ACTIONS.filter(a => a[3]).map(a => a[0]));
 
 export const DEFAULT_MAP = Object.freeze({
-  shiftDown: [0, 4], shiftUp: [1, 5], aero: [], boost: [8], limiter: [], box: [2], mapUp: [16], mapDown: [], pause: [9], camera: [3],
+  shiftDown: [0, 4], shiftUp: [1, 5], aero: [], boost: [8], limiter: [], box: [2], mapUp: [16], mapDown: [], biasBack: [14], biasFwd: [15], pause: [9], camera: [3],
   lookBack: [11], handbrake: [10],
 });
 
@@ -53,7 +55,7 @@ export function loadButtonMaps(json) {
   return { devices };
 }
 // the phone wheel's defaults: its LIM and DRS buttons press D-pad down / up (phone-wheel settings.ts DEFAULTS)
-export const PHONE_MAP = Object.freeze({ ...DEFAULT_MAP, aero: [12], limiter: [13] });
+export const PHONE_MAP = Object.freeze({ ...DEFAULT_MAP, aero: [12], limiter: [13], biasBack: [], biasFwd: [] });   // (brake bias: dedicated controllers only, 2026-11-15)
 export const defaultFor = key => key === 'phone' ? PHONE_MAP : DEFAULT_MAP;
 export const mapFor = (store, key) => store.devices[key] || defaultFor(key);
 export const isCustom = (store, key) => !!store.devices[key];

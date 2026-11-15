@@ -352,6 +352,12 @@ async function smokeTest(win) {
   await new Promise(r => setTimeout(r, 4300));
   info.damage.after = await dmgState();
   fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-damage-after.png'), (await capture(win)).toPNG());
+  // the brake bias on the wheel (] = forward 0.5 %): the HUD's BB line, amber once moved
+  info.bias = { before: await win.webContents.executeJavaScript(`document.getElementById('bbNum').textContent`) };
+  await win.webContents.executeJavaScript(`dispatchEvent(new KeyboardEvent('keydown', { code: 'BracketRight', key: ']' })); dispatchEvent(new KeyboardEvent('keyup', { code: 'BracketRight', key: ']' }))`);
+  await new Promise(r => setTimeout(r, 300));
+  Object.assign(info.bias, await win.webContents.executeJavaScript(`({ after: document.getElementById('bbNum').textContent, moved: document.getElementById('bbNum').classList.contains('moved') })`));
+  fs.writeFileSync(smokeOut.replace(/(\.png)?$/, '-bias.png'), (await capture(win)).toPNG());
   await win.webContents.executeJavaScript(`document.getElementById('pauseBtn').click()`);
   // the pause menu's pit box (screenshot): the compound on the car, the damage with its repairs, the next stop's plan
   await new Promise(r => setTimeout(r, 200));

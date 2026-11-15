@@ -42,3 +42,8 @@ test('button maps: binding moves a button to the new action, per device; unbind,
   assert.deepEqual(bad.devices.phone.pause, [9]);
   assert.deepEqual(loadButtonMaps('{nope'), { devices: {} });
 });
+
+test('brake bias on a pad or wheel: D-pad ← back, → forward by default; the phone keeps its own D-pad', () => {
+  assert.equal(actionOf(DEFAULT_MAP, 14), 'biasBack'); assert.equal(actionOf(DEFAULT_MAP, 15), 'biasFwd');
+  assert.notEqual(actionOf(PHONE_MAP, 14), 'biasBack');
+});

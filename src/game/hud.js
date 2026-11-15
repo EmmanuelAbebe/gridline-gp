@@ -196,6 +196,9 @@ export const Hud = (() => {
         : c.ecuMode ? maps[c.ecuMap].name + (c.ecuMode === 'auto' ? ' · A' : ' · M') : '';
       const id = el ? (lift ? 'harvest' : 'balanced') : c.ecuMode ? maps[c.ecuMap].id : '';
       setOnce('ecuTxt', ecu + id, () => { $('ecuMap').textContent = ecu; $('ecuMap').hidden = !ecu; $('ecuMap').dataset.map = id; });
+      // the brake bias (2026-11-15: moved on the wheel during the race; amber while it is off the garage's)
+      const bb = Math.round((c.spec.brakeBias + (c.biasAdj || 0)) * 1000) / 10;
+      setOnce('bbTxt', bb + '|' + !!c.biasAdj, () => { $('bbNum').textContent = `BB ${bb.toFixed(1)}`; $('bbNum').classList.toggle('moved', !!c.biasAdj); });
       const pit = c.pit ? (c.pit.phase === 'stop' ? 'PIT STOP' : c.pitLimiter ? 'PIT LIMITER' : c.pit.drive && !c.pit.entered ? 'PIT ENTRY' : 'PIT EXIT')
         : c.pitLimiter ? 'PIT LIMITER' : c.pitRequest ? 'BOX THIS LAP' : '';
       // active aero: straight mode chip (on the button setting: dim = in a zone, yours to open), overtake mode (ready /

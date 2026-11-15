@@ -32,20 +32,20 @@ export const REPLAY = Object.freeze({
 const q = (v, k) => Math.round(Math.max(-1, Math.min(1, +v || 0)) * k) / k;
 export function quantizeInput(inp) {
   return { steer: q(inp.steer, REPLAY.steer), thr: Math.max(0, q(inp.thr, REPLAY.pedal)), brk: Math.max(0, q(inp.brk, REPLAY.pedal)),
-    analog: !!inp.analog, hb: inp.hb ? 1 : 0, shift: Math.sign(inp.shift || 0), boost: !!inp.boost, aero: !!inp.aero, limiter: !!inp.limiter, map: Math.sign(inp.map || 0),
+    analog: !!inp.analog, hb: inp.hb ? 1 : 0, shift: Math.sign(inp.shift || 0), boost: !!inp.boost, aero: !!inp.aero, limiter: !!inp.limiter, map: Math.sign(inp.map || 0), bias: Math.sign(inp.bias || 0),
     steerRate: inp.steerRate, calm: inp.calm, speedSteer: inp.speedSteer, padAssist: inp.padAssist };
 }
 // one step's controls as whole numbers (the channels of a replay) and back
 const CH = ['steer', 'thr', 'brk', 'flags', 'shift'];
 function toInts(inp) {
-  const flags = (inp.analog ? 1 : 0) | (inp.hb ? 2 : 0) | (inp.boost ? 4 : 0) | (inp.aero ? 8 : 0) | (inp.limiter ? 16 : 0) | (inp.map > 0 ? 32 : 0) | (inp.map < 0 ? 64 : 0);
+  const flags = (inp.analog ? 1 : 0) | (inp.hb ? 2 : 0) | (inp.boost ? 4 : 0) | (inp.aero ? 8 : 0) | (inp.limiter ? 16 : 0) | (inp.map > 0 ? 32 : 0) | (inp.map < 0 ? 64 : 0) | (inp.bias > 0 ? 128 : 0) | (inp.bias < 0 ? 256 : 0);
   return [Math.round(inp.steer * REPLAY.steer), Math.round(inp.thr * REPLAY.pedal), Math.round(inp.brk * REPLAY.pedal), flags, inp.shift];
 }
 /** @param {ArrayLike<number>} v */
 function fromInts(v, prefs) {
   const [steer, thr, brk, flags, shift] = Array.from(v);
   return { steer: steer / REPLAY.steer, thr: thr / REPLAY.pedal, brk: brk / REPLAY.pedal, analog: !!(flags & 1), hb: flags & 2 ? 1 : 0,
-    boost: !!(flags & 4), aero: !!(flags & 8), limiter: !!(flags & 16), map: flags & 32 ? 1 : flags & 64 ? -1 : 0, shift, ...prefs };
+    boost: !!(flags & 4), aero: !!(flags & 8), limiter: !!(flags & 16), map: flags & 32 ? 1 : flags & 64 ? -1 : 0, bias: flags & 128 ? 1 : flags & 256 ? -1 : 0, shift, ...prefs };
 }
 // a channel: its values' changes from step to step as runs [change, how many steps, …] (constant = one pair)
 function encode(values) {
