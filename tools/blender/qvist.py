@@ -348,6 +348,48 @@ def body_role(x, y, z):
   r[(x > -0.35) & (x < -0.12) & (y > 0.95)] = 'paint_accent'                                                     # T-camera
   return r
 
+# the cockpit's opening (2026-11-16, user: the cockpit "filled and not hollow like the FE car"; the CAD model has a lid
+# 10–15 cm under the rim over it, nothing below): x from the headrest to just ahead of the steering wheel (its column goes
+# into that bulkhead), |z| < hw, the faces between y lo and hi cleared, walls dropped from the cut edges to the floor
+OPEN = dict(x=(-0.03, 0.72), hw=0.19, y=(0.12, 0.745), floor=0.11)
+
+def cockpit_open(o):
+  """cut the opening's planes into the body, clear the faces inside, line the hole: an object `cockpit_tub` (dark)"""
+  d = OPEN; (xa, xb), hw, (ylo, yhi), fl = d['x'], d['hw'], d['y'], d['floor']
+  bm = bmesh.new(); bm.from_mesh(o.data)
+  def cs():
+    bm.faces.ensure_lookup_table(); c = np.array([f.calc_center_median()[:] for f in bm.faces]); return c[:, 0], c[:, 2], -c[:, 1]
+  planes = (((xa, 0, 0), (1, 0, 0)), ((xb, 0, 0), (1, 0, 0)), ((0, 0, hw), (0, 0, 1)), ((0, 0, -hw), (0, 0, 1)))
+  for co, no in planes:
+    x, y, z = cs()
+    pick = np.flatnonzero((x > xa - 0.3) & (x < xb + 0.3) & (np.abs(z) < hw + 0.3) & (y > ylo - 0.05))
+    faces = [bm.faces[i] for i in pick]
+    geom = list({v for f in faces for v in f.verts}) + list({e for f in faces for e in f.edges}) + faces
+    bmesh.ops.bisect_plane(bm, geom=geom, plane_co=G(*co), plane_no=G(*no) - G(0, 0, 0))
+  x, y, z = cs()
+  dead = np.flatnonzero((x > xa) & (x < xb) & (np.abs(z) < hw) & (y > ylo) & (y < yhi))
+  bmesh.ops.delete(bm, geom=[bm.faces[i] for i in dead], context='FACES')
+  # the walls: every open edge left lying in one of the planes, straight down to the floor
+  t = 0.002; side = lambda p: (0 if abs(p[0] - xa) < t else 1 if abs(p[0] - xb) < t else 2 if abs(p[2] - hw) < t else 3 if abs(p[2] + hw) < t else -1)
+  inbox = lambda p: xa - t <= p[0] <= xb + t and abs(p[2]) <= hw + t and p[1] > fl + 0.01
+  verts, faces, cx = [], [], (xa + xb) / 2
+  for e in bm.edges:
+    if not e.is_boundary: continue
+    a, b = gp(e.verts[0].co), gp(e.verts[1].co)
+    if not (inbox(a) and inbox(b)) or side(a) < 0 or side(a) != side(b): continue
+    q = [a, b, (b[0], fl, b[2]), (a[0], fl, a[2])]
+    n = np.cross(np.subtract(q[1], q[0]), np.subtract(q[3], q[0]))     # (game frame, right-handed like Blender's)
+    m = np.mean(q, axis=0); inward = np.array([cx - m[0], 0, -m[2]])
+    if np.dot(n, inward) < 0: q = q[::-1]
+    k = len(verts); verts += [G(*p) for p in q]; faces.append((k, k + 1, k + 2, k + 3))
+  log('cockpit opening: cleared', len(dead), 'faces, walls', len(faces))
+  bm.to_mesh(o.data); bm.free(); o.data.update()
+  me = bpy.data.meshes.new('cockpit_tub'); me.from_pydata(verts, [], faces); me.update()
+  tub = bpy.data.objects.new('cockpit_tub', me); bpy.context.scene.collection.objects.link(tub)
+  bm = bmesh.new(); bm.from_mesh(me); bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0005); bm.to_mesh(me); bm.free()
+  role_mats(tub); me.polygons.foreach_set('material_index', [ROLES.index('dark')] * len(me.polygons)); me.update()
+  return tub
+
 def cockpit_dark(o):
   """the cockpit's inside in `dark`: faces in the cockpit that face into it (sides facing the middle, the floor facing
   up), so the colour stops at the rim's crease instead of cutting across the surface"""
@@ -371,7 +413,7 @@ def boxpart(name, x0, x1, y0, y1, z0, z1, role, tilt=0):
   o = lightbox(name, x0, x1, y0, y1, z0, z1)
   o.data.polygons.foreach_set('material_index', [ROLES.index(role)] * len(o.data.polygons))
   if tilt:
-    c = o.location.copy(); o.data.transform(Matrix.Translation(-c)); o.data.transform(Matrix.Rotation(math.radians(tilt), 4, 'Y')); o.data.transform(Matrix.Translation(c))
+    o.data.transform(Matrix.Rotation(math.radians(tilt), 4, 'Y'))   # (the mesh is already about the box's centre: its location)
   return o
 
 def seat():
@@ -391,6 +433,16 @@ def seat():
   sol = o.modifiers.new('s', 'SOLIDIFY'); sol.thickness = 0.012
   bpy.context.view_layer.objects.active = o; bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.ops.object.modifier_apply(modifier=sol.name)
   role_mats(o); o.data.polygons.foreach_set('material_index', [ROLES.index('carbon')] * len(o.data.polygons))
+  return o
+
+def rod(name, a, b, r, role):
+  """a round bar from a to b (game frame), radius r, in one role"""
+  bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=12, radius1=r, radius2=r, depth=1)
+  me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
+  A_, B_ = G(*a), G(*b); d = B_ - A_
+  me.transform(Matrix.Diagonal((1, 1, d.length, 1))); me.transform(d.to_track_quat('Z', 'Y').to_matrix().to_4x4())
+  o = bpy.data.objects.new(name, me); bpy.context.scene.collection.objects.link(o); o.location = (A_ + B_) / 2
+  role_mats(o); me.polygons.foreach_set('material_index', [ROLES.index(role)] * len(me.polygons)); me.update()
   return o
 
 def ellipsoid(name, c, r, role, **extras):
@@ -440,7 +492,7 @@ def build():
     L = math.sqrt(sum(c * c for c in ax)); q['axis'] = [round(c / L, 4) for c in ax]; q['open'] = 14
     origin_to(q, root); movers.append(q)
   # paint (on the full model), then cut down
-  log('paint'); cockpit_dip(body); cut_borders(body); paint(body, body_role); cockpit_dark(body); decimate(body, RATIO, keep_borders=True)
+  log('paint'); cockpit_dip(body); tub = cockpit_open(body); cut_borders(body); paint(body, body_role); cockpit_dark(body); decimate(body, RATIO, keep_borders=True)
   for q in movers:
     paint(q, lambda x, y, z, q=q: 'paint_accent' if q.name == 'rw_flap2' else 'carbon'); decimate(q, RATIO * 1.5)
   # the front wing's main plane, endplates and footplates beside the nose, each half its own object (2026-10-28: a half
@@ -471,11 +523,27 @@ def build():
     for a, b in zip(idx[:-1], idx[1:]):
       if y[b] - y[a] > 0.015: runs.append(cur); cur = []
       cur.append(b)
-    runs.append(cur); keep = max(runs, key=len)
-    m = np.zeros_like(m); m[keep] = True
-    x0, y0, y1, z0, z1 = x[m].min(), y[m].min(), y[m].max(), z[m].min(), z[m].max()
-    log('mirror face', side, 'x', round(float(x0), 3), 'y', round(float(y0), 3), round(float(y1), 3), 'z', round(float(z0), 3), round(float(z1), 3), 'faces', int(m.sum()))
-    boxpart(f'mirror_glass_{side}', x0 - 0.006, x0 - 0.002, y0 + 0.004, y1 - 0.004, z0 + 0.004, z1 - 0.004, 'glass')   # (origin at its centre)
+    runs.append(cur); keep = np.array(max(runs, key=len))
+    # (2026-11-16, user: the F1's mirrors "still sticking out of their housing": the housing's back face is turned toward
+    # the driver (x falls ~0.4 m per m outward), the glass was a flat plate at its rearmost point, 8 cm behind the inner end.
+    # The face is the line x = a + b·z with the most faces on it (the stalk's faces sit 7 cm further forward); the glass
+    # lies on it, turned the same way, a few mm behind)
+    rear = np.array([x[k] - x[keep][np.abs(z[keep] - z[k]) < 0.03].min() < 0.02 for k in keep]); keep = keep[rear]   # (the rearmost faces only)
+    zs, xs = z[keep], x[keep]; best = (0, 0, 0, 9)
+    for i in range(len(keep)):
+      for j in range(i + 1, len(keep)):
+        if abs(zs[j] - zs[i]) < 0.05: continue
+        b = (xs[j] - xs[i]) / (zs[j] - zs[i]); a = xs[i] - b * zs[i]; on = np.abs(xs - (a + b * zs)) < 0.006
+        score = (int(on.sum()), -float(xs[on].mean()))
+        if score > best[:2]: best = (*score, a, b)
+    a, b = best[2], best[3]; on = np.abs(xs - (a + b * zs)) < 0.006; sel = keep[on]
+    z0, z1, y0, y1 = z[sel].min(), z[sel].max(), y[sel].min(), y[sel].max()
+    zc, yc = (z0 + z1) / 2, (y0 + y1) / 2; ang = math.atan(b); L = math.hypot(1, b)
+    w, h, th = (z1 - z0) * L - 0.012, (y1 - y0) - 0.008, 0.004
+    log('mirror face', side, 'x = %.3f %+.3f z' % (a, b), 'z', round(float(z0), 3), round(float(z1), 3), 'y', round(float(y0), 3), round(float(y1), 3), 'faces', len(sel), 'of', len(keep))
+    g = boxpart(f'mirror_glass_{side}', -th / 2, th / 2, -h / 2, h / 2, -w / 2, w / 2, 'glass')
+    nx_, nz_ = -math.cos(ang), math.sin(ang)          # the face's normal toward the driver (the plate's −x turned by ang)
+    g.location = G(a + b * zc + nx_ * 0.003, yc, zc + nz_ * 0.003); g.rotation_euler = (0, 0, ang)
   # what the model doesn't have: brake lights, a helmet, the steering wheel and the driver's anchors
   extra = [lightbox('rain_light', -2.468, -2.452, 0.27, 0.34, -0.035, 0.035)]
   # the endplates' LED strips on each endplate's trailing edge (2026-11-16, user: "floating in space": they were at fixed
@@ -495,8 +563,11 @@ def build():
   # from cockpit.py.
   extra.append(boxpart('cockpit_floor', -0.12, 1.40, 0.095, 0.11, -0.20, 0.20, 'dark'))
   extra.append(seat())
-  for n, z in (('brake', -0.09), ('throttle', 0.09)):
-    extra.append(boxpart(f'pedal_{n}', 1.26, 1.29, 0.16, 0.34, z - 0.035, z + 0.035, 'metal', tilt=-25))
+  # the steering column (2026-11-16, user: the steering wheel "detached from the car": its quick-release hub ended in the
+  # air): from the hub's front (driver.glb's wheel, x 0.70–0.73, y 0.54–0.61) along the wheel's tilt into the bulkhead
+  extra.append(rod('steer_column', (0.70, 0.575, 0), (1.05, 0.47, 0), 0.02, 'dark'))
+  for n, z in (('brake', -0.045), ('throttle', 0.045)):     # (under the driver's soles: cockpit.py's pedal target)
+    extra.append(boxpart(f'pedal_{n}', 1.34, 1.37, 0.40, 0.56, z - 0.03, z + 0.03, 'metal', tilt=-25))
   empty('eye', EYE); empty('seat', (-0.25, 0.30, 0))
   st = empty('steer', STEER)
   for n, z in (('l', -0.135), ('r', 0.135)): empty(f'grip_{n}', (STEER[0], STEER[1], z), parent=st)

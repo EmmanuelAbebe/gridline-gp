@@ -343,7 +343,7 @@ export const CarModels = (() => {
   const glbCtx = () => ({ debris: Debris, eyeShift: eyeShift(), template: (template = templateOf()), modelKey: modelKey(), driverTemplate: Models.driver, env, glow, SHADOW_GEO, SHADOW_MAT, LIGHT_OFF, LIGHT_ON, FINISH_LOOKS, FRONT_STEER, DEG, createDriverBody, markShadows,
     ledMaterial, rearLights: () => rear.mode, rearLightAt });
   function create(scene, driver, design) {
-    const st = { design, livery: null, mats: null, shadows: true, visible: true, cockpit: false, screen: null, service: null, pedals: [0, 0] };
+    const st = { design, livery: null, mats: null, shadows: true, visible: true, cockpit: false, driver: true, screen: null, service: null, pedals: [0, 0] };
     const make = () => kind === '2026' && Models.car ? createGlbCar(scene, driver, st.design, glbCtx()) : createClassic(scene, driver, st.design);
     let inner = make();
     const w = {
@@ -353,6 +353,7 @@ export const CarModels = (() => {
       setMaterials(set) { st.mats = set; inner.setMaterials(set); },
       setShadows(on) { st.shadows = on; inner.setShadows(on); },
       useCockpitView(on) { st.cockpit = on; inner.useCockpitView(on); },
+      showDriver(on) { st.driver = on; inner.showDriver?.(on); },
       setPedals(thr, brk) { st.pedals = [thr, brk]; inner.setPedals(thr, brk); },
       setService(s) { st.service = s; inner.setService(s); },
       mountScreen(mesh) { st.screen = mesh; inner.mountScreen(mesh); },
@@ -371,7 +372,7 @@ export const CarModels = (() => {
         inner.object.position.copy(at[0]); inner.object.rotation.copy(at[1]);
         if (st.livery) inner.setLivery(st.livery);
         if (st.mats) inner.setMaterials(st.mats);
-        inner.setShadows(st.shadows); inner.setVisible(st.visible); inner.useCockpitView(st.cockpit);
+        inner.setShadows(st.shadows); inner.setVisible(st.visible); inner.useCockpitView(st.cockpit); inner.showDriver?.(st.driver);
         inner.setPedals(...st.pedals); inner.setService(st.service);
         if (st.screen) inner.mountScreen(st.screen);
       },

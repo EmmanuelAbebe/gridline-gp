@@ -60,7 +60,7 @@ function sharedMat(profile, role, env) {
 export function createGlbCar(scene, driverIn, design, ctx) {
   const { DEG } = ctx;
   let driver = driverIn, steerSpec = design.steering, screenSpec = design.screen, finish = 'gloss', rims = driverIn.rims ?? 0x3a3d42;
-  let profile = 'quality', ghost = null, liv = { zones: {}, parts: PARTS_DEFAULTS }, painted = false, clock = Math.random() * 10, heat = 0, castsShadow = true, cockpitView = false, service = null, lit = 0, screen = null, driverBody = null;
+  let profile = 'quality', ghost = null, liv = { zones: {}, parts: PARTS_DEFAULTS }, painted = false, clock = Math.random() * 10, heat = 0, castsShadow = true, cockpitView = false, noDriver = false, service = null, lit = 0, screen = null, driverBody = null;
   const pedals = [0, 0], hands = [new THREE.Vector3(), new THREE.Vector3()];
 
   const root = new THREE.Group(), model = ctx.template.clone(true);
@@ -149,7 +149,7 @@ export function createGlbCar(scene, driverIn, design, ctx) {
     for (const m of meshes) m.visible = !(seated && m.userData.standIn) && !(m.userData.wing !== undefined && wingGone[m.userData.wing])
       && ((m.userData.show ?? 'always') === 'always' || m.userData.show === (cockpitView ? 'cockpit' : 'outside'));
     if (seated) {   // (the ghost car is empty; from the cockpit the camera is inside the helmet)
-      seated.group.visible = !ghost; for (const w of seated.wheel) w.visible = !ghost;
+      seated.group.visible = !ghost && !noDriver; for (const w of seated.wheel) w.visible = !ghost;
       if (seated.helmet) seated.helmet.visible = !cockpitView;
     }
     for (const s of glows) s.visible = !cockpitView && lit > 0.02;
@@ -203,6 +203,7 @@ export function createGlbCar(scene, driverIn, design, ctx) {
     },
     setShadows(on) { castsShadow = on; shadow.visible = on; ctx.markShadows(root, on); shadow.castShadow = shadow.receiveShadow = false; },
     useCockpitView(on) { if (on !== cockpitView) { cockpitView = on; showView(); } },
+    showDriver(on) { if (noDriver === on) { noDriver = !on; showView(); } },   // (the garage: an empty seat, the wheel stays)
     setPedals(thr, brk) { pedals[0] = thr; pedals[1] = brk; },
     setService(s) { service = s; },
     mountScreen(mesh) { screen = mesh; placeScreen(); showView(); },
@@ -214,12 +215,13 @@ export function createGlbCar(scene, driverIn, design, ctx) {
       return ['l', 'r'].map(n => node(`mirror_glass_${n}`)).filter(Boolean).map((o, i) => {
         // (in the car's own frame: measured in the world, a car turned on the grid swapped the glass's width and depth)
         root.updateMatrixWorld(true);
-        const g = (o.isMesh ? o : o.getObjectByProperty('isMesh', true)).geometry; g.computeBoundingBox();
-        const rel = new THREE.Matrix4().copy(root.matrixWorld).invert().multiply((o.isMesh ? o : o.getObjectByProperty('isMesh', true)).matrixWorld);
-        box.copy(g.boundingBox).applyMatrix4(rel); box.getSize(size);
-        const c = box.getCenter(new THREE.Vector3());
+        const mesh = o.isMesh ? o : o.getObjectByProperty('isMesh', true), g = mesh.geometry; g.computeBoundingBox();
+        const rel = new THREE.Matrix4().copy(root.matrixWorld).invert().multiply(mesh.matrixWorld);
+        // (the glass may be turned toward the driver, qvist.py: its own box, centre and turn in the car's frame)
+        g.boundingBox.getSize(size); const c = g.boundingBox.getCenter(new THREE.Vector3()).applyMatrix4(rel);
+        const e = new THREE.Euler().setFromRotationMatrix(rel);
         // (camOut: the glass sits recessed in its housing; the mirror's camera goes back past the housing's lip)
-        return { name: `mirror glass ${i ? 'R' : 'L'}`, size: [size.x, size.y, size.z], pos: [c.x, c.y, c.z], rot: [0, 0, 0], show: 'always', gap: 0.004, camOut: 0.09 };
+        return { name: `mirror glass ${i ? 'R' : 'L'}`, size: [size.x, size.y, size.z], pos: [c.x, c.y, c.z], rot: [e.x / DEG, e.y / DEG, e.z / DEG], show: 'always', gap: 0.004, camOut: 0.09 };
       });
     },
     sync(car, pose, dt = 1 / 60) {

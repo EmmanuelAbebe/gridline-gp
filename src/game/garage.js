@@ -258,7 +258,7 @@ export const Garage = (() => {
         body.append(card);
       }
       const ranked = cls().ranked !== false;
-      body.append(el('p', 'note', 'Each car keeps its own setup, tyres and mods; your livery and number go on both. Records, ghosts and the leaderboard follow the car you race. The electric car uses the hybrid\'s 3D model and sound for now.'),
+      body.append(el('p', 'note', 'Each car keeps its own setup, tyres and mods; your livery and number go on both. Records, ghosts and the leaderboard follow the car you race.'),
         el('p', 'note gar-class-board' + (ranked ? ' on' : ''), ranked ? 'On the leaderboard: your laps can be ranked.' : 'Not on the leaderboard yet: laps are kept, not ranked.'));
     } else if (tab === 'look') {
       const car = el('div', 'set-item'), ch = el('div', 'row');
@@ -266,6 +266,10 @@ export const Garage = (() => {
       car.append(ch, el('p', 'note', L.model === '2026' ? 'The 2026 car, based on "F1 2026 concept" by Qvist_designs (CC-BY): every car in the field.' : 'The part-built car: the design tools below change its shape. Zones, layers, spray and parts are for the 2026 car.'));
       body.append(car);
       if (L.model === '2026') {
+        // (2026-11-16, user: the driver in the garage looked twisted: an empty seat by default, the driver on request)
+        const drv = el('div', 'set-item'), dh = el('div', 'row'), on = !!prefs?.garageDriver;
+        dh.append(el('span', 'lbl', 'Driver'), seg([[false, 'EMPTY SEAT'], [true, 'IN THE CAR']], on, v => { model?.showDriver(v); events.emit('pref', 'garageDriver', v); render(); }));
+        drv.append(dh, el('p', 'note', 'Only here in the garage: in a race the driver is always in the car.')); body.append(drv);
         look.render(body);
         const btns = el('div', 'set-item btns');
         btns.append(button('Reset look', () => { garage.livery = { ...validLivery({}), model: L.model }; changed('look'); render(); }));
@@ -363,7 +367,7 @@ export const Garage = (() => {
     show(g, profile, p) {
       garage = g; prefs = p ?? prefs;
       if (!scene) buildScene();
-      model.setLivery(garage.livery);
+      model.setLivery(garage.livery); model.showDriver(!!prefs?.garageDriver);
       if (profile) CarModels.applyProfile([model], profile);
       isOpen = true; root.hidden = false; idle = 0; render(); stage.focus();
     },

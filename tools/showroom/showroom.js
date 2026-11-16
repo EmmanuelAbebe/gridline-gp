@@ -14,7 +14,7 @@ import { painterFor } from '../../src/game/livery-paint.js';
 import { setPlayerClass, classById } from '../../src/game/car-class.js';
 
 const q = new URLSearchParams(location.search);
-const driver = SIM.DRIVERS.find(d => d.code === (q.get('driver') || 'VOS')) || SIM.DRIVERS[0];
+const driver = SIM.DRIVERS.find(d => d.code === ((q.get('driver') !== '0' && q.get('driver')) || 'VOS')) || SIM.DRIVERS[0];
 const design = JSON.parse(JSON.stringify(DESIGN_DEFAULTS.car));
 for (const p of design.parts) { p.rot = p.rot || [0, 0, 0]; p.show = p.show || 'always'; }
 if (q.get('wheel')) design.steering.pivot[1] = +q.get('wheel');
@@ -36,6 +36,7 @@ if (q.get('class')) setPlayerClass(classById(q.get('class')));   // ?class=fe: t
 if (q.get('kind') === '2026') { await loadModels(); CarModels.setKind('2026'); }
 CarModels.setRearLights(q.get('lights') || 'brake', q.get('look') || 'led');   // (?lights=real: off unless harvesting)
 const model = CarModels.create(scene, driver, design);
+if (q.get('driver') === '0') model.showDriver(false);   // ?driver=0: an empty seat (the garage's default)
 if (q.get('livery') || q.get('preset')) {
   let l = validLivery({ ...JSON.parse(q.get('livery') || '{}'), model: q.get('kind') === '2026' ? '2026' : 'classic' });
   if (q.get('preset')) l = applyPreset(l, PRESETS[+q.get('preset')]);

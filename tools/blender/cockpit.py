@@ -108,10 +108,12 @@ def build():
     hip = game(arm.matrix_world @ P[f'{side}UpLeg_0' + ('57' if side == 'Left' else '62')].head)
     up_n, lo_n, ft_n = (f'{side}UpLeg_057', f'{side}Leg_058', f'{side}Foot_059') if side == 'Left' else (f'{side}UpLeg_062', f'{side}Leg_063', f'{side}Foot_064')
     zs = -s * 0.11                                                  # (the avatar's left = the car's left = −z)
-    pedal = Vector([float(v) for v in os.path.basename(A.get('pedal', '1.42,0.24')).split(',')] + [zs * 0.8])
+    # (2026-11-16: the feet were at (1.42, 0.24), 9 cm apart each side, pointing up: the shins came out of the bottom of the
+    # F1's V-shaped nose (its floor is 0.27 m up from x 1.25) and the toes out of its top; now higher, closer, flatter)
+    pedal = Vector([float(v) for v in os.path.basename(A.get('pedal', '1.30,0.48')).split(',')] + [zs * float(os.path.basename(A.get('spread', '0.4')))])
     knee = ik2(hip, pedal, bl(up_n), bl(lo_n), Vector((0, 1, 0)))
     aim(arm, P[up_n], hip, (knee - hip).normalized()); aim(arm, P[lo_n], knee, (pedal - knee).normalized())
-    aim(arm, P[ft_n], pedal, Vector((0.45, 0.9, 0)).normalized())
+    aim(arm, P[ft_n], pedal, Vector([float(v) for v in os.path.basename(A.get('foot', '0.75,0.66')).split(',')] + [0]).normalized())
   pose_arms(arm, P, 0.0)
   # fingers curled round the grip, thumbs over the front
   for b in P:

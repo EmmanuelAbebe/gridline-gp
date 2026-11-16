@@ -167,6 +167,7 @@ export const PREFS = Object.freeze({
     ghostInputs: true,   // time trial against an AI ghost: its steering / gas / brake charts (ghost-inputs.js)
     hudMirror: false,    // a rear-view mirror strip at the top of the screen (hud-mirror.js)
     rearLights: 'real',  // the cars' rear lights (car-glb.js REAR_LIGHTS): real (energy / limiter) / realBrake (+ hard braking) / brake (brake lights)
+    garageDriver: false, // the driver sitting in the garage's car (the Look tab's Driver row; races always have one)
     lightLook: 'led',    // their look: led (LED dots, a tight halo) / ledLight (+ the two nearest light the car and road: Quality only)
     pauseOnBlur: true,
     updateCheck: true,   // the start menu says when a newer version is on GitHub (desktop app only; desktop/update-check.cjs)   // the race pauses when the game window loses focus (alt-tab) or is hidden

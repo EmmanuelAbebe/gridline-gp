@@ -50,7 +50,7 @@ const checks = [
   ['garage livery: a click on the car picks its zone', r.livery?.found > 20 && !!r.livery.zone && r.livery.zone !== 'Front wing'],
   ['garage livery: two layers, one dragged on the car', r.livery?.layers === 2 && r.livery.moved],
   ['garage livery: a spray stroke', r.livery?.spray === '1 strokes'],
-  ['garage livery: lights setting', r.livery?.lights === '2026 / REAL / LED → 2026 / REAL + BRAKING / LED'],
+  ['garage livery: lights setting', r.livery?.lights === '2026 / EMPTY SEAT / REAL / LED → 2026 / EMPTY SEAT / REAL + BRAKING / LED'],
   ['garage livery: saved', r.livery?.saved?.zones >= 1 && r.livery.saved.layers === 2 && r.livery.saved.strokes === 1 && r.livery.saved.exhaust === 'ti' && r.livery.saved.carbon === 'matte' && r.livery.saved.name === 'SMOKE'],
   ['qualifying starts on the lights', r.quali?.lights > 0],
   ['quit only on the paddock', r.quitElsewhere === 0],

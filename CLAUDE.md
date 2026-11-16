@@ -1592,6 +1592,15 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   biggest run of them by height: the housing's own face); car.glb rebuilt. The lights' glow was a flat plane 4 cm behind
   each light (a red smudge in the air from any angle but straight behind): now a small sprite on the light (car-glb.js,
   the classic car too). Checked with `npm run car-shot` close-ups and Blender renders (tools/blender/out/peek).
+  Round 2 (same day; user: the F1's mirrors still out of their housing, the wheel "detached", the cockpit "filled and not
+  hollow like the FE car", the garage driver's head twisted): the F1 mirror housing's back face is angled toward the driver
+  (x = 0.81 ∓ 0.38·z), so the glass now lies on that line, turned with it (qvist.py fits it; car-glb.js mirrorParts passes
+  the turn to mirrors.js). The CAD cockpit was a lid 10–15 cm under the rim: qvist.py `cockpit_open` (OPEN: x −0.03…0.72,
+  |z| < 0.19) cuts it out and drops dark walls (`cockpit_tub`) from the cut edges to the cockpit floor; a `steer_column`
+  runs from the wheel's hub into the bodywork. The driver's shins and toes came out of the F1's nose (its floor is 0.27 m up
+  from x 1.25): cockpit.py's feet now at (1.30, 0.48), ±4.4 cm, pointing forward (args pedal / spread / foot), the pedals
+  moved under them (boxpart's tilt used to throw them onto the ground beside the car). Garage: Look → Driver EMPTY SEAT
+  (default, pref `garageDriver`) / IN THE CAR (car API `showDriver`); showroom `driver=0`.
 
 ## Ideas not done yet
 - Online leaderboard with replay validation: `docs/leaderboard-plan.md`. Phase 0 done 2026-10-28: replays
