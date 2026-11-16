@@ -32,16 +32,23 @@ export function pan(s, dx, dy) {
 }
 
 // Pointer / wheel / keys on `el` → onChange() after each move; onUser() whenever the player touches the view.
-export function attachOrbit(el, s, { onChange = () => {}, onUser = () => {} } = {}) {
-  const pts = new Map();
+// claim(e) (the garage's paint tools): a pointer going down may be taken by a tool ({ move(e), up(e) }), else it turns
+// the view; rightTurns() = the right button turns instead of moving (while a tool has the left one).
+export function attachOrbit(el, s, { onChange = () => {}, onUser = () => {}, claim = () => null, rightTurns = () => false } = {}) {
+  const pts = new Map(), tools = new Map();
   let last = null;
   const mid = () => { const p = [...pts.values()]; return [(p[0].x + p[1].x) / 2, (p[0].y + p[1].y) / 2, Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y)]; };
   el.addEventListener('contextmenu', e => e.preventDefault());
   el.addEventListener('pointerdown', e => {
-    el.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY, b: e.button, shift: e.shiftKey });
-    last = pts.size === 2 ? mid() : null; onUser();
+    el.setPointerCapture(e.pointerId); onUser();
+    pts.delete(e.pointerId); tools.delete(e.pointerId);              // (a pointer whose release went missing)
+    if (e.pointerType === 'mouse') for (const id of [...pts.keys()]) if (pts.get(id).mouse) pts.delete(id);
+    const t = !pts.size && claim(e); if (t) { tools.set(e.pointerId, t); return; }
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY, b: e.button === 2 && rightTurns() ? 0 : e.button, shift: e.shiftKey, mouse: e.pointerType === 'mouse' });
+    last = pts.size === 2 ? mid() : null;
   });
   el.addEventListener('pointermove', e => {
+    const t = tools.get(e.pointerId); if (t) { t.move(e); return; }
     const p = pts.get(e.pointerId); if (!p) return;
     const dx = e.clientX - p.x, dy = e.clientY - p.y;
     p.x = e.clientX; p.y = e.clientY;
@@ -51,8 +58,8 @@ export function attachOrbit(el, s, { onChange = () => {}, onUser = () => {} } = 
     else turn(s, dx, dy);
     onChange();
   });
-  const up = e => { pts.delete(e.pointerId); last = pts.size === 2 ? mid() : null; };
-  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+  const up = e => { const t = tools.get(e.pointerId); if (t) { tools.delete(e.pointerId); t.up(e); return; } pts.delete(e.pointerId); last = pts.size === 2 ? mid() : null; };
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
   el.addEventListener('wheel', e => { e.preventDefault(); zoom(s, Math.exp(e.deltaY * ORBIT.zoomPerWheel)); onUser(); onChange(); }, { passive: false });
   el.tabIndex = 0;
   el.addEventListener('keydown', e => {

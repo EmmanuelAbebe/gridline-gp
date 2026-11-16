@@ -1545,6 +1545,48 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   (amber once moved; in the speedo panel, so hidden with it in the cockpit view) and on the steering wheel's screen (wheel-screen.js: BB left of
   the gear, amber once moved). Settings → Keys lists it. Smoke: out-bias.png.
 
+## The free livery, the rear lights and the exhaust (2026-11-16; user: colour the car "in a more free non rigid way",
+## redo the brake lights and the colours of parts such as the exhaust; then "implement all the mock screens" of the canvas
+## "Gridline livery & lights": A zones, B layers, C spray, L2 / L3 lights, E1 exhaust, E2 parts)
+- The Blender cars have no UV map, so nothing is painted on a skin: `livery-paint.js` patches each car's paint_main /
+  paint_accent / carbon materials (onBeforeCompile, customProgramCacheKey 'livery-1'; Physical and Lambert): every pixel
+  works out its place in the car's frame (uCarInv = the car root's inverse, set in each mesh's onBeforeRender) and takes
+  - its zone from `livery.js` MODELS[f1 | fe].boxes ([zone, x0, x1, y0, y1, |z|0, |z|1, material bits]; later boxes win;
+    measured with Blender renders, tools/blender/out/peek): a colour, a finish (roughness / metalness / clearcoat) or as designed;
+  - the paint texture (2048², five panels: right, left, top, front, rear; livery.js toPixel / panelOf / planeOf): blended by
+    the surface's facing (pow 4), premultiplied; a mask texture (1024²) = 'body only' layers (not on carbon) and spray kept
+    to a zone (STAY IN ZONE); the underside isn't painted;
+  - the exhaust zone: a heat gradient along the pipe (EXHAUSTS: race-worn Inconel (default, as real pipes), fresh, titanium
+    tint, ceramic, black), a sooty lip, the bore dark, an orange glow (uHeat, rear-lights.js exhaustHeat: after ~3 s flat
+    out); the foil zone: crinkled gold heat foil round it. No paint goes over either.
+  The model has no exhaust part of its own: the pipe is at x −1.98 … −2.11, y 0.42–0.6, |z| < 0.056 (it was body colour).
+- `painterFor(model)`: one paint texture for the player's livery (the garage's car and the race car share it): layers +
+  the race number (nose top + engine cover sides) + the name (cockpit sides) redrawn on a change; spray drawn
+  incrementally on its own canvas (full replay after undo / load); a redraw once the fonts load. AI cars: no texture,
+  zones none, the default parts.
+- Data (`livery.js`, validated by garage-store.js validLivery → liveryExtras, saved with the garage): zones {id: {c, f, ref}},
+  layers (≤ 40: stripe / fade / shape (9) / text / logo (BRANDS); view side (both / right / left) / top / front / rear
+  (mirrored or one); x, y on that view's plane, w, h m, angle, opacity, body only), spray strokes (≤ 60 000 numbers: spray /
+  eraser / tape line, colour, radius mm, softness, flow, zone lock, mirror, points [panel, a, b] in mm), parts {carbon gloss /
+  matte / body / accent, exhaust, foil, glow}, numberLook {colour (null = auto), side, nose}, name (≤ 16). PRESETS (5).
+- Garage Look tab (`garage-look.js`, for the 2026 car; the classic car keeps its old rows): ZONES (click a zone in the list
+  or on the car: raycast car-glb.js hitTest → livery.js zoneAt), LAYERS (add, pick, ON / OFF, colour, shape / text / logo,
+  view, sides, sliders, ↑ ↓ duplicate delete; drag on the car moves it, onto whichever view you drag), SPRAY (spray / tape /
+  fill zone / eraser / pick, size, softness, flow, mirror, stay in zone, undo / redo / clear), PARTS (carbon, halo, T-camera,
+  mirror housings, exhaust + foil + glow), LIGHTS (the prefs), NUMBER & NAME, PRESETS. orbit-camera.js attachOrbit
+  `claim(e)` (a tool takes the left button on the car) and `rightTurns()`; a stale pointer is dropped.
+- Rear lights (`rear-lights.js`, pure, tests/rear-lights.test.js; car-glb.js and the classic car): prefs `rearLights` real
+  (default: as the 2026 cars, no brake lights; flashing ~2/s while harvesting (ersKw < −3 kW), fast (6.25/s) when super
+  clipping at full throttle, steady with the limiter, in the pit lane, beached / upset) / realBrake (+ hard braking) / brake
+  (the old brake lights); `lightLook` led (LED dots on the lens in the light's own frame, a tighter halo) / ledLight (+ two
+  PointLights on the two nearest lit cars: CarModels.rearLightsFrame each frame; Quality only). Settings → Graphics and the
+  garage's Lights tab. Sources: The Race / Motorsport.com on the 2026 flashing lights.
+- Checks: tests/livery.test.js, tests/rear-lights.test.js; `npm run car-shot -- out.png "kind=2026&livery=<json>"` (+ preset=n,
+  class=fe, atlas=1 = the paint texture over the views, lights=real); smoke: out-garage-livery.png / -rear (a zone from a
+  click, two layers one dragged, a spray stroke, parts, a name, the lights setting, saved), `GRIDLINE_SMOKE_STOP=garage` =
+  stop after the garage. Not done: spray across panels joins at the panel's edge (a stroke follows the surface's facing),
+  the classic car's free livery.
+
 ## Ideas not done yet
 - Online leaderboard with replay validation: `docs/leaderboard-plan.md`. Phase 0 done 2026-10-28: replays
   (`src/sim/replay.js`: the game records the player's quantised inputs + settings changes from lights out; replayRun

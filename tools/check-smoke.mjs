@@ -45,6 +45,13 @@ const checks = [
   ['garage setup: Tyres group', r.garage?.pressures === 'Front pressure 23.0 psi, Rear pressure 21.0 psi'],
   ['garage setup: Suspension group', r.garage?.suspension === '10 items, 10 new'],
   ['garage setup: Dampers group', r.garage?.dampers === 'Front bump, Rear bump, Front rebound, Rear rebound'],
+  // the free livery on the 2026 car (garage-look.js): a zone from a click on the car, layers dragged, a spray stroke, parts,
+  // the lights' setting, all saved with the garage
+  ['garage livery: a click on the car picks its zone', r.livery?.found > 20 && !!r.livery.zone && r.livery.zone !== 'Front wing'],
+  ['garage livery: two layers, one dragged on the car', r.livery?.layers === 2 && r.livery.moved],
+  ['garage livery: a spray stroke', r.livery?.spray === '1 strokes'],
+  ['garage livery: lights setting', r.livery?.lights === '2026 / REAL / LED → 2026 / REAL + BRAKING / LED'],
+  ['garage livery: saved', r.livery?.saved?.zones >= 1 && r.livery.saved.layers === 2 && r.livery.saved.strokes === 1 && r.livery.saved.exhaust === 'ti' && r.livery.saved.carbon === 'matte' && r.livery.saved.name === 'SMOKE'],
   ['qualifying starts on the lights', r.quali?.lights > 0],
   ['quit only on the paddock', r.quitElsewhere === 0],
   ['HUD bar: FPS + PAUSE only', Array.isArray(r.hudButtons) && r.hudButtons.join() === 'fpsChip,pauseBtn'],

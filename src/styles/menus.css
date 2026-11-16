@@ -657,3 +657,31 @@ b.faster{color:var(--green)} b.slower{color:#ff6a5e}
 .cmp-tag3d i{width:2px;height:22px;background:#4fd1ff}
 .cmp-tag3d.far{transform:translate(-50%,0)}
 .cmp-tag3d.far i{display:none}
+/* the garage's Look tab for the 2026 car (garage-look.js; 2026-11-16, the canvas "Gridline livery & lights") */
+.gar-looktabs{margin-top:0}
+.gar-looktabs button{height:32px;padding:0 9px;font-size:12px}
+.gar-stack{display:grid;gap:8px}
+.gar-stack>.seg{flex-wrap:wrap}
+.gar-zones{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.gar-zone{display:flex;align-items:center;gap:8px;height:40px;padding:0 10px;background:#12161c;border:1px solid var(--rule);border-radius:4px;color:var(--text);font-family:var(--display);font-weight:600;font-size:14px;cursor:pointer;text-align:left}
+.gar-zone[aria-pressed="true"]{border-color:var(--amber);background:#1a1f26}
+.gar-zone i,.gar-layer-pick i{width:16px;height:16px;border-radius:3px;border:1px solid var(--rule-strong);flex:none}
+.gar-zone i.own{background:repeating-linear-gradient(45deg,#2a313b 0 3px,transparent 3px 6px)!important}
+.gar-mini{height:28px;padding:0 8px;background:#12161c;border:1px solid var(--rule-strong);border-radius:3px;color:var(--text);font-family:var(--display);font-weight:700;font-size:11px;letter-spacing:.06em;cursor:pointer}
+.gar-mini[aria-pressed="true"]{background:var(--amber);border-color:var(--amber);color:#111}
+.gar-layers{display:grid;gap:4px}
+.gar-layer{display:flex;gap:4px;align-items:center}
+.gar-layer-pick{flex:1;display:flex;align-items:center;gap:8px;height:40px;padding:0 10px;background:#12161c;border:1px solid var(--rule);border-radius:4px;color:var(--text);font-family:var(--display);font-weight:600;font-size:14px;cursor:pointer;min-width:0}
+.gar-layer-pick span{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gar-layer-pick small{color:var(--muted);font-size:11px;letter-spacing:.1em}
+.gar-layer-pick[aria-pressed="true"]{border-color:var(--amber);background:#1a1f26}
+.gar-layer .gar-mini{height:40px;width:44px}
+.gar-ranges{display:grid;gap:6px}
+.gar-range{display:grid;grid-template-columns:5.2em 1fr 4.6em;gap:8px;align-items:center}
+.gar-range output{text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
+.gar-text{height:40px;padding:0 10px;background:#12161c;border:1px solid var(--rule-strong);border-radius:4px;color:var(--text);font:600 15px var(--display)}
+.gar-presets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.gar-preset{display:grid;gap:8px;padding:10px;background:#12161c;border:1px solid var(--rule);border-radius:4px;color:var(--text);font-family:var(--display);text-align:left;cursor:pointer}
+.gar-preset:hover{border-color:var(--amber)}
+.gar-preset .chips{display:flex;gap:4px}
+.gar-preset .chips i{width:22px;height:22px;border-radius:50%;border:1px solid var(--rule-strong)}

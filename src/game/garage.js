@@ -11,8 +11,9 @@ import { CarModels } from './car-models.js';
 import { Design } from './design.js';
 import { $, createEmitter } from './util.js';
 import { orbitState, orbitPosition, attachOrbit, clampOrbit, ORBIT } from './orbit-camera.js';
-import { FINISHES, CAR_MODELS, SWATCHES, LIVERY_DEFAULTS, STRATEGY_DEFAULTS, COMPOUND_NAMES, hexOf, playerDriver, playerSpec, garageClass, carIn } from './garage-store.js';
+import { FINISHES, CAR_MODELS, SWATCHES, validLivery, STRATEGY_DEFAULTS, COMPOUND_NAMES, hexOf, playerDriver, playerSpec, garageClass, carIn } from './garage-store.js';
 import { classUi, allClasses, classRows } from './car-class.js';
+import { createLook } from './garage-look.js';
 
 // Setup (2026-11-02, the user's pick B of the canvas mock-ups): a chip per group, one group at a time; each item says what
 // moving it off stock does (lo = below stock, hi = above); `isNew` = a setting the garage didn't have before (a NEW tag)
@@ -120,7 +121,9 @@ export const Garage = (() => {
     cam = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
     model = CarModels.create(scene, playerDriver(garage), Design.data.car);
     frameCar();
-    attachOrbit(stage, orbit, { onUser: () => { idle = 0; } });
+    attachOrbit(stage, orbit, { onUser: () => { idle = 0; },
+      claim: e => tab === 'look' && model.kind === '2026' && look.usesCar ? look.pointerDown(e, hitAt) : null,
+      rightTurns: () => tab === 'look' && look.usesCar });
     Design.on('change', section => { if (model && (section === 'car' || section === 'all')) { model.rebuild(Design.data.car); frameCar(); } });
     CarModels.onKind(() => { if (model) frameCar(); });   // classic ↔ 2026: a new root to centre
   }
@@ -141,6 +144,19 @@ export const Garage = (() => {
     cam.setViewOffset(W + pw, H + ph, pw, ph, W, H);
     cam.position.set(...orbitPosition(orbit)); cam.lookAt(...orbit.target);
   }
+
+  // the car under the pointer (the Look tab's tools): { point, normal, role } in the car's frame, or null
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  function hitAt(e) {
+    ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+    cam.updateMatrixWorld(); ray.setFromCamera(ndc, cam);
+    return model.hitTest(ray);
+  }
+  // the Look tab for the Blender cars (garage-look.js)
+  let prefs = null;
+  const look = createLook({ el, button, seg, livery: () => garage.livery, changed: w => changed(w), render: () => render(),
+    repaint: () => model?.repaint(garage.livery), model: () => model,
+    prefs: { get: k => prefs?.[k], set: (k, v) => events.emit('pref', k, v) } });
 
   // ---- panel ----
   function slider(label, r, value, fmt, note, onInput) {
@@ -247,8 +263,16 @@ export const Garage = (() => {
     } else if (tab === 'look') {
       const car = el('div', 'set-item'), ch = el('div', 'row');
       ch.append(el('span', 'lbl', 'Car'), seg(CAR_MODELS, L.model, v => { L.model = v; changed('look'); render(); }));
-      car.append(ch, el('p', 'note', L.model === '2026' ? 'The 2026 car, based on "F1 2026 concept" by Qvist_designs (CC-BY): every car in the field.' : 'The part-built car: the design tools below change its shape.'));
-      body.append(car, colourRow('Body colour', 'color'), colourRow('Accent colour', 'accent'), colourRow('Rims', 'rims'));
+      car.append(ch, el('p', 'note', L.model === '2026' ? 'The 2026 car, based on "F1 2026 concept" by Qvist_designs (CC-BY): every car in the field.' : 'The part-built car: the design tools below change its shape. Zones, layers, spray and parts are for the 2026 car.'));
+      body.append(car);
+      if (L.model === '2026') {
+        look.render(body);
+        const btns = el('div', 'set-item btns');
+        btns.append(button('Reset look', () => { garage.livery = { ...validLivery({}), model: L.model }; changed('look'); render(); }));
+        body.append(btns);
+        drawTop(); return;
+      }
+      body.append(colourRow('Body colour', 'color'), colourRow('Accent colour', 'accent'), colourRow('Rims', 'rims'));
       const fin = el('div', 'set-item'), fh = el('div', 'row');
       fh.append(el('span', 'lbl', 'Paint finish'), seg(FINISHES, L.finish, v => { L.finish = v; changed('look'); render(); }));
       fin.append(fh, el('p', 'note', 'Metallic, satin and matte show in the Quality graphics mode.')); body.append(fin);
@@ -257,7 +281,7 @@ export const Garage = (() => {
       step.append(button('−', () => bump(-1), ''), out, button('+', () => bump(1), ''));
       nh.append(el('span', 'lbl', 'Race number'), step); num.append(nh); body.append(num);
       const btns = el('div', 'set-item btns');
-      btns.append(button('Reset look', () => { garage.livery = { ...LIVERY_DEFAULTS }; changed('look'); render(); }),
+      btns.append(button('Reset look', () => { garage.livery = { ...validLivery({}), model: L.model }; changed('look'); render(); }),
         button('Edit the car\'s shape (design tools)', () => events.emit('designTools')));
       body.append(btns, el('p', 'note', 'The design tools change the shape of every car in the field (wings, bodywork, wheels, cockpit); the colours and number here are yours alone.'));
     } else if (tab === 'setup') {
@@ -334,15 +358,18 @@ export const Garage = (() => {
   return {
     on: events.on,
     get open() { return isOpen; },
-    // g = the game's garage object (edited in place); profile = the graphics profile (materials)
-    show(g, profile) {
-      garage = g;
+    // g = the game's garage object (edited in place); profile = the graphics profile (materials); p = the prefs (the Look tab's
+    // rear lights: changes go out as 'pref')
+    show(g, profile, p) {
+      garage = g; prefs = p ?? prefs;
       if (!scene) buildScene();
       model.setLivery(garage.livery);
       if (profile) CarModels.applyProfile([model], profile);
       isOpen = true; root.hidden = false; idle = 0; render(); stage.focus();
     },
     close,
+    // (the smoke test: what the pointer would hit at a window point)
+    hitAt: (x, y) => model ? hitAt({ clientX: x, clientY: y }) : null,
     frame(dt) {
       if (!isOpen) return;
       if (autoTurn && (idle += dt) > 4) orbit.yaw += dt * 0.25;

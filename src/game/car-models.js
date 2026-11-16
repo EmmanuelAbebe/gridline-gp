@@ -6,6 +6,7 @@ import { createDriverBody } from './driver-body.js';
 import { carbonTexture, tyreTexture, skyEnvironment, glowTexture, numberTexture } from './car-textures.js';
 import { markShadows } from './shadows.js';
 import { createGlbCar } from './car-glb.js';
+import { rearLightWant } from './rear-lights.js';
 import { Debris } from './debris.js';
 import { Models } from './models.js';
 import { SIM } from '../sim/index.js';
@@ -147,7 +148,7 @@ export const CarModels = (() => {
     mount.add(steering);
     const shadow = new THREE.Mesh(SHADOW_GEO, SHADOW_MAT); shadow.position.y = 0.04; shadow.renderOrder = 1;
     root.add(body, mount, shadow); scene.add(root);
-    let geo = null, wheelGeos = [], pivots = [], wheels = [], fronts = [], glows = [], cockpitView = false, lock = 0, lit = 0;
+    let geo = null, wheelGeos = [], pivots = [], wheels = [], fronts = [], glows = [], cockpitView = false, lock = 0, lit = 0, clock = Math.random() * 10;
     // active-aero parts (design `open`: degrees they turn in straight mode): one small mesh each, turned by car.aeroOpen
     let movers = [];
     let driverBody = null, grips = [], pedals = [0, 0];
@@ -264,8 +265,9 @@ export const CarModels = (() => {
         for (const p of fronts) p.rotation.y = -car.steer * FRONT_STEER;
         for (const m of movers) m.mesh.rotation.z = m.open * (car.aeroOpen || 0);   // straight mode: the flaps flatten
         steering.rotation.x = car.steer * lock;          // + steer (right) turns the wheel clockwise from the driver's seat
-        const want = car.brake > 0.05 ? Math.min(1, 0.6 + car.brake) : 0;
-        lit += (want - lit) * Math.min(1, dt * (want > lit ? 30 : 12));
+        clock += dt;
+        const { want, flash } = rearLightWant(car, rear.mode, clock);      // (rear-lights.js, as the 2026 car's)
+        lit += (want - lit) * Math.min(1, dt * (flash ? 60 : want > lit ? 30 : 12));
         light.color.copy(LIGHT_OFF).lerp(LIGHT_ON, lit);
         glowMat.opacity = lit * 0.9;
         for (const s of glows) s.visible = !cockpitView && lit > 0.02;
@@ -300,7 +302,46 @@ export const CarModels = (() => {
   // (fe.glb), else the F1's
   const templateOf = () => (playerClass().id === 'fe' && Models.fe) || Models.car;
   let template = null;
-  const glbCtx = () => ({ debris: Debris, eyeShift: eyeShift(), template: (template = templateOf()), driverTemplate: Models.driver, env, glow, SHADOW_GEO, SHADOW_MAT, GLOW_GEO, LIGHT_OFF, LIGHT_ON, FINISH_LOOKS, FRONT_STEER, DEG, createDriverBody, markShadows });
+  // the rear lights (car-glb.js REAR_LIGHTS; Settings → Graphics): when they light (mode) and how they look: 'led' = LED dots
+  // and a tight halo, 'ledLight' = also the two nearest lit cars light their own car and the road behind (two point lights,
+  // Quality mode: every lit surface pays for them, so it is a choice)
+  const rear = { mode: 'real', look: 'led', quality: true, pools: new Map() };
+  const RL_LIGHT = { count: 2, intensity: 1.6, distance: 7, back: 0.25 };
+  function rearLightAt(root, local, lit) {
+    const scene = root.parent; if (!scene || lit < 0.05) return;
+    let pool = rear.pools.get(scene);
+    if (!pool) rear.pools.set(scene, pool = { lights: [], cands: [] });
+    pool.cands.push({ root, local, lit });
+  }
+  const tmpV = new THREE.Vector3();
+  function rearLightsFrame(cam) {
+    for (const [scene, pool] of rear.pools) {
+      const on = rear.look === 'ledLight' && rear.quality;
+      if (on && !pool.lights.length) for (let i = 0; i < RL_LIGHT.count; i++) { const l = new THREE.PointLight(0xff2a18, 0, RL_LIGHT.distance, 2); scene.add(l); pool.lights.push(l); }
+      if (!on && pool.lights.length) { for (const l of pool.lights) scene.remove(l); pool.lights = []; }
+      if (on) {
+        const near = pool.cands.map(c => ({ c, at: tmpV.set(c.local.x - RL_LIGHT.back, c.local.y, c.local.z).applyMatrix4(c.root.matrixWorld).clone() }))
+          .sort((a, b) => a.at.distanceToSquared(cam.position) - b.at.distanceToSquared(cam.position));
+        pool.lights.forEach((l, i) => { const n = near[i]; l.intensity = n ? n.c.lit * RL_LIGHT.intensity : 0; if (n) l.position.copy(n.at); });
+      }
+      pool.cands.length = 0;
+    }
+  }
+  // the lights' LED look: a lens of dots (in the light's own frame: its rear face, z × y), dim when off, bright when lit
+  function ledMaterial(color) {
+    const m = new THREE.MeshBasicMaterial({ color });
+    m.onBeforeCompile = sh => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vLed;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvLed = position;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vLed;')
+        .replace('#include <color_fragment>', '#include <color_fragment>\n{ vec2 c = fract(vec2(vLed.z, vLed.y) / 0.011) - 0.5; float led = smoothstep(0.36, 0.26, length(c)); diffuseColor.rgb *= mix(0.3, 1.25, led); }');
+    };
+    m.customProgramCacheKey = () => 'led-1';
+    return m;
+  }
+  // the model of the Blender car being raced (the livery's zones and panels are per model)
+  const modelKey = () => templateOf() === Models.fe && Models.fe ? 'fe' : 'f1';
+  const glbCtx = () => ({ debris: Debris, eyeShift: eyeShift(), template: (template = templateOf()), modelKey: modelKey(), driverTemplate: Models.driver, env, glow, SHADOW_GEO, SHADOW_MAT, GLOW_GEO, LIGHT_OFF, LIGHT_ON, FINISH_LOOKS, FRONT_STEER, DEG, createDriverBody, markShadows,
+    ledMaterial, rearLights: () => rear.mode, rearLightAt });
   function create(scene, driver, design) {
     const st = { design, livery: null, mats: null, shadows: true, visible: true, cockpit: false, screen: null, service: null, pedals: [0, 0] };
     const make = () => kind === '2026' && Models.car ? createGlbCar(scene, driver, st.design, glbCtx()) : createClassic(scene, driver, st.design);
@@ -319,6 +360,10 @@ export const CarModels = (() => {
       setVisible(on) { st.visible = on; inner.setVisible(on); },
       get object() { return inner.object; },
       mirrorParts() { return inner.mirrorParts(); },
+      repaint(l) { st.livery = l; inner.repaint?.(l); },
+      hitTest(ray) { return inner.hitTest?.(ray) ?? null; },
+      get modelKey() { return inner.modelKey ?? null; },
+      colourAt(...a) { return inner.colourAt?.(...a) ?? null; },
       sync(car, pose, dt) { inner.sync(car, pose, dt); },
       swap() {
         const was = inner.object, at = [was.position.clone(), was.rotation.clone()];
@@ -367,7 +412,9 @@ export const CarModels = (() => {
     classicBox = { design, parts: SIM.hitboxFrom(pts, wheels) };
     return classicBox.parts;
   }
-  return { create, measure, ghostMaterials, setKind, classChanged, hitbox, get kind() { return kind; }, get eyeShift() { return eyeShift(); }, onKind(fn) { kindListeners.add(fn); }, applyProfile(models, p) {
+  // Settings → Graphics: rear lights' behaviour and look; quality = the graphics profile allows the point lights
+  function setRearLights(mode, look, quality = rear.quality) { rear.mode = mode; rear.look = look; rear.quality = quality; }
+  return { create, measure, ghostMaterials, setKind, classChanged, hitbox, setRearLights, rearLightsFrame, get kind() { return kind; }, get eyeShift() { return eyeShift(); }, onKind(fn) { kindListeners.add(fn); }, applyProfile(models, p) {
     const set = p.lambertCars ? MATS.fast : MATS.quality; for (const m of models) m.setMaterials(set);
     SHADOW_MAT.opacity = p.shadows ? 0.6 : 0.8;        // with sun shadows on, the contact shadow is only the ambient part
   } };

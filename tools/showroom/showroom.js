@@ -7,6 +7,11 @@ import { CarModels } from '../../src/game/car-models.js';
 import { DESIGN_DEFAULTS } from '../../src/game/design-defaults.js';
 import { CONFIG, COLORS } from '../../src/game/config.js';
 import { createMirrors } from '../../src/game/mirrors.js';
+import { loadModels } from '../../src/game/models.js';
+import { validLivery } from '../../src/game/garage-store.js';
+import { PRESETS, applyPreset } from '../../src/game/livery.js';
+import { painterFor } from '../../src/game/livery-paint.js';
+import { setPlayerClass, classById } from '../../src/game/car-class.js';
 
 const q = new URLSearchParams(location.search);
 const driver = SIM.DRIVERS.find(d => d.code === (q.get('driver') || 'VOS')) || SIM.DRIVERS[0];
@@ -26,7 +31,17 @@ scene.add(new THREE.HemisphereLight(0xe2efff, 0x47662f, 0.8));
 const sun = new THREE.DirectionalLight(0xfff0d4, 0.95); sun.position.set(-300, 500, 250); scene.add(sun);
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: COLORS.asphalt[0] }));
 scene.add(ground);
+// ?kind=2026: the Blender car; ?livery=<json> (garage-store livery) or ?preset=n (livery.js PRESETS) paints it; ?lights=1 lit
+if (q.get('class')) setPlayerClass(classById(q.get('class')));   // ?class=fe: the electric car's model
+if (q.get('kind') === '2026') { await loadModels(); CarModels.setKind('2026'); }
+CarModels.setRearLights(q.get('lights') || 'brake', q.get('look') || 'led');   // (?lights=real: off unless harvesting)
 const model = CarModels.create(scene, driver, design);
+if (q.get('livery') || q.get('preset')) {
+  let l = validLivery({ ...JSON.parse(q.get('livery') || '{}'), model: q.get('kind') === '2026' ? '2026' : 'classic' });
+  if (q.get('preset')) l = applyPreset(l, PRESETS[+q.get('preset')]);
+  model.setLivery(l);
+  await document.fonts.ready; await new Promise(r => setTimeout(r, 300)); model.setLivery(l);
+}
 // ?mirrors=1: working mirrors, with markers behind the car (red on its left, blue on its right) to check the picture
 const mirrors = q.get('mirrors') ? createMirrors((target, cam) => { renderer.setRenderTarget(target); renderer.render(scene, cam); renderer.setRenderTarget(null); }) : null;
 if (mirrors) {
@@ -62,4 +77,6 @@ only.forEach(([name, eye, at], i) => {
 });
 const lbl = document.getElementById('lbl').style;
 lbl.setProperty('--cols', `repeat(${cols}, 1fr)`); lbl.setProperty('--rows', `repeat(${only.length > 3 ? 2 : 1}, 1fr)`);
+// ?atlas=1: the paint texture (livery-paint.js) over the views, to check where things go
+if (q.get('atlas')) { const c = painterFor(model.modelKey || 'f1').canvas; c.style.cssText = 'position:fixed;left:0;top:0;width:900px;height:900px;background:#333;opacity:.95'; document.body.append(c); }
 document.title = 'ready';

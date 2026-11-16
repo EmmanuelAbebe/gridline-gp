@@ -182,6 +182,7 @@ const savePrefs = () => Settings.set(CONFIG.storageKeys.prefs, JSON.stringify(ga
 function applyPrefs() {
   const p = game.prefs;
   Input.setConfig(p); Sound.setMuted(p.muted); racingLine.setMode(p.racingLine); hudMirror.setOn(p.hudMirror);
+  CarModels.setRearLights(p.rearLights, p.lightLook);
   trial.applyPrefs();
   Sound.setVolumes({ master: p.volume / 100, engine: p.engineVol / 100, fx: p.fxVol / 100, ambience: p.ambVol / 100 }); Hud.showFps(p.showFps);
 }
@@ -191,6 +192,7 @@ function setGfx(id, announce) {
   const p = GFX_PROFILES[id], gpu = Display.gpu;
   game.gfx = id;
   Display.applyProfile(p); world?.applyProfile(p); CarModels.applyProfile(carModels, p); hudMirror.setPerformance(id === 'perf');
+  CarModels.setRearLights(game.prefs.rearLights, game.prefs.lightLook, !p.lambertCars);
   mirrors.setQuality(!p.lambertCars); mirrors.build(playerModel0.object, playerModel0.mirrorParts());   // resolution follows the mode
   game.gfxNote = (gpu.short ? 'Graphics: ' + gpu.short + '. ' : '') + p.note(gpu.weak);
   if (announce) { Settings.set(CONFIG.storageKeys.gfx, id); Hud.toast(p.label); }
@@ -589,6 +591,7 @@ Garage.on('change', (g, what) => {
 Garage.on('close', () => { Settings.set(CONFIG.storageKeys.garage, JSON.stringify(game.garage)); Screens.show('start', 'startBtn'); });
 Garage.on('designTools', () => TweakPanel.toggle());
 Garage.on('class', id => pickClass(id));
+Garage.on('pref', (k, v) => setPref(k, v));        // (the Look tab's rear lights)
 // the car you race (race weekend's CAR step, the time trial page, the garage's Car tab): the garage keeps each car's own
 // setup, mods and tyres (garage-store.js switchClass); records, ghosts, the rivals' times and the menus follow it
 function pickClass(id) {
@@ -602,7 +605,7 @@ function pickClass(id) {
   }
   return cls.id;
 }
-function openGarage() { if (game.phase !== PHASE.MENU || Garage.open) return; Screens.show(null); Garage.show(game.garage, GFX_PROFILES[game.gfx]); }
+function openGarage() { if (game.phase !== PHASE.MENU || Garage.open) return; Screens.show(null); Garage.show(game.garage, GFX_PROFILES[game.gfx], game.prefs); }
 
 const ACTIONS = { camera: cycleCamera, mute: toggleMute, pause: escape, fps: () => setPref('showFps', !game.prefs.showFps), graphics: toggleGfx, confirm,
   settings: () => settings.toggle(),
@@ -720,7 +723,7 @@ for (const id of ['lbPauseBtn', 'lbResBtn']) $(id).onclick = () => {
   const run = game.race && game.runs[boardOf(game.race.track.id, game.race.activeAero, game.race.carClass.id)];
   if (run && sendable(run)) { $('lbPauseBtn').hidden = $('lbResBtn').hidden = true; sendRun(run); }
 };
-if (import.meta.env.DEV || window.gridlineApp?.debug) window.__zoneEditor = zoneEditor;   // (the smoke test drags a zone)
+if (import.meta.env.DEV || window.gridlineApp?.debug) { window.__zoneEditor = zoneEditor; window.__garage = Garage; }   // (the smoke test drags a zone, paints the car)
 // results: CHANGE RACE = the race weekend's steps (a time trial: its own page); PADDOCK = the start menu's home
 $('menuBtn').onclick = () => { toMenu(); menu.show(game.setup.type === 'trial' ? 'trial' : 'race'); };
 $('paddockBtn').onclick = toMenu;
@@ -789,6 +792,7 @@ function renderFrame(dt) {
   const eye = Design.data.cameras.find(c => c.id === 'cockpit') || cam;
   const es = CarModels.eyeShift;
   mirrors.update([-eye.back + es[0], eye.height + es[1], eye.side || 0], cockpit ? 'cockpit' : 'outside', Display.camera.position);
+  CarModels.rearLightsFrame(Display.camera);
   Display.render();
   hudMirror.render(player.finished ? null : player);
 

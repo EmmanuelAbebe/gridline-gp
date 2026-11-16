@@ -166,6 +166,8 @@ export const PREFS = Object.freeze({
     racingLine: 'full',  // the racing line on the road (racing-line.js): full / braking (zones only) / off
     ghostInputs: true,   // time trial against an AI ghost: its steering / gas / brake charts (ghost-inputs.js)
     hudMirror: false,    // a rear-view mirror strip at the top of the screen (hud-mirror.js)
+    rearLights: 'real',  // the cars' rear lights (car-glb.js REAR_LIGHTS): real (energy / limiter) / realBrake (+ hard braking) / brake (brake lights)
+    lightLook: 'led',    // their look: led (LED dots, a tight halo) / ledLight (+ the two nearest light the car and road: Quality only)
     pauseOnBlur: true,
     updateCheck: true,   // the start menu says when a newer version is on GitHub (desktop app only; desktop/update-check.cjs)   // the race pauses when the game window loses focus (alt-tab) or is hidden
     controller: 'auto',  // the device that drives: 'auto' (phone, then a standard pad, then any) or a device key (controllers.js)
@@ -173,7 +175,7 @@ export const PREFS = Object.freeze({
     phoneAuto: false,    // start the phone wheel with the game
   },
   // text prefs with a fixed set of values (others keep any string)
-  options: { phoneLink: ['wifi', 'bluetooth', 'usb'], racingLine: ['full', 'braking', 'off'], speedSteer: ['on', 'off'], padAssist: ['off', 'loose', 'balanced', 'stable'] },
+  options: { phoneLink: ['wifi', 'bluetooth', 'usb'], racingLine: ['full', 'braking', 'off'], speedSteer: ['on', 'off'], padAssist: ['off', 'loose', 'balanced', 'stable'], rearLights: ['real', 'realBrake', 'brake'], lightLook: ['led', 'ledLight'] },
   smoothingRate: 40,     // smoothing level n: the steering moves at most 40/n of full lock per second
   limits: { smoothing: [0, 10, 1], deadZone: [0, 20, 0.5], range: [40, 100, 5], curve: [1, 3, 0.1], calm: [0, 100, 10], pedalDeadZone: [0, 20, 1], brakeForce: [50, 100, 1], volume: [0, 100, 5],
     engineVol: [0, 150, 5], fxVol: [0, 150, 5], ambVol: [0, 150, 5], shake: [0, 150, 10] },

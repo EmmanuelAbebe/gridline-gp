@@ -202,6 +202,64 @@ async function smokeTest(win) {
   })()`));
   await shot('garage-tyres');
   await win.webContents.executeJavaScript(`[...document.querySelectorAll('#garBody button')].find(b => b.textContent === 'Reset tyres & pit').click()`);
+  // the free livery on the 2026 car (garage-look.js): Zones (click the car → its zone, paint it green), Layers (a stripe and a
+  // chevron dragged on the car), Spray (a stroke across the side), Parts (titanium exhaust, matte carbon), a name; shots from
+  // the side and the rear; the Lights tab; then the look reset and the car as it was
+  const lookTab = name => win.webContents.executeJavaScript(`[...document.querySelectorAll('.gar-looktabs button')].find(b => b.textContent === ${JSON.stringify(name)})?.click()`);
+  const mouse = async pts => { for (const [type, x, y, button = 'left'] of pts) { win.webContents.sendInputEvent({ type, x, y, button, clickCount: 1 }); await new Promise(r => setTimeout(r, 50)); } };
+  const wasModel = await win.webContents.executeJavaScript(`(async () => {
+    [...document.querySelectorAll('#garTabs button')].find(b => b.textContent === 'Look').click(); await new Promise(r => setTimeout(r, 200));
+    const was = document.querySelector('#garBody .seg [aria-pressed=true]')?.textContent;
+    [...document.querySelectorAll('#garBody .seg button')].find(b => b.textContent === '2026')?.click(); await new Promise(r => setTimeout(r, 900));
+    [...document.querySelectorAll('#garViews button')].find(b => b.textContent === 'SIDE').click(); return was;
+  })()`);
+  await new Promise(r => setTimeout(r, 400));
+  // (where the car is on screen: a scan of what the pointer would hit; the strokes go along its middle row)
+  const onCar = await win.webContents.executeJavaScript(`(() => { const pts = [];
+    for (let x = 0; x < innerWidth; x += 12) for (let y = 60; y < innerHeight - 40; y += 12) if (window.__garage.hitAt(x, y)?.role === 'paint_main') pts.push([x, y]);
+    const ys = pts.map(p => p[1]).sort((a, b) => a - b), y = ys[ys.length >> 1], row = pts.filter(p => Math.abs(p[1] - y) < 13).map(p => p[0]).sort((a, b) => a - b);
+    return { y, xs: row, n: pts.length }; })()`);
+  const midY = onCar.y, row = onCar.xs, at = f => row[Math.min(row.length - 1, Math.floor(f * row.length))], midX = at(0.5);
+  await lookTab('Zones'); await new Promise(r => setTimeout(r, 150));
+  await win.webContents.executeJavaScript(`[...document.querySelectorAll('.gar-zone')].find(b => b.textContent === 'Front wing').click()`);
+  await mouse([['mouseDown', midX, midY], ['mouseUp', midX, midY]]);
+  info.livery = { found: onCar.n, zone: await win.webContents.executeJavaScript(`document.querySelector('.gar-zone[aria-pressed=true]')?.textContent`) };
+  await win.webContents.executeJavaScript(`[...document.querySelectorAll('#garBody .gar-stack')][2].querySelectorAll('.gar-swatch')[3].click()`);
+  await lookTab('Layers'); await new Promise(r => setTimeout(r, 150));
+  await win.webContents.executeJavaScript(`(async () => { const add = k => [...document.querySelectorAll('#garBody .gar-chips button')].find(b => b.textContent === '+ ' + k).click();
+    add('Stripe'); await new Promise(r => setTimeout(r, 100)); add('Shape'); })()`);
+  await new Promise(r => setTimeout(r, 200));
+  const before = await win.webContents.executeJavaScript(`[...document.querySelectorAll('.gar-range output')].slice(4).map(o => o.textContent).join(' ')`);
+  await mouse([['mouseDown', at(0.4), midY], ['mouseMove', at(0.45), midY], ['mouseMove', at(0.5), midY], ['mouseUp', at(0.5), midY]]);
+  await new Promise(r => setTimeout(r, 200));
+  info.livery.layers = await win.webContents.executeJavaScript(`document.querySelectorAll('.gar-layer').length`);
+  info.livery.moved = before !== await win.webContents.executeJavaScript(`[...document.querySelectorAll('.gar-range output')].slice(4).map(o => o.textContent).join(' ')`);
+  await lookTab('Spray'); await new Promise(r => setTimeout(r, 150));
+  await mouse([['mouseDown', at(0.15), midY], ['mouseMove', at(0.35), midY], ['mouseMove', at(0.55), midY], ['mouseMove', at(0.75), midY], ['mouseUp', at(0.75), midY]]);
+  await new Promise(r => setTimeout(r, 200));
+  info.livery.spray = await win.webContents.executeJavaScript(`[...document.querySelectorAll('#garBody .note')].map(n => n.textContent).find(t => /strokes/.test(t))?.split(' · ')[0]`);
+  await lookTab('Parts'); await new Promise(r => setTimeout(r, 150));
+  await win.webContents.executeJavaScript(`(() => { const pick = t => [...document.querySelectorAll('#garBody .seg button')].find(b => b.textContent === t).click();
+    pick('MATTE'); pick('TI TINT'); })()`);
+  await lookTab('Number & name'); await new Promise(r => setTimeout(r, 150));
+  await win.webContents.executeJavaScript(`(() => { const t = document.querySelector('#garBody .gar-text'); t.value = 'SMOKE'; t.dispatchEvent(new Event('input')); t.dispatchEvent(new Event('change')); })()`);
+  await lookTab('Zones'); await new Promise(r => setTimeout(r, 600));
+  await shot('garage-livery');
+  await win.webContents.executeJavaScript(`[...document.querySelectorAll('#garViews button')].find(b => b.textContent === 'REAR').click()`);
+  await new Promise(r => setTimeout(r, 500));
+  await shot('garage-livery-rear');
+  await lookTab('Lights'); await new Promise(r => setTimeout(r, 150));
+  info.livery.lights = await win.webContents.executeJavaScript(`(async () => {
+    const pick = t => [...document.querySelectorAll('#garBody .seg button')].find(b => b.textContent === t).click(), on = () => [...document.querySelectorAll('#garBody .seg [aria-pressed=true]')].map(b => b.textContent).join(' / ');
+    const before = on(); pick('REAL + BRAKING'); await new Promise(r => setTimeout(r, 150)); const after = on(); pick('REAL'); return before + ' → ' + after;
+  })()`);
+  await new Promise(r => setTimeout(r, 500));
+  info.livery.saved = await win.webContents.executeJavaScript(`(() => { const l = JSON.parse(localStorage.getItem('gridline.garage')).livery;
+    return { zones: Object.keys(l.zones).length, layers: l.layers.length, strokes: l.spray.length, exhaust: l.parts.exhaust, carbon: l.parts.carbon, name: l.name }; })()`);
+  await win.webContents.executeJavaScript(`(async () => {
+    [...document.querySelectorAll('#garBody button')].find(b => b.textContent === 'Reset look').click(); await new Promise(r => setTimeout(r, 200));
+    [...document.querySelectorAll('#garBody .seg button')].find(b => b.textContent === ${JSON.stringify(wasModel)})?.click(); await new Promise(r => setTimeout(r, 600));
+  })()`);
   Object.assign(info.garage, await win.webContents.executeJavaScript(`(async () => {
     const wait = ms => new Promise(r => setTimeout(r, ms));
     [...document.querySelectorAll('#garTabs button')].find(b => b.textContent === 'Open mods').click(); await wait(200);
@@ -212,6 +270,8 @@ async function smokeTest(win) {
     document.getElementById('garClose').click(); await wait(200);
     return { modified, after, backToMenu: !document.getElementById('startOv').hidden, summary: document.getElementById('setupSummary').textContent };
   })()`));
+  // GRIDLINE_SMOKE_STOP=garage: stop after the garage (a quick check of it alone; check-smoke.mjs then reports the rest missing)
+  if (process.env.GRIDLINE_SMOKE_STOP === 'garage') { console.log(JSON.stringify({ ...info, errors })); app.exit(0); return; }
   // pick the next circuit (the race below runs there): the menu shows its name, outline and 3D scene
   await win.webContents.executeJavaScript(`document.querySelector('#trackStep [data-d="1"]').click()`);
   await new Promise(r => setTimeout(r, 1500));

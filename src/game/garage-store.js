@@ -4,6 +4,7 @@
 import { SIM } from '../sim/index.js';
 import { classById } from './car-class.js';
 import { lapClass, LAP_CLASS } from './aero-zones.js';
+import { liveryExtras, colourOf } from './livery.js';
 
 const parse = json => { try { const v = JSON.parse(json); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } catch (e) { return {}; } };
 const PLAYER = SIM.DRIVERS.find(d => d.player);
@@ -12,16 +13,13 @@ const PLAYER = SIM.DRIVERS.find(d => d.player);
 export const FINISHES = [['gloss', 'GLOSS'], ['metallic', 'METALLIC'], ['satin', 'SATIN'], ['matte', 'MATTE']];
 // the car model (docs/car-plan.md): the part-built car the design tools edit, or the Blender one (2026, being built)
 export const CAR_MODELS = [['classic', 'CLASSIC'], ['2026', '2026']];
-export const LIVERY_DEFAULTS = Object.freeze({ color: PLAYER.color, accent: PLAYER.accent, number: PLAYER.number, finish: 'gloss', rims: 0x3a3d42, model: 'classic' });
+// (+ the free livery, livery.js: zones, layers, spray, parts, the number's look and the name on the car; 2026-11-16)
+export const LIVERY_DEFAULTS = Object.freeze({ color: PLAYER.color, accent: PLAYER.accent, number: PLAYER.number, finish: 'gloss', rims: 0x3a3d42, model: 'classic', ...liveryExtras({}) });
 // quick colour choices next to the colour pickers
 export const SWATCHES = [0xffc21a, 0xd7261e, 0x2e6bff, 0x12a150, 0xff7a00, 0x8e44ff, 0xf2f3f0, 0x111111, 0x0fb5c9, 0xff4fa3, 0x8a929c, 0x5b3a1e];
 
-// '#rrggbb', 'rrggbb' or a number → 0xrrggbb, else null
-export function colourOf(v) {
-  if (typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 0xffffff) return v;
-  const m = typeof v === 'string' && /^#?([0-9a-f]{6})$/i.exec(v.trim());
-  return m ? parseInt(m[1], 16) : null;
-}
+// '#rrggbb', 'rrggbb' or a number → 0xrrggbb, else null (livery.js)
+export { colourOf };
 export const hexOf = n => '#' + n.toString(16).padStart(6, '0');
 
 export function validLivery(l = {}) {
@@ -31,6 +29,7 @@ export function validLivery(l = {}) {
     number: Number.isFinite(n) && n >= 0 && n <= 99 && l.number !== '' && l.number !== null ? n : d.number,
     finish: FINISHES.some(([f]) => f === l.finish) ? l.finish : d.finish,
     model: CAR_MODELS.some(([m]) => m === l.model) ? l.model : d.model,
+    ...liveryExtras(l),
   };
 }
 

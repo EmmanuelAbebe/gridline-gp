@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { liveryUniforms, setLivery as liveryOnto, patchLivery, painterFor, MAT } from './livery-paint.js';
+import { PARTS_DEFAULTS } from './livery.js';
+import { rearLightWant, exhaustHeat } from './rear-lights.js';
 
 // The 2026 car made in Blender (tools/blender/car.py → models/car.glb, docs/car-plan.md), with the same per-car API as
 // the part-built car in car-models.js (which picks between the two: CarModels.setKind). The model's objects carry the
@@ -57,7 +60,7 @@ function sharedMat(profile, role, env) {
 export function createGlbCar(scene, driverIn, design, ctx) {
   const { DEG } = ctx;
   let driver = driverIn, steerSpec = design.steering, screenSpec = design.screen, finish = 'gloss', rims = driverIn.rims ?? 0x3a3d42;
-  let profile = 'quality', ghost = null, castsShadow = true, cockpitView = false, service = null, lit = 0, screen = null, driverBody = null;
+  let profile = 'quality', ghost = null, liv = { zones: {}, parts: PARTS_DEFAULTS }, painted = false, clock = Math.random() * 10, heat = 0, castsShadow = true, cockpitView = false, service = null, lit = 0, screen = null, driverBody = null;
   const pedals = [0, 0], hands = [new THREE.Vector3(), new THREE.Vector3()];
 
   const root = new THREE.Group(), model = ctx.template.clone(true);
@@ -91,23 +94,39 @@ export function createGlbCar(scene, driverIn, design, ctx) {
   const seated = ctx.driverTemplate?.clip ? seatDriver(ctx.driverTemplate, model, steer, node('driver_at')?.position) : null;
 
   // per-car materials: the livery's paint, the rims, the brake lights; the rest shared per graphics profile
-  const light = new THREE.MeshBasicMaterial({ color: ctx.LIGHT_OFF.clone() });
+  const light = ctx.ledMaterial ? ctx.ledMaterial(ctx.LIGHT_OFF.clone()) : new THREE.MeshBasicMaterial({ color: ctx.LIGHT_OFF.clone() });
   const halo = new THREE.MeshBasicMaterial({ color: HALO.off.clone() }); let haloLit = 0;
   const glowMat = new THREE.MeshBasicMaterial({ map: ctx.glow, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0, fog: true });
   let own = {};
-  function paint(color) {
+  function paint(color, look = ctx.FINISH_LOOKS[finish]) {
     if (profile === 'fast') return new THREE.MeshLambertMaterial({ color, vertexColors: true });
-    const look = ctx.FINISH_LOOKS[finish] ?? { roughness: 0.32, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 0.45 };
-    return new THREE.MeshPhysicalMaterial({ color, vertexColors: true, envMap: ctx.env, ...look });
+    return new THREE.MeshPhysicalMaterial({ color, vertexColors: true, envMap: ctx.env, ...(look ?? { roughness: 0.32, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 0.45 }) });
   }
+  // the bare carbon parts (the livery's Parts tab: gloss, matte, or painted the body / accent colour)
+  function carbonMat() {
+    const k = liv.parts?.carbon ?? 'gloss';
+    if (k === 'body' || k === 'accent') return paint(k === 'body' ? driver.color : driver.accent);
+    if (profile === 'fast') return new THREE.MeshLambertMaterial({ color: ROLE_COLOURS.carbon, vertexColors: true });
+    return new THREE.MeshPhysicalMaterial({ color: ROLE_COLOURS.carbon, vertexColors: true, envMap: ctx.env, envMapIntensity: k === 'matte' ? 0.15 : 0.5,
+      ...(k === 'matte' ? { roughness: 0.75, metalness: 0.1, clearcoat: 0 } : { roughness: 0.4, metalness: 0.2, clearcoat: 0.8, clearcoatRoughness: 0.12 }) });
+  }
+  // the free livery (livery.js / livery-paint.js) on the paint and carbon: zones, the paint texture (your car only), the
+  // exhaust and its heat foil; its frame = this car's (uCarInv, set as each part is drawn)
+  const U = liveryUniforms(ctx.modelKey ?? 'f1');
+  const carFrame = () => { U.uCarInv.value.copy(root.matrixWorld).invert(); };
   function materials() {
     for (const m of Object.values(own)) m.dispose();
-    own = ghost ? {} : { paint_main: paint(driver.color), paint_accent: paint(driver.accent),
+    liveryOnto(U, ctx.modelKey ?? 'f1', { ...liv, color: driver.color, accent: driver.accent, finish }, painted ? painterFor(ctx.modelKey ?? 'f1') : null);
+    own = ghost ? {} : { paint_main: patchLivery(paint(driver.color), U, MAT.main), paint_accent: patchLivery(paint(driver.accent), U, MAT.accent),
+      carbon: patchLivery(carbonMat(), U, MAT.carbon), plain: paint(driver.accent),
       rim: profile === 'fast' ? new THREE.MeshLambertMaterial({ color: rims, vertexColors: true }) : new THREE.MeshStandardMaterial({ color: rims, vertexColors: true, roughness: 0.3, metalness: 0.8, envMap: ctx.env }) };
     for (const m of meshes) {
-      const role = m.userData.role, rim = role === 'metal' && (m.name.startsWith('rim') || inWheel(m));
+      const role = m.userData.role, wheel = inWheel(m), rim = role === 'metal' && (m.name.startsWith('rim') || wheel);
+      // (the wheels' hub nuts and the helmet keep the plain accent: they turn, or aren't the car)
+      const plain = !ghost && role === 'paint_accent' && (wheel || m.userData.standIn);
       m.material = ghost ? (role === 'rubber' ? ghost.tyre : role.startsWith('paint') ? ghost.paint : ghost.carbon)   // (the halo too: carbon)
-        : role === 'light' ? light : role === 'halo' ? halo : rim ? own.rim : own[role] ?? sharedMat(profile, role, ctx.env);
+        : role === 'light' ? light : role === 'halo' ? halo : rim ? own.rim : plain ? own.plain : own[role] ?? sharedMat(profile, role, ctx.env);
+      m.onBeforeRender = !ghost && own[role] && !plain && !rim ? carFrame : () => {};
     }
   }
   materials();
@@ -116,10 +135,12 @@ export function createGlbCar(scene, driverIn, design, ctx) {
   const box = new THREE.Box3(), size = new THREE.Vector3();
   const glows = meshes.filter(m => m.userData.role === 'light').map(m => {
     box.setFromObject(m); box.getSize(size); root.worldToLocal(box.getCenter(new THREE.Vector3()));
-    const s = new THREE.Mesh(ctx.GLOW_GEO, glowMat), k = Math.max(0.3, Math.max(size.x, size.y, size.z) * 3);
+    const s = new THREE.Mesh(ctx.GLOW_GEO, glowMat), k = Math.max(0.16, Math.max(size.x, size.y, size.z) * 1.6);   // (a tight halo: the canvas's L3 look 2)
     s.position.copy(box.getCenter(new THREE.Vector3())); s.position.x -= 0.04; s.scale.set(k, k, 1); root.add(s); return s;
   });
 
+  const rain = meshes.filter(m => m.userData.role === 'light').findIndex(m => m.name.startsWith('rain'));
+  const glowAt = glows[Math.max(0, rain)]?.position.clone() ?? new THREE.Vector3(-2.4, 0.3, 0);   // (the crash structure's light)
   function showView() {
     for (const m of meshes) m.visible = !(seated && m.userData.standIn) && !(m.userData.wing !== undefined && wingGone[m.userData.wing])
       && ((m.userData.show ?? 'always') === 'always' || m.userData.show === (cockpitView ? 'cockpit' : 'outside'));
@@ -152,8 +173,25 @@ export function createGlbCar(scene, driverIn, design, ctx) {
     rebuild(d) { steerSpec = d.steering; screenSpec = d.screen; placeScreen(); showView(); },
     setLivery(l) {
       driver = { ...driver, color: l.color, accent: l.accent, number: l.number, rims: l.rims };
-      finish = l.finish; rims = l.rims ?? rims; materials();
+      finish = l.finish; rims = l.rims ?? rims;
+      // (your car: the paint texture for its layers, number, name and spray)
+      liv = { zones: l.zones ?? {}, parts: l.parts ?? PARTS_DEFAULTS }; painted = true;
+      painterFor(ctx.modelKey ?? 'f1').update(l);
+      materials();
     },
+    // the livery changed only on its texture (a spray stroke going on): no new materials
+    repaint(l) { painterFor(ctx.modelKey ?? 'f1').update(l); },
+    // the car's zone / paint-texture spot under a ray (the garage's tools): { point, normal } in the car's frame, or null
+    hitTest(raycaster) {
+      const hits = raycaster.intersectObjects(meshes.filter(m => m.visible && own[m.userData.role] && m.material === own[m.userData.role]), false);
+      const h = hits[0]; if (!h) return null;
+      root.updateMatrixWorld(true);
+      const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+      const n = h.face.normal.clone().transformDirection(h.object.matrixWorld).transformDirection(inv);
+      return { point: h.point.clone().applyMatrix4(inv), normal: n, role: h.object.userData.role };
+    },
+    get modelKey() { return ctx.modelKey ?? 'f1'; },
+    colourAt(panel, a, b) { return painterFor(ctx.modelKey ?? 'f1').colourAt(panel, a, b); },
     setMaterials(set) {
       ghost = set.kind === 'ghost' ? set : null;
       if (!ghost) profile = set.kind === 'fast' ? 'fast' : 'quality';
@@ -202,10 +240,14 @@ export function createGlbCar(scene, driverIn, design, ctx) {
       });
       for (const m of movers) m.o.quaternion.copy(m.base).multiply(m.q.setFromAxisAngle(m.axis, m.open * (car.aeroOpen || 0)));
       if (steer) steer.rotation.x = car.steer * steerSpec.lock * DEG;
-      const want = car.brake > 0.05 ? Math.min(1, 0.6 + car.brake) : 0;
-      lit += (want - lit) * Math.min(1, dt * (want > lit ? 30 : 12));
+      clock += dt;
+      const { want, flash } = rearLightWant(car, ctx.rearLights?.() ?? 'real', clock);   // (rear-lights.js: real F1 / + braking / brake lights)
+      lit += (want - lit) * Math.min(1, dt * (flash ? 60 : want > lit ? 30 : 12));
       light.color.copy(ctx.LIGHT_OFF).lerp(ctx.LIGHT_ON, lit);
-      glowMat.opacity = lit * 0.9;
+      glowMat.opacity = lit * 0.6;
+      ctx.rearLightAt?.(root, glowAt, lit);
+      heat = exhaustHeat(heat, car, dt);       // (the exhaust's glow after a while flat out)
+      U.uHeat.value = heat;
       // the halo LEDs: up quickly when attack mode comes on, fading when it ends
       const hw = car.attackOn ? 1 : 0;
       if (hw || haloLit > 0.001) { haloLit += (hw - haloLit) * Math.min(1, dt * (hw > haloLit ? HALO.rise : HALO.fall)); halo.color.copy(HALO.off).lerp(HALO.on, haloLit); }

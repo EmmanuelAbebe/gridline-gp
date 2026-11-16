@@ -123,6 +123,12 @@ const TABS = [
     seg('display', 'Display', [['window', 'WINDOW'], ['full', 'FULL SCREEN']], () => 'Full screen fills the monitor. Key: V', b => b.get('displayOk')),
     seg('gfx', 'Graphics', [['quality', 'QUALITY'], ['perf', 'PERFORMANCE']]),
     seg('showFps', 'FPS counter', ON_OFF),
+    seg('rearLights', 'Rear lights', [['real', 'REAL'], ['realBrake', 'REAL + BRAKING'], ['brake', 'BRAKE LIGHTS']], v => ({
+      real: 'As the real 2026 cars: no brake lights. They flash while a car harvests energy (fast when it super clips at full throttle) and stay on with the pit limiter or when it is stopped off the road.',
+      realBrake: 'As real, and on under hard braking too, so you can read the car ahead in a pack.',
+      brake: 'Brake lights, like a road car: on with the brake pedal.' })[v]),
+    seg('lightLook', 'Rear light look', [['led', 'LED'], ['ledLight', 'LED + LIGHT']], v => v === 'led'
+      ? 'LED dots with a tight glow.' : 'LED dots, and the two nearest lit cars light their bodywork and the road behind (Quality mode; costs a little on every car and the road).'),
   ] },
   { id: 'sound', label: 'Sound', items: [
     seg('sound', 'Sound', ON_OFF),
