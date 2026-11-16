@@ -47,7 +47,6 @@ export const CarModels = (() => {
     matte: { roughness: 0.85, metalness: 0, clearcoat: 0, clearcoatRoughness: 1, envMapIntensity: 0.12 },
   };
   const LIGHT_OFF = new THREE.Color(0x3a0806), LIGHT_ON = new THREE.Color(0xff2a18);
-  const GLOW_GEO = new THREE.PlaneGeometry(1, 1).rotateY(-Math.PI / 2);   // faces -x (backwards)
   // contact shadow: the soft darkening right under the car (ambient light blocked by the floor, darkest between the
   // wheels and at the four tyre patches); the sun's shadow comes on top in Quality mode (display.js, shadows.js)
   const SHADOW_GEO = new THREE.PlaneGeometry(6.2, 2.8).rotateX(-Math.PI/2);
@@ -138,7 +137,7 @@ export const CarModels = (() => {
     // per-car materials: the brake lights (brightness follows the brake) and the race number
     const light = new THREE.MeshBasicMaterial({ color: LIGHT_OFF.clone() });
     const decal = new THREE.MeshBasicMaterial({ map: numberTexture(driver.number ?? ''), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-    const glowMat = new THREE.MeshBasicMaterial({ map: glow, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0, fog: true });
+    const glowMat = new THREE.SpriteMaterial({ map: glow, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0, fog: true });
     let mats = MATS.quality;
     const matList = () => [ownPaint && mats === MATS.quality ? ownPaint : mats.paint, mats.carbon, mats.rubber, mats.metal, light, decal];
     const root = new THREE.Group();
@@ -202,10 +201,11 @@ export const CarModels = (() => {
         const g = parts.find(p => p.steer && p.show !== 'off' && /grip/i.test(p.name) && p.name.endsWith(side));
         return new THREE.Vector3(...(g ? g.pos : [0, 0, z]));
       });
-      // a glow behind every brake light, facing backwards (only seen from behind the car)
+      // a small glow on every rear light, a sprite facing the camera (it was a flat plane behind the light: a red smudge in
+      // the air seen from the side)
       glows = parts.filter(p => !p.steer && finishOf(p) === 'light' && p.show !== 'off' && p.show !== 'cockpit').map(p => {
-        const s = new THREE.Mesh(GLOW_GEO, glowMat), k = Math.max(0.3, Math.max(...p.size.map(Math.abs)) * 3);
-        s.position.set(p.pos[0] - 0.04, p.pos[1], p.pos[2]); s.scale.set(k, k, 1); root.add(s); return s;
+        const s = new THREE.Sprite(glowMat), k = Math.max(0.15, Math.max(...p.size.map(Math.abs)) * 1.2);
+        s.position.set(p.pos[0] - 0.015, p.pos[1], p.pos[2]); s.scale.set(k, k, 1); root.add(s); return s;
       });
       wheelGeos = []; pivots = []; wheels = []; fronts = [];
       for (const w of wheelSpecs) {
@@ -340,7 +340,7 @@ export const CarModels = (() => {
   }
   // the model of the Blender car being raced (the livery's zones and panels are per model)
   const modelKey = () => templateOf() === Models.fe && Models.fe ? 'fe' : 'f1';
-  const glbCtx = () => ({ debris: Debris, eyeShift: eyeShift(), template: (template = templateOf()), modelKey: modelKey(), driverTemplate: Models.driver, env, glow, SHADOW_GEO, SHADOW_MAT, GLOW_GEO, LIGHT_OFF, LIGHT_ON, FINISH_LOOKS, FRONT_STEER, DEG, createDriverBody, markShadows,
+  const glbCtx = () => ({ debris: Debris, eyeShift: eyeShift(), template: (template = templateOf()), modelKey: modelKey(), driverTemplate: Models.driver, env, glow, SHADOW_GEO, SHADOW_MAT, LIGHT_OFF, LIGHT_ON, FINISH_LOOKS, FRONT_STEER, DEG, createDriverBody, markShadows,
     ledMaterial, rearLights: () => rear.mode, rearLightAt });
   function create(scene, driver, design) {
     const st = { design, livery: null, mats: null, shadows: true, visible: true, cockpit: false, screen: null, service: null, pedals: [0, 0] };

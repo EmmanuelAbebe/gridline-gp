@@ -55,7 +55,7 @@ function sharedMat(profile, role, env) {
   return S[role];
 }
 
-// ctx = what car-models.js shares: { template, env, glow, SHADOW_GEO, SHADOW_MAT, GLOW_GEO, LIGHT_OFF, LIGHT_ON,
+// ctx = what car-models.js shares: { template, env, glow, SHADOW_GEO, SHADOW_MAT, LIGHT_OFF, LIGHT_ON,
 // FINISH_LOOKS, FRONT_STEER, DEG, createDriverBody, markShadows }
 export function createGlbCar(scene, driverIn, design, ctx) {
   const { DEG } = ctx;
@@ -96,7 +96,7 @@ export function createGlbCar(scene, driverIn, design, ctx) {
   // per-car materials: the livery's paint, the rims, the brake lights; the rest shared per graphics profile
   const light = ctx.ledMaterial ? ctx.ledMaterial(ctx.LIGHT_OFF.clone()) : new THREE.MeshBasicMaterial({ color: ctx.LIGHT_OFF.clone() });
   const halo = new THREE.MeshBasicMaterial({ color: HALO.off.clone() }); let haloLit = 0;
-  const glowMat = new THREE.MeshBasicMaterial({ map: ctx.glow, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0, fog: true });
+  const glowMat = new THREE.SpriteMaterial({ map: ctx.glow, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0, fog: true });
   let own = {};
   function paint(color, look = ctx.FINISH_LOOKS[finish]) {
     if (profile === 'fast') return new THREE.MeshLambertMaterial({ color, vertexColors: true });
@@ -131,12 +131,16 @@ export function createGlbCar(scene, driverIn, design, ctx) {
   }
   materials();
 
-  // a glow behind every brake light, facing backwards
+  // a small glow on every rear light: a sprite facing the camera right on the light (2026-11-16, user: the lights "floating
+  // in space": the old glow was a flat plane 4 cm behind the light, which read as a red smudge in the air from any angle
+  // but straight behind); the bodywork hides it like the light itself
   const box = new THREE.Box3(), size = new THREE.Vector3();
+  root.updateMatrixWorld(true);
   const glows = meshes.filter(m => m.userData.role === 'light').map(m => {
-    box.setFromObject(m); box.getSize(size); root.worldToLocal(box.getCenter(new THREE.Vector3()));
-    const s = new THREE.Mesh(ctx.GLOW_GEO, glowMat), k = Math.max(0.16, Math.max(size.x, size.y, size.z) * 1.6);   // (a tight halo: the canvas's L3 look 2)
-    s.position.copy(box.getCenter(new THREE.Vector3())); s.position.x -= 0.04; s.scale.set(k, k, 1); root.add(s); return s;
+    box.setFromObject(m); box.getSize(size);
+    const at = root.worldToLocal(box.getCenter(new THREE.Vector3()));
+    const s = new THREE.Sprite(glowMat), k = Math.max(0.12, Math.max(size.x, size.y, size.z) * 0.9);
+    s.position.copy(at); s.position.x -= 0.015; s.scale.set(k, k, 1); root.add(s); return s;
   });
 
   const rain = meshes.filter(m => m.userData.role === 'light').findIndex(m => m.name.startsWith('rain'));

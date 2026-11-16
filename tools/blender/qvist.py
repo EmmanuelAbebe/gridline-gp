@@ -465,12 +465,28 @@ def build():
   for sgn, side in ((-1, 'l'), (1, 'r')):
     m = (x > 0.45) & (x < 0.75) & (y > 0.60) & (y < 0.82) & (z * sgn > 0.45) & (z * sgn < 0.75) & (nx < -0.75)
     if not m.any(): log('no mirror face', side); continue
+    # (2026-11-16, user: the mirrors "floating in space": the box also caught a small piece above the housing, so the
+    # glass spanned the gap between them: keep the biggest run of those faces by height, the housing's own back face)
+    idx = np.nonzero(m)[0]; idx = idx[np.argsort(y[idx])]; runs, cur = [], [idx[0]]
+    for a, b in zip(idx[:-1], idx[1:]):
+      if y[b] - y[a] > 0.015: runs.append(cur); cur = []
+      cur.append(b)
+    runs.append(cur); keep = max(runs, key=len)
+    m = np.zeros_like(m); m[keep] = True
     x0, y0, y1, z0, z1 = x[m].min(), y[m].min(), y[m].max(), z[m].min(), z[m].max()
     log('mirror face', side, 'x', round(float(x0), 3), 'y', round(float(y0), 3), round(float(y1), 3), 'z', round(float(z0), 3), round(float(z1), 3), 'faces', int(m.sum()))
     boxpart(f'mirror_glass_{side}', x0 - 0.006, x0 - 0.002, y0 + 0.004, y1 - 0.004, z0 + 0.004, z1 - 0.004, 'glass')   # (origin at its centre)
   # what the model doesn't have: brake lights, a helmet, the steering wheel and the driver's anchors
   extra = [lightbox('rain_light', -2.468, -2.452, 0.27, 0.34, -0.035, 0.035)]
-  for s, n in ((-1, 'l'), (1, 'r')): extra.append(lightbox(f'ep_light_{n}', -2.505, -2.495, 0.64, 0.88, s * 0.555 - 0.005, s * 0.555 + 0.005))
+  # the endplates' LED strips on each endplate's trailing edge (2026-11-16, user: "floating in space": they were at fixed
+  # spots behind and outside the endplates): the rearmost faces of the endplate between 0.64 and 0.88 m up
+  for s, n in ((-1, 'l'), (1, 'r')):
+    ep = (x < -1.85) & (y > 0.64) & (y < 0.88) & (z * s > 0.42) & (z * s < 0.62)
+    if not ep.any(): log('no endplate', n); continue
+    xe = x[ep].min(); edge = ep & (x < xe + 0.015)
+    ze, ylo, yhi = float(np.median(z[edge])), float(y[edge].min()), float(y[edge].max())
+    log('endplate edge', n, 'x', round(float(xe), 3), 'z', round(ze, 3), 'y', round(ylo, 3), round(yhi, 3))
+    extra.append(lightbox(f'ep_light_{n}', xe - 0.004, xe + 0.006, max(0.64, ylo + 0.01), min(0.88, yhi - 0.01), ze - 0.004, ze + 0.004))
   # (a stand-in helmet seen from outside, until the driver model is in the game; cockpit.py hides it)
   extra.append(ellipsoid('helmet', (EYE[0] - 0.05, EYE[1] + 0.02, 0), (0.15, 0.13, 0.125), 'paint_accent', show='outside'))
   extra.append(ellipsoid('visor', (EYE[0] + 0.055, EYE[1] + 0.035, 0), (0.05, 0.035, 0.10), 'glass', show='outside'))

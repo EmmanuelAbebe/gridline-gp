@@ -79,4 +79,6 @@ const lbl = document.getElementById('lbl').style;
 lbl.setProperty('--cols', `repeat(${cols}, 1fr)`); lbl.setProperty('--rows', `repeat(${only.length > 3 ? 2 : 1}, 1fr)`);
 // ?atlas=1: the paint texture (livery-paint.js) over the views, to check where things go
 if (q.get('atlas')) { const c = painterFor(model.modelKey || 'f1').canvas; c.style.cssText = 'position:fixed;left:0;top:0;width:900px;height:900px;background:#333;opacity:.95'; document.body.append(c); }
+if (q.get('parts')) { const d = document.createElement('pre'); d.style.cssText = 'position:fixed;left:0;bottom:0;background:#fff;font:14px monospace;margin:0;padding:6px';
+  d.textContent = JSON.stringify(model.mirrorParts().map(p => ({ pos: p.pos.map(v => +v.toFixed(3)), size: p.size.map(v => +v.toFixed(3)) }))); document.body.append(d); }
 document.title = 'ready';

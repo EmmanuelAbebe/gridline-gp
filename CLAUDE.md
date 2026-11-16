@@ -1586,6 +1586,12 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   click, two layers one dragged, a spray stroke, parts, a name, the lights setting, saved), `GRIDLINE_SMOKE_STOP=garage` =
   stop after the garage. Not done: spray across panels joins at the panel's edge (a stroke follows the surface's facing),
   the classic car's free livery.
+- Floating parts (2026-11-16, user: mirrors and brake lights "floating in space" on every car): qvist.py put the endplates'
+  LED strips at fixed spots 5 cm behind and outside the endplates (now on each endplate's trailing edge, found from the
+  body) and the mirror glass over every back-facing face in a box that also caught a piece above the housing (now the
+  biggest run of them by height: the housing's own face); car.glb rebuilt. The lights' glow was a flat plane 4 cm behind
+  each light (a red smudge in the air from any angle but straight behind): now a small sprite on the light (car-glb.js,
+  the classic car too). Checked with `npm run car-shot` close-ups and Blender renders (tools/blender/out/peek).
 
 ## Ideas not done yet
 - Online leaderboard with replay validation: `docs/leaderboard-plan.md`. Phase 0 done 2026-10-28: replays
