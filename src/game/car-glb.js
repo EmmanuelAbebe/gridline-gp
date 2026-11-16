@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { liveryUniforms, setLivery as liveryOnto, patchLivery, painterFor, MAT } from './livery-paint.js';
+import { liveryUniforms, setLivery as liveryOnto, patchLivery, painterFor, depthFor, MAT } from './livery-paint.js';
 import { PARTS_DEFAULTS } from './livery.js';
 import { rearLightWant, exhaustHeat } from './rear-lights.js';
 
@@ -81,6 +81,18 @@ export function createGlbCar(scene, driverIn, design, ctx) {
     pivot.add(spin);
     return { pivot, spin, z: pivot.position.z, front: name[6] === 'f' };
   });
+  // (2026-11-16, user: the classic car's tyres on the 2026 F1 car): the model's own tyre, rim and cover hidden, the classic
+  // wheel (car-models.js classicWheel) in their place at their size
+  root.updateMatrixWorld(true);
+  const classic = ctx.modelKey === 'f1' && ctx.classicWheel ? wheels.map(w => {
+    const old = [], box = new THREE.Box3(), at = new THREE.Vector3(), size = new THREE.Vector3();
+    w.spin.traverse(o => { if (o.isMesh) old.push(o); });
+    for (const o of old) { box.expandByObject(o); o.visible = false; meshes.splice(meshes.indexOf(o), 1); }
+    box.getCenter(at); box.getSize(size); w.pivot.worldToLocal(at);
+    const c = ctx.classicWheel(Math.max(size.x, size.y) / 2, size.z, driver, w.z > 0);
+    for (const m of c.meshes) { m.position.copy(at); w.spin.add(m); }
+    return c;
+  }) : [];
   // every node with extras.open turns that many degrees in straight mode about extras.axis (its hinge line; default z)
   const movers = [];
   model.traverse(o => { if (+o.userData.open) movers.push({ o, open: +o.userData.open * DEG, base: o.quaternion.clone(),
@@ -113,6 +125,8 @@ export function createGlbCar(scene, driverIn, design, ctx) {
   // the free livery (livery.js / livery-paint.js) on the paint and carbon: zones, the paint texture (your car only), the
   // exhaust and its heat foil; its frame = this car's (uCarInv, set as each part is drawn)
   const U = liveryUniforms(ctx.modelKey ?? 'f1');
+  // (the outer skin per panel, from the model's own surfaces: the livery's layers stay on it)
+  U.uDepth.value = depthFor(ctx.modelKey ?? 'f1', ctx.template); U.uHasDepth.value = 1;
   const carFrame = () => { U.uCarInv.value.copy(root.matrixWorld).invert(); };
   function materials() {
     for (const m of Object.values(own)) m.dispose();
@@ -178,6 +192,7 @@ export function createGlbCar(scene, driverIn, design, ctx) {
     setLivery(l) {
       driver = { ...driver, color: l.color, accent: l.accent, number: l.number, rims: l.rims };
       finish = l.finish; rims = l.rims ?? rims;
+      for (const c of classic) c.recolour(driver);
       // (your car: the paint texture for its layers, number, name and spray)
       liv = { zones: l.zones ?? {}, parts: l.parts ?? PARTS_DEFAULTS }; painted = true;
       painterFor(ctx.modelKey ?? 'f1').update(l);
@@ -197,6 +212,7 @@ export function createGlbCar(scene, driverIn, design, ctx) {
     get modelKey() { return ctx.modelKey ?? 'f1'; },
     colourAt(panel, a, b) { return painterFor(ctx.modelKey ?? 'f1').colourAt(panel, a, b); },
     setMaterials(set) {
+      for (const c of classic) c.setMaterials(set);
       ghost = set.kind === 'ghost' ? set : null;
       if (!ghost) profile = set.kind === 'fast' ? 'fast' : 'quality';
       materials(); showView();
@@ -279,7 +295,7 @@ export function createGlbCar(scene, driverIn, design, ctx) {
     dispose() {
       scene.remove(root);
       for (const m of Object.values(own)) m.dispose();
-      light.dispose(); halo.dispose(); glowMat.dispose(); driverBody?.dispose?.(); seated?.mixer.stopAllAction();
+      light.dispose(); halo.dispose(); glowMat.dispose(); driverBody?.dispose?.(); seated?.mixer.stopAllAction(); for (const c of classic) c.dispose();
     },
   };
 }

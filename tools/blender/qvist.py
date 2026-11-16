@@ -408,6 +408,22 @@ def lightbox(name, x0, x1, y0, y1, z0, z1):
   bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
   role_mats(o); o.data.polygons.foreach_set('material_index', [ROLES.index('light')] * len(o.data.polygons)); return o
 
+def ribbon(name, pts, back, into, half):
+  """a light strip along points (game frame, bottom to top): at each a rectangle from `back` behind the point to `into`
+  ahead of it, ±half across (z); sides and ends closed"""
+  verts, faces = [], []
+  for (px, py, pz) in pts:
+    for dx, dz in ((-back, -half), (-back, half), (into, half), (into, -half)): verts.append(G(px + dx, py, pz + dz))
+  for k in range(len(pts) - 1):
+    for i in range(4):
+      a, b = k * 4 + i, k * 4 + (i + 1) % 4; faces.append((a, b, b + 4, a + 4))
+  last = (len(pts) - 1) * 4; faces += [(3, 2, 1, 0), (last, last + 1, last + 2, last + 3)]
+  me = bpy.data.meshes.new(name); me.from_pydata(verts, [], faces); me.update()
+  bm = bmesh.new(); bm.from_mesh(me); bmesh.ops.recalc_face_normals(bm, faces=bm.faces); bm.to_mesh(me); bm.free()
+  o = bpy.data.objects.new(name, me); bpy.context.scene.collection.objects.link(o)
+  role_mats(o); me.polygons.foreach_set('material_index', [ROLES.index('light')] * len(me.polygons)); me.update()
+  return o
+
 def boxpart(name, x0, x1, y0, y1, z0, z1, role, tilt=0):
   """a box (game frame) in one role; tilt = degrees about z (a pedal leaning back)"""
   o = lightbox(name, x0, x1, y0, y1, z0, z1)
@@ -545,16 +561,31 @@ def build():
     nx_, nz_ = -math.cos(ang), math.sin(ang)          # the face's normal toward the driver (the plate's −x turned by ang)
     g.location = G(a + b * zc + nx_ * 0.003, yc, zc + nz_ * 0.003); g.rotation_euler = (0, 0, ang)
   # what the model doesn't have: brake lights, a helmet, the steering wheel and the driver's anchors
-  extra = [lightbox('rain_light', -2.468, -2.452, 0.27, 0.34, -0.035, 0.035)]
+  # the rain light on the crash structure's flat rear face (x −2.445, y 0.22–0.40, |z| < 0.056), 4 mm proud of it
+  # (2026-11-16: it was a box 7 mm behind the face, in the air)
+  extra = [lightbox('rain_light', -2.449, -2.443, 0.27, 0.36, -0.04, 0.04)]
   # the endplates' LED strips on each endplate's trailing edge (2026-11-16, user: "floating in space": they were at fixed
   # spots behind and outside the endplates): the rearmost faces of the endplate between 0.64 and 0.88 m up
   for s, n in ((-1, 'l'), (1, 'r')):
     ep = (x < -1.85) & (y > 0.64) & (y < 0.88) & (z * s > 0.42) & (z * s < 0.62)
     if not ep.any(): log('no endplate', n); continue
-    xe = x[ep].min(); edge = ep & (x < xe + 0.015)
-    ze, ylo, yhi = float(np.median(z[edge])), float(y[edge].min()), float(y[edge].max())
-    log('endplate edge', n, 'x', round(float(xe), 3), 'z', round(ze, 3), 'y', round(ylo, 3), round(yhi, 3))
-    extra.append(lightbox(f'ep_light_{n}', xe - 0.004, xe + 0.006, max(0.64, ylo + 0.01), min(0.88, yhi - 0.01), ze - 0.004, ze + 0.004))
+    # (2026-11-16, user: the rear lights again): the strip along the trailing edge as it runs: the rearmost vertex of the
+    # endplate in each 2 cm of height, those within 2 cm of the rearmost overall (the edge, not the wing's), a straight
+    # line through them (x and z against y), 2 mm proud of it and 7 mm into the plate, 8 mm across
+    V = np.empty(len(body.data.vertices) * 3); body.data.vertices.foreach_get('co', V); V = V.reshape(-1, 3)
+    vx, vy, vz = V[:, 0], V[:, 2], -V[:, 1]
+    ev = (vx < -1.85) & (vy > 0.64) & (vy < 0.88) & (vz * s > 0.42) & (vz * s < 0.62)
+    bins = []
+    for yy in np.arange(0.645, 0.875, 0.02):
+      k = np.flatnonzero(ev & (np.abs(vy - yy) < 0.01))
+      if len(k): i = k[np.argmin(vx[k])]; bins.append((vx[i], vy[i], vz[i]))
+    B = np.array(bins); B = B[B[:, 0] < B[:, 0].min() + 0.02]
+    if len(B) < 3: log('endplate edge too short', n); continue
+    fx, fz = np.polyfit(B[:, 1], B[:, 0], 1), np.polyfit(B[:, 1], B[:, 2], 1)
+    y0, y1 = max(0.65, B[:, 1].min()), min(0.86, B[:, 1].max())
+    pts = [(float(np.polyval(fx, yy)), float(yy), float(np.polyval(fz, yy))) for yy in np.linspace(y0, y1, 6)]
+    log('endplate edge', n, 'points', len(B), 'x', round(pts[0][0], 3), round(pts[-1][0], 3), 'z', round(pts[0][2], 3), round(pts[-1][2], 3), 'y', round(y0, 3), round(y1, 3))
+    extra.append(ribbon(f'ep_light_{n}', pts, back=0.002, into=0.007, half=0.004))
   # (a stand-in helmet seen from outside, until the driver model is in the game; cockpit.py hides it)
   extra.append(ellipsoid('helmet', (EYE[0] - 0.05, EYE[1] + 0.02, 0), (0.15, 0.13, 0.125), 'paint_accent', show='outside'))
   extra.append(ellipsoid('visor', (EYE[0] + 0.055, EYE[1] + 0.035, 0), (0.05, 0.035, 0.10), 'glass', show='outside'))

@@ -1601,6 +1601,30 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
   from x 1.25): cockpit.py's feet now at (1.30, 0.48), ±4.4 cm, pointing forward (args pedal / spread / foot), the pedals
   moved under them (boxpart's tilt used to throw them onto the ground beside the car). Garage: Look → Driver EMPTY SEAT
   (default, pref `garageDriver`) / IN THE CAR (car API `showDriver`); showroom `driver=0`.
+  Round 3 (same day; user: the classic car's tyres on the 2026 F1; the FE car "very chunky … rough, full of bumpy flat parts";
+  the F1's rear lights; layers "like a projection … splitting the text, shape … across different parts of the body", spray
+  fine):
+  - Wheels: car-glb.js hides the F1 model's own tyre / rim / cover and puts car-models.js `classicWheel(R, W, driver, right)`
+    there (the classic lathe tyre + rim, cover, rings, nut, at the model tyre's size; rims follow the livery). The FE keeps
+    its own. Right-side wheels (both cars) are turned round (rotation.y π): their sidewall lettering read backwards.
+  - FE (fe.py): the body was cut to 12–25 % of its faces (BODY_RATIO now ~45 %, ~100k triangles; models.test budget 110k).
+    The download's surface is itself bumpy (its dark livery hid it; its own normals follow the bumps): `smooth_normals` gives
+    the body (and halo_led) the shading normals of a Laplacian-smoothed copy of itself, corner by corner (SMOOTH 40 iterations,
+    λ 2, creases > 60° kept). Tried and dropped: the download's normals (bumpier), normals from a smoothed copy of the
+    download by nearest surface (flipped on thin plates: black patches), smoothing the shape itself (`shape=` arg, off: it
+    threw the suspension and diffuser about). `stage=source` renders the untouched download; `full=1` = nothing cut down.
+    The rain light is no longer cut down (its LED dots scattered).
+  - F1 rear lights (qvist.py): the rain light sat 7 mm behind the crash structure's flat rear face (x −2.445): now on it; the
+    endplate strips are a `ribbon` along the trailing edge's vertices (a line fitted through the rearmost vertex per 2 cm of
+    height): that edge only runs 0.64–0.77 m up at x −2.45 and leans out 4 cm (the old bar went to 0.84 m, into the air).
+  - Layers (livery-paint.js): `depthFor(model, template)` = per panel the outer skin (outermost surface toward that side,
+    from the model's paint / carbon / halo triangles, a quarter of the paint texture's layout, dilated); the shader paints a
+    panel only on the skin (`livSkin`, tolerance 3 cm + more on steep slopes) and covers every surface facing that way by more
+    than 0.10 (full at 0.35), the most-faced panel on top (was a blend by facing⁴, which cut texts in two on curves and put
+    them on inner surfaces too). Text, logos and shapes are stickers (`stickerOf` / `wrapSticker`): drawn only on the part of
+    the skin reachable from their middle without a step (STEP 3.5 cm per texel), laid along it (each pixel takes the flat
+    layer's pixel at its arc length from the middle along its row / column), ending where the surface turns past ~63°
+    (TURN); stripes and fades stay projected. The race number and the name are stickers too. Shader cache key 'livery-2'.
 
 ## Ideas not done yet
 - Online leaderboard with replay validation: `docs/leaderboard-plan.md`. Phase 0 done 2026-10-28: replays

@@ -109,7 +109,7 @@ test('fe.glb: the electric car on its class\'s wheelbase, the parts the game mov
   for (const r of ['paint_main', 'paint_accent', 'carbon', 'rubber', 'metal', 'light', 'glass']) assert.ok(roles.has(r), `material ${r}`);
   assert.ok(![...roles].some(r => /jaguar|panasonic|julius|formulae/i.test(r)) && !j.images?.length, 'no logos, no textures: the livery is ours');
   const tris = j.meshes.reduce((t, m) => t + m.primitives.reduce((s, p) => s + j.accessors[p.indices].count / 3, 0), 0);
-  assert.ok(tris < 60000, `${tris} triangles`);
+  assert.ok(tris < 110000, `${tris} triangles`);   // (2026-11-16: ~100k, the body cut down less: it was rough at 52k)
   assert.match(JSON.stringify(j.asset), /3dblenderlol|CC-BY/, 'the credit travels with the file');
 });
 

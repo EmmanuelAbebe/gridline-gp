@@ -131,6 +131,18 @@ export const CarModels = (() => {
     { shape: 'cylinder', size: [r * 0.12, w + 0.04], pos: [0, 0, 0], rot: [90, 0, 0], color: 'accent', finish: 'metal', segments: 6 },
   ];
 
+  // the classic car's wheel on another model (car-glb.js: the 2026 car's, 2026-11-16, user's pick of its look): the
+  // lathe tyre (rounded shoulders, sidewall lettering, compound ring) and the rim / cover / nut, R and W in metres
+  const wheelMats = set => [set.paint, set.carbon, set.rubber, set.metal, set.metal, set.metal];
+  function classicWheel(R, W, driverIn, right) {
+    const tyreMesh = new THREE.Mesh(tyreGeometry(R, W), MATS.quality.tyre), rimMesh = new THREE.Mesh(mergeParts(wheelParts(R, W), driverIn), wheelMats(MATS.quality));
+    tyreMesh.name = 'classic_tyre'; rimMesh.name = 'classic_rim';
+    if (right) tyreMesh.rotation.y = rimMesh.rotation.y = Math.PI;   // (turned round: the outer sidewall's lettering reads left to right on that side too)
+    return { meshes: [tyreMesh, rimMesh],
+      recolour(d) { rimMesh.geometry.dispose(); rimMesh.geometry = mergeParts(wheelParts(R, W), d); },
+      setMaterials(set) { tyreMesh.material = set.tyre; rimMesh.material = wheelMats(set); },
+      dispose() { tyreMesh.geometry.dispose(); rimMesh.geometry.dispose(); } };
+  }
   // driver = colours (color, accent, optional rims) and number; the garage changes them with setLivery
   function createClassic(scene, driverIn, design) {
     let driver = driverIn, lastDesign = design, ownPaint = null;
@@ -213,6 +225,7 @@ export const CarModels = (() => {
         const tg = tyreGeometry(w.radius, w.width), rg = mergeParts(wheelParts(w.radius, w.width), driver);
         const tyreMesh = new THREE.Mesh(tg, mats.tyre), rimMesh = new THREE.Mesh(rg, matList());
         tyreMesh.userData.tyre = true;
+        if (w.pos[2] > 0) tyreMesh.rotation.y = rimMesh.rotation.y = Math.PI;   // (the right side's lettering read backwards: turned round)
         spin.add(tyreMesh, rimMesh); pivot.position.set(w.pos[0], w.pos[1], w.pos[2]); pivot.add(spin); root.add(pivot);
         wheelGeos.push(tg, rg); pivots.push(pivot); wheels.push(spin); if (w.front) fronts.push(pivot);
         pivot.userData.z = w.pos[2];
@@ -341,7 +354,7 @@ export const CarModels = (() => {
   // the model of the Blender car being raced (the livery's zones and panels are per model)
   const modelKey = () => templateOf() === Models.fe && Models.fe ? 'fe' : 'f1';
   const glbCtx = () => ({ debris: Debris, eyeShift: eyeShift(), template: (template = templateOf()), modelKey: modelKey(), driverTemplate: Models.driver, env, glow, SHADOW_GEO, SHADOW_MAT, LIGHT_OFF, LIGHT_ON, FINISH_LOOKS, FRONT_STEER, DEG, createDriverBody, markShadows,
-    ledMaterial, rearLights: () => rear.mode, rearLightAt });
+    ledMaterial, rearLights: () => rear.mode, rearLightAt, classicWheel });
   function create(scene, driver, design) {
     const st = { design, livery: null, mats: null, shadows: true, visible: true, cockpit: false, driver: true, screen: null, service: null, pedals: [0, 0] };
     const make = () => kind === '2026' && Models.car ? createGlbCar(scene, driver, st.design, glbCtx()) : createClassic(scene, driver, st.design);

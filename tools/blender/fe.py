@@ -12,6 +12,7 @@ from mathutils import Vector, Matrix
 
 A = args()
 SRC = A.get('src', os.path.expanduser('~/Downloads/fe-jaguar-gen2/scene.gltf')); PREVIEW = A.get('preview')
+FULL = os.path.basename(A.get('full', '0')) == '1'   # (full=1: nothing cut down, to compare with the download)
 OUT = A.get('out', 'src/game/models/fe.glb'); STAGE = os.path.basename(A.get('stage', 'probe'))
 
 def load():
@@ -111,7 +112,7 @@ def centres(o):
 def decimate(o, ratio):
   """collapse to `ratio` of the faces; the vertices where two roles meet (and open edges) keep their detail, so a colour
   border stays a clean line (as qvist.py's keep_borders)"""
-  if ratio >= 1 or not len(o.data.polygons): return
+  if ratio >= 1 or not len(o.data.polygons) or FULL: return
   # (the download's parts are often loose triangles: welded first, else every edge is an open border and stays)
   bm = bmesh.new(); bm.from_mesh(o.data); bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=WELD); bm.to_mesh(o.data); bm.free()
   n0 = len(o.data.polygons)
@@ -147,9 +148,31 @@ def join_into(dst, srcs):
   for q in srcs: q.select_set(True)
   dst.select_set(True); bpy.context.view_layer.objects.active = dst; bpy.ops.object.join(); return dst
 
+def smooth_shape(o):
+  """the download's dents taken out of the part's shape itself (welded, Laplacian, keeping its volume, open edges fixed)"""
+  if SHAPE[0] < 1 or FULL: return
+  bm = bmesh.new(); bm.from_mesh(o.data); bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=WELD); bm.to_mesh(o.data); bm.free()
+  sm = o.modifiers.new('shape', 'LAPLACIANSMOOTH'); sm.iterations = int(SHAPE[0]); sm.lambda_factor = SHAPE[1]; sm.lambda_border = 0
+  sm.use_volume_preserve = True; sm.use_normalized = True
+  bpy.context.view_layer.objects.active = o; bpy.ops.object.modifier_apply(modifier=sm.name)
+
+def smooth_normals(o):
+  """(2026-11-16, user: the car "rough, full of bumpy flat parts", not smooth like the download: its surface really is
+  bumpy (its dark livery hid it; its own normals follow the bumps). o keeps its shape; its shading normals are those of a
+  copy smoothed (Laplacian, keeping the volume, open edges fixed; creases past SMOOTH[2]° kept), corner by corner)"""
+  c = o.copy(); c.data = o.data.copy(); bpy.context.scene.collection.objects.link(c)
+  sm = c.modifiers.new('smooth', 'LAPLACIANSMOOTH'); sm.iterations = int(SMOOTH[0]); sm.lambda_factor = SMOOTH[1]; sm.lambda_border = 0
+  sm.use_volume_preserve = True; sm.use_normalized = True
+  bpy.context.view_layer.objects.active = c; bpy.ops.object.modifier_apply(modifier=sm.name)
+  me = c.data; me.polygons.foreach_set('use_smooth', [True] * len(me.polygons)); me.set_sharp_from_angle(angle=math.radians(SMOOTH[2]))
+  ln = np.empty(len(me.loops) * 3); me.corner_normals.foreach_get('vector', ln)
+  o.data.polygons.foreach_set('use_smooth', [True] * len(o.data.polygons)); o.data.normals_split_custom_set(ln.reshape(-1, 3).tolist())
+  bpy.data.objects.remove(c, do_unlink=True); log('smoothed normals', o.name, o.data.has_custom_normals)
+
 def finish(o, sharp=35):
   me = o.data
-  me.polygons.foreach_set('use_smooth', [True] * len(me.polygons)); me.set_sharp_from_angle(angle=math.radians(sharp))
+  me.polygons.foreach_set('use_smooth', [True] * len(me.polygons))
+  if not me.has_custom_normals: me.set_sharp_from_angle(angle=math.radians(sharp))
   if 'Col' not in me.color_attributes:
     col = me.color_attributes.new('Col', 'FLOAT_COLOR', 'CORNER'); col.data.foreach_set('color', [1.0] * (len(col.data) * 4))
   me.color_attributes.active_color = me.color_attributes['Col']
@@ -192,7 +215,7 @@ def build():
     if g:
       gx, gy, gz = centres(g); origin_to(g, (float(gx.mean()), float(gy.mean()), float(gz.mean()))); set_role(g, 'glass')
   if glass.name in bpy.data.objects and not len(glass.data.polygons): bpy.data.objects.remove(glass, do_unlink=True)
-  light = alive('light'); light.name = 'rain_light'; set_role(light, 'light'); decimate(light, 0.2)
+  light = alive('light'); light.name = 'rain_light'; set_role(light, 'light')   # (whole: cut down, its LED dots scattered)
   # the halo's attack-mode LEDs (2026-11-10; the real Gen2 cars light the halo blue in attack mode): the halo's upward
   # surface (faces whose normal points up, game frame) as its own `halo_led` in the `halo` role, which car-glb.js lights;
   # the rest of the halo stays carbon in the body
@@ -204,9 +227,10 @@ def build():
   body_parts = [bpy.data.objects[n] for n, r in names.items() if n in bpy.data.objects and r not in ('rubber', 'glass', 'light')
                 and not n.startswith(('tyre_', 'mirror_glass_', 'rain_light'))]
   for o in body_parts:
-    set_role(o, o['role']); decimate(o, BODY_RATIO.get(o.name, 0.25))
+    set_role(o, o['role']); smooth_shape(o); decimate(o, BODY_RATIO.get(o.name, 0.6))
   body = max(body_parts, key=lambda o: len(o.data.polygons)); join_into(body, body_parts); body.name = 'body'; body.data.name = 'body'
   bm = bmesh.new(); bm.from_mesh(body.data); bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0003); bm.to_mesh(body.data); bm.free()
+  for o in (body, led): smooth_normals(o)
   # the front wing's halves (fw_main_l / _r: SIM wingOff hides one and throws a copy down the road): ahead of the front
   # tyres, low, beside the nose
   for s, n in ((-1, 'l'), (1, 'r')):
@@ -223,9 +247,13 @@ def build():
   return meshes
 
 HALO, LED_UP = 'Object_19', 0.55       # the download's halo; its faces turned up past this (normal's z) carry the LEDs
+SHAPE = tuple(float(v) for v in os.path.basename(A.get('shape', '0,1.0')).split(','))   # the body's own smoothing: iterations, lambda (off: 8 iterations threw the suspension arms and the diffuser about)
+SMOOTH = tuple(float(v) for v in os.path.basename(A.get('smooth', '40,2.0,60')).split(','))   # the shading's smoothing: iterations, lambda, crease °
 WELD = 0.0002                 # m: vertices this close are one (before cutting down)
 RIM = 0.70                    # tyre faces nearer the axle than this share of the tyre's radius are the rim (metal)
-BODY_RATIO = {'Object_21': 0.12, 'Object_10': 0.18, 'Object_11': 0.18, 'Object_13': 0.25, 'Object_35': 0.2, 'Object_36': 0.2, 'Object_26': 0.3}
+# (2026-11-16, user: the car "very chunky … rough, full of bumpy flat parts", not smooth like the download: the body was cut
+# to 12–25 % of its faces; now ~45 %, ~95k triangles in all, the F1 car's 74k)
+BODY_RATIO = {'Object_21': 0.35, 'Object_10': 0.45, 'Object_11': 0.45, 'Object_13': 0.6, 'Object_35': 0.4, 'Object_36': 0.4, 'Object_26': 0.6}
 
 def render(tag, views):
   for m in bpy.data.materials:   # the role colours × the baked AO, for the renders
@@ -245,6 +273,12 @@ def render(tag, views):
   for name, eye, look in views:
     cam.location = G(*eye); d = G(*look) - G(*eye); cam.rotation_euler = d.to_track_quat('-Z', 'Y').to_euler()
     sc.render.filepath = os.path.join(os.path.abspath(PREVIEW), f'{tag}-{name}.png'); bpy.ops.render.render(write_still=True)
+
+if STAGE == 'source':        # the download as it is (its own normals and materials), from the build's cameras: to compare
+  for o in parts: o.data.transform(M); o.data.update()
+  for m in bpy.data.materials:
+    if m.node_tree: m.node_tree.nodes.new('ShaderNodeVertexColor').name = 'ao'   # (render() leaves materials with an 'ao' node alone)
+  render('source', (('front34', (4.8, 1.8, 3.3), (0.2, 0.35, 0)), ('side', (0, 0.9, 7.8), (0, 0.45, 0)), ('rear34', (-5.0, 2.0, -3.1), (-0.3, 0.4, 0)), ('top', (0.01, 7.5, 0), (0, 0, 0))))
 
 if STAGE == 'build':
   meshes = build()
