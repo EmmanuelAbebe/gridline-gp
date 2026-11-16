@@ -2,7 +2,22 @@
 [report what you find](https://github.com/EmmanuelAbebe/gridline-gp/issues/new?template=bug_report.yml).
 Your saved laps and settings carry over to later versions. The game tells you on its start menu when a new version is out.
 
-## New since alpha 1
+## New in alpha 4
+
+- **Practice mode**: pick any stretch of a circuit on the map (or tick corners), then run it again and again, timed,
+  against your best run, the ALIEN or LEGEND. One practice screen is the page from the paddock, the pause screen and
+  the analysis of your runs: RUNS, COMPARE (a run against another or the AI, replayed), TELEMETRY and CORNER.
+  Your last session is kept until you start a new one.
+- **Telemetry**: every lap and practice run records the car's state (steering, pedals, gear, g, downforce, tyre
+  temperatures, battery…); the lap comparison draws each car's line coloured by its speed as it goes.
+- **Damage, realistic and fair**: light touches and side scrapes cost nothing, a broken wing ~1–4 s a lap; Settings →
+  Driving Damage OFF / LIGHT / REALISTIC. At a hit a card says what broke and what to do, then a panel shows the damage
+  for the rest of the race; the pause menu's pit box shows what each repair takes and whether a stop pays back.
+- **Brake bias on the wheel**: D-pad → / ← on pads and wheels (rebindable), keys [ / ]; shown on the HUD and the
+  steering wheel's screen.
+- Fixed: no brakes while rolling backwards slowly after a spin.
+
+## Since alpha 1
 
 - **Two car classes**: GP HYBRID (the 2026-style F1) and GP ELECTRIC (a Formula E style car: one gear, regenerative
   braking, a race-long energy budget, attack mode with all-wheel drive, its own model and motor sound). Pick it in the

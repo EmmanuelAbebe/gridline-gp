@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { Design } from './design.js';
 
-// Live display on the steering wheel: rev lights on top, speed in the middle, gear at the bottom.
+// Live display on the steering wheel: rev lights on top, speed in the middle, gear at the bottom, the brake bias (BB) left of
+// the gear (amber once moved from the garage's setting; 2026-11-15).
 // A canvas texture on a plane, redrawn at up to 30 Hz and only while it is visible and the values changed.
 export const WheelScreen = (() => {
   const W = 512, H = 300, LEDS = 15, LED_GREEN = 5, LED_RED = 10;   // first 5 green, next 5 red, last 5 blue
@@ -12,7 +13,7 @@ export const WheelScreen = (() => {
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: texture }));
   let wait = 0, lastKey = '';
 
-  function draw({ gear, kmh, revs }) {
+  function draw({ gear, kmh, revs, bb, bbMoved }) {
     const t = Design.data.hud.theme, font = t.font.includes(' ') ? `"${t.font}"` : t.font;
     ctx.fillStyle = '#05070a'; ctx.fillRect(0, 0, W, H);
     // top: rev lights
@@ -34,6 +35,12 @@ export const WheelScreen = (() => {
     // bottom: gear
     ctx.textAlign = 'center'; ctx.font = `800 96px ${font}, "Arial Narrow", Arial, sans-serif`; ctx.fillStyle = t.accent;
     ctx.fillText(gear, W / 2, 285);
+    if (bb != null) {
+      ctx.textAlign = 'left'; ctx.font = `600 22px ${font}, Arial, sans-serif`; ctx.fillStyle = t.muted;
+      ctx.fillText('BB', 40, 236);
+      ctx.font = `800 44px ${font}, "Arial Narrow", Arial, sans-serif`; ctx.fillStyle = bbMoved ? '#ffc21a' : t.text;
+      ctx.fillText(bb.toFixed(1), 40, 282);
+    }
     texture.needsUpdate = true;
   }
   return {
@@ -41,7 +48,7 @@ export const WheelScreen = (() => {
     update(dt, data) {
       if (!mesh.visible || !mesh.parent) return;
       if ((wait -= dt) > 0) return;
-      const key = `${data.gear}|${data.kmh}|${Math.round(data.revs * LEDS)}|${JSON.stringify(Design.data.hud.theme)}`;
+      const key = `${data.gear}|${data.kmh}|${data.bb}|${data.bbMoved}|${Math.round(data.revs * LEDS)}|${JSON.stringify(Design.data.hud.theme)}`;
       if (key === lastKey) return;
       wait = 1 / 30; lastKey = key; draw(data);
     },

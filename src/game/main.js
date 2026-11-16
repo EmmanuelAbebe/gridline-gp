@@ -810,7 +810,8 @@ function renderFrame(dt) {
     lapInvalid: !onLights && !player.finished && player.lapInvalid, dirt: onLights ? 0 : player.dirt,
   });
   Hud.updateCar(race, player);
-  WheelScreen.update(dt, { gear: gi.gear, kmh: Math.round(SIM.speedOf(player) * 3.6), revs: gi.revs });
+  WheelScreen.update(dt, { gear: gi.gear, kmh: Math.round(SIM.speedOf(player) * 3.6), revs: gi.revs,
+    bb: Math.round((player.spec.brakeBias + (player.biasAdj || 0)) * 1000) / 10, bbMoved: !!player.biasAdj });
   raceAudio.frame(dt, { race, player, cam, running: isRunning(), onLights, thr: player.finished ? 0 : player.pit ? player.thr : drive.thr, brk: player.finished ? 0 : drive.brk, prefs: game.prefs });
   if (onLights) wakes.hideAll(); else wakes.update(race, player, dt);
   if ((game.towerT -= dt) <= 0) {

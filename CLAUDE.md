@@ -117,7 +117,7 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
 - HUD default layout = the user's own (2026-10-21, design-defaults.js `hud.layouts`): map + tower top left, position
   panel under the map, ghost inputs bottom left, buttons at 75%, no speedo in the cockpit view. Theme stays yellow.
   Chase camera default = the user's too (2026-10-21): back 5.75, height 2, lookY 1.1, follow k 60 (was 9.5 / 3.3 / k 7).
-- Alpha (2026-10-21): version `0.1.0-alpha.1` (package.json; `src/game/version.js` → start-menu tag "ALPHA 0.1.0").
+- Alpha (2026-10-21): version `0.1.0-alpha.1` (alpha.4 tagged 2026-11-15) (package.json; `src/game/version.js` → start-menu tag "ALPHA 0.1.0").
   A tag with a dash = a GitHub pre-release. LICENSE = PolyForm Noncommercial 1.0.0 (2026-10-21, user: anyone may change
   the code, no selling without permission) + a plain-words summary, the Required Notice line and an extra permission
   for streams / videos; package.json `license` PolyForm-Noncommercial-1.0.0. macOS builds are ad-hoc signed (`mac.identity "-"`, `hardenedRuntime false`):
@@ -1542,7 +1542,8 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
 - Game: button actions `biasFwd` / `biasBack` (button-map.js; DEFAULT_MAP for pads and wheels = D-pad → / ←, the D-pad still
   moves menu focus; not on the phone: PHONE_MAP leaves them unbound), keys [ / ], main.js requestBias → game.pendingBias (one
   step per sim step, racing only); toast "Brake bias 57.5 % front" / "at its limit"; HUD `#bbNum` "BB 57.0" under the ECU line
-  (amber once moved; in the speedo panel, so hidden with it in the cockpit view). Settings → Keys lists it. Smoke: out-bias.png.
+  (amber once moved; in the speedo panel, so hidden with it in the cockpit view) and on the steering wheel's screen (wheel-screen.js: BB left of
+  the gear, amber once moved). Settings → Keys lists it. Smoke: out-bias.png.
 
 ## Ideas not done yet
 - Online leaderboard with replay validation: `docs/leaderboard-plan.md`. Phase 0 done 2026-10-28: replays
