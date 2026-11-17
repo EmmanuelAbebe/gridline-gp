@@ -15,15 +15,19 @@ own licence (LICENSE) does not cover this model: it stays under CC-BY-4.0.
 
 ## The electric car (GP ELECTRIC)
 
-This work is based on "Formula E [Jaguar I Type-4]"
-(https://sketchfab.com/3d-models/formula-e-jaguar-i-type-4-c722e175f91240a88eec2d777b6d503f) by 3dblenderlol
-(https://sketchfab.com/3dblenderlol) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/).
+This work is based on "Formula E Nissan Gen2 2019/2020 Lowpoly"
+(https://sketchfab.com/3d-models/formula-e-nissan-gen2-20192020-lowpoly-46d13900441840c18b9222fa05c73f74) by CLeN
+(https://sketchfab.com/CLeN) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/).
 
-Changes made for the game (tools/blender/fe.py → src/game/models/fe.glb): the team's and sponsors' logos and the model's
-own steering wheel removed, scaled to the game's electric car (2.97 m wheelbase) and turned into the game's frame, cut
-down from about 296,000 to about 52,000 triangles, every part given one of the game's paint roles (painted in each
-car's own livery), the wheels, mirrors, rear light and front wing halves split into the parts the game moves, the
-driver's anchor points added. The game's own licence (LICENSE) does not cover this model: it stays under CC-BY-4.0.
+Changes made for the game (tools/blender/fe_nissan.py → src/game/models/fe.glb): the team's livery and sponsors' logos
+(its textures) removed, scaled to the game's electric car (2.97 m wheelbase, 1.80 m wide) and turned into the game's
+frame, every part given one of the game's paint roles (painted in each car's own livery), the wheels, mirrors, rear light,
+halo lights and front wing halves split into the parts the game moves, the driver's anchor points added. The game's own
+licence (LICENSE) does not cover this model: it stays under CC-BY-4.0.
+
+(Until 2026-11-16 the electric car was based on "Formula E [Jaguar I Type-4]"
+(https://sketchfab.com/3d-models/formula-e-jaguar-i-type-4-c722e175f91240a88eec2d777b6d503f) by 3dblenderlol
+(https://sketchfab.com/3dblenderlol), CC-BY-4.0; its build script tools/blender/fe.py is kept.)
 
 ## The driver, helmet and steering wheel (2026 car)
 

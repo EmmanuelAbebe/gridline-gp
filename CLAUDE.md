@@ -1126,6 +1126,16 @@ showed MODIFIED only because of it).
   `hitbox`, 2026-11-10): measured from fe.glb, 4.55 × 1.74 m (front wing, front over the wheels, tyres, sidepods to the
   rear fenders, rear = ramp); 4 races × Harrow / Elkmoor / Cantera vs the F1's: hard contacts 125 → 56, walls 36 → 4,
   airborne steps 1651 → 646.
+- The Nissan Gen2 lowpoly in its place (2026-11-16; user: the Jaguar build "going in the wrong direction", "an easier 3d
+  model"): "Formula E Nissan Gen2 2019/2020 Lowpoly" by CLeN (CC-BY, ~/Downloads/fe-nissan-gen2) → `tools/blender/fe_nissan.py`
+  (`run.sh fe_nissan out=src/game/models/fe.glb stage=build [steer=x,y] [preview=dir]`; fe.py = the Jaguar build, kept):
+  13k triangles in 7 clean parts (UpperBody, LowerBody, Tyre / Tyre001 = an axle's two wheels, RayonFront / RayonBack = the
+  suspension arms, Mirrors = camera pod + mirrors), no cutting down; wheelbase 3.354 → 2.97 m, across 2.153 → 1.80 m (it is
+  wider than the real car for its wheelbase); every tyre put on the ground (the rears floated 1.3 cm). Roles: its texture's
+  glow picks the rain light (red) and the halo LEDs (cyan); its red livery is a real team's (asymmetric), so the accent is
+  the wings (front wing + endplates, rear wing), the floor carbon, the mirrors' back faces the glass; UVs dropped. Cockpit:
+  steer (0.40, 0.56). FE class hitbox re-measured (4.96 × 1.80 m), livery.js MODELS.fe zones re-measured (the nose zone takes
+  the front wheels' fenders). SIM_VERSION changed (the hitbox; F1 sim-trace identical).
 - The halo's attack-mode LEDs (2026-11-10; the real Gen2 cars light the halo blue): fe.py splits the halo's upward faces
   (normal z > LED_UP 0.55) into `halo_led`, role `halo`; car-glb.js HALO: a per-car basic material, off ≈ carbon, up to
   attack mode's purple 0xa46bff (the HUD chip's; the user's pick over the real cars' blue) while car.attackOn (rise 10 / fall 5 per s). Seen from outside (the cockpit sees the halo's dark underside).

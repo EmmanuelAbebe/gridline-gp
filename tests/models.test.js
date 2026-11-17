@@ -109,8 +109,8 @@ test('fe.glb: the electric car on its class\'s wheelbase, the parts the game mov
   for (const r of ['paint_main', 'paint_accent', 'carbon', 'rubber', 'metal', 'light', 'glass']) assert.ok(roles.has(r), `material ${r}`);
   assert.ok(![...roles].some(r => /jaguar|panasonic|julius|formulae/i.test(r)) && !j.images?.length, 'no logos, no textures: the livery is ours');
   const tris = j.meshes.reduce((t, m) => t + m.primitives.reduce((s, p) => s + j.accessors[p.indices].count / 3, 0), 0);
-  assert.ok(tris < 110000, `${tris} triangles`);   // (2026-11-16: ~100k, the body cut down less: it was rough at 52k)
-  assert.match(JSON.stringify(j.asset), /3dblenderlol|CC-BY/, 'the credit travels with the file');
+  assert.ok(tris < 20000, `${tris} triangles`);   // (2026-11-16: the Gen2 lowpoly, ~13k)
+  assert.match(JSON.stringify(j.asset), /CLeN.*CC-BY/, 'the credit travels with the file');
 });
 
 test('driver.glb: the driver (skinned, a steering clip), the helmet and the steering wheel, in the 2026 car\'s seat', () => {
@@ -172,7 +172,7 @@ test('fe.glb: the electric car\'s hitbox (its class\'s HITBOX) follows its body 
   const fe = '../src/game/models/fe.glb', parts = SIM.classOf('fe').hitbox.parts;
   followsShape(parts, planPoints(/^(body|tyre_|fw_main)/, fe));
   const pts = parts.flatMap(p => p.pts), len = highest(pts.map(p => p[0])) - lowest(pts.map(p => p[0]));
-  assert.ok(Math.abs(len - 4.55) < 0.05 && parts.some(p => p.ramp) && parts.filter(p => p.kind === 'tyre').length === 2, `${len} m long, a ramp, two tyre parts (mirrored)`);
+  assert.ok(Math.abs(len - 4.96) < 0.05 && parts.some(p => p.ramp) && parts.filter(p => p.kind === 'tyre').length === 2, `${len} m long, a ramp, two tyre parts (mirrored)`);
 });
 
 test('hitboxFrom: a hitbox made from a car\'s shape (the classic car\'s) follows it too: front wing halves, ramp, tyres', () => {
