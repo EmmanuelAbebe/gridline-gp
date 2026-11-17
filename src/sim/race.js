@@ -45,6 +45,8 @@ export function createRace(format, { carClass = F1_2026, track = DEFAULT_TRACK, 
   // aiAssists: the AI cars' assists (an ASSISTS-shaped object; default AI.assists, medium). The game gives them the
   // player's ABS / traction control / stability, so both drive on the same terms (driving.js feelPedals without them)
   if (aiAssists) for (const c of race.cars) if (!c.player) c.assists = aiAssists;
+  // a circuit that needs more steering lock than the car's own (Monaco's hairpin: the teams fit a high-lock rack)
+  if (track.maxSteer) for (const c of race.cars) c.maxSteer = track.maxSteer;
   setupWear(race, wear);
   // (an electric class's energy allowance: energy.js; nothing for the F1; energy false = none: energy.js measuring a lap)
   if (energy) setupEnergy(race); else race.energy = null;

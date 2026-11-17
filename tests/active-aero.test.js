@@ -11,7 +11,8 @@ const tracks = Object.fromEntries(Object.entries(S.CIRCUITS).map(([id, c]) => [i
 
 test('every circuit has straight-mode zones, all flat out and closing before any braking', () => {
   for (const [id, T] of Object.entries(tracks)) {
-    assert.ok(T.aeroZones.length >= 1, `${id}: a zone`);
+    // (a real circuit may have none: Monaco has no 180 m flat out by the automatic rule; you can still draw your own)
+    assert.ok(T.aeroZones.length >= 1 || S.CIRCUITS[id].real, `${id}: a zone`);
     const ahead = Math.round(ACTIVE_AERO.zone.closeAhead / T.ds);
     for (let i = 0; i < T.N; i++) if (T.aeroZone[i]) {
       for (let o = 0; o <= ahead; o++) assert.ok(T.VP[(i + o) % T.N] >= S.TUNING.V_CAP - 1e-3, `${id}: no braking within ${ahead} samples of ${i}`);

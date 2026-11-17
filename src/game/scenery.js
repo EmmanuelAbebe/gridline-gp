@@ -163,6 +163,9 @@ export function buildScenery(scene, track, theme, { lambert, canvasTexture, plac
     const q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), pal = [0xc9c2b4, 0xa9adb2, 0xd8d2c4, 0x8c9399, 0xb7a58c, 0xe2e0da];
     const n = scatter(theme.buildings, 10, (x, z, k) => {
       const w = 14 + Math.random() * 22, d = 14 + Math.random() * 22, h = 8 + Math.random() * Math.random() * 45;
+      // (2026-11-17, user: buildings on Monaco's track: only the centre was kept 10 m past the barrier; a 36 m block's
+      // sides reached the road where the walls hug it): its whole footprint clear of the barriers
+      if (!free(x, z, Math.hypot(w, d) / 2 + 4)) return false;
       q.setFromAxisAngle(up, Math.round(Math.random() * 4) * Math.PI / 2 + 0.05); m4.compose(new THREE.Vector3(x, h / 2 + groundAt(x, z) - 1, z), q, new THREE.Vector3(w, h + 2, d));
       mesh.setMatrixAt(k, m4); mesh.setColorAt(k, col.setHex(pal[k % pal.length]));
     });
@@ -203,10 +206,13 @@ export function buildScenery(scene, track, theme, { lambert, canvasTexture, plac
   }
   // distant hills: pointed (default), low and broad (downs), close (woods)
   { const mat = lambert({ color: COLORS.hill }), H = theme.hills;
+    // (2026-11-17, user: "mountains overlap the track" at Monza, 2 km across: the hills start beyond the circuit's own
+    // reach from its centre, so a big circuit pushes them out instead of growing them through the track)
+    let ext = 0; for (let i = 0; i < N; i += 4) ext = Math.max(ext, Math.hypot(PX[i] - cx, PZ[i] - cz) + reach[i]);
     for (let k = 0; k < H.count; k++) {
-      const a = k / H.count * Math.PI * 2, r = (H.near ? 1300 : 1700) + Math.random() * 300;
       const geo = H.low ? new THREE.SphereGeometry(1, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2) : new THREE.ConeGeometry(1, 1, 6);
       const h = new THREE.Mesh(geo, mat), w = (260 + Math.random() * 200) * H.size, ht = (90 + Math.random() * 110) * (H.low ? 0.5 : 1) * Math.sqrt(H.size);
+      const a = k / H.count * Math.PI * 2, r = Math.max((H.near ? 1300 : 1700) + Math.random() * 300, ext + w * 1.2 + 150);
       h.scale.set(w, ht, w * (0.8 + Math.random() * 0.4)); h.position.set(cx + Math.cos(a) * r, H.low ? 0 : ht / 2 - 15, cz + Math.sin(a) * r); h.rotation.y = Math.random();
       scene.add(h); toggles.hills.push(h);
     } }

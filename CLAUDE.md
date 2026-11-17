@@ -1251,7 +1251,8 @@ Vulkan from ANGLE all Enabled). Turning the Vulkan flags off dropped the game fr
 them on. Before Performance mode existed the game ran at ~30 fps; target is 60.
 
 ## History / decisions
-- No real teams, drivers or liveries: fictional teams (Halcyon, Kestrel, Meridian...).
+- No real teams, drivers or liveries: fictional teams (Halcyon, Kestrel, Meridian...). Real circuits allowed since
+  2026-11-16 (user: "use real names"; see Real circuits).
 - A logarithmic depth buffer was tried and removed (slow); road layering uses polygonOffset instead.
 - Road strips were wound facing down once (rendered almost black); winding is now up-facing.
 - Oct 2026: player was slower on straights (extra drag only on the player); all cars now share the drivetrain, and
@@ -1635,6 +1636,32 @@ solo start; `GRIDLINE_SMOKE_GHOST=file` loads that ghost and screenshots `out-gh
     the skin reachable from their middle without a step (STEP 3.5 cm per texel), laid along it (each pixel takes the flat
     layer's pixel at its arc length from the middle along its row / column), ending where the surface turns past ~63°
     (TURN); stripes and fades stay projected. The race number and the name are stickers too. Shader cache key 'livery-2'.
+
+## Real circuits (2026-11-16; user: real F1 and Formula E circuits in the mock, then "use real names, start with the pilot
+## of three", "if the circuits have 3D features such as hills and valleys keep them as is")
+- Mock: claude.ai canvas "Gridline Formula E circuits", page Real circuits (all 24 of the 2026 F1 calendar from
+  bacinger/f1-circuits (MIT) + 4 of the 11 Formula E venues from OpenStreetMap; the other 7 (Miami, Jeddah, Berlin, Sanya,
+  Shanghai, Tokyo, London) have no open data: to trace by hand from the official maps). Data + scripts kept in the
+  git-excluded tools/blender/out/real-circuits (work/prep.mjs: smoothed (σ 8 m, Monza 10), started at the mapped start
+  line, heights from OpenTopoData every 30 m, DEM outliers > 4 m off the 150 m median dropped, Monaco's tunnel keys dropped
+  and its harbour section pinned to harbour level by hand (the DEM reads roofs there); run.mjs: build + checks + AI laps).
+- Pilot (in the game): `monza` (7.5 m half-width, real heights 18 m), `monaco` (street, 5.5 m, ~50 m climb, `maxWall` 4:
+  barriers hug the road, no escape roads; `tunnels` [[1439, 1888]] m: world.js builds walls, a lit ceiling and the hotel on
+  top (CONFIG.tunnel); `maxSteer` 0.4 rad: the teams' high-lock Monaco rack, the class's 0.3 turns ~11 m and Loews is 9–10 m
+  on the centre line in both OSM and the F1 data), `mexicofe` (Mexico City E-Prix, 5 m: two legs of the stadium section run
+  11.3 m apart, flat). Round 2 (2026-11-17; user: Monza's mountains on the track at turn 4 and the last turn, the road
+  "joined straight lines instead of splines", buildings on Monaco's track in 3–4 places, the track "too small for the car",
+  no tunnel): prep.mjs fits a centripetal Catmull-Rom through the data's points before resampling (σ 4 m: lengths now within
+  0.5–1.2 %), roads widened, scenery.js puts the distant hills beyond the circuit's own reach and keeps a building's whole
+  footprint off the barriers, ground.js makes no automatic bridge on a real circuit unless the roads really cross (Monaco's
+  climb sat on pillars). steerLock(v, assist, spec, max): the car's `maxSteer` (createRace from track.maxSteer; 0 = the
+  class's lock: sim-trace identical); lap-optimum keeps its line wider than the lock can turn (K_LOCK). Data: src/sim/circuits-real.js
+  (`node tools/real-circuits.mjs tools/blender/out/real-circuits/work`); circuits.js entries `real: true`, `halfWidth`.
+  buildTrack takes a circuit's `halfWidth`, the track carries `real`; runoff.js lets a real circuit's shared wall come to
+  `RUNOFF.realWall` 0.6 m from the road (no kerb where there's no room). Tests hold real circuits to real-world rules:
+  roads don't overlap (2·HW + 1), grid on a ≥ 250 m radius, tightest radius 7.5 m, curvature jump < 0.025, the test driver
+  looks 16 m ahead, a shared wall ≥ 0.5 m off the other road, the attack zone 0.6·HW off the line. Next: the other 21 F1 +
+  the rest of Formula E in batches (most need the shared-wall rule; Suzuka a bridge).
 
 ## Ideas not done yet
 - Online leaderboard with replay validation: `docs/leaderboard-plan.md`. Phase 0 done 2026-10-28: replays

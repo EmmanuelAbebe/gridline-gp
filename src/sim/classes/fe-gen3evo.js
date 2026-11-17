@@ -108,8 +108,8 @@ const ATTACK = Object.freeze({ share: 8 / 45, uses: 2, fromLap: 2, start: 100 / 
 // (2026-11-09: lock-ups build up (CHASSIS.lock), so it brakes better without ABS: Northfold 1.12 → 1.10 (it cut a
 // corner), Harrow 1.06 → 1.04 (walls))
 const ALIEN = Object.freeze({
-  pace: Object.freeze({ default: 1.06, elkmoor: 1.02, harrow: 1.04, marrow: 1.08, northfold: 1.08, hautvale: 1.04, cantera: 1.04, ironpark: 1.10 }),
-  paceOff: Object.freeze({ default: 1.04, elkmoor: 1.00, harrow: 1.04, cobalt: 0.96, marrow: 1.08, northfold: 1.10, cantera: 0.96, ironpark: 1.06 }),
+  pace: Object.freeze({ default: 1.06, elkmoor: 1.02, harrow: 1.04, marrow: 1.08, northfold: 1.08, hautvale: 1.04, cantera: 1.04, ironpark: 1.10, monaco: 1.02, mexicofe: 0.94 }),
+  paceOff: Object.freeze({ default: 1.04, elkmoor: 1.00, harrow: 1.04, cobalt: 0.96, marrow: 1.08, northfold: 1.10, cantera: 0.96, ironpark: 1.06, monaco: 1.02, mexicofe: 0.94 }),
 });
 // The AI on this car (stage 6): its own time-optimal lines (racing-lines-fe.js: npm run lap-optimum -- <circuit>
 // --class=fe --write-line / --write-alien, the F1's margins); defending only into corners slower than `defendBelow`

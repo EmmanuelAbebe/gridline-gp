@@ -73,3 +73,34 @@ model and deterministic maths, without the stick smoother, the keyboard parts or
 > WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 > COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 > OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+## Real circuits (Monza, Monaco, Mexico City E-Prix)
+
+The circuits' outlines and heights (src/sim/circuits-real.js, made by tools/real-circuits.mjs) are smoothed, resampled
+and started at the real start line; the game draws its own roads, kerbs, walls and scenery round them. Circuit names are
+used only to say which real circuit a layout follows; the game is not associated with or endorsed by the circuits, Formula
+One or Formula E.
+
+- Monza and Monaco: outlines from "f1-circuits" by Tomislav Bacinger (https://github.com/bacinger/f1-circuits), unofficial
+  data, under the MIT License:
+
+> Copyright (c) 2019-2025 Tomislav Bacinger
+>
+> Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+> documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
+> rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
+> persons to whom the Software is furnished to do so, subject to the following conditions:
+>
+> The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
+> Software.
+>
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+> WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+> COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+> OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+- Mexico City E-Prix (the Formula E layout), Monza's start line and Monaco's tunnel: © OpenStreetMap contributors
+  (https://www.openstreetmap.org/copyright), data available under the Open Database License (ODbL).
+- Heights: Monza and Monaco from EU-DEM v1.1 (© European Union, Copernicus Land Monitoring Service), read through
+  OpenTopoData (https://www.opentopodata.org). Monaco's harbour section (tunnel exit to the line) is set by hand to
+  harbour level, where the elevation data reads the buildings. Mexico City is flat.

@@ -393,6 +393,26 @@ export function buildWorld(parent, track, drivers) {
     }
   }
 
+  // tunnels (a real circuit's `tunnels` [from, to] m along the lap: Monaco's under the hotel; 2026-11-17, user: "no iconic
+  // under the building drive through?"): side walls on the barriers' lines, a lit ceiling, the building on top
+  for (const [from, to] of track.tunnels || []) {
+    const a = Math.round(from / track.ds), b = Math.round(to / track.ds), inT = i => SIM.wrapIdx(i - a, N) <= SIM.wrapIdx(b - a, N);
+    const TN = CONFIG.tunnel, side = s => i => s * (runoff[s < 0 ? 0 : 1].wall[i] + 0.3);
+    for (const s of [-1, 1]) ribbon(side(s), 0, TN.height, inT, { colorFn: i => (i >> 2) % 2 ? 0xd9d6cf : 0xcfccc4 });
+    const ceiling = lambert({ color: 0x55585e, side: THREE.DoubleSide });
+    strip(side(-1), side(1), TN.height, i => inT(i) ? 0x55585e : null, 0, ceiling);
+    strip(side(-1), side(1), TN.height + TN.roof, i => inT(i) ? 0x8a8d90 : null, 0);
+    const lamp = new THREE.MeshBasicMaterial({ color: TN.lamp }), lampGeo = new THREE.BoxGeometry(2.4, 0.12, 0.35);
+    for (let i = a; SIM.wrapIdx(i - a, N) <= SIM.wrapIdx(b - a, N); i += Math.round(TN.lampEvery / track.ds))
+      for (const l of [-HW * 0.45, HW * 0.45]) { const m = new THREE.Mesh(lampGeo, lamp); placeAlong(m, SIM.wrapIdx(i, N), l, TN.height - 0.1); scene.add(m); }
+    // the building over it: blocks along the tunnel, wider than the road, on its roof
+    const hotel = lambert({ color: TN.building });
+    for (let i = a; SIM.wrapIdx(i - a, N) < SIM.wrapIdx(b - a, N); i += Math.round(TN.block / track.ds)) {
+      const j = SIM.wrapIdx(i, N), w = runoff[0].wall[j] + runoff[1].wall[j] + TN.overhang * 2;
+      const m = new THREE.Mesh(new THREE.BoxGeometry(TN.block + 0.5, TN.storeys, w), hotel);
+      placeAlong(m, j, (runoff[1].wall[j] - runoff[0].wall[j]) / 2, TN.height + TN.roof + TN.storeys / 2); scene.add(m);
+    }
+  }
   const scenery = buildScenery(scene, track, theme, { lambert, canvasTexture, placeAlong, groundAt: land.at });
   markWorldShadows(scene);
 

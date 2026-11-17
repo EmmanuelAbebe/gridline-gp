@@ -66,7 +66,9 @@ export function createGround(track) {
   for (let i = 0; i < N; i++) nearby(PX[i], PZ[i], 60, j => {
     const along = Math.min(at(j - i), at(i - j));
     if (along * track.ds < 200) return;
-    const reach = Math.max(runoff[0].wall[j], runoff[1].wall[j]) + G.bridgeReach;
+    // (a real circuit: a bridge only where the roads really cross (Suzuka); Monaco's climb beside the harbour is a
+    // hillside with retaining walls, not a viaduct on pillars)
+    const reach = track.real ? 2 * track.HW + 2 : Math.max(runoff[0].wall[j], runoff[1].wall[j]) + G.bridgeReach;
     if (Math.hypot(PX[i] - PX[j], PZ[i] - PZ[j]) < reach && E.Y[i] - E.Y[j] > G.bridgeGap) bridge[i] = 1;
   });
   // how far the level ground reaches on each side of each sample

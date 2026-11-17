@@ -411,10 +411,10 @@ export const AI_CAR = Object.freeze({
     // 50.4, Marrow 38.0, Northfold 59.1 s; the user's best there 59.975; 2026-10-22 hills: Hautvale 58.8, Saltcross 64.8,
     // Cantera 44.5 s; 2026-10-23 Ironvale Park 42.8 s, clean at the default)
     // (2026-10-24, the real-physics car: rescanned on the new lines, the most that stays clean with active aero on and off)
-    pace: Object.freeze({ default: 1.13, harrow: 1.07, hautvale: 1.07, northfold: 1.07, saltcross: 1.07, cantera: 1.09, marrow: 1.16 }),
+    pace: Object.freeze({ default: 1.13, harrow: 1.07, hautvale: 1.07, northfold: 1.07, saltcross: 1.07, cantera: 1.09, marrow: 1.16, monaco: 1.02, mexicofe: 0.94, monza: 1.07 }),
     // with no ABS / traction control (the player's assists, createRace aiAssists; 2026-10-24): where it differs, the most
     // that stays clean with active aero on and off (Saltcross cut corners at 1.14)
-    paceOff: Object.freeze({ default: 1.10, hautvale: 1.01, cantera: 1.04, saltcross: 1.02, marrow: 1.14, northfold: 1.07 }),
+    paceOff: Object.freeze({ default: 1.10, hautvale: 1.01, cantera: 1.04, saltcross: 1.02, marrow: 1.14, northfold: 1.07, monaco: 1.02, mexicofe: 0.94, monza: 1.07 }),
   }),
   lines: Object.freeze({ racing: RACING_LINES, alien: ALIEN_LINES }),
   // defending (driving.js racecraft): only into corners whose apex is slower than this (m/s) on its line; the F1 into any

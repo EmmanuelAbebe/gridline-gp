@@ -23,7 +23,9 @@ test('attack: every circuit has a zone on the outside of a slow corner\'s apex, 
     const T = S.buildTrack(S.CIRCUITS[id]), Z = S.attackZone(T, FE), P = S.aiOf(T, FE);
     assert.ok(Z, `${id}: a zone`);
     assert.equal(Z.side, -Math.sign(P.RO[Z.apex]), `${id}: the far side from the line`);
-    assert.ok(Math.abs(P.RO[Z.apex] - Z.side * Z.lat) > 5, `${id}: ${Math.abs(P.RO[Z.apex] - Z.side * Z.lat).toFixed(1)} m off the line`);
+    // (on a real circuit's narrower road, Monaco's 9.5 m: most of its half-width)
+    const off = S.CIRCUITS[id].real ? 0.6 * T.HW : 5;
+    assert.ok(Math.abs(P.RO[Z.apex] - Z.side * Z.lat) > off, `${id}: ${Math.abs(P.RO[Z.apex] - Z.side * Z.lat).toFixed(1)} m off the line`);
     assert.ok(Math.min(Z.apex, T.N - Z.apex) * T.ds > FE.attack.zone.clear, `${id}: away from the line`);
     assert.equal(Z.loops.length, 3);
   }

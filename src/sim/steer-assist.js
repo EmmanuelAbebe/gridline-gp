@@ -60,7 +60,7 @@ export function steerAssist(c, s, P, dt) {
   const S = c.spec, { L, A_FRONT, B_REAR } = chassisOf(S.cls), A = c.assists || ASSISTS.medium;
   const st = c.sa || (c.sa = { self: 0, limit: 32, counter: 0 });
   const v = c.v, vy = c.vy, w = c.yawRate, speed = FM.hypot(v, vy);
-  const lockDeg = steerLock(v, A.steer, S) * D, wb = L / 2.5, sign = Math.sign(s);
+  const lockDeg = steerLock(v, A.steer, S, c.maxSteer) * D, wb = L / 2.5, sign = Math.sign(s);
   // the axles' directions of travel in the car's frame (deg, + = moving to the right)
   const vx = Math.abs(v), vF = vy + A_FRONT * w, vR = vy - B_REAR * w;
   const frontDeg = FM.atan2(vF, vx) * D, rearDeg = FM.atan2(vR, vx) * D;

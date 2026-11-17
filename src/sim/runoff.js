@@ -77,13 +77,17 @@ export function buildRunoff(track, style = 'permanent') {
       let w = Math.min(wall[i], free[i]);
       let kmax = 0; for (let o = -12; o <= 12; o++) { const k = K[at(i + o)]; if (s * k > 0) kmax = Math.max(kmax, Math.abs(k)); }
       if (kmax > 0) w = Math.min(w, 0.9 / kmax);
-      wall[i] = Math.max(HW + KERB + 1.5, w);
+      // (a real circuit's parts side by side share a wall right by the road: Mexico City's stadium, 3.5 m between the
+      // roads; the invented ones always keep a kerb and 1.5 m before it)
+      wall[i] = Math.max(track.real ? HW + RUNOFF.realWall : HW + KERB + 1.5, w);
     }
     for (let pass = 0; pass < 2; pass++) {                                  // smooth the cuts back into ramps
       for (let k = 0; k < N; k++) { const i = at(k), p = at(k - 1); wall[i] = Math.min(wall[i], wall[p] + 0.5 * ds); }
       for (let k = N - 1; k >= 0; k--) { const i = at(k), n = at(k + 1); wall[i] = Math.min(wall[i], wall[n] + 0.5 * ds); }
     }
     for (let i = 0; i < N; i++) if (fixed(i)) wall[i] = Math.min(fixed(i), Math.max(free[i], HW + RUNOFF.pitWall));   // the pit wall starts with a nose
+    // a real street circuit's barriers hug the road all the way round (Monaco: `maxWall` m past the edge, no escape roads)
+    if (track.maxWall) for (let i = 0; i < N; i++) if (!fixed(i)) wall[i] = Math.min(wall[i], HW + track.maxWall);
     // 5. the strips
     for (let i = 0; i < N; i++) {
       // kerbs where the road curves, and on the outside they run on past the corner exit (as on real circuits)
@@ -91,10 +95,10 @@ export function buildRunoff(track, style = 'permanent') {
       for (let o = 1; o <= RUNOFF.exitKerb && !kerbed; o++) { const k = K[at(i - o)]; if (Math.abs(k) > KERB_K && s * k < 0) kerbed = true; }
       const c = cls[i];
       if (c === 253) kerbed = false;                                         // the pit roads leave / join the track flat
-      kerb[i] = kerbed ? HW + KERB : HW;
+      kerb[i] = kerbed && wall[i] > HW + KERB + 0.5 ? HW + KERB : HW;   // (no room for a kerb by a wall: none)
       sausage[i] = style !== 'street' && corner(i) && s * CK[i] > 0 && chicane(i) && Math.abs(K[i]) > 0.6 * Math.abs(CK[i]) ? 1 : 0;
       const pit = c >= 253, def = pit ? { zone: 'tarmac', barrier: 'concrete' } : S[CLASSES[c]];
-      turf[i] = kerbed && style !== 'street' && !pit ? Math.min(wall[i] - 1, kerb[i] + RUNOFF.turf) : kerb[i];
+      turf[i] = kerbed && style !== 'street' && !pit ? Math.max(kerb[i], Math.min(wall[i] - 1, kerb[i] + RUNOFF.turf)) : kerb[i];
       zone[i] = ZONE[def.zone];
       gravel[i] = def.gravel !== undefined ? turf[i] + def.gravel : wall[i];   // wall = no gravel (for now)
       barrier[i] = BARRIER[def.barrier];
@@ -135,7 +139,9 @@ function freeDistance(track, side, wanted) {
         for (const j of grid.get((cx + a) + ',' + (cz + b)) || []) {
           const along = Math.min(wrapIdx(j - i, N), wrapIdx(i - j, N));
           if (along <= win) continue;
-          const room = E && !nearCross[i] && !nearCross[j] ? d + 1 + RUNOFF.bank * Math.abs(E.Y[i] - E.Y[j]) : d + 1;
+          // (a real circuit's parts at different heights have retaining walls between them, not a grass bank)
+          // (a real circuit's shared wall stands on the half-way line itself; the invented ones keep 1 m more)
+          const room = E && !track.real && !nearCross[i] && !nearCross[j] ? d + 1 + RUNOFF.bank * Math.abs(E.Y[i] - E.Y[j]) : track.real ? d : d + 1;
           if (FM.hypot(x - PX[j], z - PZ[j]) < room) return true;
         }
       }

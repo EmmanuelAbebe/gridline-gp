@@ -46,7 +46,8 @@ function resampleClosed(dense, N) {
 }
 
 export function buildTrack(circuit, opts = {}) {
-  const o = { ...TRACK_DEFAULTS, samples: circuit.samples, ...opts };
+  // a circuit may carry its own road width (real circuits: their real half-width; the invented ones the default 7.5 m)
+  const o = { ...TRACK_DEFAULTS, samples: circuit.samples, ...(circuit.halfWidth ? { halfWidth: circuit.halfWidth } : {}), ...opts };
   const { halfWidth: HW, kerb: KERB, runoff, kerbK: KERB_K } = o;
   const dense = catmullRomClosed(circuit.ctrl, 200);
   let around = 0; for (let i = 0; i < dense.length; i++) { const a = dense[i], b = dense[(i+1) % dense.length]; around += FM.hypot(b[0]-a[0], b[1]-a[1]); }
@@ -73,7 +74,7 @@ export function buildTrack(circuit, opts = {}) {
   for (let i = 0; i < N; i++) for (let o = -LIMITS.cornerSpan; o <= LIMITS.cornerSpan; o++) { const k = K[wrapIdx(i+o, N)]; if (Math.abs(k) > Math.abs(CK[i])) CK[i] = k; }
   // landmarks: sample index, or negative = metres before the line
   const landmarks = Object.fromEntries(Object.entries(circuit.landmarks || {}).map(([k, v]) => [k, v < 0 ? N - Math.round(-v / ds) : v]));
-  const shape = { id: circuit.id, name: circuit.name, landmarks, N, HW, KERB, WALL: HW + runoff, KERB_K, L, ds,
+  const shape = { id: circuit.id, name: circuit.name, real: !!circuit.real, maxWall: circuit.maxWall ?? 0, maxSteer: circuit.maxSteer ?? 0, tunnels: circuit.tunnels ?? null, landmarks, N, HW, KERB, WALL: HW + runoff, KERB_K, L, ds,
     PX, PZ, TX, TZ, NX, NZ, K, CK, bounds, elev: /** @type {import('./elevation.js').Elevation} */ (null) };
   shape.elev = buildElevation(shape, circuit.heights);    // hills and banking (elevation.js); null = flat
   // + the AI's line and speeds (ai-profile.js: the F1's; another car class's: aiOf); what lies beside the road (runoff.js; WALL = the furthest barrier); the pit lane

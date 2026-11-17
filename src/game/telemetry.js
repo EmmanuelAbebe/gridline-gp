@@ -21,7 +21,7 @@ export function downforceOf(c) {
   return s.dfK * v * v * (1 - cls.chassis.dirtyAir * (c.slip || 0)) * yaw * cond.aero * (1 - cls.activeAero.downforceCut * (c.aeroOpen || 0)) * s.mass;
 }
 // the road wheels' angle, ° (+ = right): the steering through the lock the car has at this speed with its assists
-const wheelOf = c => c.steer * SIM.steerLock(c.v, (c.assists || SIM.ASSISTS.medium).steer, c.spec) * DEG;
+const wheelOf = c => c.steer * SIM.steerLock(c.v, (c.assists || SIM.ASSISTS.medium).steer, c.spec, c.maxSteer) * DEG;
 const tyre = (c, layer, k) => c.tyreT ? c.tyreT[layer][k] : NaN;
 
 // [id, label, unit, quantum (units per stored step), value from the car]

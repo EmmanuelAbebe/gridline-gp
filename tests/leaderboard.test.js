@@ -43,7 +43,7 @@ test('what is not ranked is refused, with the reason', () => {
   const R = run.replay, reasons = [
     [{ ...R, sim: 'other' }, /version/], [{ ...R, tainted: 'autopilot' }, /not driven by you/], [{ ...R, zones: [{ from: 0, to: 500 }] }, /zones/],
     [{ ...R, drivers: ['VOS', 'YOU'] }, /time trial/], [{ ...R, race: { ...R.race, wear: { fuel: 'normal' } } }, /time trial/],
-    [{ ...R, player: { ...R.player, mods: { power: 130 } } }, /modified/], [{ ...R, circuit: 'monza' }, /circuit/], [null, /replay/],
+    [{ ...R, player: { ...R.player, mods: { power: 130 } } }, /modified/], [{ ...R, circuit: 'nowhere' }, /circuit/], [null, /replay/],
   ];
   for (const [rp, why] of reasons) { const v = verifyRun(rp); assert.equal(v.ok, false); assert.match(v.reason, why); }
   assert.match(verifyRun(R, { time: bestFlying.time - 0.5, lap: bestFlying.lap }).reason, /different lap/, 'a claimed time the replay does not drive');

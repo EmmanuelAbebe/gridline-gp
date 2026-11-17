@@ -63,7 +63,7 @@ export const AI = Object.freeze({
   // (2026-10-24, real grip: 6–14 % too fast was a sure run-wide; now 3–7 %: a lock-up or a wide moment)
   mistakes: Object.freeze({ chance: 0.12, over: [0.03, 0.07], length: 140, minDrop: 8 }),
   // the way out of a corner: lift when the car will be past the kerb's end (+ room m) in look s (driving.js)
-  edge: Object.freeze({ look: 0.8, room: 0.2, fade: 1.5, min: 0.2, off: 0.5 }),   // off: m wide of its line for the full lift
+  edge: Object.freeze({ look: 0.8, room: 0.2, fade: 1.5, min: 0.2, off: 0.5, wall: 1.3 }),   // wall: m its centre keeps off a closer wall   // off: m wide of its line for the full lift
   // racecraft (driving.js; m unless noted). Drivers' traits 0..1 (drivers.js `traits`, 0.5 when missing) scale them.
   // racecraft (driving.js; m unless noted). Drivers' traits 0..1 (drivers.js `traits`, 0.5 when missing) scale them.
   craft: Object.freeze({ squeeze: 0.96,
@@ -187,6 +187,7 @@ export const ELEVATION = Object.freeze({ heightBlur: 22, bankBlur: 16, curveSpan
 export const RUNOFF = Object.freeze({
   fast: 50, slow: 25,             // m/s at the apex
   turf: 2,                        // artificial grass behind kerbs (m)
+  realWall: 0.6,                  // a real circuit's nearest wall to the road where two parts share it (m past the edge)
   slope: 0.3, exitSlope: 0.12,    // m of barrier distance per m of track: ramp in before a corner, longer out after
   chicane: 50,
   gravelSmooth: 8,                // samples either side averaged into the gravel's edge

@@ -56,6 +56,7 @@ const load = (i, u, ks) => E ? E.CA[i] * (G + u * u * E.VK[i] + u * u * Math.abs
 const latNeed = (i, u, ks) => E ? Math.max(0, u * u * Math.abs(ks) * Math.sqrt(1 - E.SN[i] * E.SN[i]) - G * into(i, ks)) : u * u * Math.abs(ks);
 const slopeG = i => E ? G * E.SX[i] : 0;
 
+const K_LOCK = 0.9 * Math.tan(T.maxSteer || CHASSIS.maxSteer) / CHASSIS.wheelbase;   // 1 / the tightest radius the car's full lock turns (×0.9: margin)
 const X = new Float64Array(N), Z = new Float64Array(N), DS = new Float64Array(N), K = new Float64Array(N), KS = new Float64Array(N);
 const env = new Float64Array(N), v = new Float64Array(N), open = new Uint8Array(N);
 function geometry(off) {
@@ -72,7 +73,9 @@ function geometry(off) {
 }
 function lapTime(off) {
   geometry(off);
-  for (let i = 0; i < N; i++) env[i] = cornerAt(i, KS[i], S.dfK);
+  // a path tighter than the car's full lock can turn is no path at all (2026-11-16: Monaco's hairpin, ~8 m on the centre
+  // line: the line hugged its inside, a ~5 m radius, where the car can't steer; real cars go wide-tight-wide)
+  for (let i = 0; i < N; i++) env[i] = K[i] > K_LOCK ? 1 : cornerAt(i, KS[i], S.dfK);
   // braking envelope (backwards, twice round so it closes on itself)
   for (let p = 0; p < 2; p++) for (let i = N - 1; i >= 0; i--) {
     const j = (i + 1) % N, u = env[j], df = S.dfK * u * u, n = Math.max(-df, load(j, u, KS[j])), lat = latNeed(j, u, KS[j]), latMax = Math.max(1, grip(n + df));
@@ -169,7 +172,7 @@ function drive(push, laps = 3, mult = null) {
     const alpha = SIM.wrapA(Math.atan2(tz, tx) - c.h - SIM.driftAngle(c)), dist = Math.max(Math.hypot(tx, tz), 4);
     const kappa = 2 * Math.sin(alpha) / dist, v5 = Math.max(sp, 5);
     const delta = CHASSIS.wheelbase * kappa + 0.6 * (sp * kappa - c.yawRate) * CHASSIS.wheelbase / v5;
-    const steer = SIM.clamp(delta / SIM.steerLock(c.v, c.assists.steer, c.spec), -1, 1);
+    const steer = SIM.clamp(delta / SIM.steerLock(c.v, c.assists.steer, c.spec, c.maxSteer), -1, 1);
     let target = Math.min(vt((c.idx + 2) % N), vt((c.idx + 5) % N)), need = 0;
     for (let k = 2; k <= 120; k += k < 12 ? 2 : 4) { const j = (c.idx + k) % N, w = vt(j); need = Math.max(need, (sp * sp - w * w) / (2 * k * T.ds)); }
     const lim = SIM.brakeLimit(sp, c.spec) * 0.97, over = sp - target;

@@ -2,6 +2,9 @@
 import { SIM } from '../sim/index.js';
 
 export const CONFIG = Object.freeze({
+  // a real circuit's tunnel (world.js; Monaco's under the hotel): m of headroom, roof slab, a ceiling lamp every m, the
+  // building's blocks along it (m), its height, how far it reaches past the walls, colours
+  tunnel: Object.freeze({ height: 6.5, roof: 1.2, lampEvery: 9, lamp: 0xfff1c4, block: 30, storeys: 24, overhang: 14, building: 0xd8cdb8 }),
   physicsStep: 1 / 120,
   maxFrameDt: 0.1,
   sky: 0xa8cbe6,

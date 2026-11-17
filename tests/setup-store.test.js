@@ -21,7 +21,7 @@ test('setup: saved choices are kept, unknown or out-of-range ones fall back', ()
   assert.deepEqual([s.cars, s.type, s.minutes, s.gearbox, s.assists, s.ai, s.fuel, s.tyres, s.damage, s.track],
     [4, 'timed', RACE_SETUP.minutes[0], 'manual', 'custom', 'legend', 'high', 'off', 'off', 'marrow']);
   assert.equal(s.custom.tc, 'low'); assert.equal(s.custom.abs, RACE_SETUP.customDefault.abs);
-  const bad = loadSetup(JSON.stringify({ cars: 99, laps: -3, minutes: 7.5, gearbox: 'cvt', ai: 'god', track: 'monza' }));
+  const bad = loadSetup(JSON.stringify({ cars: 99, laps: -3, minutes: 7.5, gearbox: 'cvt', ai: 'god', track: 'nowhere' }));
   assert.equal(bad.cars, S.DRIVERS.length);
   assert.equal(bad.laps, 1);
   assert.equal(bad.minutes, RACE_SETUP.defaults.minutes);

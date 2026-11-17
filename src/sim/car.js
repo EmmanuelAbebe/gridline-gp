@@ -87,6 +87,7 @@ export function createCar(track, driver, slot, rng, spec = STOCK) {
     // to the apex sample defendTo on defendSide (defendZone = the corner last decided for)
     offset: lat, bias: (rng()-0.5)*1.0, mistake: 0, mistakeEnd: -1, passBy: null, passSide: 1, aiT: -1, dirtyK: 1,
     pressure: 0, defendTo: -1, defendSide: 1, defendZone: -1, alienK: 1,   // alienK: ALIEN's pace in traffic (driving.js)
+    maxSteer: 0,   // rad: the circuit's steering rack (track.maxSteer: Monaco's high-lock rack), 0 = the class's own lock
     // track limits (race.js): metres of the current cut, cuts so far, penalty seconds, current / last lap invalid
     cutRun: 0, cuts: 0, penalty: 0, lapInvalid: false, lastLapInvalid: false,
     // timing (race.js)

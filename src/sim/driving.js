@@ -41,7 +41,7 @@ export function drivePlayer(race, c, inp, dt) {
   if (assist) c.steer = steerAssist(c, c.steerIn, assist, dt);
   else {
     c.steer = inp.analog && inp.calm ? calmSteer(c.steerIn, c.v, inp.calm, c.spec) : c.steerIn;
-    if (inp.speedSteer) c.steer = speedSteer(c.steer, c.v, inp.speedSteer, (c.assists || ASSISTS.medium).steer, c.spec);
+    if (inp.speedSteer) c.steer = speedSteer(c.steer, c.v, inp.speedSteer, (c.assists || ASSISTS.medium).steer, c.spec, c.maxSteer);
   }
   c.brake = inp.brk; c.thr = inp.thr;
   if (held) { afterMove(race, c); return; }
@@ -54,10 +54,10 @@ export function drivePlayer(race, c, inp, dt) {
 
 // Speed-sensitive steering (SPEED_STEER): the controller's share s → the share of the car's own lock (steerLock with
 // its assist) that gives the angle of a lock shrunk by `k` (up to catchFrom of the travel), then on to the full lock.
-/** @param {number} s @param {number} v @param {number} k @param {number} assist @param {import('./spec.js').Spec} [spec] */
-export function speedSteer(s, v, k, assist, spec = STOCK) {
+/** @param {number} s @param {number} v @param {number} k @param {number} assist @param {import('./spec.js').Spec} [spec] @param {number} [max] */
+export function speedSteer(s, v, k, assist, spec = STOCK, max = 0) {
   if (!(k > assist)) return s;
-  const own = steerLock(v, assist, spec), mapped = steerLock(v, k, spec), a = Math.abs(s), knee = SPEED_STEER.catchFrom;
+  const own = steerLock(v, assist, spec, max), mapped = steerLock(v, k, spec, max), a = Math.abs(s), knee = SPEED_STEER.catchFrom;
   const angle = a <= knee ? a / knee * mapped : mapped + (a - knee) / (1 - knee) * (own - mapped);
   return Math.sign(s) * angle / own;
 }
@@ -272,7 +272,7 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   // toward where the car is going (its class's ai.feel.counter), for as much of the assist as it lacks
   const stab = ASSISTS[AI.assists].stability;                 // (its usual assists: then nothing changes)
   if (c.assists.stability < stab && c.slideR > 0.15 && !lost) delta += c.spec.cls.ai.feel.counter * (1 - c.assists.stability / stab) * clamp((c.slideR - 0.15) / 0.3, 0, 1) * driftAngle(c);
-  const want = clamp(delta / steerLock(c.v, c.assists.steer, c.spec), -1, 1);
+  const want = clamp(delta / steerLock(c.v, c.assists.steer, c.spec, c.maxSteer), -1, 1);
   const rate = alien ? AI.alien.steerRate : AI.steerRate;
   c.steer += clamp(want - c.steer, -dt * rate, dt * rate);
   if (lost) targetV = Math.min(targetV, AI.recoverSpeed);
@@ -329,7 +329,10 @@ export function driveAI(race, c, dt, skillOverride = 0) {
   // far as it is already wider than the line it means to drive (`off` m = all of it): a chicane's line crosses the road
   // at speed (2026-10-25: the lift cut the throttle to `min` out of both of Hautvale's last corners)
   { const E2 = AI.edge, hd = wrapA(c.h - FM.atan2(T.TZ[c.idx], T.TX[c.idx])), vlat = c.v * FM.sin(hd) + c.vy * FM.cos(hd);
-    const ahead = c.lat + vlat * E2.look, limit = HW + T.KERB + E2.room, out = (c.lat - RO[c.idx] - bias) * Math.sign(ahead);
+    // (the room it has: the kerb's end, or a wall closer than that: a real circuit's wall shared with another part of the
+    // track, Mexico City's stadium; on the invented circuits the wall is always further out, so this is the kerb's end)
+    const ahead = c.lat + vlat * E2.look, wallAt = T.runoff[ahead > 0 ? 1 : 0].wall[c.idx];
+    const limit = Math.min(HW + T.KERB, wallAt - E2.wall) + E2.room, out = (c.lat - RO[c.idx] - bias) * Math.sign(ahead);
     if (thr > 0 && Math.abs(ahead) > limit && Math.sign(vlat) === Math.sign(ahead) && out > 0)
       thr *= clamp(1 - (Math.abs(ahead) - limit) / E2.fade * Math.min(1, out / E2.off), E2.min, 1); }
   // mistakes: weaker drivers more often; nervy ones more with a car right behind

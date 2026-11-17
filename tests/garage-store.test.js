@@ -33,7 +33,7 @@ test('garage: saved values kept, bad ones fall back', () => {
 });
 
 test('lap records: per circuit, stock and modified apart, only improvements', () => {
-  const r = loadRecords(JSON.stringify({ elkmoor: { stock: 33.5, modified: -2 }, monza: { stock: 80 }, harrow: 'x' }));
+  const r = loadRecords(JSON.stringify({ elkmoor: { stock: 33.5, modified: -2 }, nowhere: { stock: 80 }, harrow: 'x' }));
   assert.deepEqual(r, { elkmoor: { stock: 33.5 } });
   assert.equal(recordLap(r, 'elkmoor', false, 34), false);
   assert.equal(recordLap(r, 'elkmoor', false, 33.1), true);

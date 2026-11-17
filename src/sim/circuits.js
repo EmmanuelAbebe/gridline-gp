@@ -59,6 +59,8 @@ export function course(poly, arcStep = 12, straightStep = 120, bankRamp = 70) {
   return { ctrl, heights };
 }
 
+import { REAL_OUTLINES } from './circuits-real.js';
+
 export const CIRCUITS = Object.freeze({
   elkmoor: {
     name: 'Elkmoor Park', samples: 1200, theme: 'forest',
@@ -163,6 +165,24 @@ export const CIRCUITS = Object.freeze({
       [-560, 0, 60],                                       // a fast left onto the front straight
     ]),
     blurb: 'Built where an oval once stood: two long straights to draft on, a twisty infield and a hairpin at the end of the back straight.',
+  },
+  // Real circuits (2026-11-16; user: "use real names, start with the pilot of three", "if the circuits have 3D features such
+  // as hills and valleys keep them as is"): the real outline and heights (circuits-real.js, tools/real-circuits.mjs), the
+  // real road width (`halfWidth`), started at the real start line. `real` marks them for the tests' real-world rules.
+  monza: {
+    name: 'Monza', real: true, theme: 'woods', halfWidth: 7.5, landmarks: { gantry: 2, grandstand: -103, pits: -82 },
+    ...REAL_OUTLINES.monza,
+    blurb: 'The temple of speed: flat out through the royal park, three chicanes, the Lesmos, Ascari and the Parabolica onto the line.',
+  },
+  monaco: {
+    name: 'Monaco', real: true, style: 'street', theme: 'harbour', halfWidth: 5.5, maxWall: 4, maxSteer: 0.4, landmarks: { gantry: 2, grandstand: -103, pits: -82 },
+    ...REAL_OUTLINES.monaco,
+    blurb: 'Up the hill to Casino Square, down through the hairpin, the tunnel along the harbour and round the swimming pool. No room at all.',
+  },
+  mexicofe: {
+    name: 'Mexico City E-Prix', real: true, theme: 'downs', halfWidth: 4.75, landmarks: { gantry: 2, grandstand: -103, pits: -82 },
+    ...REAL_OUTLINES.mexicofe,
+    blurb: 'Formula E\'s layout of the Autódromo Hermanos Rodríguez: a long main straight, then a twisty run through the stadium.',
   },
 });
 // every circuit carries its key as `id`

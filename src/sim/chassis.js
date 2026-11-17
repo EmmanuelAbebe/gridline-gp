@@ -98,11 +98,12 @@ export const tyreCurve = (alpha, peak = F1_2026.chassis.peakSlip, Q = F1_Q) => F
 // tightest steady turn the tyres can hold (wheelbase / radius, plus the tyres' slip, measured: limitTurn, steerMargin),
 // so a full tilt or a held key at 300 km/h asks for the grip there is, not more, and half tilt is about half the
 // cornering. Less assist mixes back the raw lock (squared, so medium stays close to the grip limit).
-/** @param {number} v @param {number} assist @param {import('./spec.js').Spec} [spec] */
-export function steerLock(v, assist, spec = STOCK) {
-  const sp = Math.max(Math.abs(v), 1), { CH, L } = chassisOf(spec.cls);
-  const useful = Math.min(CH.maxSteer, L * lateralGrip(sp, spec) / (sp * sp) * CH.limitTurn + CH.steerMargin);
-  return useful + (CH.maxSteer - useful) * FM.pow(1 - assist, 2);
+// `max`: a steering rack with more lock than the class's (the car's maxSteer from its circuit; 0 = the class's own)
+/** @param {number} v @param {number} assist @param {import('./spec.js').Spec} [spec] @param {number} [max] */
+export function steerLock(v, assist, spec = STOCK, max = 0) {
+  const sp = Math.max(Math.abs(v), 1), { CH, L } = chassisOf(spec.cls), top = max || CH.maxSteer;
+  const useful = Math.min(top, L * lateralGrip(sp, spec) / (sp * sp) * CH.limitTurn + CH.steerMargin);
+  return useful + (top - useful) * FM.pow(1 - assist, 2);
 }
 
 // One axle's forces. D = grip (per mass), alpha = slip angle, long = braking (−) or drive (+) asked of it.
@@ -223,7 +224,7 @@ export function stepChassis(race, c, inp, dt) {
   for (let s = 0; s < n; s++) {
     // v: along the car's heading (negative = travelling backwards, e.g. past 90° in a spin), vy: sideways
     const v = c.v, sp = Math.abs(v), vy = c.vy, w = c.yawRate, speed = FM.hypot(v, vy);
-    const delta0 = c.steer * steerLock(v, A.steer, S) + cond.pull;
+    const delta0 = c.steer * steerLock(v, A.steer, S, c.maxSteer) + cond.pull;
     // (front toe-out over stock: small steering angles turn the car more: a sharper turn-in)
     const delta = S.susp && S.susp.toeOut ? delta0 * (1 + SU.toe.turn * S.susp.toeOut * (1 - clamp(Math.abs(delta0) / SU.toe.small, 0, 1))) : delta0;
     // on a hill: gravity in the road's plane in the car's frame (gx forward, gy right, per G), and the load on the
