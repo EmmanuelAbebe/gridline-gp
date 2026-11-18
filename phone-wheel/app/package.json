@@ -1,0 +1,8 @@
+{
+  "name": "phone-wheel-app",
+  "version": "1.0.0",
+  "versionCode": 1,
+  "private": true,
+  "description": "The phone-wheel Android app: the phone page (../web) in a Capacitor shell. Its dependencies are in the Gridline GP root package.json.",
+  "license": "PolyForm-Noncommercial-1.0.0"
+}

@@ -10,17 +10,32 @@ import { clusterGroups, LayoutEditor, measureLayout, type Draft } from './Layout
 import { RotateHint } from './RotateHint.tsx';
 import { AwayScreen } from './AwayScreen.tsx';
 import { Settings } from './settings/Settings.tsx';
+import { PcPicker } from './PcPicker.tsx';
+import { isApp } from '../engine/native.ts';
+import { currentPc, decodeBeacon, notePc } from '../engine/pairing.ts';
+import { listenForPcs } from '../engine/native.ts';
 
 // edits the active profile: update(c => { c.steer.smoothing = 30 })
 export type Update = (fn: (c: Config) => void) => void;
 const preview = isPreview();
+const app = isApp();
 
 export function App() {
   const [store, setStore] = useState<Store>(() => loadStore());
   const [started, setStarted] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [warn, setWarn] = useState('');
-  const [draft, setDraft] = useState<Draft | null>(null);   // Layout → Move and resize: the boxes (and groups) being edited
+  const [draft, setDraft] = useState<Draft | null>(null);
+  // the phone-wheel app: the PC picker (engine/pairing.ts) and why it opened (the PC refused the code)
+  const [pcs, setPcs] = useState<{ note?: string } | null>(null);
+  useEffect(() => {
+    if (!app) return;
+    // the PCs' beacons, all the time the app is open: the list, and the PC in use followed to a new address
+    const stop = listenForPcs((data, ip) => { const p = decodeBeacon(data, ip); if (p && notePc(p)) engine.reconnect(); });
+    // the code refused (or none picked yet): ask
+    const off = engine.onStatus((s) => { if (s.phase === 'unpaired') setPcs({ note: currentPc() ? 'The PC refused the pairing code: enter the one Gridline GP shows now (Settings → Controller).' : undefined }); });
+    return () => { stop(); off(); };
+  }, []);   // Layout → Move and resize: the boxes (and groups) being edited
   // the car the game says you drive (engine.dash.c, remembered): the race wheel as that car has it (settings.ts forCar)
   const [car, setCar] = useState<CarKind>(() => engine.getCar());
   useEffect(() => engine.onCar(setCar), []);
@@ -41,6 +56,7 @@ export function App() {
   })), []);
 
   async function start() {
+    if (app && !currentPc()) { setPcs({}); return; }
     if (!window.isSecureContext) {
       setWarn("Open the exact link the PC shows (https:// over Wi-Fi or Bluetooth, http://localhost over USB), otherwise the phone won't share tilt data.");
       return;
@@ -67,9 +83,11 @@ export function App() {
         done={() => { const d = draft; update((c) => setCarLayout(c, car, d.boxes, d.groups)); setDraft(null); }}
         standard={() => { update((c) => setCarLayout(c, car, null, {})); setDraft(null); }} />}
       {started && !settingsOpen && !editing && !preview && <RotateHint />}
-      {!started && <StartScreen onStart={start} warn={warn} openSettings={() => setSettingsOpen(true)} preview={preview} />}
+      {!started && <StartScreen onStart={start} warn={warn} openSettings={() => setSettingsOpen(true)} openPcs={() => setPcs({})} preview={preview} />}
       {started && !settingsOpen && !editing && <AwayScreen />}
+      {pcs && <PcPicker note={pcs.note} close={currentPc() ? () => setPcs(null) : undefined} picked={() => { setPcs(null); engine.reconnect(); }} />}
       {settingsOpen && <Settings store={store} setStore={setStore} cfg={cfg} car={car} update={update} close={() => setSettingsOpen(false)}
+        openPcs={app ? () => { setSettingsOpen(false); setPcs({}); } : undefined}
         editLayout={() => { setDraft({ boxes: measureLayout(), groups: cfg.layout.free ? cfg.layout.groups : clusterGroups(cfg) }); setSettingsOpen(false); }} />}
     </>
   );

@@ -123,6 +123,18 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   couldn't print the QR code (or with `--browser`; `--no-browser` never opens it).
 - Packaging: `phone-wheel.spec` (PyInstaller, one file). Frozen builds read pages from `sys._MEIPASS`
   and keep cert/token in the user config dir (`data_dir()` in phonewheel/paths.py); from source they stay next to server.py.
+- The phone-wheel app (2026-11-17, `../phone-wheel/app`, root CLAUDE.md "The phone-wheel Android app"): this page inside an
+  Android app (Capacitor). `engine/native.ts` = `isApp()` (Capacitor.isNativePlatform), `vibrate` (in the app its native plugin plays
+  the pattern, as a VibrationEffect waveform), `listenForPcs` (the PC's UDP beacon). `engine/pairing.ts` (pure but for
+  localStorage `pw-pcs`; test/pairing.test.ts): `transport()` = the socket: a browser keeps wss://<page host>/ws?t= (ws on
+  http://localhost over USB), the app ws://<PC>:<wsPort>/app with hello {t: code}; `decodeBeacon`, `parseQr` (the game's QR
+  link; no w / i from an older game: page port + 1, id from the address), `parseAddress`, `normalizeCode`; the paired PCs
+  (≤ 10, `choosePc`, `forgetPc`, `currentPc`) and those heard (`seenPcs`, 4 s); `notePc` keeps a paired PC's address
+  current (true = the one in use moved: App reconnects). engine.ts: in the app it waits for {paired} before sending; close
+  4003 = 'unpaired' with no retry (App opens the picker: "the PC refused the code"). UI: `PcPicker.tsx` (the beacon list
+  with PAIRED, the code form, Type the address, Scan the QR code, paired PCs not heard with ✕), `QrScan.tsx` (getUserMedia +
+  jsQR 1.4.0), StartScreen's PC line (Change / Pick your PC), Settings nav PC (app only); screen.ts: full screen,
+  landscape lock and keep-awake are the activity's own in the app.
 
 ## Status
 - Works end to end on the user's Linux PC (X11, Flatpak Chrome) as of 2026-10-04:

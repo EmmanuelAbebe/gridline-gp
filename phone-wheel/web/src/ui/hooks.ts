@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as engine from '../engine/engine.ts';
 import { isFullscreen } from './screen.ts';
+import { onPcs } from '../engine/pairing.ts';
 
 // the connection status (re-renders when it changes)
 export function useStatus() {
@@ -40,4 +41,10 @@ export function usePortrait() {
     return () => m.removeEventListener('change', f);
   }, []);
   return p;
+}
+
+// re-renders when the phone-wheel app's PCs change (engine/pairing.ts: paired, picked, heard on the network)
+export function usePcs() {
+  const [, tick] = useState(0);
+  useEffect(() => onPcs(() => tick((n) => n + 1)), []);
 }

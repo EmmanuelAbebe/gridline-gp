@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The app talks to Gridline GP on this PC over plain ws:// on the local network (the pairing code guards it; the
+     user's decision, 2026-11-17). A network security config can't name address ranges, so cleartext is allowed in
+     general; the app only ever opens sockets to the PC address it was paired with or picked from the LAN beacon. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

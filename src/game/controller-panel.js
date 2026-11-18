@@ -61,6 +61,16 @@ export function createControllerPanel(bind) {
         el('p', 'note', s.link === 'usb' ? '2. Chrome opens it as a secure page: no warning.'
           : '2. The phone warns about the certificate (made by this PC for itself): tap Advanced → Proceed.'),
         el('p', 'note', '3. Hold the phone like a wheel and press gas once.'));
+      // the phone-wheel app (phone-wheel/app, Android): the same QR code, or this PC from its list + the short code
+      if (s.code) {
+        const app = el('div', 'dev-app');
+        const port = s.wsPort === 8444 ? '' : ':' + s.wsPort;
+        app.append(el('p', 'note', s.link === 'usb'
+          ? `phone-wheel app: Type the address → localhost${port}, then the pairing code:`
+          : `phone-wheel app: scan this code, or pick ${s.name} from its list (or type ${s.ip}${port}), then the pairing code:`),
+        el('code', 'dev-code', s.code));
+        steps.append(app);
+      }
       if (s.note) steps.append(el('p', 'note warn', s.note));
       pair.append(qr, steps);
       phoneCard.append(pair);
@@ -80,7 +90,7 @@ export function createControllerPanel(bind) {
   let lastPhone = '';
   PhoneWheel.on('status', s => {
     // redraw on anything but the live numbers (those only change the state label)
-    const sig = [s.running, s.phones > 0, s.url, s.note, s.error, s.link].join('|');
+    const sig = [s.running, s.phones > 0, s.url, s.code, s.note, s.error, s.link].join('|');
     if (sig !== lastPhone) { lastPhone = sig; if (root.isConnected) drawPhone(); }
     else phoneCard.querySelector('.dev-state')?.replaceChildren(phoneState(s));
   });

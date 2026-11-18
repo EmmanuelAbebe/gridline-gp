@@ -4,6 +4,7 @@
 // it all (tap a map: the game switches to MANUAL and picks it; A / M switches AUTO / MANUAL). Everything game-side
 // comes from engine.dash; nothing re-renders at 60 Hz (useFrame writes the DOM).
 import { useRef } from 'react';
+import { isApp } from '../engine/native.ts';
 import * as engine from '../engine/engine.ts';
 import type { CarKind, Config, Side } from '../settings/settings.ts';
 import { AuxButton } from './AuxButton.tsx';
@@ -14,7 +15,7 @@ import './WheelFace.css';
 
 const STATUS: Record<engine.Phase, string> = {
   idle: 'not started', connecting: 'connecting…', connected: 'waiting for the game', lost: 'connection lost, retrying…',
-  unpaired: 'not paired: scan the PC\'s QR code',
+  unpaired: isApp() ? 'not paired: pick your PC' : 'not paired: scan the PC\'s QR code',
 };
 const MAP_IDS = ['harvest', 'balanced', 'attack', 'quali'];
 

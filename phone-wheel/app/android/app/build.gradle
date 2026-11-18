@@ -1,0 +1,60 @@
+apply plugin: 'com.android.application'
+
+// The app's own version (phone-wheel/app/package.json), apart from the game's; release tags phone-wheel-v<version>.
+def appPackage = new groovy.json.JsonSlurper().parse(file('../../package.json'))
+// Release signing from the environment (CI: the PHONE_WHEEL_* secrets, see .github/workflows/phone-wheel-app.yml):
+// PHONE_WHEEL_KEYSTORE_FILE = the .jks / .p12 path, PHONE_WHEEL_KEYSTORE_PASSWORD (store = key password), PHONE_WHEEL_KEY_ALIAS.
+// Without them assembleRelease makes an unsigned APK. The key never goes in the repo.
+def keystoreFile = System.getenv('PHONE_WHEEL_KEYSTORE_FILE')
+
+android {
+    namespace = "io.github.emmanuelabebe.phonewheel"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "io.github.emmanuelabebe.phonewheel"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode appPackage.versionCode as int
+        versionName appPackage.version
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        if (keystoreFile) {
+            release {
+                storeFile file(keystoreFile)
+                storePassword System.getenv('PHONE_WHEEL_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('PHONE_WHEEL_KEY_ALIAS') ?: 'phone-wheel'
+                keyPassword System.getenv('PHONE_WHEEL_KEYSTORE_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (keystoreFile) signingConfig signingConfigs.release
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'

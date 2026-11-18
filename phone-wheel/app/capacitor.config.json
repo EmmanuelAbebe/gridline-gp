@@ -1,0 +1,7 @@
+{
+  "appId": "io.github.emmanuelabebe.phonewheel",
+  "appName": "phone-wheel",
+  "webDir": "../web/dist",
+  "android": { "path": "android", "allowMixedContent": false },
+  "server": { "androidScheme": "http" }
+}
