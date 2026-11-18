@@ -21,6 +21,8 @@ export function LayoutTab({ cfg, update, editLayout }: TabProps) {
       onChange={(v) => update((c) => { c.layout.swapShift = v; })} />}
     <Toggle label="Pause when put down" hint="on a table or left alone for 10 s: the phone stops sending and the game pauses until you tap I'M HERE"
       value={L.putDown} onChange={(v) => update((c) => { c.layout.putDown = v; })} />
+    <Toggle label="Lock rotation while driving" hint="from START DRIVING the screen stays the way round it is: turning the wheel past upright never flips it (off: it turns with the phone, either way sideways)"
+      value={L.lockRotation} onChange={(v) => update((c) => { c.layout.lockRotation = v; })} />
     <Toggle label="Rev lights and screen" hint="the game's rev lights along the top; gear, speed, rpm, place, lap and delta on the screen (Gridline GP)" value={L.dash}
       onChange={(v) => update((c) => { c.layout.dash = v; })} />
     <Toggle label="ECU maps and battery" hint="the battery bar on the screen and the map row under it: tap a map (the game switches to MANUAL), A / M = AUTO / MANUAL (Gridline GP)"

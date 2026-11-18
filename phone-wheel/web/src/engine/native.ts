@@ -8,6 +8,7 @@ interface PhoneWheelPlugin {
   vibrate(o: { pattern: number[] }): Promise<void>;
   startBeacon(o: { port: number }): Promise<void>;
   stopBeacon(): Promise<void>;
+  lockRotation(o: { lock: boolean }): Promise<void>;
   addListener(e: 'beacon', fn: (ev: { data: string; ip: string }) => void): Promise<PluginListenerHandle>;
 }
 const plugin = registerPlugin<PhoneWheelPlugin>('PhoneWheel');
@@ -20,6 +21,11 @@ export function vibrate(p: number | number[]) {
   const pattern = Array.isArray(p) ? p : p > 0 ? [p] : [];
   if (isApp()) { plugin.vibrate({ pattern }).catch(() => { /* no motor */ }); return; }
   try { navigator.vibrate?.(pattern.length ? pattern : 0); } catch { /* not allowed yet */ }
+}
+
+// the app's screen: kept the way round it is now (lock) or turning with the phone, either way sideways
+export function lockRotation(lock: boolean) {
+  if (isApp()) plugin.lockRotation({ lock }).catch(() => { /* an older app: it turns with the phone */ });
 }
 
 // the PC's beacon (desktop/phone-beacon.cjs): every packet heard → fn(its text, the sender's address); returns stop()

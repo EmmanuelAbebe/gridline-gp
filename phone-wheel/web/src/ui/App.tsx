@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import * as engine from '../engine/engine.ts';
 import { isPreview, startPreview } from '../engine/preview.ts';
 import { CAR_KINDS, clone, forCar, loadStore, sanitize, saveStore, setCarLayout, type CarKind, type Config, type Store } from '../settings/settings.ts';
-import { enterFullscreen, keepAwake, setHaptics } from './screen.ts';
+import { enterFullscreen, keepAwake, setHaptics, setRotationLock } from './screen.ts';
 import { StartScreen } from './StartScreen.tsx';
 import { Drive, mirrorPairs, slotsOf } from './Drive.tsx';
 import { clusterGroups, LayoutEditor, measureLayout, type Draft } from './LayoutEditor.tsx';
@@ -45,6 +45,8 @@ export function App() {
   setHaptics(cfg.layout.haptics);
   useEffect(() => saveStore(store), [store]);
   const editing = draft !== null;
+  // Layout → Lock rotation while driving: from START DRIVING the screen stays the way round it is
+  useEffect(() => { if (!preview) setRotationLock(started && cfg.layout.lockRotation); }, [started, cfg.layout.lockRotation]);
   useEffect(() => { engine.state.paused = settingsOpen || editing; if (settingsOpen || editing) engine.stopFeedback(); }, [settingsOpen, editing]);
 
   const update: Update = (fn) => setStore((s) => { const next = clone(s); fn(next.profiles[next.active]); return next; });

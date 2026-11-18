@@ -134,7 +134,10 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   4003 = 'unpaired' with no retry (App opens the picker: "the PC refused the code"). UI: `PcPicker.tsx` (the beacon list
   with PAIRED, the code form, Type the address, Scan the QR code, paired PCs not heard with ✕), `QrScan.tsx` (getUserMedia +
   jsQR 1.4.0), StartScreen's PC line (Change / Pick your PC), Settings nav PC (app only); screen.ts: full screen,
-  landscape lock and keep-awake are the activity's own in the app.
+  landscape lock and keep-awake are the activity's own in the app. Layout → Lock rotation while driving (`layout.lockRotation`,
+  default ON; user: the screen flipped when the wheel turned past upright): from START DRIVING screen.ts `setRotationLock`
+  (App effect) → the app's plugin lockRotation (SCREEN_ORIENTATION_LOCKED = the way round it is; off = sensorLandscape), in a
+  browser screen.orientation.lock(the current landscape type) once in full screen.
 
 ## Status
 - Works end to end on the user's Linux PC (X11, Flatpak Chrome) as of 2026-10-04:

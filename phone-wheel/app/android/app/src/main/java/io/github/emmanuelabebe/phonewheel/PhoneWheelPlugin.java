@@ -1,6 +1,7 @@
 package io.github.emmanuelabebe.phonewheel;
 
 import android.content.Context;
+import android.content.pm.ActivityInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.VibrationEffect;
@@ -20,6 +21,8 @@ import java.nio.charset.StandardCharsets;
 
 // What the page can't do from inside a WebView (web/src/engine/native.ts):
 //   vibrate({ pattern: [on, off, on, ...] ms })   force feedback; [] stops the motor (navigator.vibrate's patterns)
+//   lockRotation({ lock })                        true: the screen stays the way round it is now (no flip when the phone
+//                                                 is turned past upright); false: either way sideways (the manifest's)
 //   startBeacon({ port }) / stopBeacon()          listen for Gridline GP's UDP beacon (desktop/phone-link.cjs, every 1 s);
 //                                                 each packet → event 'beacon' { data: its text, ip: the sender }
 @CapacitorPlugin(name = "PhoneWheel")
@@ -50,6 +53,14 @@ public class PhoneWheelPlugin extends Plugin {
             for (int i = 0; i < p.length(); i++) timings[i + 1] = Math.max(0, Math.min(10000, p.getLong(i)));
             vibrator.vibrate(VibrationEffect.createWaveform(timings, -1));
         } catch (Exception e) { /* a bad pattern: nothing to feel */ }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void lockRotation(PluginCall call) {
+        boolean lock = Boolean.TRUE.equals(call.getBoolean("lock", false));
+        getActivity().runOnUiThread(() -> getActivity().setRequestedOrientation(
+            lock ? ActivityInfo.SCREEN_ORIENTATION_LOCKED : ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE));
         call.resolve();
     }
 

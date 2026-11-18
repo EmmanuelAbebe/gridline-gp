@@ -19,6 +19,8 @@ test('sanitize: defaults round-trip, junk and out-of-range values are fixed, old
   assert.equal(sanitize({ buttons: [{ label: 'PIT', bind: 'Y' }] }).buttons[0].side, 'pit');
   assert.deepEqual(s.layout.labels, { pedals: false, shift: false, gauges: false });
   assert.equal(s.layout.buttonSize, 'm');
+  assert.equal(s.layout.lockRotation, true, 'rotation locked while driving unless switched off');
+  assert.equal(sanitize({ layout: { lockRotation: false } }).layout.lockRotation, false);
   // the old page's store format
   const store = loadStore(JSON.stringify({ active: 'Race', profiles: { Race: { steer: { sensitivity: 50 } }, Default: {} } }));
   assert.equal(store.active, 'Race'); assert.equal(store.profiles.Race.steer.sensitivity, 50);

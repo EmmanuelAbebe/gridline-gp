@@ -27,7 +27,8 @@ export type ButtonSize = 's' | 'm' | 'l';
 // shiftButtons: the UPSHIFT / DOWNSHIFT keys beside the pedals (they send flick.up / flick.down); swapShift puts
 // upshift beside the gas instead of the brake.
 // putDown: stop sending and ask "are you there?" when the phone is put down flat or dropped (engine/presence.ts)
-export interface LayoutCfg { swapPedals: boolean; pedalSize: number; buttonSize: ButtonSize; showWheel: boolean; haptics: boolean; shiftButtons: boolean; swapShift: boolean; putDown: boolean; dash: boolean; ecu: boolean;
+// lockRotation: from START DRIVING the screen stays the way round it is (turning the phone past upright no longer flips it)
+export interface LayoutCfg { swapPedals: boolean; pedalSize: number; buttonSize: ButtonSize; showWheel: boolean; haptics: boolean; shiftButtons: boolean; swapShift: boolean; putDown: boolean; lockRotation: boolean; dash: boolean; ecu: boolean;
   labels: LabelsCfg; free: FreeLayout | null; groups: Groups }
 // words on the pedals (BRAKE / GAS + hints), the shift keys (UP / DOWN) and the gauges (REV, ERS, battery %)
 export interface LabelsCfg { pedals: boolean; shift: boolean; gauges: boolean }
@@ -68,7 +69,7 @@ export const DEFAULTS: Config = {
   // flick a thumb sideways toward the screen centre while on a pedal to shift: brake = down, gas = up
   // (`distance` px within `time` ms, mostly sideways); each flick taps the bound button once
   flick: { on: true, distance: 40, time: 160, down: 'LB', up: 'RB' },
-  layout: { swapPedals: false, pedalSize: 1, buttonSize: 'm', showWheel: true, haptics: true, shiftButtons: true, swapShift: false, putDown: true, dash: true, ecu: true,
+  layout: { swapPedals: false, pedalSize: 1, buttonSize: 'm', showWheel: true, haptics: true, shiftButtons: true, swapShift: false, putDown: true, lockRotation: true, dash: true, ecu: true,
     labels: { pedals: false, shift: false, gauges: false }, free: null, groups: {} },
   feedback: { on: true, strength: 1, hits: true, kerbs: true, offTrack: true, slides: true, shifts: false, lock: true },
   // the other cars' buttons: Formula E = the pit ones and ATTACK (View = the game's overtake action, which arms attack mode
@@ -168,6 +169,7 @@ export function sanitize(input: unknown): Config {
       groups: groupsOf(l.groups),
       swapShift: bool(l.swapShift, D.layout.swapShift),
       putDown: bool(l.putDown, D.layout.putDown),
+      lockRotation: bool(l.lockRotation, D.layout.lockRotation),
     },
     feedback: {
       on: bool(fb.on, D.feedback.on),

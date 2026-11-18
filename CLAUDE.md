@@ -1230,7 +1230,7 @@ showed MODIFIED only because of it).
   android/app/build.gradle; `icon.py` draws every launcher PNG with PIL). `android/` is committed (Capacitor's own .gitignore
   leaves out builds and the copied page): manifest sensorLandscape, VIBRATE / CAMERA / multicast permissions,
   `network_security_config.xml` cleartext (a config can't name LAN ranges), MainActivity = screen kept on + immersive,
-  `PhoneWheelPlugin.java` = vibrate(pattern) (VibrationEffect waveform: @capacitor/haptics has no patterns) + the beacon
+  `PhoneWheelPlugin.java` = lockRotation({lock}) (Layout → Lock rotation while driving), vibrate(pattern) (VibrationEffect waveform: @capacitor/haptics has no patterns) + the beacon
   listener (UDP 8445, multicast lock, event 'beacon' {data, ip}); no npm Capacitor plugins. Release signing from env
   PHONE_WHEEL_KEYSTORE_FILE / _PASSWORD / PHONE_WHEEL_KEY_ALIAS (unsigned without). Game side (phone-link.cjs): `appDoor` =
   plain http + WebSocket on `wsPort` (https port + 1, normally 8444; usb: 127.0.0.1 + its own adb reverse), path /app, first
