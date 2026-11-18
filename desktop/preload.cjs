@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('gridlineApp', {
   checkUpdate: () => ipcRenderer.invoke('app:check-update'),      // → { version, url, name } | null (update-check.cjs)
   openRelease: url => ipcRenderer.send('app:open-release', url),  // only this game's GitHub releases pages
   openLogs: () => ipcRenderer.invoke('app:open-logs'),            // shows gridline.log (desktop/log.cjs) in the file manager
+  keepAwake: on => ipcRenderer.send('app:keep-awake', !!on),      // no screensaver / display sleep while on (main.cjs)
   debug: ipcRenderer.sendSync('app:debug'),                       // test runs only: the page installs window.gridlineDebug
   // phone wheel server in the app (desktop/phone-link.cjs): start({ link, port, renewCode }) → status
   phone: {

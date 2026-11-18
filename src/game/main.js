@@ -861,7 +861,18 @@ function frame(now) {
   else Display.render();
   sendPhoneDash(dt, game.race && game.player && !game.player.finished && (game.phase === PHASE.RACE || game.phase === PHASE.LIGHTS));
   { const p = game.player, m = haptics.frame(running && game.phase === PHASE.RACE && p && !p.finished ? p : null, dt); if (m) PhoneWheel.feedback(m.fx); }
+  keepAwake(now, running);
   monitorFps(dt);
+}
+
+// no screensaver while you drive (2026-11-18, user: with the phone wheel the monitor went to its screensaver mid-session:
+// the phone's input never reaches the system as activity): awake while a race runs and for CONFIG.keepAwake s after the
+// last controller input (steering, pedals), so the screen still sleeps once you have really left
+let lastDrive = '', lastActive = -Infinity;
+function keepAwake(now, running) {
+  const d = Input.drive, k = `${d.steer.toFixed(2)},${d.thr.toFixed(2)},${d.brk.toFixed(2)}`;
+  if (k !== lastDrive) { lastDrive = k; lastActive = now; }
+  AppShell.keepAwake(running || now - lastActive < CONFIG.keepAwake * 1000);
 }
 
 // ---- circuit: world, minimap and the idle scene behind the menu (cars parked on the grid) ----

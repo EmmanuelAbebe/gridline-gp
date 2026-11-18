@@ -41,7 +41,21 @@ export const AppShell = (() => {
       $('updateBar').hidden = false;
     }).catch(() => {});
   }
+  // keep the display awake (no screensaver) while on: the app asks the system (desktop/main.cjs powerSaveBlocker), a
+  // browser takes a screen wake lock where it has one (secure pages only); called every frame, acts on a change
+  let awake = false, lock = null;
+  function keepAwake(on) {
+    if (on === awake) return;
+    awake = on;
+    if (app?.keepAwake) { app.keepAwake(on); return; }
+    if (on) navigator.wakeLock?.request('screen').then(l => { if (awake) lock = l; else l.release(); }).catch(() => {});
+    else { lock?.release().catch(() => {}); lock = null; }
+  }
+  // (a browser drops the lock whenever the page is hidden: take it again on return)
+  document.addEventListener('visibilitychange', () => { if (!app && awake && document.visibilityState === 'visible') { awake = false; keepAwake(true); } });
+
   return {
+    keepAwake,
     isApp: !!app,
     fullSupported: supported,
     get full() { return full; },

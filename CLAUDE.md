@@ -132,6 +132,11 @@ F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing se
   gridline-previous.log; versions / OS / CPU / GPU feature status, page warnings + errors, page / GPU process crashes,
   hangs; capped 2 MB. Settings → Tools → Open log folder (preload `openLogs` → `app:open-logs`). Smoke runs log into
   their throwaway profile; check-smoke.mjs checks the log was written.
+- Keep awake (2026-11-18; user: the monitor went to its screensaver while driving with the phone wheel: its input
+  comes over the network, so the system never sees activity): main.js `keepAwake` asks AppShell.keepAwake while a race
+  runs and for CONFIG.keepAwake 120 s after the last steering / pedal change; the app → preload `keepAwake` →
+  main.cjs `app:keep-awake` → powerSaveBlocker 'prevent-display-sleep' (Cinnamon shows it as an Electron idle
+  inhibitor, gone on quit); a browser takes a screen wake lock (secure pages only, again on return to the tab).
 - `gridline.sh`: launches the app, rebuilding first when src/index.html/public is newer than dist
   (`--windowed`, `--vulkan`); `--install`/`--uninstall` manage ~/.local/share/applications/gridline-gp.desktop.
 - `public/sw.js`: network-first offline cache of index.html + icons (only over http(s)). Bump `CACHE` if rules change.

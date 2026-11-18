@@ -4,7 +4,7 @@
 //   --windowed            start as a maximised window instead of full screen
 //   --smoke-test=out.png  (development) load hidden in a throwaway profile, screenshot the menu and a running race
 //                         (default setup: 10 cars), print info, quit
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, powerSaveBlocker } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 
@@ -86,6 +86,14 @@ function createWindow() {
 
 let quitting = false;
 ipcMain.on('app:quit', () => { quitting = true; log.write('info', 'quit'); app.quit(); });
+// keep the display awake while the page asks (2026-11-18, user: the screensaver came on mid-race with the phone wheel: the
+// phone's input arrives over the network, so the system never sees anyone using the PC). The page asks while a race runs
+// and for a while after the last controller input (main.js keepAwake).
+let awakeId = null;
+ipcMain.on('app:keep-awake', (_e, on) => {
+  if (on && awakeId === null) awakeId = powerSaveBlocker.start('prevent-display-sleep');
+  else if (!on && awakeId !== null) { powerSaveBlocker.stop(awakeId); awakeId = null; }
+});
 ipcMain.handle('app:toggle-fullscreen', e => {
   const win = BrowserWindow.fromWebContents(e.sender);
   const next = !win.isFullScreen();
