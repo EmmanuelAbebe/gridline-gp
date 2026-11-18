@@ -11,6 +11,7 @@ import { RotateHint } from './RotateHint.tsx';
 import { AwayScreen } from './AwayScreen.tsx';
 import { Settings } from './settings/Settings.tsx';
 import { PcPicker } from './PcPicker.tsx';
+import { CentrePrompt } from './CentrePrompt.tsx';
 import { isApp } from '../engine/native.ts';
 import { currentPc, decodeBeacon, notePc } from '../engine/pairing.ts';
 import { listenForPcs } from '../engine/native.ts';
@@ -87,6 +88,7 @@ export function App() {
       {started && !settingsOpen && !editing && !preview && <RotateHint />}
       {!started && <StartScreen onStart={start} warn={warn} openSettings={() => setSettingsOpen(true)} openPcs={() => setPcs({})} preview={preview} />}
       {started && !settingsOpen && !editing && <AwayScreen />}
+      {app && started && !settingsOpen && !editing && <CentrePrompt />}
       {pcs && <PcPicker note={pcs.note} close={currentPc() ? () => setPcs(null) : undefined} picked={() => { setPcs(null); engine.reconnect(); }} />}
       {settingsOpen && <Settings store={store} setStore={setStore} cfg={cfg} car={car} update={update} close={() => setSettingsOpen(false)}
         openPcs={app ? () => { setSettingsOpen(false); setPcs({}); } : undefined}

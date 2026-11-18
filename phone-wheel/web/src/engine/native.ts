@@ -32,7 +32,7 @@ export function lockRotation(lock: boolean) {
 export function listenForPcs(fn: (data: string, ip: string) => void): () => void {
   if (!isApp()) return () => {};
   let handle: PluginListenerHandle | null = null, stopped = false;
-  plugin.addListener('beacon', (ev) => fn(ev.data, ev.ip)).then((h) => { if (stopped) h.remove(); else handle = h; });
+  plugin.addListener('beacon', (ev) => fn(ev.data, ev.ip)).then((h) => { if (stopped) h.remove(); else handle = h; }).catch(() => { /* no plugin */ });
   plugin.startBeacon({ port: BEACON_PORT }).catch(() => { /* port busy: typed addresses and the QR still work */ });
   return () => { stopped = true; handle?.remove(); plugin.stopBeacon().catch(() => {}); };
 }

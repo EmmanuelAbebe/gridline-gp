@@ -138,6 +138,13 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   default ON; user: the screen flipped when the wheel turned past upright): from START DRIVING screen.ts `setRotationLock`
   (App effect) → the app's plugin lockRotation (SCREEN_ORIENTATION_LOCKED = the way round it is; off = sensorLandscape), in a
   browser screen.orientation.lock(the current landscape type) once in full screen.
+  The app's driving screen (user: the reconnect, full-screen and centre buttons make no sense in the app): no wheel / reconnect /
+  full-screen rounds (Cluster and slotsOf leave them out: Settings only); while not connected the screen is the reconnect
+  button (`.wscreen.tap`, "no connection · tap to reconnect"; unpaired → the picker) with the link quality dot in its corner;
+  `CentrePrompt.tsx` = a card over the middle when the dash starts (a race's lights, a time trial / practice, the link back)
+  below 50 km/h: the live wheel drawing, "Hold the wheel straight", CENTRE (engine.center), "keep as it is"; gone above 60 km/h.
+  Settings → Steering → Center now still works any time. Checked in Electron with window.androidBridge stubbed (Capacitor
+  then reports android) and a fake PC.
 
 ## Status
 - Works end to end on the user's Linux PC (X11, Flatpak Chrome) as of 2026-10-04:

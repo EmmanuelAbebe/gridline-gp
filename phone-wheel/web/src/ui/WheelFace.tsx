@@ -13,10 +13,13 @@ import { useFrame, useStatus } from './hooks.ts';
 import { buzz } from './screen.ts';
 import './WheelFace.css';
 
-const STATUS: Record<engine.Phase, string> = {
-  idle: 'not started', connecting: 'connecting…', connected: 'waiting for the game', lost: 'connection lost, retrying…',
-  unpaired: isApp() ? 'not paired: pick your PC' : 'not paired: scan the PC\'s QR code',
-};
+// (the phone-wheel app has no reconnect button: the screen itself is one while there is no connection)
+const app = isApp();
+const STATUS: Record<engine.Phase, string> = app
+  ? { idle: 'not started', connecting: 'connecting… tap to retry now', connected: 'waiting for the game', lost: 'no connection · tap to reconnect',
+    unpaired: 'not paired · tap to pick your PC' }
+  : { idle: 'not started', connecting: 'connecting…', connected: 'waiting for the game', lost: 'connection lost, retrying…',
+    unpaired: 'not paired: scan the PC\'s QR code' };
 const MAP_IDS = ['harvest', 'balanced', 'attack', 'quali'];
 
 // (car: the hybrid shows the gear big with km/h and rpm under it; the electric car (one gear) km/h big, its power and the
@@ -25,11 +28,12 @@ export function WheelScreen({ cfg, preview, car = 'hybrid' }: { cfg: Config; pre
   const r = { gear: useRef<HTMLDivElement>(null), kmh: useRef<HTMLElement>(null), rpm: useRef<HTMLElement>(null), pos: useRef<HTMLElement>(null),
     lap: useRef<HTMLSpanElement>(null), delta: useRef<HTMLElement>(null), fill: useRef<HTMLElement>(null), pct: useRef<HTMLSpanElement>(null),
     box: useRef<HTMLDivElement>(null), queued: useRef<HTMLSpanElement>(null), big: useRef<HTMLDivElement>(null), power: useRef<HTMLElement>(null),
-    energy: useRef<HTMLSpanElement>(null) };
+    energy: useRef<HTMLSpanElement>(null), q: useRef<HTMLElement>(null) };
   const status = useStatus(), ok = status.phase === 'connected' || preview, L = cfg.layout, gearless = car !== 'hybrid';
   useFrame(() => {
     const d = engine.dash, live = !!d.g && L.dash;
     if (!r.box.current) return;
+    if (r.q.current) { const l = engine.link; r.q.current.className = `q ${ok ? l.quality : ''}`; r.q.current.title = `${l.quality || 'no link'} · round trip ${l.rtt ?? '–'} ms`; }
     if (gearless) {
       if (r.big.current) r.big.current.textContent = live ? String(d.v) : '–';
       if (r.power.current) r.power.current.textContent = !live ? '' : d.a === 3 ? 'POWER 350 kW' : d.w ? `POWER ${d.w} %` : 'LIFT';
@@ -50,14 +54,16 @@ export function WheelScreen({ cfg, preview, car = 'hybrid' }: { cfg: Config; pre
     if (r.fill.current) { r.fill.current.style.width = `${live ? d.b : 0}%`; r.fill.current.dataset.flow = d.k > 0 ? 'out' : d.k < 0 ? 'in' : ''; }
     if (r.pct.current) r.pct.current.textContent = live ? `${d.b}%` : '';
   });
+  const tapToReconnect = app && !ok;
   return (
-    <div className="wscreen" ref={r.box}>
+    <div className={`wscreen ${tapToReconnect ? 'tap' : ''}`} ref={r.box}
+      {...(tapToReconnect ? { role: 'button', 'aria-label': 'Reconnect to the PC', onClick: () => { engine.reconnect(); buzz(20); } } : {})}>
       {L.ecu && car === 'hybrid' && <div className="ers">
         {L.labels.gauges && <span className="gauge-label">ERS</span>}
         <i className="bar"><b ref={r.fill} /></i>
         {L.labels.gauges && <span className="pct" ref={r.pct} />}
       </div>}
-      <div className="info"><span><b ref={r.pos} /> <span ref={r.lap} /></span><b ref={r.delta} className="delta" /></div>
+      <div className="info"><span><b ref={r.pos} /> <span ref={r.lap} /></span><b ref={r.delta} className="delta" />{app && <i className="q" ref={r.q} />}</div>
       {!ok
         ? <div className={`status ${status.phase === 'lost' || status.phase === 'unpaired' ? 'bad' : ''}`}>{STATUS[status.phase]}</div>
         : gearless ? <div className="gearbox"><div className="gear bigspeed" ref={r.big}>–</div><span className="unit">KM/H</span></div>
@@ -127,8 +133,8 @@ export function Cluster({ cfg, side, openSettings, car = 'hybrid' }: { cfg: Conf
       {cfg.buttons.map((b, i) => (
         <div key={`${i}-${b.bind}-${b.toggle}`} className="slot" data-slot={`btn${i}`}><AuxButton index={i} btn={b} /></div>))}
       <div className="utils">
-        <div className="slot" data-slot="wheel"><WheelButton cfg={cfg} /></div><div className="slot" data-slot="settings"><SettingsButton open={openSettings} /></div>
-        <div className="slot" data-slot="reconnect"><ReconnectButton /></div><div className="slot" data-slot="full"><FullButton /></div>
+        {!app && <div className="slot" data-slot="wheel"><WheelButton cfg={cfg} /></div>}<div className="slot" data-slot="settings"><SettingsButton open={openSettings} /></div>
+        {!app && <><div className="slot" data-slot="reconnect"><ReconnectButton /></div><div className="slot" data-slot="full"><FullButton /></div></>}
       </div>
     </div>
   );
@@ -138,9 +144,10 @@ export function Cluster({ cfg, side, openSettings, car = 'hybrid' }: { cfg: Conf
       {cfg.buttons.map((b, i) => b.side === side && (
         <div key={`${i}-${b.bind}-${b.toggle}`} className="slot" data-slot={`btn${i}`}><AuxButton index={i} btn={b} live={liveButton(car, b.bind)} /></div>))}
       <div className="utils">
+        {/* the app: no wheel (a prompt to centre at each race start: CentrePrompt.tsx), no reconnect (the screen), no full screen */}
         {side === 'pit'
-          ? <><div className="slot" data-slot="wheel"><WheelButton cfg={cfg} /></div><div className="slot" data-slot="settings"><SettingsButton open={openSettings} /></div></>
-          : <><div className="slot" data-slot="reconnect"><ReconnectButton /></div><div className="slot" data-slot="full"><FullButton /></div></>}
+          ? <>{!app && <div className="slot" data-slot="wheel"><WheelButton cfg={cfg} /></div>}<div className="slot" data-slot="settings"><SettingsButton open={openSettings} /></div></>
+          : !app && <><div className="slot" data-slot="reconnect"><ReconnectButton /></div><div className="slot" data-slot="full"><FullButton /></div></>}
       </div>
     </div>
   );
