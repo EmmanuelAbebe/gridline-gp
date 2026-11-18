@@ -12,11 +12,13 @@ import https from 'node:https';
 import http from 'node:http';
 
 const require = createRequire(import.meta.url);
-const { createPhoneLink, parseMessage, parseConfig, pairingToken, ensureCert } = require('../desktop/phone-link.cjs');
+const { createPhoneLink, parseMessage, parseConfig, pairingToken, ensureCert, appCode, codeMatches } = require('../desktop/phone-link.cjs');
+const beaconLib = require('../desktop/phone-beacon.cjs');
 const pn = require('../desktop/phone-net.cjs');
 const WebSocket = require('ws');
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'gridline-phone-'));
+const noUsb = () => ({ stop() {} });      // (never the real adb: a phone plugged into this PC is the player's)
 
 test('phone messages: clamped, masked, bad ones ignored', () => {
   assert.deepEqual(parseMessage(JSON.stringify({ s: -3, g: 0.5, b: 2, k: (1 << 20) | 5, p: 7 })).input, { s: -1, g: 0.5, b: 1, k: 5, a: 0 });
@@ -75,7 +77,7 @@ const until = async (cond, ms = 2000) => { const t0 = Date.now(); while (!cond()
 
 test('phone link server: pages, redirect, pairing, input, probes, release', async () => {
   const inputs = [], statuses = [];
-  const link = createPhoneLink({ dataDir: tmp(), pagesDir: path.join(ROOT, 'phone-wheel'), onInput: i => inputs.push(i), onStatus: s => statuses.push(s) });
+  const link = createPhoneLink({ dataDir: tmp(), pagesDir: path.join(ROOT, 'phone-wheel'), onInput: i => inputs.push(i), onStatus: s => statuses.push(s), watchUsb: noUsb });
   try {
     const st = await link.start({ link: 'wifi', port: 0 });
     assert.ok(st.running && st.port > 0 && !st.error, JSON.stringify(st));
@@ -119,4 +121,136 @@ test('phone link server: pages, redirect, pairing, input, probes, release', asyn
     await link.close();
   }
   assert.equal(link.status().running, false);
+});
+
+test('the app\'s pairing code: 8 characters from the token, typed any way; the full token works too', () => {
+  const code = appCode('some-token-1234567890');
+  assert.match(code, /^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/);
+  assert.equal(appCode('some-token-1234567890'), code, 'the same token: the same code');
+  assert.notEqual(appCode('another-token-123456'), code, 'a new token: a new code');
+  for (const typed of [code, code.toLowerCase(), code.replace('-', ' '), code.replace('-', '')]) assert.ok(codeMatches(typed, 'some-token-1234567890'), typed);
+  assert.ok(codeMatches('some-token-1234567890', 'some-token-1234567890'));
+  for (const bad of ['', 'ABCD-EFGH', null, 42, 'x'.repeat(100)]) assert.ok(!codeMatches(bad, 'some-token-1234567890'), String(bad));
+});
+
+test('the beacon: encoded and decoded, broadcast addresses per network', () => {
+  const b = beaconLib.encodeBeacon({ name: 'desk', wsPort: 8444, id: 'abcdEFGH12' });
+  assert.deepEqual(JSON.parse(b), { pw: 1, name: 'desk', wsPort: 8444, id: 'abcdEFGH12' });
+  assert.deepEqual(beaconLib.decodeBeacon(b), { name: 'desk', wsPort: 8444, id: 'abcdEFGH12' });
+  for (const bad of ['hi', '{"pw":1,"wsPort":8444}', '{"pw":1,"wsPort":"8444","id":"abcd"}', '{"pw":2,"wsPort":8444,"id":"abcd"}'])
+    assert.equal(beaconLib.decodeBeacon(Buffer.from(bad)), null, bad);
+  assert.deepEqual(beaconLib.broadcastAddresses({
+    lo: [{ family: 'IPv4', address: '127.0.0.1', netmask: '255.0.0.0', internal: true }],
+    wlp3s0: [{ family: 'IPv4', address: '192.168.1.20', netmask: '255.255.255.0', internal: false }, { family: 'IPv6', address: 'fe80::1', netmask: 'ffff::', internal: false }],
+    bnep0: [{ family: 'IPv4', address: '10.59.230.82', netmask: '255.255.255.240', internal: false }],
+  }), ['192.168.1.255', '10.59.230.95', '255.255.255.255']);
+});
+
+test('the phone-wheel app: plain ws:// with the code first, the same input / feedback / dash / layout, the beacon', async () => {
+  const dgram = require('node:dgram');
+  const ear = dgram.createSocket('udp4'), heard = [];
+  ear.on('message', m => heard.push(beaconLib.decodeBeacon(m)));
+  await new Promise(r => ear.bind(0, '127.0.0.1', r));
+  const inputs = [], configs = [];
+  const link = createPhoneLink({ dataDir: tmp(), pagesDir: path.join(ROOT, 'phone-wheel'), onInput: i => inputs.push(i), onConfig: c => configs.push(c),
+    beacon: { port: ear.address().port, targets: () => ['127.0.0.1'] }, watchUsb: (phonePort, pcPort, onChange) => { usbAsked.push([phonePort, pcPort]); setTimeout(() => onChange(1), 10); return { stop() {} }; } });
+  const usbAsked = [];
+  const open = (code, port, host = '127.0.0.1') => new Promise((resolve, reject) => {
+    const ws = new WebSocket(`ws://${host}:${port}/app`);
+    const got = [];
+    ws.on('message', m => got.push(JSON.parse(m)));
+    ws.on('open', () => { if (code !== undefined) ws.send(JSON.stringify({ t: code })); resolve({ ws, got }); });
+    ws.on('error', reject);
+  });
+  const closed = ws => new Promise(r => ws.once('close', code => r(code)));
+  try {
+    const st = await link.start({ link: 'wifi', port: 0 });
+    assert.ok(st.wsPort > 0 && st.wsPort !== st.port, JSON.stringify(st));
+    assert.match(st.code, /^\w{4}-\w{4}$/); assert.ok(st.id && st.name);
+    const url = new URL(st.url), token = url.searchParams.get('t');
+    assert.equal(+url.searchParams.get('w'), st.wsPort, 'the QR link carries the app port'); assert.equal(url.searchParams.get('i'), st.id);
+    assert.equal((await get(`http://127.0.0.1:${st.wsPort}/`)).status, 426, 'not a page: the app\'s port');
+
+    // a wrong code: closed with 4003, nothing counted, no input taken
+    const bad = await open('WRNG-CODE', st.wsPort);
+    assert.equal(await closed(bad.ws), 4003);
+    assert.equal(link.status().phones, 0);
+
+    // the short code (as typed: lower case, no dash) → paired; input, probes, feedback, dash, layout as over /ws
+    const { ws, got } = await open(st.code.toLowerCase().replace('-', ''), st.wsPort);
+    await until(() => got.some(m => m.paired));
+    assert.deepEqual(got[0], { paired: 1, name: st.name, id: st.id });
+    await until(() => link.status().phones === 1);
+    ws.send(JSON.stringify({ s: -0.5, g: 0.75, b: 0, k: 2, p: 1 }));
+    await until(() => got.some(m => 'pong' in m));
+    assert.deepEqual(inputs.at(-1), { s: -0.5, g: 0.75, b: 0, k: 2, a: 0 });
+    link.feedback({ k: 1, kh: 10, o: 0, s: 0 }); link.dash({ g: '5', v: 250 }); link.askLayout(); link.setLayout({ free: null, groups: {} });
+    await until(() => got.some(m => m.fx) && got.some(m => m.dash) && got.some(m => m.getCfg) && got.some(m => m.setLayout));
+    assert.deepEqual(got.find(m => m.dash).dash, { g: '5', v: 250 });
+    ws.send(JSON.stringify({ cfg: { buttons: [] }, scr: { w: 844, h: 390 } }));
+    await until(() => configs.length === 1);
+    ws.close();
+    await until(() => link.status().phones === 0);
+    assert.deepEqual(inputs.at(-1), { s: 0, g: 0, b: 0, k: 0, a: 0 }, 'gone: everything let go');
+
+    // the full token from the QR link works as the code too; silence after connecting closes it (4001)
+    const full = await open(token, st.wsPort);
+    await until(() => full.got.some(m => m.paired));
+    full.ws.close();
+    const quiet = await open(undefined, st.wsPort);
+    assert.equal(await closed(quiet.ws), 4001);
+
+    // five wrong codes in a minute shut an address on the network out (this PC's LAN address: not loopback, which is USB
+    // and never shut out)
+    for (let i = 0; i < 5; i++) { const w = await open('NOPE-NOPE', st.wsPort); assert.equal(await closed(w.ws), 4003); }
+    const lan = Object.values(os.networkInterfaces()).flat().find(a => a && a.family === 'IPv4' && !a.internal)?.address;
+    if (lan) {
+      for (let i = 0; i < 5; i++) { const w = await open('NOPE-NOPE', st.wsPort, lan); assert.equal(await closed(w.ws), 4003); }
+      await assert.rejects(open(st.code, st.wsPort, lan), /429/);
+    }
+    const stillIn = await open(st.code, st.wsPort);
+    await until(() => stillIn.got.some(m => m.paired)); stillIn.ws.close();
+    await until(() => link.status().phones === 0);
+
+    // USB: the watcher maps the phone's 8444 to our app port; through it (this PC's loopback) a probe is answered and not
+    // counted, and { usb: 1 } gets in with no code
+    assert.deepEqual(usbAsked, [[8444, st.wsPort]]);
+    await until(() => link.status().usb === 1);
+    const probe = await open(undefined, st.wsPort);
+    probe.ws.send(JSON.stringify({ probe: 1 }));
+    assert.equal(await closed(probe.ws), 1000);
+    assert.deepEqual(probe.got, [{ usb: 1, name: st.name, id: st.id }]);
+    assert.equal(link.status().phones, 0, 'a probe is not a phone');
+    const cable = await open(undefined, st.wsPort);
+    cable.ws.send(JSON.stringify({ usb: 1 }));
+    await until(() => cable.got.some(m => m.paired));
+    assert.equal(link.status().phones, 1);
+    cable.ws.close();
+    await until(() => link.status().phones === 0);
+
+    // the beacon reached us with the app port and the PC's id
+    await until(() => heard.length > 0, 3000);
+    assert.deepEqual(heard[0], { name: st.name, wsPort: st.wsPort, id: st.id });
+  } finally {
+    await link.close();
+    ear.close();
+  }
+});
+
+test('adb: the phones ready, each mapped once (again after a while), none without adb', async () => {
+  assert.deepEqual(pn.parseAdbDevices('List of devices attached\nR5CX72E0Y5R\tdevice\nemulator-5554\toffline\nABC\tunauthorized\nXYZ device\n\n'), ['R5CX72E0Y5R', 'XYZ']);
+  const calls = [], counts = [];
+  let devices = 'List of devices attached\nAAA\tdevice\n';
+  const runner = async (cmd, args) => { calls.push(args.join(' ')); return args[0] === 'devices' ? { code: 0, out: devices } : { code: 0, out: '' }; };
+  const w = pn.watchAdbPhones(8444, 8450, n => counts.push(n), { every: 5, renew: 1e9, runner });
+  await until(() => calls.filter(c => c.startsWith('-s')).length === 1);
+  devices += 'BBB\tdevice\n';
+  await until(() => calls.filter(c => c.startsWith('-s')).length === 2);
+  await new Promise(r => setTimeout(r, 40));
+  w.stop();
+  assert.deepEqual(calls.filter(c => c.startsWith('-s')), ['-s AAA reverse tcp:8444 tcp:8450', '-s BBB reverse tcp:8444 tcp:8450'], 'each phone once');
+  assert.deepEqual(counts, [1, 2]);
+  const none = []; const w2 = pn.watchAdbPhones(8444, 8450, n => none.push(n), { every: 5, runner: async () => ({ code: -1, out: '' }) });
+  await until(() => none.length === 1); w2.stop();
+  assert.deepEqual(none, [0]);
 });

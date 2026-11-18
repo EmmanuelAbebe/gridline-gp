@@ -1,0 +1,11 @@
+/* the phone-wheel app's centring prompt (CentrePrompt.tsx): over the middle of the driving screen, the pedals free */
+.centre-prompt {
+  position: fixed; left: 26%; right: 26%; top: 12%; bottom: 12%; z-index: 8;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: color-mix(in srgb, var(--bg) 94%, transparent); border: 1px solid var(--line); border-radius: var(--radius-m);
+  text-align: center;
+}
+.centre-prompt .wheel { width: min(28vh, 120px); height: auto; color: var(--text); transition: transform 40ms linear; }
+.centre-prompt .wheel.lock { color: var(--brake); }
+.centre-prompt p { margin: 0; color: var(--text); font-size: var(--text-l); }
+.centre-prompt .skip { background: none; border: none; color: var(--muted); font-size: var(--text-s); text-decoration: underline; }

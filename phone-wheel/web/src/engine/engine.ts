@@ -13,9 +13,13 @@
 //               left, o its seconds left;
 //   phone → PC  + e, eq while the driver taps the screen's map row (ecu(): 0..3 a map, 4 AUTO, 5 MANUAL; eq its sequence
 //               number, sent for ECU_SEND ms so a dropped message doesn't lose it);  GET /check?t= tells a refused socket "wrong pairing code" apart
+// The phone-wheel app (2026-11-17, pairing.ts): plain ws://<PC>:<wsPort>/app, first message { t: pairing code }, answered
+// { paired, name, id } before anything else; a wrong code closes it with 4003 (= 'unpaired', no retry: the app asks again).
 import { steerCurve, bitOf, CAR_KINDS, type CarKind, type Config, type ButtonId } from '../settings/settings.ts';
 import { idlePlan, planFeedback, type Fx } from './haptics.ts';
 import { createPresence, type Away } from './presence.ts';
+import { currentPc, transport, usbPc } from './pairing.ts';
+import { isApp, vibrate as motor } from './native.ts';
 
 export type Phase = 'idle' | 'connecting' | 'connected' | 'lost' | 'unpaired';
 export interface Status { phase: Phase; retryAt: number; attempts: number }
@@ -27,7 +31,7 @@ export const dash = { g: '', q: 0, r: 0, v: 0, n: 0, e: -1, m: 'A', b: 0, k: 0, 
 // the game's ECU maps in order (src/sim/tuning.js ECU.maps)
 export const ECU_MAPS = ['HARVEST', 'BALANCED', 'ATTACK', 'QUALI'] as const;
 export const ECU_SHORT = ['HARV', 'BAL', 'ATK', 'QUALI'] as const;
-export const link = { rtt: null as number | null, rttMax: null as number | null, hz: 0, gap: 0, sendGap: 0, quality: '' as '' | 'good' | 'fair' | 'poor' | 'stalled' };
+export const link = { via: '' as '' | 'usb' | 'net' | 'page', rtt: null as number | null, rttMax: null as number | null, hz: 0, gap: 0, sendGap: 0, quality: '' as '' | 'good' | 'fair' | 'poor' | 'stalled' };
 let status: Status = { phase: 'idle', retryAt: 0, attempts: 0 };
 export const getStatus = () => status;
 
@@ -51,7 +55,7 @@ let rawDeg = 0, smoothDeg = 0, offsetDeg = 0;
 let lastOrientation = 0, lastGravity = 0;
 const held = new Map<number, number>();       // on-screen button index → bit it presses
 let buttonsKey = '';
-let ws: WebSocket | null = null, started = false, retryTimer = 0;
+let ws: WebSocket | null = null, started = false, retryTimer = 0, ready = false;   // ready: the app's code was taken
 const PING_EVERY = 500;                        // ms between round-trip probes
 const listeners = new Set<(s: Status) => void>();
 
@@ -98,7 +102,7 @@ export function center() {
 
 // ---------- force feedback: the game's {fx} → vibration (not while Settings is open, unless it is a test)
 let fxPlan = idlePlan(), testUntil = 0, testTimer = 0;
-const vibrate = (p: number[]) => { try { navigator.vibrate?.(p.length ? p : 0); } catch { /* not allowed yet */ } };
+const vibrate = (p: number[]) => motor(p);
 // Full lock is felt from the phone's own steering (2026-10-26): at once, with any game or server, and never cut short by
 // the wheel's own reading folding back. The game's l / ls are ignored; the rest of its message is kept for 150 ms.
 const LOCK = { on: 0.98, off: 0.94, renew: 50, fresh: 150 };
@@ -242,7 +246,7 @@ function watchPresence(e: DeviceMotionEvent) {
   if (!g || g.x == null || g.y == null || g.z == null || state.paused || state.preview || !cfg?.layout.putDown) return;
   const before = state.away;
   state.away = presence.sample({ ax: g.x, ay: g.y, az: g.z, rate: r ? Math.hypot(r.alpha ?? 0, r.beta ?? 0, r.gamma ?? 0) : 0 }, performance.now());
-  if (state.away && !before) { held.clear(); pulses = []; try { navigator.vibrate?.([120, 80, 120]); } catch { /* no motor */ } awayListeners.forEach((fn) => fn(state.away)); }
+  if (state.away && !before) { held.clear(); pulses = []; motor([120, 80, 120]); awayListeners.forEach((fn) => fn(state.away)); }
 }
 // "I'm here": the inputs flow again (straight ahead stays where the Center button put it)
 // Settings → Layout preview of the screen (and the desktop preview, which has no sensors)
@@ -291,16 +295,22 @@ function noteSend(now: number) {
 // ---------- connection: connect, and after a drop retry (1 s, or 3 s when the pairing code was refused)
 function connect() {
   clearTimeout(retryTimer);
-  const t = encodeURIComponent(getToken());
+  const app = isApp(), t = encodeURIComponent(getToken());
+  const plan = transport({ app, protocol: location.protocol, host: location.host, token: getToken(), pc: app ? currentPc() : null, usb: app && !!usbPc() });
+  ready = false; link.via = plan?.via ?? '';
+  if (!plan) { ws = null; setStatus({ phase: 'unpaired', attempts: 0 }); return; }   // the app with no PC picked yet
   setStatus({ phase: 'connecting', attempts: status.attempts + 1 });
-  const sock = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?t=${t}`);
+  const sock = new WebSocket(plan.url);
   ws = sock;
-  sock.onopen = () => {
+  const linked = () => {
+    ready = true;
     rtts.length = 0; pingSent.clear(); link.rtt = link.rttMax = null; lastPong = performance.now();
     setStatus({ phase: 'connected', attempts: 0 });
   };
+  sock.onopen = () => { if (plan.hello) sock.send(plan.hello); else linked(); };
   sock.onmessage = (e) => {
     let d: unknown = null; try { d = JSON.parse(e.data); } catch { return; }
+    if (!ready) { if (d && (d as { paired?: unknown }).paired) linked(); return; }
     if (d && typeof (d as { pong?: unknown }).pong === 'number') onPong(d as { pong: number }, performance.now());
     else if (d && typeof (d as { fx?: unknown }).fx === 'object') feedback((d as { fx: Fx }).fx);
     else if (d && typeof (d as { dash?: unknown }).dash === 'object') setDash((d as { dash: Record<string, unknown> }).dash);
@@ -309,10 +319,17 @@ function connect() {
       sock.send(JSON.stringify({ cfg, scr: { w: Math.max(innerWidth, innerHeight), h: Math.min(innerWidth, innerHeight) } }));
     else if (d && typeof (d as { setLayout?: unknown }).setLayout === 'object') layoutFromGame?.((d as { setLayout: Record<string, unknown> }).setLayout);
   };
-  sock.onclose = async () => {
+  sock.onclose = async (ev) => {
     if (ws !== sock) return;                    // replaced by reconnect()
+    ready = false;
     feedback({});                               // nothing more is coming: let the motor stop
     setDash({});
+    if (app) {                                  // the app: the PC says why (4003 = wrong code: wait for a new one)
+      if (ev.code === 4003) { setStatus({ phase: 'unpaired', retryAt: 0 }); return; }
+      setStatus({ phase: 'lost', retryAt: performance.now() + 1000 });
+      retryTimer = window.setTimeout(connect, 1000);
+      return;
+    }
     // a browser can't see why a WebSocket failed, so ask whether the pairing code is the problem
     let paired: boolean | null = null;
     try { paired = (await fetch(`/check?t=${t}`, { cache: 'no-store' })).ok; } catch { paired = null; }
@@ -340,7 +357,7 @@ export function start() {
   window.addEventListener('devicemotion', onMotion);
   connect();
   setInterval(() => {
-    if (!ws || ws.readyState !== 1) return;
+    if (!ws || ws.readyState !== 1 || !ready) return;
     const p = state.paused;                     // settings open: pedals and buttons let go, steering stays live
     const now = performance.now(), a = state.away;
     const msg: Record<string, number> = a ? { s: 0, g: 0, b: 0, k: 0, a }   // put down / dropped: nothing but the reason

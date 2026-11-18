@@ -1,0 +1,31 @@
+/* The phone-wheel app's PC picker and QR scanner (PcPicker.tsx, QrScan.tsx): theme.css variables only. */
+.pcs { justify-content: flex-start; overflow-y: auto; gap: 12px; padding: 16px 24px; }
+.pcs h1 { font-size: var(--text-l); }
+.pcs .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: center; }
+.pcs input.code {
+  font: inherit; font-size: var(--text-l); letter-spacing: 0.08em; text-align: center; width: 13em; padding: 10px 12px;
+  background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius-s);
+}
+.pcs button svg { vertical-align: -3px; }
+.pc-list { list-style: none; margin: 0; padding: 0; width: min(520px, 100%); display: flex; flex-direction: column; gap: 8px; }
+.pc-list li { display: flex; gap: 8px; }
+.pc-list li > button:first-child {
+  flex: 1; display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; text-align: left; gap: 2px 12px;
+  padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-s); color: var(--text);
+}
+.pc-list li > button.on { border-color: var(--accent); }
+.pc-list b { font-size: var(--text-m); }
+.pc-list span { grid-row: 2; color: var(--muted); font-size: var(--text-s); }
+.pc-list em { grid-row: 1 / 3; grid-column: 2; align-self: center; font-style: normal; font-size: var(--text-s); color: var(--good); }
+.pc-list .offline b { color: var(--muted); }
+.pc-list .forget { padding: 0 14px; }
+.pc-list .searching { color: var(--muted); font-size: var(--text-m); justify-content: center; padding: 10px; }
+.pcs.scan { padding: 0; justify-content: center; background: #000; }
+.pcs.scan video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pcs.scan .scan-bar {
+  position: absolute; left: 0; right: 0; bottom: 0; display: flex; gap: 12px; align-items: center; justify-content: space-between;
+  padding: 10px 16px; background: color-mix(in srgb, var(--bg) 85%, transparent); color: var(--text); font-size: var(--text-m);
+}
+.pcs.scan .warn { position: absolute; top: 12px; left: 16px; right: 16px; background: var(--bg); padding: 8px; border-radius: var(--radius-s); }
+.start .pc-line { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: var(--text-m); }
+.start .pc-line b { color: var(--text); }

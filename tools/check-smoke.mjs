@@ -78,6 +78,8 @@ const checks = [
   // (where the phone server ran) the race wheel's map row: a tap on ATTACK → the ECU on MANUAL, map 2
   // (the same) the phone designer: the phone page in a frame with the editor, DONE sends the layout to the phone
   ['phone designer edits and sends the layout', !r.phone || r.phone.error || (r.phone.design?.frame && r.phone.design.boxes >= 8 && r.phone.design.sent && r.phone.design.closed)],
+  // (the same) the phone-wheel app's plain ws:// port: the short code pairs it, its steering reaches the game
+  ['phone-wheel app pairs with the short code over ws:// and steers', !r.phone || r.phone.error || (r.phone.app?.paired && /^\w{4}-\w{4}$/.test(r.phone.app.code) && r.phone.app.steer < -0.2)],
   ['phone map tap reaches the ECU', !r.phone || r.phone.error || (r.phone.ecu?.mode === 'manual' && r.phone.ecu?.map === 2)],
   ['phone steers through the steering assist', !r.phone || r.phone.error || (r.phone.assist?.preset === 'balanced' && (r.phone.assist.kmh < 80 || r.phone.assist.steer < 0.9))],
 ];

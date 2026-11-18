@@ -13,7 +13,7 @@ which shows up in the browser as a virtual Xbox 360 controller.
 Turning the prototype into a production-grade game. Agreed order: (1) foundation [done: modules, Vite, tests],
 (2) sim-cade physics in 4 parts: [done] engine/gearbox/downforce/slipstream; [done] tyre + chassis model;
 [done] AI on the same chassis (racing line, racecraft, mistakes, difficulty); [done 2026-10-19] tuning screen = the garage (setup + open mods + livery), (3) merge the Phone-wheel project into this one ([done 2026-10-19] server inside Electron,
-pairing from the settings menu; [done 2026-10-19] force feedback = phone vibration; still to do: rev lights on the phone, BOX button on the phone, wheels' pedal axes per device; [done 2026-10-28] button mapping per device, Settings → Buttons), (4) car/world visuals: [done 2026-10-14] brake lights, cockpit view (user's seat: eye 0.33 m back / 0.77 m high, wheel 0.675 m high; wheel at x 0.18 so the arms reach it, halo visible, driver's arms/legs),
+pairing from the settings menu; [done 2026-10-19] force feedback = phone vibration; still to do: rev lights on the phone, BOX button on the phone, wheels' pedal axes per device; [done 2026-10-28] button mapping per device, Settings → Buttons; [done 2026-11-17, branch phone-wheel-app, waiting for the user's review before any release] the phone-wheel Android app), (4) car/world visuals: [done 2026-10-14] brake lights, cockpit view (user's seat: eye 0.33 m back / 0.77 m high, wheel 0.675 m high; wheel at x 0.18 so the arms reach it, halo visible, driver's arms/legs),
 F1-style curved car with textures; halo = one swept `tube` hoop (oval fairing section, teardrop from above, legs behind the shoulders) + a curved centre pillar (design v8, 2026-10-19); still to do: crash physics, scenery, (5) HUD, menus, presentation.
 
 ## Files
@@ -1227,6 +1227,36 @@ showed MODIFIED only because of it).
   and owns the settings (Settings → Feedback: on, strength, per effect, test buttons). The standalone Python server
   sends no feedback (a browser game can't reach it).
 - In a plain browser there is no phone server: run phone-wheel/server.py as before (its uinput pad is a controller).
+- The phone-wheel Android app (2026-11-17; the user's brief phone-wheel-app-brief.md: Android only, a sideloaded APK on GitHub
+  Releases, the browser page stays as the fallback, plain ws:// on the LAN with the pairing code, name "phone-wheel", a game-
+  controller icon, own version 1.0.0 / versionCode 1, tags `phone-wheel-v*`): `phone-wheel/app/` = Capacitor 8.6.0 (stay on 8)
+  around phone-wheel/web/dist (`capacitor.config.json` webDir ../web/dist, androidScheme http: http://localhost is a secure
+  context, so motion sensors work and ws:// isn't mixed content; `package.json` = the app's version + versionCode, read by
+  android/app/build.gradle; `icon.py` draws every launcher PNG with PIL). `android/` is committed (Capacitor's own .gitignore
+  leaves out builds and the copied page): manifest sensorLandscape, VIBRATE / CAMERA / multicast permissions,
+  `network_security_config.xml` cleartext (a config can't name LAN ranges), MainActivity = screen kept on + immersive,
+  `PhoneWheelPlugin.java` = lockRotation({lock}) (Layout → Lock rotation while driving), vibrate(pattern) (VibrationEffect waveform: @capacitor/haptics has no patterns) + the beacon
+  listener (UDP 8445, multicast lock, event 'beacon' {data, ip}); no npm Capacitor plugins. Release signing from env
+  PHONE_WHEEL_KEYSTORE_FILE / _PASSWORD / PHONE_WHEEL_KEY_ALIAS (unsigned without). Game side (phone-link.cjs): `appDoor` =
+  plain http + WebSocket on `wsPort` (https port + 1, normally 8444; usb: 127.0.0.1 + its own adb reverse), path /app, first
+  message {t: code} within 5 s (`codeMatches`: the full token or `appCode(token)` = 8 Crockford base32 characters ABCD-EFGH,
+  typed any case / without the dash) → {paired: 1, name, id}, then the same handlers as /ws (`phonesNow()` = both kinds);
+  wrong code = close 4003, 5 wrong a minute per address = 429 for the minute. `phone-beacon.cjs` (dgram, no dependency):
+  {pw: 1, name (hostname), wsPort, id (`phone-pc-id` in the data dir)} every 1 s to every interface's broadcast address +
+  255.255.255.255 (not over USB); the QR link gains &w=<wsPort>&i=<id>. USB on any link (2026-11-17; user: "allow usb … connect
+  via qr code, address or a script that automatically connects the phone and the game when detected"): phone-net.cjs
+  `watchAdbPhones(8444, wsPort)` (`adb devices` every 3 s, `adb -s <serial> reverse` once per new phone, all again every 30 s;
+  `parseAdbDevices`) → st.usb = phones mapped; through it connections come from loopback, where {probe: 1} → {usb: 1, name, id}
+  + close (never a phone) and {usb: 1} = in without a code; loopback never locked out. Over USB the phone-side ports are fixed:
+  the page 8443 (keepAdbReverse(port, …, phonePort)), the app 8444 (QR w in USB mode). Test runs pass a no-op `watchUsb`
+  (main.cjs smoke / track shots, tests) so they never remap the player's phone. status() adds wsPort, code, name, id; Settings →
+  Controller shows the code under the QR. Page side: phone-wheel/CLAUDE.md. CI: `.github/workflows/phone-wheel-app.yml`
+  (tags phone-wheel-v*, workflow_dispatch, pushes touching the app / page / lockfile): JDK 21, the runner's SDK + platform 36,
+  phone:build, cap sync, assembleRelease signed from the secrets, apksigner verify + aapt2 version check, artifact; on a tag
+  `gh release create … --latest=false` with .github/phone-wheel-release-notes.md (the game's update check ignores these tags:
+  its parser only takes v1.2.3). Tests: tests/phone-link.test.js (code, beacon, the plain listener end to end), web
+  test/pairing.test.ts; smoke: a fake app phone pairs with the short code over ws:// and steers (check-smoke).
+  Local APK builds: a JDK (the machine's Java 21 is a JRE: no javac) + Android SDK, e.g. in a scratchpad.
 - The phone page itself (2026-10-19): `phone-wheel/web/` (React + TypeScript + Vite; see phone-wheel/web/README.md and
   phone-wheel/CLAUDE.md). `npm run build` also builds it (`phone:build`; `phone:dev` = PC preview with fake tilt,
   `phone:watch`); phone-link.cjs serves `web/dist` at `/` + `/assets/` (the old Preact page and `/v1`, `/classic` were removed 2026-10-21). `npm run typecheck`

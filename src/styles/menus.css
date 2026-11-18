@@ -75,6 +75,7 @@ table.res i{display:inline-block;width:4px;height:14px;vertical-align:-2px;margi
 .dev-qr svg{display:block;width:100%;height:100%}
 .dev-steps{flex:1 1 220px;display:grid;gap:6px;min-width:0}
 .dev-url{font-size:12px;word-break:break-all;color:var(--text);background:#1d232b;padding:4px 6px;border-radius:3px;user-select:all}
+.dev-code{display:inline-block;font-size:20px;letter-spacing:.12em;color:var(--amber,#ffb000);background:#1d232b;padding:4px 10px;border-radius:3px;user-select:all;margin:2px 0 6px}
 .dev-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--rule)}
 .dev-row.active b{color:var(--amber)}
 .dev-row p.note{margin:2px 0 0}

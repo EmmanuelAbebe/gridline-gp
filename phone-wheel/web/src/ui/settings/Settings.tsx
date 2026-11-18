@@ -15,7 +15,8 @@ const TABS = ['Steering', 'Pedals', 'Buttons', 'Feedback', 'Layout', 'Profiles']
 type Tab = (typeof TABS)[number];
 export interface TabProps { cfg: Config; update: Update; editLayout?: () => void; car?: CarKind }
 
-export function Settings({ store, setStore, cfg, car = 'hybrid', update, close, editLayout }: { store: Store; setStore: React.Dispatch<React.SetStateAction<Store>>; cfg: Config; car?: CarKind; update: Update; close: () => void; editLayout: () => void }) {
+// (openPcs: the phone-wheel app's PC picker, App.tsx)
+export function Settings({ store, setStore, cfg, car = 'hybrid', update, close, editLayout, openPcs }: { store: Store; setStore: React.Dispatch<React.SetStateAction<Store>>; cfg: Config; car?: CarKind; update: Update; close: () => void; editLayout: () => void; openPcs?: () => void }) {
   const [tab, setTab] = useState<Tab>(() => {
     try { const t = sessionStorage.getItem('pw-tab') as Tab; return TABS.includes(t) ? t : TABS[0]; } catch { return TABS[0]; }
   });
@@ -25,6 +26,7 @@ export function Settings({ store, setStore, cfg, car = 'hybrid', update, close, 
       <nav>
         {TABS.map((t) => <button key={t} className={t === tab ? 'on' : ''} onClick={() => pick(t)}>{t}</button>)}
         <div className="grow" />
+        {openPcs && <button onClick={openPcs}>PC</button>}
         <div className="profile-name">{store.active}</div>
         <button className="primary" onClick={close}>Done</button>
       </nav>

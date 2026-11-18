@@ -11,8 +11,21 @@
 // active profile, its screen in landscape) → onConfig; setLayout(l) sends { setLayout: { free, groups, labels } } and
 // the phone puts it on its active profile.
 //
+// The phone-wheel app (2026-11-17, phone-wheel/app: the same page in an Android app): plain ws:// on its own port beside
+// the https one (wsPort, normally 8444; the app's WebView sees motion sensors without https), path /app. Its first
+// message must be { t: the pairing code } (the full token from the QR link, or the short code `code` shown in Settings →
+// Controller, appCode()); answered { paired: 1, name, id } and from then on the same messages as /ws; a wrong code closes it
+// with 4003 (and 5 wrong codes a minute from one address on the network shut that address out for the minute). phone-beacon.cjs
+// broadcasts { name, wsPort, id } every second (not over USB) so the app can list the PCs on the network.
+// USB (2026-11-17, any link): phone-net.cjs watchAdbPhones maps every plugged-in phone's localhost:APP_PHONE_PORT (8444)
+// to wsPort, so the app finds the game there by itself. Connections that come through it arrive from this PC's own
+// loopback, which nothing on the network can do: there { probe: 1 } is answered { usb: 1, name, id } and closed (the app
+// looking, never counted as a phone), and { usb: 1 } is let in without a code (the cable and the phone's own "allow USB
+// debugging" prompt are the pairing). In USB mode the QR link's w is that phone-side port.
+//
 //   const link = createPhoneLink({ dataDir, pagesDir, onInput, onStatus, onConfig });
 //   await link.start({ link: 'wifi' | 'bluetooth' | 'usb', port }); link.status(); link.feedback(fx); link.dash(d); await link.stop();
+//   (+ beacon: { port, targets } to send the beacon elsewhere, watchUsb: a stand-in for the adb watcher: the tests)
 const fs = require('node:fs');
 const path = require('node:path');
 const net = require('node:net');
@@ -21,7 +34,9 @@ const https = require('node:https');
 const crypto = require('node:crypto');
 const { WebSocketServer } = require('ws');
 const QRCode = require('qrcode');
+const os = require('node:os');
 const pn = require('./phone-net.cjs');
+const { createBeacon, BEACON_PORT } = require('./phone-beacon.cjs');
 
 // Bit i of the phone's `k` = BUTTONS[i] (phone-wheel/web/src/settings/settings.ts, phonewheel/protocol.py)
 const BUTTONS = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'BACK', 'START', 'GUIDE', 'LS', 'RS', 'UP', 'DOWN', 'LEFT', 'RIGHT'];
@@ -80,6 +95,37 @@ function ensureCert(dataDir, ip) {
   return { cert: certPem, key: keyPem };
 }
 
+// The app's short pairing code: 8 letters / digits (Crockford base32: no I, L, O, U) from the token, so it changes with it.
+// Typed on the phone as ABCD-EFGH; case, spaces and dashes don't matter. 40 bits + the lock-out below on a home network.
+const B32 = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+function appCode(token) {
+  const h = crypto.createHash('sha256').update('phone-wheel-app:' + token).digest();
+  let bits = 0, n = 0, out = '';
+  for (const byte of h) { bits = (bits << 8) | byte; n += 8; while (n >= 5 && out.length < 8) { n -= 5; out += B32[(bits >> n) & 31]; } if (out.length >= 8) break; }
+  return out.slice(0, 4) + '-' + out.slice(4);
+}
+const plainCode = c => String(c).toUpperCase().replace(/[\s-]/g, '').replace(/[IL]/g, '1').replace(/O/g, '0');
+// the app's first message: the full token or the short code
+function codeMatches(given, token) {
+  if (typeof given !== 'string' || !given || given.length > 64 || !token) return false;
+  const same = (a, b) => a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  return same(given, token) || same(plainCode(given), plainCode(appCode(token)));
+}
+// this PC's id in the beacon (kept: the app remembers which PC it paired with)
+function pcId(dataDir) {
+  const p = path.join(dataDir, 'phone-pc-id');
+  try { const t = fs.readFileSync(p, 'utf8').trim(); if (/^[\w-]{8,64}$/.test(t)) return t; } catch {}
+  const t = crypto.randomBytes(9).toString('base64url');
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.writeFileSync(p, t);
+  return t;
+}
+const PAGE_PHONE_PORT = 8443;       // the browser page's port on the phone over USB (adb reverse → port), whatever port we got
+const APP_PHONE_PORT = 8444;        // the app's port on the phone over USB (adb reverse → wsPort): phone-wheel/web pairing.ts APP_PORT
+const loopback = ip => ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+const APP_AUTH_MS = 5000;           // the app's socket must give its code within this
+const LOCKOUT = { tries: 5, ms: 60000 };   // wrong codes per address per minute before it is shut out for the minute
+
 const CFG_MAX = 64 * 1024;          // bytes: a phone's profile is a few KB
 // a phone's answer to askLayout: { cfg: its profile, scr: { w, h } } (kept as plain data; the game checks it again)
 function parseConfig(text) {
@@ -90,10 +136,10 @@ function parseConfig(text) {
   return { cfg: d.cfg, scr: ok(w) && ok(h) ? { w: Math.round(w), h: Math.round(h) } : null };
 }
 
-function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () => {}, onConfig = () => {} }) {
-  let st = idle(), servers = null, token = null, btWatch = null, adb = null;
+function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () => {}, onConfig = () => {}, beacon: beaconOpts = {}, watchUsb = pn.watchAdbPhones }) {
+  let st = idle(), servers = null, token = null, btWatch = null, adb = null, adbApp = null, beacon = null, pc = null;
   const input = { s: 0, g: 0, b: 0, k: 0, t: 0 };
-  function idle() { return { running: false, link: null, url: '', qr: '', port: 0, ip: '', phones: 0, rtt: null, hz: 0, gap: 0, note: '', error: '' }; }
+  function idle() { return { running: false, link: null, url: '', qr: '', port: 0, wsPort: 0, code: '', name: '', id: '', usb: 0, ip: '', phones: 0, rtt: null, hz: 0, gap: 0, note: '', error: '' }; }
   const status = () => ({ ...st });
   const changed = () => onStatus(status());
   const release = () => { if (input.s || input.g || input.b || input.k) { Object.assign(input, { s: 0, g: 0, b: 0, k: 0 }); onInput({ s: 0, g: 0, b: 0, k: 0, a: input.a || 0 }); } };
@@ -166,6 +212,38 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
       release(); changed();
     });
   }
+
+  // ---- the phone-wheel app: plain ws:// on its own port, the code in the first message ----
+  const appWss = new WebSocketServer({ noServer: true, maxPayload: CFG_MAX });
+  const appPhones = new Set();      // app sockets past the code
+  const wrong = new Map();          // address → times of its wrong codes in the last minute
+  const lockedOut = ip => { const now = Date.now(), t = (wrong.get(ip) || []).filter(x => now - x < LOCKOUT.ms); wrong.set(ip, t); return t.length >= LOCKOUT.tries; };
+  function onAppUpgrade(req, socket, head) {
+    const url = new URL(req.url, 'http://x'), ip = socket.remoteAddress || '';
+    if (url.pathname !== '/app') { socket.end('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n'); return; }
+    // (loopback = USB: it needs no code, so it is never shut out)
+    if (!loopback(ip) && lockedOut(ip)) { socket.end('HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\n\r\n'); return; }
+    appWss.handleUpgrade(req, socket, head, ws => {
+      const timer = setTimeout(() => ws.close(4001, 'no pairing code'), APP_AUTH_MS);
+      ws.once('message', (data, binary) => {
+        clearTimeout(timer);
+        let m = {}; if (!binary && data.length <= 256) { try { m = JSON.parse(data.toString()) || {}; } catch {} }
+        const usb = loopback(ip);
+        if (usb && m.probe) { ws.send(JSON.stringify({ usb: 1, name: st.name, id: st.id })); ws.close(1000); return; }
+        if (!(usb && m.usb) && !codeMatches(m.t, token)) { wrong.get(ip)?.push(Date.now()) ?? wrong.set(ip, [Date.now()]); ws.close(4003, 'wrong pairing code'); return; }
+        ws.send(JSON.stringify({ paired: 1, name: st.name, id: st.id }));
+        appPhones.add(ws); ws.on('close', () => appPhones.delete(ws));
+        onPhone(ws);
+      });
+    });
+  }
+  const appDoor = http.createServer((req, res) => {
+    res.writeHead(426, { 'Content-Type': 'text/plain; charset=utf-8', Connection: 'close' }).end('This is Gridline GP\'s port for the phone-wheel app.');
+  });
+  appDoor.on('upgrade', onAppUpgrade);
+  // every connected phone: the browser page's sockets and the app's (once past the code)
+  const phonesNow = () => [...wss.clients, ...appPhones];
+
   const watchdog = setInterval(() => { if (performance.now() - input.t > WATCHDOG) release(); }, 100);
   watchdog.unref?.();
 
@@ -198,23 +276,26 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
   });
 
   async function publish(base) {
-    st.url = `${base}/?t=${token}`;
+    // (w, i: the app reads its port and the PC's id from the QR; over USB the phone's side of the adb mapping)
+    st.url = `${base}/?t=${token}&w=${st.link === 'usb' ? APP_PHONE_PORT : st.wsPort}&i=${st.id}`;
     st.qr = await QRCode.toString(st.url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
   }
 
   async function start({ link = 'wifi', port = 8443, renewCode = false } = {}) {
     await stop();
     token = pairingToken(dataDir, renewCode);
-    st = { ...idle(), running: true, link };
+    pc ??= pcId(dataDir);
+    st = { ...idle(), running: true, link, code: appCode(token), name: os.hostname().slice(0, 40), id: pc };
     try {
       if (link === 'usb') {
         // Chrome treats http://localhost as a secure page: no certificate, and only the phone (through adb) can reach it
         const srv = http.createServer(onRequest); srv.on('upgrade', onUpgrade);
         st.port = await listenFrom(srv, port, '127.0.0.1', 10); st.ip = 'localhost';
         servers = [srv];
-        await publish(`http://localhost:${st.port}`);
+        st.wsPort = await listenFrom(appDoor, port ? st.port + 1 : 0, '127.0.0.1', 10); servers.push(appDoor);
+        await publish(`http://localhost:${PAGE_PHONE_PORT}`);     // (the phone's side of the adb mapping)
         st.note = 'Plug the phone in with USB debugging on.';
-        adb = pn.keepAdbReverse(st.port, up => { st.note = up ? '' : 'Waiting for the phone over USB: plug it in, turn on USB debugging and accept the prompt (needs adb).'; changed(); });
+        adb = pn.keepAdbReverse(st.port, up => { st.note = up ? '' : 'Waiting for the phone over USB: plug it in, turn on USB debugging and accept the prompt (needs adb).'; changed(); }, PAGE_PHONE_PORT);
       } else {
         let ip;
         if (link === 'bluetooth') {
@@ -236,8 +317,12 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
         const door = frontDoor(tls, redirect);
         st.port = await listenFrom(door, port, '0.0.0.0', 10); st.ip = ip;
         servers = [door, tls];
+        st.wsPort = await listenFrom(appDoor, port ? st.port + 1 : 0, '0.0.0.0', 10); servers.push(appDoor);
+        beacon = createBeacon({ name: st.name, id: st.id, wsPort: st.wsPort, port: beaconOpts.port ?? BEACON_PORT, ...(beaconOpts.targets ? { targets: beaconOpts.targets } : {}) });
         await publish(`https://${ip}:${st.port}`);
       }
+      // the app over USB, whichever link: every phone plugged in gets localhost:8444 → our app port
+      adbApp = watchUsb(APP_PHONE_PORT, st.wsPort, n => { if (st.running && n !== st.usb) { st.usb = n; changed(); } });
     } catch (e) {
       const why = e.code === 'EADDRINUSE' ? `ports ${port}–${port + 10} are all in use` : e.message;
       await stop(); st.error = `Couldn't start the phone link: ${why}`;
@@ -249,7 +334,9 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
   async function stop() {
     if (btWatch) { clearInterval(btWatch); btWatch = null; }
     if (adb) { adb.stop(); adb = null; }
-    for (const ws of wss.clients) ws.terminate();
+    if (adbApp) { adbApp.stop(); adbApp = null; }
+    if (beacon) { beacon.stop(); beacon = null; }
+    for (const ws of [...wss.clients, ...appWss.clients]) ws.terminate();
     for (const s of servers || []) await new Promise(r => { s.close(() => r()); s.closeAllConnections?.(); });
     servers = null;
     release();
@@ -262,18 +349,18 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
   function feedback(fx) {
     if (!fx || typeof fx !== 'object') return;
     const text = JSON.stringify({ fx });
-    for (const ws of wss.clients) if (ws.readyState === 1 && ws.bufferedAmount < 4096) ws.send(text);
+    for (const ws of phonesNow()) if (ws.readyState === 1 && ws.bufferedAmount < 4096) ws.send(text);
   }
   // the dash (2026-10-26): { g gear, q queued downshift, r revs 0..1 (1 = shift now), v km/h, + the ECU (2026-10-31): n rpm,
   // e map index (−1 none), m 'A' / 'M', b battery %, k 1 deploying / −1 harvesting } or {} = not driving
   function dash(d) {
     if (!d || typeof d !== 'object') return;
     const text = JSON.stringify({ dash: d });
-    for (const ws of wss.clients) if (ws.readyState === 1 && ws.bufferedAmount < 4096) ws.send(text);
+    for (const ws of phonesNow()) if (ws.readyState === 1 && ws.bufferedAmount < 4096) ws.send(text);
   }
 
   // the game's phone designer: ask the phones for their layout / send them a new one
-  const toPhones = msg => { const text = JSON.stringify(msg); for (const ws of wss.clients) if (ws.readyState === 1) ws.send(text); };
+  const toPhones = msg => { const text = JSON.stringify(msg); for (const ws of phonesNow()) if (ws.readyState === 1) ws.send(text); };
   const askLayout = () => toPhones({ getCfg: 1 });
   function setLayout(l) {
     if (!l || typeof l !== 'object') return;
@@ -284,4 +371,4 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
   return { start, stop, status, feedback, dash, askLayout, setLayout, close: async () => { clearInterval(watchdog); await stop(); } };
 }
 
-module.exports = { createPhoneLink, parseMessage, parseConfig, pairingToken, ensureCert, BUTTONS };
+module.exports = { createPhoneLink, parseMessage, parseConfig, pairingToken, ensureCert, appCode, codeMatches, BUTTONS };

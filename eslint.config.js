@@ -13,7 +13,7 @@ const rules = {
   'valid-typeof': 'error',
 };
 export default [
-  { ignores: ['dist/', 'node_modules/', 'backup/', 'leaderboard/node_modules/', 'tools/blender/out/'] },   // (out/: scratch, git-excluded)
+  { ignores: ['dist/', 'node_modules/', 'backup/', 'leaderboard/node_modules/', 'tools/blender/out/', 'phone-wheel/app/android/'] },   // (out/: scratch, git-excluded; android/: the app's generated build)
   { files: ['src/sim/**/*.js'], languageOptions: { globals: {} }, rules },                     // the sim must not touch the browser
   { files: ['src/game/**/*.js', 'public/**/*.js'], languageOptions: { globals: { ...globals.browser } }, rules },
   { files: ['tools/**/*.mjs', 'tests/**/*.js', '*.config.js'], languageOptions: { globals: { ...globals.node } }, rules },

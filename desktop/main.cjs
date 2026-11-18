@@ -106,7 +106,9 @@ ipcMain.handle('app:is-fullscreen', e => BrowserWindow.fromWebContents(e.sender)
 // Cert and pairing code live in the app's profile (userData), the phone page in phone-wheel/.
 const { createPhoneLink } = require('./phone-link.cjs');
 const toPage = (channel, data) => { for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send(channel, data); };
+// (test runs leave a plugged-in phone's adb mappings alone: they belong to the player's own game)
 const phone = createPhoneLink({ dataDir: path.join(app.getPath('userData'), 'phone-wheel'), pagesDir: path.join(ROOT, 'phone-wheel'),
+  ...(smokeOut || shotsDir ? { watchUsb: () => ({ stop() {} }) } : {}),
   onInput: input => toPage('phone:input', input), onStatus: s => toPage('phone:status', s), onConfig: c => toPage('phone:config', c) });
 ipcMain.handle('phone:start', (_e, opts) => phone.start(opts));
 ipcMain.handle('phone:stop', () => phone.stop().then(() => phone.status()));
@@ -524,9 +526,23 @@ async function smokeTest(win) {
     ws.close();
     await new Promise(r => setTimeout(r, 400));
     const after = await win.webContents.executeJavaScript(`gridlineDebug.input()`);
+    // the phone-wheel app (phone-wheel/app): plain ws:// on the app port, the short pairing code first, then it steers
+    const appPhone = await (async () => {
+      const aw = new WebSocket(`ws://127.0.0.1:${st.wsPort}/app`), got = [];
+      aw.on('message', m => got.push(JSON.parse(m)));
+      await new Promise((r, j) => { aw.on('open', r); aw.on('error', j); });
+      aw.send(JSON.stringify({ t: st.code }));
+      for (let i = 0; i < 20 && !got.some(m => m.paired); i++) await new Promise(r => setTimeout(r, 50));
+      const feedApp = setInterval(() => aw.send(JSON.stringify({ s: -0.4, g: 0, b: 0, k: 0 })), 16);
+      await new Promise(r => setTimeout(r, 500));
+      const seenApp = await win.webContents.executeJavaScript(`gridlineDebug.input()`);
+      clearInterval(feedApp); aw.close();
+      await new Promise(r => setTimeout(r, 300));
+      return { paired: !!got.find(m => m.paired)?.paired, code: st.code, steer: seenApp.steer, kind: seenApp.kind };
+    })();
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('#setBody button')].find(b => b.textContent === 'Stop').click()`);
     await new Promise(r => setTimeout(r, 400));
-    return { link: st.link, port: st.port, qr: st.qr.startsWith('<svg'), seen, releasedSteer: after.steer, stopped: !phone.status().running, away: { ...awayShown, back: awayBack }, buttons: { live: buttonsLive, bound: buttonsBound }, ecu: { mode: ecu?.ecuMode, map: ecu?.ecuMap }, assist: { preset: assisted?.padAssist, steer: assisted?.steer, kmh: assisted?.kmh }, design,
+    return { link: st.link, port: st.port, qr: st.qr.startsWith('<svg'), seen, releasedSteer: after.steer, stopped: !phone.status().running, app: appPhone, away: { ...awayShown, back: awayBack }, buttons: { live: buttonsLive, bound: buttonsBound }, ecu: { mode: ecu?.ecuMode, map: ecu?.ecuMap }, assist: { preset: assisted?.padAssist, steer: assisted?.steer, kmh: assisted?.kmh }, design,
       feedback: { messages: fx.length, felt: [...new Set(fx.flatMap(f => Object.keys(f).filter(k => k !== 'kh' && f[k] > 0)))], endsAtZero: !!fx.length && !fx.at(-1).k && !fx.at(-1).o && !fx.at(-1).s } };
   })();
   // the race so far (the phone's full lock and gas, pauses, settings opened) driven again from its replay: the same car

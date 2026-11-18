@@ -23,6 +23,8 @@ test('the newest newer release; drafts never; pre-releases only for alpha / beta
   assert.equal(newestRelease(list, '0.1.0-alpha.3'), null, 'up to date');
   assert.equal(newestRelease([rel('v0.2.0-beta.1'), rel('v0.1.1')], '0.1.0').version, '0.1.1', 'a full release ignores betas');
   assert.equal(newestRelease(null, '0.1.0'), null);
+  // the phone-wheel app's own releases (tags phone-wheel-v1.0.0, …) are never the game's
+  assert.equal(newestRelease([rel('phone-wheel-v9.0.0', { prerelease: false }), rel('v0.1.0-alpha.2')], '0.1.0-alpha.1').version, '0.1.0-alpha.2');
 });
 
 test('checkForUpdate asks GitHub once and reports a failure', async () => {

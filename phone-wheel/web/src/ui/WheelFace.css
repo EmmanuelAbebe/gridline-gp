@@ -56,3 +56,10 @@
 .cluster.row { flex-direction: row; justify-content: center; gap: 8px; }
 .drive .cluster.row .auxbtn { width: auto; min-width: calc(var(--clu-btn) * 1.6); height: var(--maprow-h); border-radius: 10px; padding: 0 14px; }
 .cluster.row .utils { margin-top: 0; align-items: center; }
+/* the phone-wheel app: the screen is the reconnect button while there is no connection, with the link quality dot */
+.wscreen.tap { cursor: pointer; outline: 2px solid color-mix(in srgb, var(--brake) 55%, transparent); outline-offset: -2px; }
+.wscreen.tap:active { filter: brightness(1.3); }
+.wscreen .info { position: relative; }
+.wscreen .info .q { position: absolute; right: -9px; top: -3px; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.wscreen .info .q.good { background: var(--good); } .wscreen .info .q.fair { background: var(--fair); }
+.wscreen .info .q.poor, .wscreen .info .q.stalled { background: var(--poor); }

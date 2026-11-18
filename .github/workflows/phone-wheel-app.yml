@@ -1,0 +1,86 @@
+# The phone-wheel Android app (phone-wheel/app: the phone page phone-wheel/web in a Capacitor shell): builds the signed
+# release APK, checks it (apksigner verify, the version in it), keeps it as an artifact and, on a phone-wheel-v<version>
+# tag, attaches it to a GitHub release of its own (not marked latest: the game's v* releases keep that; a version with a
+# dash is a pre-release). The app has its own version (phone-wheel/app/package.json), apart from the game's.
+# Signing key from the secrets PHONE_WHEEL_KEYSTORE (base64 of the .jks), PHONE_WHEEL_KEYSTORE_PASSWORD (store = key
+# password) and PHONE_WHEEL_KEY_ALIAS; without them (a fork) the APK is unsigned and the job fails at the check.
+# Pushes that change the app or the page build it too (an artifact only, never a release).
+name: phone-wheel app
+
+on:
+  push:
+    tags: ['phone-wheel-v*']
+    branches: ['**']
+    paths: ['phone-wheel/app/**', 'phone-wheel/web/**', 'package.json', 'package-lock.json', '.github/workflows/phone-wheel-app.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Android SDK (the runner's, with the platform Capacitor 8 compiles against)
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+      - name: Version (a tag must match phone-wheel/app/package.json)
+        id: ver
+        run: |
+          v=$(node -p "require('./phone-wheel/app/package.json').version")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/phone-wheel-v* && "${GITHUB_REF#refs/tags/phone-wheel-v}" != "$v" ]]; then
+            echo "::error::tag ${GITHUB_REF#refs/tags/} but phone-wheel/app/package.json says $v"; exit 1
+          fi
+      - name: The phone page, copied into the app
+        run: |
+          npm run phone:build
+          cd phone-wheel/app && npx cap sync android
+      - name: Build the signed release APK
+        env:
+          PHONE_WHEEL_KEYSTORE: ${{ secrets.PHONE_WHEEL_KEYSTORE }}
+          PHONE_WHEEL_KEYSTORE_PASSWORD: ${{ secrets.PHONE_WHEEL_KEYSTORE_PASSWORD }}
+          PHONE_WHEEL_KEY_ALIAS: ${{ secrets.PHONE_WHEEL_KEY_ALIAS }}
+        run: |
+          if [ -n "$PHONE_WHEEL_KEYSTORE" ]; then
+            echo "$PHONE_WHEEL_KEYSTORE" | base64 -d > "$RUNNER_TEMP/phone-wheel.jks"
+            export PHONE_WHEEL_KEYSTORE_FILE="$RUNNER_TEMP/phone-wheel.jks"
+          fi
+          cd phone-wheel/app/android && ./gradlew assembleRelease --no-daemon
+          rm -f "$RUNNER_TEMP/phone-wheel.jks"
+      - name: Check the APK (signed, the right version)
+        run: |
+          apk=phone-wheel/app/android/app/build/outputs/apk/release/app-release.apk
+          test -f "$apk" || { echo "::error::no signed APK (app-release.apk): are the PHONE_WHEEL_* secrets set?"; ls -R phone-wheel/app/android/app/build/outputs/apk; exit 1; }
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$bt/apksigner" verify --verbose --print-certs "$apk"
+          "$bt/aapt2" dump badging "$apk" | head -3 | tee badging.txt
+          grep -q "versionName='${{ steps.ver.outputs.version }}'" badging.txt
+          grep -q "package: name='io.github.emmanuelabebe.phonewheel'" badging.txt
+          mkdir -p out && cp "$apk" "out/phone-wheel-${{ steps.ver.outputs.version }}.apk"
+          (cd out && sha256sum *.apk | tee SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phone-wheel-${{ steps.ver.outputs.version }}-apk
+          path: out/
+          if-no-files-found: error
+      - name: Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/phone-wheel-v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"; flags="--latest=false"
+          case "$tag" in *-*-*-*) flags="$flags --prerelease";; esac      # phone-wheel-v1.1.0-beta.1: a pre-release
+          gh release create "$tag" out/* $flags --title "phone-wheel ${{ steps.ver.outputs.version }} (Android)" --notes-file .github/phone-wheel-release-notes.md

@@ -14,6 +14,7 @@ import { EnergyStrip, RevStrip } from './RevStrip.tsx';
 import { AuxButton } from './AuxButton.tsx';
 import { Cluster, EnergyRow, MapRow, WheelScreen, liveButton } from './WheelFace.tsx';
 import { FullButton, ReconnectButton, SettingsButton, WheelButton } from './Parts.tsx';
+import { isApp } from '../engine/native.ts';
 import './Drive.css';
 
 export interface Slot { id: string; label: string; el: ReactNode }
@@ -30,7 +31,10 @@ export function slotsOf(cfg: Config, openSettings: () => void, preview: boolean,
   out.push({ id: 'screen', label: 'SCREEN', el: <WheelScreen cfg={cfg} preview={preview} car={car} /> });
   if (L.ecu) out.push(car === 'electric' ? { id: 'maps', label: 'ENERGY ROW', el: <EnergyRow /> } : { id: 'maps', label: 'ECU MAPS', el: <MapRow /> });
   cfg.buttons.forEach((b, i) => out.push({ id: `btn${i}`, label: b.label || b.bind, el: <AuxButton key={`${i}-${b.bind}-${b.toggle}`} index={i} btn={b} live={liveButton(car, b.bind)} /> }));
-  out.push(
+  // (the phone-wheel app: Settings only; centring is a prompt at each race start, reconnecting a tap on the screen, and the
+  // app is always full screen)
+  if (isApp()) out.push({ id: 'settings', label: 'SETTINGS', el: <SettingsButton open={openSettings} /> });
+  else out.push(
     { id: 'wheel', label: 'WHEEL', el: <WheelButton cfg={cfg} /> },
     { id: 'settings', label: 'SETTINGS', el: <SettingsButton open={openSettings} /> },
     { id: 'reconnect', label: 'RECONNECT', el: <ReconnectButton /> },
