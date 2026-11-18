@@ -18,6 +18,7 @@ const pn = require('../desktop/phone-net.cjs');
 const WebSocket = require('ws');
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'gridline-phone-'));
+const noUsb = () => ({ stop() {} });      // (never the real adb: a phone plugged into this PC is the player's)
 
 test('phone messages: clamped, masked, bad ones ignored', () => {
   assert.deepEqual(parseMessage(JSON.stringify({ s: -3, g: 0.5, b: 2, k: (1 << 20) | 5, p: 7 })).input, { s: -1, g: 0.5, b: 1, k: 5, a: 0 });
@@ -76,7 +77,7 @@ const until = async (cond, ms = 2000) => { const t0 = Date.now(); while (!cond()
 
 test('phone link server: pages, redirect, pairing, input, probes, release', async () => {
   const inputs = [], statuses = [];
-  const link = createPhoneLink({ dataDir: tmp(), pagesDir: path.join(ROOT, 'phone-wheel'), onInput: i => inputs.push(i), onStatus: s => statuses.push(s) });
+  const link = createPhoneLink({ dataDir: tmp(), pagesDir: path.join(ROOT, 'phone-wheel'), onInput: i => inputs.push(i), onStatus: s => statuses.push(s), watchUsb: noUsb });
   try {
     const st = await link.start({ link: 'wifi', port: 0 });
     assert.ok(st.running && st.port > 0 && !st.error, JSON.stringify(st));
@@ -152,9 +153,10 @@ test('the phone-wheel app: plain ws:// with the code first, the same input / fee
   await new Promise(r => ear.bind(0, '127.0.0.1', r));
   const inputs = [], configs = [];
   const link = createPhoneLink({ dataDir: tmp(), pagesDir: path.join(ROOT, 'phone-wheel'), onInput: i => inputs.push(i), onConfig: c => configs.push(c),
-    beacon: { port: ear.address().port, targets: () => ['127.0.0.1'] } });
-  const open = (code, port) => new Promise((resolve, reject) => {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/app`);
+    beacon: { port: ear.address().port, targets: () => ['127.0.0.1'] }, watchUsb: (phonePort, pcPort, onChange) => { usbAsked.push([phonePort, pcPort]); setTimeout(() => onChange(1), 10); return { stop() {} }; } });
+  const usbAsked = [];
+  const open = (code, port, host = '127.0.0.1') => new Promise((resolve, reject) => {
+    const ws = new WebSocket(`ws://${host}:${port}/app`);
     const got = [];
     ws.on('message', m => got.push(JSON.parse(m)));
     ws.on('open', () => { if (code !== undefined) ws.send(JSON.stringify({ t: code })); resolve({ ws, got }); });
@@ -198,9 +200,33 @@ test('the phone-wheel app: plain ws:// with the code first, the same input / fee
     const quiet = await open(undefined, st.wsPort);
     assert.equal(await closed(quiet.ws), 4001);
 
-    // five wrong codes in a minute shut this address out
-    for (let i = 0; i < 4; i++) { const w = await open('NOPE-NOPE', st.wsPort); assert.equal(await closed(w.ws), 4003); }
-    await assert.rejects(open(st.code, st.wsPort), /429/);
+    // five wrong codes in a minute shut an address on the network out (this PC's LAN address: not loopback, which is USB
+    // and never shut out)
+    for (let i = 0; i < 5; i++) { const w = await open('NOPE-NOPE', st.wsPort); assert.equal(await closed(w.ws), 4003); }
+    const lan = Object.values(os.networkInterfaces()).flat().find(a => a && a.family === 'IPv4' && !a.internal)?.address;
+    if (lan) {
+      for (let i = 0; i < 5; i++) { const w = await open('NOPE-NOPE', st.wsPort, lan); assert.equal(await closed(w.ws), 4003); }
+      await assert.rejects(open(st.code, st.wsPort, lan), /429/);
+    }
+    const stillIn = await open(st.code, st.wsPort);
+    await until(() => stillIn.got.some(m => m.paired)); stillIn.ws.close();
+    await until(() => link.status().phones === 0);
+
+    // USB: the watcher maps the phone's 8444 to our app port; through it (this PC's loopback) a probe is answered and not
+    // counted, and { usb: 1 } gets in with no code
+    assert.deepEqual(usbAsked, [[8444, st.wsPort]]);
+    await until(() => link.status().usb === 1);
+    const probe = await open(undefined, st.wsPort);
+    probe.ws.send(JSON.stringify({ probe: 1 }));
+    assert.equal(await closed(probe.ws), 1000);
+    assert.deepEqual(probe.got, [{ usb: 1, name: st.name, id: st.id }]);
+    assert.equal(link.status().phones, 0, 'a probe is not a phone');
+    const cable = await open(undefined, st.wsPort);
+    cable.ws.send(JSON.stringify({ usb: 1 }));
+    await until(() => cable.got.some(m => m.paired));
+    assert.equal(link.status().phones, 1);
+    cable.ws.close();
+    await until(() => link.status().phones === 0);
 
     // the beacon reached us with the app port and the PC's id
     await until(() => heard.length > 0, 3000);
@@ -209,4 +235,22 @@ test('the phone-wheel app: plain ws:// with the code first, the same input / fee
     await link.close();
     ear.close();
   }
+});
+
+test('adb: the phones ready, each mapped once (again after a while), none without adb', async () => {
+  assert.deepEqual(pn.parseAdbDevices('List of devices attached\nR5CX72E0Y5R\tdevice\nemulator-5554\toffline\nABC\tunauthorized\nXYZ device\n\n'), ['R5CX72E0Y5R', 'XYZ']);
+  const calls = [], counts = [];
+  let devices = 'List of devices attached\nAAA\tdevice\n';
+  const runner = async (cmd, args) => { calls.push(args.join(' ')); return args[0] === 'devices' ? { code: 0, out: devices } : { code: 0, out: '' }; };
+  const w = pn.watchAdbPhones(8444, 8450, n => counts.push(n), { every: 5, renew: 1e9, runner });
+  await until(() => calls.filter(c => c.startsWith('-s')).length === 1);
+  devices += 'BBB\tdevice\n';
+  await until(() => calls.filter(c => c.startsWith('-s')).length === 2);
+  await new Promise(r => setTimeout(r, 40));
+  w.stop();
+  assert.deepEqual(calls.filter(c => c.startsWith('-s')), ['-s AAA reverse tcp:8444 tcp:8450', '-s BBB reverse tcp:8444 tcp:8450'], 'each phone once');
+  assert.deepEqual(counts, [1, 2]);
+  const none = []; const w2 = pn.watchAdbPhones(8444, 8450, n => none.push(n), { every: 5, runner: async () => ({ code: -1, out: '' }) });
+  await until(() => none.length === 1); w2.stop();
+  assert.deepEqual(none, [0]);
 });

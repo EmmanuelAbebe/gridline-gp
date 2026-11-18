@@ -3,7 +3,7 @@
 // a new one asks for the pairing code from the game's Settings → Controller.
 import { useEffect, useState } from 'react';
 import { RiQrScan2Line } from 'react-icons/ri';
-import { choosePc, codeLooksRight, currentPc, forgetPc, normalizeCode, onPcs, pairedPcs, parseAddress, seenPcs, type Pc } from '../engine/pairing.ts';
+import { choosePc, codeLooksRight, currentPc, forgetPc, normalizeCode, onPcs, pairedPcs, parseAddress, seenPcs, usbPc, type Pc } from '../engine/pairing.ts';
 import { QrScan } from './QrScan.tsx';
 import './PcPicker.css';
 
@@ -19,7 +19,7 @@ export function PcPicker({ note, picked, close }: { note?: string; picked: () =>
   const [scanning, setScanning] = useState(false);
   const [err, setErr] = useState('');
 
-  const seen = seenPcs(), paired = pairedPcs(), now = currentPc();
+  const seen = seenPcs(), paired = pairedPcs(), now = currentPc(), usb = usbPc();
   const pairedById = new Map(paired.map((p) => [p.id, p]));
   const use = (pc: Pc) => { choosePc(pc); setErr(''); picked(); };
   function pick(p: { id: string; name: string; host: string; wsPort: number }) {
@@ -67,13 +67,17 @@ export function PcPicker({ note, picked, close }: { note?: string; picked: () =>
         </form>
         <div className="row"><button onClick={() => { setTyping(false); setErr(''); }}>Back</button></div>
       </> : <>
-        <p>On the PC: Gridline GP → Settings → Controller → Connect phone (Wi-Fi). Phone and PC on the same network.</p>
+        <p>On the PC: Gridline GP → Settings → Controller → Connect phone. Then plug the phone in with USB (USB debugging on):
+          it connects by itself. Or on the same network: pick the PC below.</p>
         <ul className="pc-list">
+          {usb
+            ? <li><button className="on" onClick={() => picked()}><b>{usb.name}</b><span>USB cable · no code needed</span><em>USB</em></button></li>
+            : <li className="searching">USB: plug the phone into the PC (USB debugging on)…</li>}
           {seen.map((p) => (
             <li key={p.id}><button className={now?.id === p.id ? 'on' : ''} onClick={() => pick(p)}>
               <b>{p.name}</b><span>{p.host}</span>{pairedById.has(p.id) && <em>PAIRED</em>}</button></li>
           ))}
-          {!seen.length && <li className="searching">Looking for Gridline GP on this network…</li>}
+          {!seen.length && <li className="searching">Network: looking for Gridline GP…</li>}
           {offline.map((p) => (
             <li key={p.id} className="offline"><button onClick={() => use(p)}><b>{p.name}</b><span>{p.host} · not heard</span><em>PAIRED</em></button>
               <button className="forget" onClick={() => forgetPc(p.id)} aria-label={`Forget ${p.name}`}>✕</button></li>

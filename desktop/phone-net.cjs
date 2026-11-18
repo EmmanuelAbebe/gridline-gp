@@ -121,10 +121,11 @@ function createBluetoothLink(want = 'auto') {
 }
 
 // USB: keep `adb reverse` in place (re-applied every 3 s, so unplugging and replugging just works). stop() ends it.
-function keepAdbReverse(port, onChange) {
+// (phonePort: the phone's side of the mapping, default the same port)
+function keepAdbReverse(port, onChange, phonePort = port) {
   let linked = null, timer = null, stopped = false;
   const tick = async () => {
-    const { code } = await run('adb', ['reverse', `tcp:${port}`, `tcp:${port}`], 5000);
+    const { code } = await run('adb', ['reverse', `tcp:${phonePort}`, `tcp:${port}`], 5000);
     if (stopped) return;
     if ((code === 0) !== linked) { linked = code === 0; onChange(linked); }
     timer = setTimeout(tick, 3000);
@@ -133,4 +134,33 @@ function keepAdbReverse(port, onChange) {
   return { stop() { stopped = true; clearTimeout(timer); } };
 }
 
-module.exports = { run, localIp, isBtIface, btAddress, parseDevices, matchPhones, nmcliReason, btPhones, btConnect, createBluetoothLink, keepAdbReverse, BT_CON };
+// `adb devices` → the serials of the phones ready (authorised: not 'unauthorized' / 'offline')
+function parseAdbDevices(text) {
+  return String(text).split('\n').slice(1).map(l => l.trim().split(/\s+/)).filter(p => p.length >= 2 && p[1] === 'device').map(p => p[0]);
+}
+// The phone-wheel app over USB (2026-11-17, whatever link the game uses): every phone plugged in with USB debugging gets
+// its localhost:phonePort mapped to our pcPort (adb reverse), so the app finds the game at localhost:8444 by itself.
+// Each new phone once, all of them again every `renew` ms (an adb server restart drops the mappings); onChange(n phones).
+// No adb on this PC: it tries again now and then, nothing else happens.
+function watchAdbPhones(phonePort, pcPort, onChange = () => {}, { every = 3000, renew = 30000, runner = run } = {}) {
+  let done = new Set(), timer = null, stopped = false, last = -1, since = Date.now();
+  const tick = async () => {
+    const { code, out } = await runner('adb', ['devices'], 5000);
+    if (stopped) return;
+    if (code !== 0) { if (last !== 0) { last = 0; onChange(0); } timer = setTimeout(tick, every * 4); return; }
+    if (Date.now() - since > renew) { done = new Set(); since = Date.now(); }
+    const now = parseAdbDevices(out);
+    done = new Set([...done].filter(s => now.includes(s)));
+    for (const s of now) if (!done.has(s)) {
+      const r = await runner('adb', ['-s', s, 'reverse', `tcp:${phonePort}`, `tcp:${pcPort}`], 5000);
+      if (stopped) return;
+      if (r.code === 0) done.add(s);
+    }
+    if (done.size !== last) { last = done.size; onChange(last); }
+    timer = setTimeout(tick, every);
+  };
+  tick();
+  return { stop() { stopped = true; clearTimeout(timer); } };
+}
+
+module.exports = { run, localIp, parseAdbDevices, watchAdbPhones, isBtIface, btAddress, parseDevices, matchPhones, nmcliReason, btPhones, btConnect, createBluetoothLink, keepAdbReverse, BT_CON };

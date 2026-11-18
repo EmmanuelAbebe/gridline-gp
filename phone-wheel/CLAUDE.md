@@ -145,6 +145,10 @@ Goal: use a Samsung Galaxy F23 as a tilt steering wheel for the browser game slo
   below 50 km/h: the live wheel drawing, "Hold the wheel straight", CENTRE (engine.center), "keep as it is"; gone above 60 km/h.
   Settings → Steering → Center now still works any time. Checked in Electron with window.androidBridge stubbed (Capacitor
   then reports android) and a fake PC.
+  USB (2026-11-17): pairing.ts `probeUsb` (a socket to the phone's localhost:8444 sending {probe: 1}; `readProbe`), `noteUsb` /
+  `usbPc`; App probes every 2 s while not connected, found = engine.reconnect() (and the picker, open for want of a PC, closes);
+  `transport(…, usb)` puts the cable first ({usb: 1} hello, no code; `link.via` 'usb' / 'net' / 'page'). Picker: a USB row on
+  top ("USB cable · no code needed" or "plug the phone into the PC…"); StartScreen: "PC: name over the USB cable".
 
 ## Status
 - Works end to end on the user's Linux PC (X11, Flatpak Chrome) as of 2026-10-04:

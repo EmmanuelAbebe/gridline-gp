@@ -2,17 +2,17 @@
 // game's QR link, typed addresses and codes, the paired PCs following a PC to a new address.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { choosePc, currentPc, decodeBeacon, forgetPc, normalizeCode, codeLooksRight, notePc, pairedPcs, parseAddress, parseQr,
+import { noteUsb, readProbe, usbPc, choosePc, currentPc, decodeBeacon, forgetPc, normalizeCode, codeLooksRight, notePc, pairedPcs, parseAddress, parseQr,
   resetPcs, seenPcs, transport, type Pc } from '../src/engine/pairing.ts';
 
 const PC: Pc = { id: 'abcdEFGH12', name: 'desk', host: '192.168.1.20', wsPort: 8444, code: 'ABCD-EFGH' };
 
 test('a browser tab keeps its own server (wss on https); the app opens ws:// to the PC it picked and sends the code first', () => {
   assert.deepEqual(transport({ app: false, protocol: 'https:', host: '192.168.1.20:8443', token: 'a b', pc: null }),
-    { url: 'wss://192.168.1.20:8443/ws?t=a%20b', hello: null });
+    { url: 'wss://192.168.1.20:8443/ws?t=a%20b', hello: null, via: 'page' });
   assert.equal(transport({ app: false, protocol: 'http:', host: 'localhost:8443', token: 't', pc: PC })!.url, 'ws://localhost:8443/ws?t=t', 'USB: http://localhost');
   assert.deepEqual(transport({ app: true, protocol: 'http:', host: 'localhost', token: '', pc: PC }),
-    { url: 'ws://192.168.1.20:8444/app', hello: '{"t":"ABCD-EFGH"}' });
+    { url: 'ws://192.168.1.20:8444/app', hello: '{"t":"ABCD-EFGH"}', via: 'net' });
   assert.equal(transport({ app: true, protocol: 'http:', host: 'localhost', token: '', pc: { ...PC, host: 'fe80::1' } })!.url, 'ws://[fe80::1]:8444/app');
   assert.equal(transport({ app: true, protocol: 'http:', host: 'localhost', token: 'x', pc: null }), null, 'no PC picked: nothing to open');
 });
@@ -55,5 +55,20 @@ test('paired PCs: picked, listed, followed to a new address by their beacon, for
   assert.deepEqual(seenPcs(now + 10000), [], 'not heard for a while: off the list');
   forgetPc(PC.id);
   assert.equal(currentPc(), null);
+  resetPcs();
+});
+
+test('USB: the game on the cable comes first, no code; a probe\'s answer read; appearing reported once', () => {
+  assert.deepEqual(transport({ app: true, protocol: 'http:', host: 'localhost', token: '', pc: PC, usb: true }),
+    { url: 'ws://localhost:8444/app', hello: '{"usb":1}', via: 'usb' });
+  assert.deepEqual(transport({ app: true, protocol: 'http:', host: 'localhost', token: '', pc: null, usb: true })!.via, 'usb', 'no PC picked: the cable is enough');
+  assert.equal(transport({ app: true, protocol: 'http:', host: 'localhost', token: '', pc: PC, usb: false })!.via, 'net');
+  assert.deepEqual(readProbe('{"usb":1,"name":"desk","id":"abcdEFGH12"}'), { name: 'desk', id: 'abcdEFGH12' });
+  for (const bad of ['{"paired":1}', '{"usb":1,"id":"x"}', 'nope']) assert.equal(readProbe(bad), null, bad);
+  resetPcs();
+  assert.equal(noteUsb({ name: 'desk', id: 'abcdEFGH12' }), true, 'appeared');
+  assert.equal(noteUsb({ name: 'desk', id: 'abcdEFGH12' }), false, 'still there');
+  assert.equal(usbPc()!.name, 'desk');
+  assert.equal(noteUsb(null), false); assert.equal(usbPc(), null, 'unplugged');
   resetPcs();
 });

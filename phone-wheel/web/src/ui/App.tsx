@@ -13,7 +13,7 @@ import { Settings } from './settings/Settings.tsx';
 import { PcPicker } from './PcPicker.tsx';
 import { CentrePrompt } from './CentrePrompt.tsx';
 import { isApp } from '../engine/native.ts';
-import { currentPc, decodeBeacon, notePc } from '../engine/pairing.ts';
+import { currentPc, decodeBeacon, notePc, noteUsb, probeUsb, usbPc } from '../engine/pairing.ts';
 import { listenForPcs } from '../engine/native.ts';
 
 // edits the active profile: update(c => { c.steer.smoothing = 30 })
@@ -34,8 +34,20 @@ export function App() {
     // the PCs' beacons, all the time the app is open: the list, and the PC in use followed to a new address
     const stop = listenForPcs((data, ip) => { const p = decodeBeacon(data, ip); if (p && notePc(p)) engine.reconnect(); });
     // the code refused (or none picked yet): ask
-    const off = engine.onStatus((s) => { if (s.phase === 'unpaired') setPcs({ note: currentPc() ? 'The PC refused the pairing code: enter the one Gridline GP shows now (Settings → Controller).' : undefined }); });
-    return () => { stop(); off(); };
+    const off = engine.onStatus((s) => { if (s.phase === 'unpaired' && !usbPc()) setPcs({ note: currentPc() ? 'The PC refused the pairing code: enter the one Gridline GP shows now (Settings → Controller).' : undefined }); });
+    // the game over the USB cable: looked for every 2 s while not connected; found = connect there (and the picker, open
+    // for want of a PC, closes)
+    let looking = false;
+    const usbTimer = setInterval(async () => {
+      if (looking || engine.getStatus().phase === 'connected') return;
+      looking = true;
+      const found = await probeUsb();
+      looking = false;
+      if (engine.getStatus().phase === 'connected') return;
+      const appeared = noteUsb(found);
+      if (found && (appeared || engine.getStatus().phase !== 'connecting')) { setPcs((p) => (p && (!currentPc() || p.note) ? null : p)); engine.reconnect(); }
+    }, 2000);
+    return () => { stop(); off(); clearInterval(usbTimer); };
   }, []);   // Layout → Move and resize: the boxes (and groups) being edited
   // the car the game says you drive (engine.dash.c, remembered): the race wheel as that car has it (settings.ts forCar)
   const [car, setCar] = useState<CarKind>(() => engine.getCar());
@@ -59,7 +71,7 @@ export function App() {
   })), []);
 
   async function start() {
-    if (app && !currentPc()) { setPcs({}); return; }
+    if (app && !currentPc() && !usbPc()) { setPcs({}); return; }
     if (!window.isSecureContext) {
       setWarn("Open the exact link the PC shows (https:// over Wi-Fi or Bluetooth, http://localhost over USB), otherwise the phone won't share tilt data.");
       return;

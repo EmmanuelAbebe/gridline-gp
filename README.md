@@ -54,15 +54,19 @@ The same phone wheel as an app: no browser, no certificate warning, full screen 
    [Releases page](https://github.com/EmmanuelAbebe/gridline-gp/releases) and open it.
 2. The first time, Android asks to allow installs from your browser (or file manager): allow it once, then *Install*.
    (It isn't on the Play Store, so Android calls it an app from an unknown source.)
-3. On the computer: Settings → Controller → *Connect phone* (Wi-Fi), phone and computer on the same network.
-4. In the app: *Pick your PC*. Your computer shows up in the list by its name: tap it and enter the **pairing code**
+3. On the computer: Settings → Controller → *Connect phone*.
+4. **USB cable** (the steadiest link): turn on USB debugging on the phone once (Settings → About phone → Software
+   information → tap *Build number* 7 times, then Developer options → *USB debugging*), have
+   [adb](https://developer.android.com/tools/releases/platform-tools) on the computer, plug the phone in and allow USB
+   debugging when it asks. Open the app: it finds the game on the cable and connects by itself, no code needed. This
+   works whichever link (Wi-Fi, Bluetooth, USB) the game is set to.
+5. **Or over Wi-Fi** (phone and computer on the same network): in the app, *Pick your PC*. Your computer shows up in the list by its name: tap it and enter the **pairing code**
    that Settings → Controller shows (like `K7QM-2XRD`). Not in the list? *Scan the QR code*, or *Type the address*
    shown under it. The app remembers the PC, and finds it again if its address changes.
-5. *START DRIVING*. Settings → *PC* picks another computer.
+6. *START DRIVING*. Settings → *PC* picks another computer. With the cable in, the app always uses it.
 
-The app talks to the game over your own network only, guarded by the pairing code (*New pairing code* in the game
-shuts out every phone paired before). Over USB: USB debugging on and adb on the computer, then *Type the address* →
-`localhost`.
+Over the network the app is guarded by the pairing code (*New pairing code* in the game shuts out every phone paired
+before); over USB, the cable and the phone's own "Allow USB debugging?" prompt are the pairing.
 
 ## Report a bug
 

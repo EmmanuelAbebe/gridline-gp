@@ -98,7 +98,9 @@ ipcMain.handle('app:is-fullscreen', e => BrowserWindow.fromWebContents(e.sender)
 // Cert and pairing code live in the app's profile (userData), the phone page in phone-wheel/.
 const { createPhoneLink } = require('./phone-link.cjs');
 const toPage = (channel, data) => { for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send(channel, data); };
+// (test runs leave a plugged-in phone's adb mappings alone: they belong to the player's own game)
 const phone = createPhoneLink({ dataDir: path.join(app.getPath('userData'), 'phone-wheel'), pagesDir: path.join(ROOT, 'phone-wheel'),
+  ...(smokeOut || shotsDir ? { watchUsb: () => ({ stop() {} }) } : {}),
   onInput: input => toPage('phone:input', input), onStatus: s => toPage('phone:status', s), onConfig: c => toPage('phone:config', c) });
 ipcMain.handle('phone:start', (_e, opts) => phone.start(opts));
 ipcMain.handle('phone:stop', () => phone.stop().then(() => phone.status()));

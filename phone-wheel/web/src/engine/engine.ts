@@ -18,7 +18,7 @@
 import { steerCurve, bitOf, CAR_KINDS, type CarKind, type Config, type ButtonId } from '../settings/settings.ts';
 import { idlePlan, planFeedback, type Fx } from './haptics.ts';
 import { createPresence, type Away } from './presence.ts';
-import { currentPc, transport } from './pairing.ts';
+import { currentPc, transport, usbPc } from './pairing.ts';
 import { isApp, vibrate as motor } from './native.ts';
 
 export type Phase = 'idle' | 'connecting' | 'connected' | 'lost' | 'unpaired';
@@ -31,7 +31,7 @@ export const dash = { g: '', q: 0, r: 0, v: 0, n: 0, e: -1, m: 'A', b: 0, k: 0, 
 // the game's ECU maps in order (src/sim/tuning.js ECU.maps)
 export const ECU_MAPS = ['HARVEST', 'BALANCED', 'ATTACK', 'QUALI'] as const;
 export const ECU_SHORT = ['HARV', 'BAL', 'ATK', 'QUALI'] as const;
-export const link = { rtt: null as number | null, rttMax: null as number | null, hz: 0, gap: 0, sendGap: 0, quality: '' as '' | 'good' | 'fair' | 'poor' | 'stalled' };
+export const link = { via: '' as '' | 'usb' | 'net' | 'page', rtt: null as number | null, rttMax: null as number | null, hz: 0, gap: 0, sendGap: 0, quality: '' as '' | 'good' | 'fair' | 'poor' | 'stalled' };
 let status: Status = { phase: 'idle', retryAt: 0, attempts: 0 };
 export const getStatus = () => status;
 
@@ -296,8 +296,8 @@ function noteSend(now: number) {
 function connect() {
   clearTimeout(retryTimer);
   const app = isApp(), t = encodeURIComponent(getToken());
-  const plan = transport({ app, protocol: location.protocol, host: location.host, token: getToken(), pc: app ? currentPc() : null });
-  ready = false;
+  const plan = transport({ app, protocol: location.protocol, host: location.host, token: getToken(), pc: app ? currentPc() : null, usb: app && !!usbPc() });
+  ready = false; link.via = plan?.via ?? '';
   if (!plan) { ws = null; setStatus({ phase: 'unpaired', attempts: 0 }); return; }   // the app with no PC picked yet
   setStatus({ phase: 'connecting', attempts: status.attempts + 1 });
   const sock = new WebSocket(plan.url);

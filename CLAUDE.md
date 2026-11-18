@@ -1238,7 +1238,13 @@ showed MODIFIED only because of it).
   typed any case / without the dash) → {paired: 1, name, id}, then the same handlers as /ws (`phonesNow()` = both kinds);
   wrong code = close 4003, 5 wrong a minute per address = 429 for the minute. `phone-beacon.cjs` (dgram, no dependency):
   {pw: 1, name (hostname), wsPort, id (`phone-pc-id` in the data dir)} every 1 s to every interface's broadcast address +
-  255.255.255.255 (not over USB); the QR link gains &w=<wsPort>&i=<id>. status() adds wsPort, code, name, id; Settings →
+  255.255.255.255 (not over USB); the QR link gains &w=<wsPort>&i=<id>. USB on any link (2026-11-17; user: "allow usb … connect
+  via qr code, address or a script that automatically connects the phone and the game when detected"): phone-net.cjs
+  `watchAdbPhones(8444, wsPort)` (`adb devices` every 3 s, `adb -s <serial> reverse` once per new phone, all again every 30 s;
+  `parseAdbDevices`) → st.usb = phones mapped; through it connections come from loopback, where {probe: 1} → {usb: 1, name, id}
+  + close (never a phone) and {usb: 1} = in without a code; loopback never locked out. Over USB the phone-side ports are fixed:
+  the page 8443 (keepAdbReverse(port, …, phonePort)), the app 8444 (QR w in USB mode). Test runs pass a no-op `watchUsb`
+  (main.cjs smoke / track shots, tests) so they never remap the player's phone. status() adds wsPort, code, name, id; Settings →
   Controller shows the code under the QR. Page side: phone-wheel/CLAUDE.md. CI: `.github/workflows/phone-wheel-app.yml`
   (tags phone-wheel-v*, workflow_dispatch, pushes touching the app / page / lockfile): JDK 21, the runner's SDK + platform 36,
   phone:build, cap sync, assembleRelease signed from the secrets, apksigner verify + aapt2 version check, artifact; on a tag

@@ -2,10 +2,12 @@
 // back to where it came from (wss://<page's host>/ws?t=<token from the QR link>). The app has no page host: it keeps the
 // PCs it paired with (localStorage `pw-pcs`), finds them on the network by their beacon (desktop/phone-beacon.cjs: every
 // second { pw: 1, name, wsPort, id }) and connects with plain ws://<address>:<wsPort>/app, its first message
-// { t: pairing code } (the QR link's token, or the short code Settings → Controller shows). Pure apart from the store, so
-// Node tests it (web/test/pairing.test.ts).
+// { t: pairing code } (the QR link's token, or the short code Settings → Controller shows). Over USB (any link in the
+// game, adb on the PC: it maps the phone's localhost:8444 to itself) the app finds the game by probing that port
+// ({ probe: 1 } → { usb: 1, name, id }) and connects with { usb: 1 }, no code; the cable comes first whenever it answers.
+// Pure apart from the store and the probe, so Node tests it (web/test/pairing.test.ts).
 export const BEACON_PORT = 8445;        // desktop/phone-beacon.cjs BEACON_PORT
-export const APP_PORT = 8444;           // the game's app port when nothing else had it (https port + 1)
+export const APP_PORT = 8444;           // the game's app port when nothing else had it (https port + 1); over USB always this
 export const SEEN_FOR = 4000;           // ms a PC stays in the list after its last beacon
 
 export interface Pc { id: string; name: string; host: string; wsPort: number; code: string }
@@ -64,11 +66,13 @@ export function normalizeCode(text: string): string {
 }
 export const codeLooksRight = (c: string) => /^[0-9A-Z]{4}-[0-9A-Z]{4}$/.test(c) || /^[\w-]{16,64}$/.test(c);
 
-// The socket to open: in the app the PC picked (null = none yet), in a browser the page's own server.
-export function transport(o: { app: boolean; protocol: string; host: string; token: string; pc: Pc | null }): { url: string; hello: string | null } | null {
-  if (!o.app) return { url: `${o.protocol === 'https:' ? 'wss' : 'ws'}://${o.host}/ws?t=${encodeURIComponent(o.token)}`, hello: null };
+// The socket to open: in the app the game over USB when it answers there, else the PC picked (null = none yet); in a browser
+// the page's own server.
+export function transport(o: { app: boolean; protocol: string; host: string; token: string; pc: Pc | null; usb?: boolean }): { url: string; hello: string | null; via: 'usb' | 'net' | 'page' } | null {
+  if (!o.app) return { url: `${o.protocol === 'https:' ? 'wss' : 'ws'}://${o.host}/ws?t=${encodeURIComponent(o.token)}`, hello: null, via: 'page' };
+  if (o.usb) return { url: `ws://localhost:${APP_PORT}/app`, hello: '{"usb":1}', via: 'usb' };
   if (!o.pc) return null;
-  return { url: `ws://${hostPort(o.pc.host, o.pc.wsPort)}/app`, hello: JSON.stringify({ t: o.pc.code }) };
+  return { url: `ws://${hostPort(o.pc.host, o.pc.wsPort)}/app`, hello: JSON.stringify({ t: o.pc.code }), via: 'net' };
 }
 
 // ---------- the PCs this phone paired with (localStorage pw-pcs: { current, pcs }), and those heard on the network
@@ -125,5 +129,36 @@ export function notePc(p: Seen): boolean {
   } else if (!before) changed();
   return moved;
 }
+// ---------- the game over the USB cable (what the last probe found; null = nothing answered)
+let usb: { name: string; id: string } | null = null;
+export const usbPc = () => usb;
+// a probe's answer → kept; true when the game just appeared on the cable
+export function noteUsb(found: { name: string; id: string } | null): boolean {
+  const before = usb;
+  usb = found;
+  if (!!before !== !!found || before?.name !== found?.name) changed();
+  return !before && !!found;
+}
+// the game's answer to a probe on the phone's localhost:APP_PORT ({ usb: 1, name, id }) → { name, id }, else null
+export function readProbe(text: string): { name: string; id: string } | null {
+  let d: { usb?: unknown; name?: unknown; id?: unknown };
+  try { d = JSON.parse(text); } catch { return null; }
+  if (!d || d.usb !== 1 || !okId(d.id)) return null;
+  return { name: typeof d.name === 'string' && d.name.trim() ? d.name.trim().slice(0, 40) : 'PC', id: d.id };
+}
+// Is the game on the USB cable? A short socket to localhost:APP_PORT that only asks (never counted as a phone by the game).
+export function probeUsb(ms = 1200): Promise<{ name: string; id: string } | null> {
+  return new Promise((resolve) => {
+    let s: WebSocket, over = false;
+    const done = (v: { name: string; id: string } | null) => { if (over) return; over = true; clearTimeout(t); try { s.close(); } catch { /* closed */ } resolve(v); };
+    const t = setTimeout(() => done(null), ms);
+    try { s = new WebSocket(`ws://localhost:${APP_PORT}/app`); } catch { done(null); return; }
+    s.onopen = () => s.send('{"probe":1}');
+    s.onmessage = (e) => done(readProbe(String(e.data)));
+    s.onerror = () => done(null);
+    s.onclose = () => done(null);
+  });
+}
+
 // (the tests)
-export function resetPcs() { mem = { current: null, pcs: [] }; seen.clear(); }
+export function resetPcs() { mem = { current: null, pcs: [] }; seen.clear(); usb = null; }

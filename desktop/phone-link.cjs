@@ -15,13 +15,17 @@
 // the https one (wsPort, normally 8444; the app's WebView sees motion sensors without https), path /app. Its first
 // message must be { t: the pairing code } (the full token from the QR link, or the short code `code` shown in Settings →
 // Controller, appCode()); answered { paired: 1, name, id } and from then on the same messages as /ws; a wrong code closes it
-// with 4003 (and 5 wrong codes a minute from one address shut that address out for the minute). phone-beacon.cjs
-// broadcasts { name, wsPort, id } every second (not over USB) so the app can list the PCs on the network. Over USB the
-// app port is adb-reversed too.
+// with 4003 (and 5 wrong codes a minute from one address on the network shut that address out for the minute). phone-beacon.cjs
+// broadcasts { name, wsPort, id } every second (not over USB) so the app can list the PCs on the network.
+// USB (2026-11-17, any link): phone-net.cjs watchAdbPhones maps every plugged-in phone's localhost:APP_PHONE_PORT (8444)
+// to wsPort, so the app finds the game there by itself. Connections that come through it arrive from this PC's own
+// loopback, which nothing on the network can do: there { probe: 1 } is answered { usb: 1, name, id } and closed (the app
+// looking, never counted as a phone), and { usb: 1 } is let in without a code (the cable and the phone's own "allow USB
+// debugging" prompt are the pairing). In USB mode the QR link's w is that phone-side port.
 //
 //   const link = createPhoneLink({ dataDir, pagesDir, onInput, onStatus, onConfig });
 //   await link.start({ link: 'wifi' | 'bluetooth' | 'usb', port }); link.status(); link.feedback(fx); link.dash(d); await link.stop();
-//   (+ beacon: { port, targets } to send the beacon elsewhere: the tests)
+//   (+ beacon: { port, targets } to send the beacon elsewhere, watchUsb: a stand-in for the adb watcher: the tests)
 const fs = require('node:fs');
 const path = require('node:path');
 const net = require('node:net');
@@ -116,6 +120,9 @@ function pcId(dataDir) {
   fs.writeFileSync(p, t);
   return t;
 }
+const PAGE_PHONE_PORT = 8443;       // the browser page's port on the phone over USB (adb reverse → port), whatever port we got
+const APP_PHONE_PORT = 8444;        // the app's port on the phone over USB (adb reverse → wsPort): phone-wheel/web pairing.ts APP_PORT
+const loopback = ip => ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
 const APP_AUTH_MS = 5000;           // the app's socket must give its code within this
 const LOCKOUT = { tries: 5, ms: 60000 };   // wrong codes per address per minute before it is shut out for the minute
 
@@ -129,10 +136,10 @@ function parseConfig(text) {
   return { cfg: d.cfg, scr: ok(w) && ok(h) ? { w: Math.round(w), h: Math.round(h) } : null };
 }
 
-function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () => {}, onConfig = () => {}, beacon: beaconOpts = {} }) {
+function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () => {}, onConfig = () => {}, beacon: beaconOpts = {}, watchUsb = pn.watchAdbPhones }) {
   let st = idle(), servers = null, token = null, btWatch = null, adb = null, adbApp = null, beacon = null, pc = null;
   const input = { s: 0, g: 0, b: 0, k: 0, t: 0 };
-  function idle() { return { running: false, link: null, url: '', qr: '', port: 0, wsPort: 0, code: '', name: '', id: '', ip: '', phones: 0, rtt: null, hz: 0, gap: 0, note: '', error: '' }; }
+  function idle() { return { running: false, link: null, url: '', qr: '', port: 0, wsPort: 0, code: '', name: '', id: '', usb: 0, ip: '', phones: 0, rtt: null, hz: 0, gap: 0, note: '', error: '' }; }
   const status = () => ({ ...st });
   const changed = () => onStatus(status());
   const release = () => { if (input.s || input.g || input.b || input.k) { Object.assign(input, { s: 0, g: 0, b: 0, k: 0 }); onInput({ s: 0, g: 0, b: 0, k: 0, a: input.a || 0 }); } };
@@ -214,13 +221,16 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
   function onAppUpgrade(req, socket, head) {
     const url = new URL(req.url, 'http://x'), ip = socket.remoteAddress || '';
     if (url.pathname !== '/app') { socket.end('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n'); return; }
-    if (lockedOut(ip)) { socket.end('HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\n\r\n'); return; }
+    // (loopback = USB: it needs no code, so it is never shut out)
+    if (!loopback(ip) && lockedOut(ip)) { socket.end('HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\n\r\n'); return; }
     appWss.handleUpgrade(req, socket, head, ws => {
       const timer = setTimeout(() => ws.close(4001, 'no pairing code'), APP_AUTH_MS);
       ws.once('message', (data, binary) => {
         clearTimeout(timer);
-        let t = null; if (!binary && data.length <= 256) { try { t = JSON.parse(data.toString()).t; } catch {} }
-        if (!codeMatches(t, token)) { wrong.get(ip)?.push(Date.now()) ?? wrong.set(ip, [Date.now()]); ws.close(4003, 'wrong pairing code'); return; }
+        let m = {}; if (!binary && data.length <= 256) { try { m = JSON.parse(data.toString()) || {}; } catch {} }
+        const usb = loopback(ip);
+        if (usb && m.probe) { ws.send(JSON.stringify({ usb: 1, name: st.name, id: st.id })); ws.close(1000); return; }
+        if (!(usb && m.usb) && !codeMatches(m.t, token)) { wrong.get(ip)?.push(Date.now()) ?? wrong.set(ip, [Date.now()]); ws.close(4003, 'wrong pairing code'); return; }
         ws.send(JSON.stringify({ paired: 1, name: st.name, id: st.id }));
         appPhones.add(ws); ws.on('close', () => appPhones.delete(ws));
         onPhone(ws);
@@ -266,7 +276,8 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
   });
 
   async function publish(base) {
-    st.url = `${base}/?t=${token}&w=${st.wsPort}&i=${st.id}`;      // (w, i: the app reads its port and the PC's id from the QR)
+    // (w, i: the app reads its port and the PC's id from the QR; over USB the phone's side of the adb mapping)
+    st.url = `${base}/?t=${token}&w=${st.link === 'usb' ? APP_PHONE_PORT : st.wsPort}&i=${st.id}`;
     st.qr = await QRCode.toString(st.url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
   }
 
@@ -282,10 +293,9 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
         st.port = await listenFrom(srv, port, '127.0.0.1', 10); st.ip = 'localhost';
         servers = [srv];
         st.wsPort = await listenFrom(appDoor, port ? st.port + 1 : 0, '127.0.0.1', 10); servers.push(appDoor);
-        adbApp = pn.keepAdbReverse(st.wsPort, () => {});
-        await publish(`http://localhost:${st.port}`);
+        await publish(`http://localhost:${PAGE_PHONE_PORT}`);     // (the phone's side of the adb mapping)
         st.note = 'Plug the phone in with USB debugging on.';
-        adb = pn.keepAdbReverse(st.port, up => { st.note = up ? '' : 'Waiting for the phone over USB: plug it in, turn on USB debugging and accept the prompt (needs adb).'; changed(); });
+        adb = pn.keepAdbReverse(st.port, up => { st.note = up ? '' : 'Waiting for the phone over USB: plug it in, turn on USB debugging and accept the prompt (needs adb).'; changed(); }, PAGE_PHONE_PORT);
       } else {
         let ip;
         if (link === 'bluetooth') {
@@ -311,6 +321,8 @@ function createPhoneLink({ dataDir, pagesDir, onInput = () => {}, onStatus = () 
         beacon = createBeacon({ name: st.name, id: st.id, wsPort: st.wsPort, port: beaconOpts.port ?? BEACON_PORT, ...(beaconOpts.targets ? { targets: beaconOpts.targets } : {}) });
         await publish(`https://${ip}:${st.port}`);
       }
+      // the app over USB, whichever link: every phone plugged in gets localhost:8444 → our app port
+      adbApp = watchUsb(APP_PHONE_PORT, st.wsPort, n => { if (st.running && n !== st.usb) { st.usb = n; changed(); } });
     } catch (e) {
       const why = e.code === 'EADDRINUSE' ? `ports ${port}–${port + 10} are all in use` : e.message;
       await stop(); st.error = `Couldn't start the phone link: ${why}`;
